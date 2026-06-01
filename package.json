@@ -35,7 +35,7 @@
     "@changesets/cli": "2.31.0",
     "@types/node": "25.9.1",
     "@vitest/coverage-v8": "4.1.7",
-    "knip": "6.14.2",
+    "knip": "6.15.0",
     "mitata": "1.0.34",
     "oxfmt": "0.52.0",
     "oxlint": "1.67.0",
