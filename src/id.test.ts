@@ -4,23 +4,23 @@ import { createId } from "./id.js";
 describe("id", () => {
   it("roundtrip", () => {
     const fixed = new Date("2026-05-28T12:00:00Z");
-    const usr = createId("usr", { now: () => fixed });
+    const usr = createId("usr", { now: () => fixed.getTime() });
     const id = usr.generate();
     expect(usr.extractTimestamp(id)).toEqual(fixed);
   });
 
   it("deterministic snapshot", () => {
     const usr = createId("usr", {
-      now: () => new Date(0),
-      rng: (n) => new Uint8Array(n),
+      now: () => 0,
+      rng: () => {},
     });
     expect(usr.generate()).toBe("usr_" + "0".repeat(26)); // adjust to actual
   });
 
   it("extracts ms=0 (epoch boundary)", () => {
     const usr = createId("usr", {
-      now: () => new Date(0),
-      rng: (n) => new Uint8Array(n),
+      now: () => 0,
+      rng: () => {},
     });
     expect(usr.extractTimestamp(usr.generate())).toEqual(new Date(0));
   });
@@ -28,32 +28,32 @@ describe("id", () => {
   it("extracts ms at the 48-bit boundary", () => {
     const maxMs = 2 ** 48 - 1;
     const usr = createId("usr", {
-      now: () => new Date(maxMs),
-      rng: (n) => new Uint8Array(n),
+      now: () => maxMs,
+      rng: () => {},
     });
     expect(usr.extractTimestamp(usr.generate())).toEqual(new Date(maxMs));
   });
 
   it("rejects timestamps that overflow 48 bits", () => {
     const usr = createId("usr", {
-      now: () => new Date(2 ** 48),
-      rng: (n) => new Uint8Array(n),
+      now: () => 2 ** 48,
+      rng: () => {},
     });
     expect(() => usr.generate()).toThrow();
   });
 
   it("rejects pre-epoch timestamps", () => {
     const usr = createId("usr", {
-      now: () => new Date(-1),
-      rng: (n) => new Uint8Array(n),
+      now: () => -1,
+      rng: () => {},
     });
     expect(() => usr.generate()).toThrow();
   });
 
   it("handles maximal random bytes", () => {
     const usr = createId("usr", {
-      now: () => new Date(0),
-      rng: (n) => new Uint8Array(n).fill(0xff),
+      now: () => 0,
+      rng: (target) => target.fill(0xff),
     });
     const id = usr.generate();
     expect(usr.is(id)).toBe(true);
@@ -120,5 +120,21 @@ describe("id", () => {
     expect(() => createId("a")).toThrow();
     expect(() => createId("aaaa")).toThrow();
     expect(() => createId("!@?")).toThrow();
+  });
+
+  it("generate() output matches expected format", () => {
+    const usr = createId("usr");
+    const id = usr.generate();
+    expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
+  });
+
+  it("generate() called many times will always generate distinct values", () => {
+    const usr = createId("usr");
+    const ids = new Set<string>();
+    for (let i = 0; i < 1000; i++) {
+      const id = usr.generate();
+      expect(ids.has(id)).toBe(false);
+      ids.add(id);
+    }
   });
 });
