@@ -14,17 +14,11 @@ export const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
 const valueToCharCode = new Uint8Array(32);
 for (let i = 0; i < 32; i++) valueToCharCode[i] = alphabet.charCodeAt(i);
 
-// charCode → 0–31 value. Covers both cases and the Crockford o/i/l aliases.
+// charCode → 0–31 value. Canonical lowercase only; upstream resolves case and
+// o/i/l aliases before any string reaches decodeBase32.
 const INVALID = 0xff;
 const charCodeToValue = new Uint8Array(256).fill(INVALID);
-for (let i = 0; i < alphabet.length; i++) {
-  const code = alphabet.charCodeAt(i);
-  charCodeToValue[code] = i;
-  if (code >= 97 && code <= 122) charCodeToValue[code - 32] = i;
-}
-charCodeToValue["o".charCodeAt(0)] = charCodeToValue["O".charCodeAt(0)] = 0;
-charCodeToValue["i".charCodeAt(0)] = charCodeToValue["I".charCodeAt(0)] = 1;
-charCodeToValue["l".charCodeAt(0)] = charCodeToValue["L".charCodeAt(0)] = 1;
+for (let i = 0; i < alphabet.length; i++) charCodeToValue[alphabet.charCodeAt(i)] = i;
 
 export function encodeBase32(bytes: Uint8Array): string {
   // Build an Array<number> of char codes and pass it to fromCharCode.apply.
