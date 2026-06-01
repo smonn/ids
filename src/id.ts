@@ -1,5 +1,4 @@
 import { alphabet, decodeBase32, encodeBase32 } from "./base32.js";
-import { invariant } from "./invariant.js";
 
 export type Options = {
   now: () => number;
@@ -39,8 +38,8 @@ const timestampBase32Length = Math.ceil((timestampByteLength * 8) / 5);
 const replacePattern = /[ilo]/g;
 const aliasTestPattern = /[ilo]/;
 const replaceMap = { o: "0", i: "1", l: "1" } as const;
-const replacer = (match: string) => {
-  invariant(match === "o" || match === "i" || match === "l", "invalid match");
+const replacer = (match: string): string => {
+  if (match !== "o" && match !== "i" && match !== "l") throw new Error("invalid match");
   return replaceMap[match];
 };
 
@@ -51,7 +50,9 @@ export function createId<Brand extends string>(
   brand: Brand,
   opts: Partial<Options> = {},
 ): Codec<Brand> {
-  invariant(brandPattern.test(brand), "invalid brand, expected three lowercase a-z characters");
+  if (!brandPattern.test(brand)) {
+    throw new Error("invalid brand, expected three lowercase a-z characters");
+  }
 
   const options = {
     ...defaultOptions,
@@ -103,8 +104,8 @@ function is<Brand extends string>(prefix: Prefix<Brand>, value: unknown): value 
 function generate<Brand extends string>(prefix: Prefix<Brand>, options: Options): Id<Brand> {
   const bytes = new Uint8Array(totalByteLength);
   let ms = options.now();
-  invariant(ms >= 0, "timestamp is negative");
-  invariant(ms < 2 ** (timestampByteLength * 8), "timestamp exceeds 48-bit range");
+  if (ms < 0) throw new Error("timestamp is negative");
+  if (ms >= 2 ** (timestampByteLength * 8)) throw new Error("timestamp exceeds 48-bit range");
   // write the timestamp in big-endian; encoded via mod-256 to avoid 32-bit bitwise coercion
   for (let i = timestampByteLength - 1; i >= 0; i--) {
     bytes[i] = ms % 256;

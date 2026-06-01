@@ -1,17 +1,18 @@
 /*
   This is based on Crockford's Base32 spec: https://www.crockford.com/base32.html
   One difference is that it uses lowercase instead of uppercase when encoding.
-*/
 
-import { invariant } from "./invariant.js";
+  These functions are internal: callers (id.ts) guarantee that input is a
+  16-byte buffer for encode, or a string of characters drawn from the alphabet
+  for decode. Invalid input produces silent garbage rather than a thrown error,
+  consistent with the trust-the-type rule in ADR-0003.
+*/
 
 export const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
 
 const numberToCharLookup = alphabet.split("");
 
 // charCode → 0–31 value. Covers both cases and the Crockford o/i/l aliases.
-// INVALID for non-alphabet bytes; codepoints ≥ 256 produce undefined from
-// the lookup, which the `< 32` check also rejects.
 const INVALID = 0xff;
 const charCodeToValue = new Uint8Array(256).fill(INVALID);
 for (let i = 0; i < alphabet.length; i++) {
@@ -36,7 +37,6 @@ export function encodeBase32(bytes: Uint8Array): string {
       result += numberToCharLookup[(value >>> bits) & 0x1f];
     }
   }
-  invariant(bits === 3, "expected three leftover bits");
   result += numberToCharLookup[(value << (5 - bits)) & 0x1f];
   return result;
 }
@@ -48,8 +48,7 @@ export function decodeBase32(str: string): Uint8Array {
   let index = 0;
 
   for (let i = 0; i < str.length; i++) {
-    const v = charCodeToValue[str.charCodeAt(i)];
-    invariant(v !== undefined && v < 32, "invalid base32");
+    const v = charCodeToValue[str.charCodeAt(i)]!;
     value = (value << 5) | v;
     bits += 5;
     if (bits >= 8) {
