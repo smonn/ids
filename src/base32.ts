@@ -10,7 +10,9 @@
 
 export const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
 
-const numberToCharLookup = alphabet.split("");
+// 0–31 → ASCII char code, for write-into-codes-then-fromCharCode encoding.
+const valueToCharCode = new Uint8Array(32);
+for (let i = 0; i < 32; i++) valueToCharCode[i] = alphabet.charCodeAt(i);
 
 // charCode → 0–31 value. Covers both cases and the Crockford o/i/l aliases.
 const INVALID = 0xff;
@@ -25,7 +27,12 @@ charCodeToValue["i".charCodeAt(0)] = charCodeToValue["I".charCodeAt(0)] = 1;
 charCodeToValue["l".charCodeAt(0)] = charCodeToValue["L".charCodeAt(0)] = 1;
 
 export function encodeBase32(bytes: Uint8Array): string {
-  let result = "";
+  // Build an Array<number> of char codes and pass it to fromCharCode.apply.
+  // Faster than `result += char` (avoids cons-string overhead) and than
+  // Uint8Array variants (apply has a fast path for plain Arrays).
+  // oxlint-disable-next-line no-new-array
+  const codes = new Array<number>(Math.floor((bytes.length * 8) / 5) + 1);
+  let chi = 0;
   let bits = 0;
   let value = 0;
 
@@ -34,11 +41,11 @@ export function encodeBase32(bytes: Uint8Array): string {
     bits += 8;
     while (bits >= 5) {
       bits -= 5;
-      result += numberToCharLookup[(value >>> bits) & 0x1f];
+      codes[chi++] = valueToCharCode[(value >>> bits) & 0x1f]!;
     }
   }
-  result += numberToCharLookup[(value << (5 - bits)) & 0x1f];
-  return result;
+  codes[chi] = valueToCharCode[(value << (5 - bits)) & 0x1f]!;
+  return String.fromCharCode.apply(null, codes);
 }
 
 export function decodeBase32(str: string): Uint8Array {
