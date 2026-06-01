@@ -2,12 +2,14 @@ import { alphabet, decodeBase32, encodeBase32 } from "./base32.js";
 
 export type Options = {
   now: () => number;
-  rng: (bytes: number) => Uint8Array;
+  rng: (target: Uint8Array) => void;
 };
 
 const defaultOptions: Options = {
   now: Date.now,
-  rng: (bytes: number) => crypto.getRandomValues(new Uint8Array(bytes)),
+  rng: (target) => {
+    crypto.getRandomValues(target as Uint8Array<ArrayBuffer>);
+  },
 };
 
 type Prefix<Brand extends string> = `${Brand}_`;
@@ -60,9 +62,15 @@ export function createId<Brand extends string>(
   } satisfies Options;
 
   const prefix: Prefix<Brand> = `${brand}_`;
+  // Per-codec scratch buffer. Reused across generate() calls — generate is
+  // synchronous, so successive callers see the buffer overwritten, not the
+  // previous result. encodeBase32 reads the buffer and returns an independent
+  // string, so the caller never sees the buffer itself.
+  const buffer = new Uint8Array(totalByteLength);
+  const randomView = new Uint8Array(buffer.buffer, timestampByteLength, randomByteLength);
 
   return {
-    generate: () => generate(prefix, options),
+    generate: () => generate(prefix, options, buffer, randomView),
     is: (value: unknown) => is(prefix, value),
     parse: (value: unknown) => parse(prefix, value),
     safeParse: (value: unknown) => safeParse(prefix, value),
@@ -101,18 +109,22 @@ function is<Brand extends string>(prefix: Prefix<Brand>, value: unknown): value 
   return base32Pattern.test(value.slice(prefix.length));
 }
 
-function generate<Brand extends string>(prefix: Prefix<Brand>, options: Options): Id<Brand> {
-  const bytes = new Uint8Array(totalByteLength);
+function generate<Brand extends string>(
+  prefix: Prefix<Brand>,
+  options: Options,
+  buffer: Uint8Array,
+  randomView: Uint8Array,
+): Id<Brand> {
   let ms = options.now();
   if (ms < 0) throw new Error("timestamp is negative");
   if (ms >= 2 ** (timestampByteLength * 8)) throw new Error("timestamp exceeds 48-bit range");
   // write the timestamp in big-endian; encoded via mod-256 to avoid 32-bit bitwise coercion
   for (let i = timestampByteLength - 1; i >= 0; i--) {
-    bytes[i] = ms % 256;
+    buffer[i] = ms % 256;
     ms = Math.floor(ms / 256);
   }
-  bytes.set(options.rng(randomByteLength), timestampByteLength);
-  return (prefix + encodeBase32(bytes)) as Id<Brand>;
+  options.rng(randomView);
+  return (prefix + encodeBase32(buffer)) as Id<Brand>;
 }
 
 function extractTimestamp<Brand extends string>(prefix: Prefix<Brand>, id: Id<Brand>): Date {

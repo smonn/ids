@@ -87,13 +87,13 @@ Caveat: two IDs generated in the same millisecond by the same process have indep
 ```ts
 const users = createId("usr", {
   now: () => new Date("2026-01-01T00:00:00Z").getTime(),
-  rng: (bytes) => new Uint8Array(bytes),
+  rng: (target) => {}, // leave target as zero-filled
 });
 
 users.generate(); // deterministic snapshot-friendly output
 ```
 
-Both `Options` fields are optional. Defaults are `Date.now` and `crypto.getRandomValues`. `now` returns milliseconds since the Unix epoch.
+Both `Options` fields are optional. Defaults are `Date.now` and a wrapper around `crypto.getRandomValues`. `now` returns milliseconds since the Unix epoch. `rng` writes random bytes into the provided target (a 10-byte view into the codec's persistent buffer), so a custom RNG never has to allocate.
 
 ## What this is **not** for
 

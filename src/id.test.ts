@@ -12,7 +12,7 @@ describe("id", () => {
   it("deterministic snapshot", () => {
     const usr = createId("usr", {
       now: () => 0,
-      rng: (n) => new Uint8Array(n),
+      rng: () => {},
     });
     expect(usr.generate()).toBe("usr_" + "0".repeat(26)); // adjust to actual
   });
@@ -20,7 +20,7 @@ describe("id", () => {
   it("extracts ms=0 (epoch boundary)", () => {
     const usr = createId("usr", {
       now: () => 0,
-      rng: (n) => new Uint8Array(n),
+      rng: () => {},
     });
     expect(usr.extractTimestamp(usr.generate())).toEqual(new Date(0));
   });
@@ -29,7 +29,7 @@ describe("id", () => {
     const maxMs = 2 ** 48 - 1;
     const usr = createId("usr", {
       now: () => maxMs,
-      rng: (n) => new Uint8Array(n),
+      rng: () => {},
     });
     expect(usr.extractTimestamp(usr.generate())).toEqual(new Date(maxMs));
   });
@@ -37,7 +37,7 @@ describe("id", () => {
   it("rejects timestamps that overflow 48 bits", () => {
     const usr = createId("usr", {
       now: () => 2 ** 48,
-      rng: (n) => new Uint8Array(n),
+      rng: () => {},
     });
     expect(() => usr.generate()).toThrow();
   });
@@ -45,7 +45,7 @@ describe("id", () => {
   it("rejects pre-epoch timestamps", () => {
     const usr = createId("usr", {
       now: () => -1,
-      rng: (n) => new Uint8Array(n),
+      rng: () => {},
     });
     expect(() => usr.generate()).toThrow();
   });
@@ -53,7 +53,7 @@ describe("id", () => {
   it("handles maximal random bytes", () => {
     const usr = createId("usr", {
       now: () => 0,
-      rng: (n) => new Uint8Array(n).fill(0xff),
+      rng: (target) => target.fill(0xff),
     });
     const id = usr.generate();
     expect(usr.is(id)).toBe(true);
