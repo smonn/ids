@@ -22,7 +22,6 @@
   `decodeBase32` and `extractTimestamp` are ~5% faster as a result.
 
 - 424ac97: **Breaking — `Options` reshaped for a zero-allocation `generate()`:**
-
   - `Options.now`: `() => Date` → `() => number` (ms since Unix epoch). The previous contract allocated a `Date` only to immediately call `.getTime()` on it. Default is now `Date.now`.
   - `Options.rng`: `(bytes: number) => Uint8Array` → `(target: Uint8Array) => void`. Matches `crypto.getRandomValues` and Node's `crypto.randomFillSync`. Custom RNGs no longer have to allocate.
 

@@ -2,6 +2,14 @@
   "name": "@smonn/ids",
   "version": "0.0.1",
   "license": "MIT",
+  "author": "Simon Ingeson (https://github.com/smonn)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smonn/ids.git"
+  },
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "exports": {
     ".": "./dist/index.mjs",
