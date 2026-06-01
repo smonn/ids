@@ -100,30 +100,18 @@ function is<Brand extends string>(prefix: Prefix<Brand>, value: unknown): value 
   return base32Pattern.test(value.slice(prefix.length));
 }
 
-function encodeNumberToUint8Array(value: number, bytes: number): Uint8Array {
-  invariant(value >= 0, "value is negative");
-  invariant(value < 2 ** (bytes * 8), `value exceeds ${bytes * 8}-bit range`);
-  const result = new Uint8Array(bytes);
-  // iterate backwards to encode in big-endian
-  for (let i = bytes - 1; i >= 0; i--) {
-    // we encode via 256 as bitwise ops will coerce to 32-bit integers
-    result[i] = value % 256;
-    value = Math.floor(value / 256);
-  }
-  return result;
-}
-
-function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
-  const result = new Uint8Array(a.length + b.length);
-  result.set(a, 0);
-  result.set(b, a.length);
-  return result;
-}
-
 function generate<Brand extends string>(prefix: Prefix<Brand>, options: Options): Id<Brand> {
-  const timestamp = encodeNumberToUint8Array(options.now().getTime(), timestampByteLength);
-  const rand = options.rng(randomByteLength);
-  return (prefix + encodeBase32(concat(timestamp, rand))) as Id<Brand>;
+  const bytes = new Uint8Array(totalByteLength);
+  let ms = options.now().getTime();
+  invariant(ms >= 0, "timestamp is negative");
+  invariant(ms < 2 ** (timestampByteLength * 8), "timestamp exceeds 48-bit range");
+  // write the timestamp in big-endian; encoded via mod-256 to avoid 32-bit bitwise coercion
+  for (let i = timestampByteLength - 1; i >= 0; i--) {
+    bytes[i] = ms % 256;
+    ms = Math.floor(ms / 256);
+  }
+  bytes.set(options.rng(randomByteLength), timestampByteLength);
+  return (prefix + encodeBase32(bytes)) as Id<Brand>;
 }
 
 function extractTimestamp<Brand extends string>(prefix: Prefix<Brand>, id: Id<Brand>): Date {
