@@ -72,11 +72,7 @@ const base32Length = Math.ceil((totalByteLength * 8) / 5);
 const timestampBase32Length = Math.ceil((timestampByteLength * 8) / 5);
 const replacePattern = /[ilo]/g;
 const aliasTestPattern = /[ilo]/;
-const replaceMap = { o: "0", i: "1", l: "1" } as const;
-const replacer = (match: string): string => {
-  if (match !== "o" && match !== "i" && match !== "l") throw new Error("invalid match");
-  return replaceMap[match];
-};
+const replacer = (match: string): string => (match === "o" ? "0" : "1");
 
 const base32Pattern = new RegExp(`^[${alphabet}]{${base32Length}}$`);
 const brandPattern = /^[a-z]{3}$/;
