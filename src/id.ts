@@ -36,7 +36,8 @@ const randomByteLength = 10;
 const totalByteLength = timestampByteLength + randomByteLength;
 const base32Length = Math.ceil((totalByteLength * 8) / 5);
 const timestampBase32Length = Math.ceil((timestampByteLength * 8) / 5);
-const replacePattern = /[ilo]/gi;
+const replacePattern = /[ilo]/g;
+const aliasTestPattern = /[ilo]/;
 const replaceMap = { o: "0", i: "1", l: "1" } as const;
 const replacer = (match: string) => {
   invariant(match === "o" || match === "i" || match === "l", "invalid match");
@@ -76,7 +77,10 @@ function safeParse<Brand extends string>(
   const lowercase = value.toLowerCase();
   if (!lowercase.startsWith(prefix)) return { ok: false, error: "invalid_prefix" };
 
-  const base32 = lowercase.slice(prefix.length).replaceAll(replacePattern, replacer);
+  const sliced = lowercase.slice(prefix.length);
+  const base32 = aliasTestPattern.test(sliced)
+    ? sliced.replaceAll(replacePattern, replacer)
+    : sliced;
 
   if (!base32Pattern.test(base32)) return { ok: false, error: "invalid_base32" };
 
