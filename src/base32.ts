@@ -9,20 +9,27 @@ export const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
 
 const numberToCharLookup = alphabet.split("");
 
-const charToNumberLookup = new Map<string, number>([
-  ...numberToCharLookup.map((char, i) => [char, i] as const),
-  ["o", 0],
-  ["i", 1],
-  ["l", 1],
-]);
+// charCode → 0–31 value. Covers both cases and the Crockford o/i/l aliases.
+// INVALID for non-alphabet bytes; codepoints ≥ 256 produce undefined from
+// the lookup, which the `< 32` check also rejects.
+const INVALID = 0xff;
+const charCodeToValue = new Uint8Array(256).fill(INVALID);
+for (let i = 0; i < alphabet.length; i++) {
+  const code = alphabet.charCodeAt(i);
+  charCodeToValue[code] = i;
+  if (code >= 97 && code <= 122) charCodeToValue[code - 32] = i;
+}
+charCodeToValue["o".charCodeAt(0)] = charCodeToValue["O".charCodeAt(0)] = 0;
+charCodeToValue["i".charCodeAt(0)] = charCodeToValue["I".charCodeAt(0)] = 1;
+charCodeToValue["l".charCodeAt(0)] = charCodeToValue["L".charCodeAt(0)] = 1;
 
 export function encodeBase32(bytes: Uint8Array): string {
   let result = "";
   let bits = 0;
   let value = 0;
 
-  for (const byte of bytes) {
-    value = (value << 8) | byte;
+  for (let i = 0; i < bytes.length; i++) {
+    value = (value << 8) | bytes[i]!;
     bits += 8;
     while (bits >= 5) {
       bits -= 5;
@@ -40,9 +47,9 @@ export function decodeBase32(str: string): Uint8Array {
   let value = 0;
   let index = 0;
 
-  for (const char of str) {
-    const v = charToNumberLookup.get(char.toLowerCase());
-    invariant(v !== undefined, "invalid base32");
+  for (let i = 0; i < str.length; i++) {
+    const v = charCodeToValue[str.charCodeAt(i)];
+    invariant(v !== undefined && v < 32, "invalid base32");
     value = (value << 5) | v;
     bits += 5;
     if (bits >= 8) {
