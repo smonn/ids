@@ -121,4 +121,20 @@ describe("id", () => {
     expect(() => createId("aaaa")).toThrow();
     expect(() => createId("!@?")).toThrow();
   });
+
+  it("generate() output matches expected format", () => {
+    const usr = createId("usr");
+    const id = usr.generate();
+    expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
+  });
+
+  it("generate() called many times will always generate distinct values", () => {
+    const usr = createId("usr");
+    const ids = new Set<string>();
+    for (let i = 0; i < 1000; i++) {
+      const id = usr.generate();
+      expect(ids.has(id)).toBe(false);
+      ids.add(id);
+    }
+  });
 });
