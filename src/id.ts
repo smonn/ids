@@ -5,10 +5,43 @@ export type Options = {
   rng: (target: Uint8Array) => void;
 };
 
+// hex charCode → 0–15 nibble, for decoding UUIDv4 strings into bytes.
+// Covers ['0'-'9' = 48–57] and ['a'-'f' = 97–102]; UUIDs are lowercase per spec.
+const hexCharCodeToNibble = new Uint8Array(128);
+for (let i = 0; i < 10; i++) hexCharCodeToNibble[48 + i] = i;
+for (let i = 0; i < 6; i++) hexCharCodeToNibble[97 + i] = 10 + i;
+
 const defaultOptions: Options = {
   now: Date.now,
+  // crypto.randomUUID is ~7× faster than crypto.getRandomValues in Node 24
+  // (~84 ns vs ~610 ns for a 16-byte fill — likely because the UUID path has
+  // a tight fixed-format fast path). We use the 122 random bits of a UUIDv4
+  // string as our entropy source, harvesting 10 fully-random bytes from
+  // positions where no version (hex 12) or variant (hex 16) bits sit.
+  // String layout: "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" — bytes 0–5 are
+  // string[0..7]+string[9..12], bytes 6–9 are string[24..31].
   rng: (target) => {
-    crypto.getRandomValues(target as Uint8Array<ArrayBuffer>);
+    const s = crypto.randomUUID();
+    target[0] =
+      (hexCharCodeToNibble[s.charCodeAt(0)]! << 4) | hexCharCodeToNibble[s.charCodeAt(1)]!;
+    target[1] =
+      (hexCharCodeToNibble[s.charCodeAt(2)]! << 4) | hexCharCodeToNibble[s.charCodeAt(3)]!;
+    target[2] =
+      (hexCharCodeToNibble[s.charCodeAt(4)]! << 4) | hexCharCodeToNibble[s.charCodeAt(5)]!;
+    target[3] =
+      (hexCharCodeToNibble[s.charCodeAt(6)]! << 4) | hexCharCodeToNibble[s.charCodeAt(7)]!;
+    target[4] =
+      (hexCharCodeToNibble[s.charCodeAt(9)]! << 4) | hexCharCodeToNibble[s.charCodeAt(10)]!;
+    target[5] =
+      (hexCharCodeToNibble[s.charCodeAt(11)]! << 4) | hexCharCodeToNibble[s.charCodeAt(12)]!;
+    target[6] =
+      (hexCharCodeToNibble[s.charCodeAt(24)]! << 4) | hexCharCodeToNibble[s.charCodeAt(25)]!;
+    target[7] =
+      (hexCharCodeToNibble[s.charCodeAt(26)]! << 4) | hexCharCodeToNibble[s.charCodeAt(27)]!;
+    target[8] =
+      (hexCharCodeToNibble[s.charCodeAt(28)]! << 4) | hexCharCodeToNibble[s.charCodeAt(29)]!;
+    target[9] =
+      (hexCharCodeToNibble[s.charCodeAt(30)]! << 4) | hexCharCodeToNibble[s.charCodeAt(31)]!;
   },
 };
 
