@@ -7,8 +7,10 @@
     "type": "git",
     "url": "git+https://github.com/smonn/ids.git"
   },
+  "files": [
+    "dist"
+  ],
   "type": "module",
-  "files": ["dist"],
   "exports": {
     ".": "./dist/index.mjs",
     "./package.json": "./package.json"
