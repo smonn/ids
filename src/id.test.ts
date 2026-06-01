@@ -4,14 +4,14 @@ import { createId } from "./id.js";
 describe("id", () => {
   it("roundtrip", () => {
     const fixed = new Date("2026-05-28T12:00:00Z");
-    const usr = createId("usr", { now: () => fixed });
+    const usr = createId("usr", { now: () => fixed.getTime() });
     const id = usr.generate();
     expect(usr.extractTimestamp(id)).toEqual(fixed);
   });
 
   it("deterministic snapshot", () => {
     const usr = createId("usr", {
-      now: () => new Date(0),
+      now: () => 0,
       rng: (n) => new Uint8Array(n),
     });
     expect(usr.generate()).toBe("usr_" + "0".repeat(26)); // adjust to actual
@@ -19,7 +19,7 @@ describe("id", () => {
 
   it("extracts ms=0 (epoch boundary)", () => {
     const usr = createId("usr", {
-      now: () => new Date(0),
+      now: () => 0,
       rng: (n) => new Uint8Array(n),
     });
     expect(usr.extractTimestamp(usr.generate())).toEqual(new Date(0));
@@ -28,7 +28,7 @@ describe("id", () => {
   it("extracts ms at the 48-bit boundary", () => {
     const maxMs = 2 ** 48 - 1;
     const usr = createId("usr", {
-      now: () => new Date(maxMs),
+      now: () => maxMs,
       rng: (n) => new Uint8Array(n),
     });
     expect(usr.extractTimestamp(usr.generate())).toEqual(new Date(maxMs));
@@ -36,7 +36,7 @@ describe("id", () => {
 
   it("rejects timestamps that overflow 48 bits", () => {
     const usr = createId("usr", {
-      now: () => new Date(2 ** 48),
+      now: () => 2 ** 48,
       rng: (n) => new Uint8Array(n),
     });
     expect(() => usr.generate()).toThrow();
@@ -44,7 +44,7 @@ describe("id", () => {
 
   it("rejects pre-epoch timestamps", () => {
     const usr = createId("usr", {
-      now: () => new Date(-1),
+      now: () => -1,
       rng: (n) => new Uint8Array(n),
     });
     expect(() => usr.generate()).toThrow();
@@ -52,7 +52,7 @@ describe("id", () => {
 
   it("handles maximal random bytes", () => {
     const usr = createId("usr", {
-      now: () => new Date(0),
+      now: () => 0,
       rng: (n) => new Uint8Array(n).fill(0xff),
     });
     const id = usr.generate();

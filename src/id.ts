@@ -2,12 +2,12 @@ import { alphabet, decodeBase32, encodeBase32 } from "./base32.js";
 import { invariant } from "./invariant.js";
 
 export type Options = {
-  now: () => Date;
+  now: () => number;
   rng: (bytes: number) => Uint8Array;
 };
 
 const defaultOptions: Options = {
-  now: () => new Date(),
+  now: Date.now,
   rng: (bytes: number) => crypto.getRandomValues(new Uint8Array(bytes)),
 };
 
@@ -102,7 +102,7 @@ function is<Brand extends string>(prefix: Prefix<Brand>, value: unknown): value 
 
 function generate<Brand extends string>(prefix: Prefix<Brand>, options: Options): Id<Brand> {
   const bytes = new Uint8Array(totalByteLength);
-  let ms = options.now().getTime();
+  let ms = options.now();
   invariant(ms >= 0, "timestamp is negative");
   invariant(ms < 2 ** (timestampByteLength * 8), "timestamp exceeds 48-bit range");
   // write the timestamp in big-endian; encoded via mod-256 to avoid 32-bit bitwise coercion

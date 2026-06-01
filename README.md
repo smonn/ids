@@ -86,14 +86,14 @@ Caveat: two IDs generated in the same millisecond by the same process have indep
 
 ```ts
 const users = createId("usr", {
-  now: () => new Date("2026-01-01T00:00:00Z"),
+  now: () => new Date("2026-01-01T00:00:00Z").getTime(),
   rng: (bytes) => new Uint8Array(bytes),
 });
 
 users.generate(); // deterministic snapshot-friendly output
 ```
 
-Both `Options` fields are optional. Defaults are `() => new Date()` and `crypto.getRandomValues`.
+Both `Options` fields are optional. Defaults are `Date.now` and `crypto.getRandomValues`. `now` returns milliseconds since the Unix epoch.
 
 ## What this is **not** for
 
