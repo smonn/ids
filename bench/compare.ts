@@ -42,6 +42,13 @@ function fmtNs(ns: number): string {
   return `${(ns / 1_000_000).toFixed(2)} ms`;
 }
 
+function fmtOpsPerSec(ns: number): string {
+  const opsPerSec = 1e9 / ns;
+  if (opsPerSec >= 1e6) return `${(opsPerSec / 1e6).toFixed(2)}M/s`;
+  if (opsPerSec >= 1e3) return `${(opsPerSec / 1e3).toFixed(2)}k/s`;
+  return `${opsPerSec.toFixed(0)}/s`;
+}
+
 function fmtDelta(pct: number): string {
   const sign = pct >= 0 ? "+" : "";
   return `${sign}${(pct * 100).toFixed(1)}%`;
@@ -69,10 +76,12 @@ if (base === null) {
     "_No baseline available (base branch has no bench suite yet). Reporting absolute numbers only._",
   );
   lines.push("");
-  lines.push("| Bench | p50 | avg | samples |");
-  lines.push("| --- | ---: | ---: | ---: |");
+  lines.push("| Bench | p50 | avg | Throughput | samples |");
+  lines.push("| --- | ---: | ---: | ---: | ---: |");
   for (const b of pr.benches) {
-    lines.push(`| \`${b.name}\` | ${fmtNs(b.p50_ns)} | ${fmtNs(b.avg_ns)} | ${b.samples} |`);
+    lines.push(
+      `| \`${b.name}\` | ${fmtNs(b.p50_ns)} | ${fmtNs(b.avg_ns)} | ${fmtOpsPerSec(b.p50_ns)} | ${b.samples} |`,
+    );
   }
 } else {
   const baseByName = new Map(base.benches.map((b) => [b.name, b]));
@@ -82,13 +91,15 @@ if (base === null) {
     `Threshold: ±${(REGRESSION_THRESHOLD * 100).toFixed(0)}% on p50. Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
   );
   lines.push("");
-  lines.push("| Bench | Base p50 | PR p50 | Δ p50 | Notes |");
-  lines.push("| --- | ---: | ---: | ---: | --- |");
+  lines.push("| Bench | Base p50 | PR p50 | Δ p50 | PR throughput | Notes |");
+  lines.push("| --- | ---: | ---: | ---: | ---: | --- |");
 
   for (const cur of pr.benches) {
     const prev = baseByName.get(cur.name);
     if (prev === undefined) {
-      lines.push(`| \`${cur.name}\` | — | ${fmtNs(cur.p50_ns)} | new | — |`);
+      lines.push(
+        `| \`${cur.name}\` | — | ${fmtNs(cur.p50_ns)} | new | ${fmtOpsPerSec(cur.p50_ns)} | — |`,
+      );
       continue;
     }
     const delta = (cur.p50_ns - prev.p50_ns) / prev.p50_ns;
@@ -101,13 +112,13 @@ if (base === null) {
       improvements++;
     }
     lines.push(
-      `| \`${cur.name}\` | ${fmtNs(prev.p50_ns)} | ${fmtNs(cur.p50_ns)} | ${fmtDelta(delta)} | ${note} |`,
+      `| \`${cur.name}\` | ${fmtNs(prev.p50_ns)} | ${fmtNs(cur.p50_ns)} | ${fmtDelta(delta)} | ${fmtOpsPerSec(cur.p50_ns)} | ${note} |`,
     );
   }
 
   for (const prev of base.benches) {
     if (!pr.benches.some((b) => b.name === prev.name)) {
-      lines.push(`| \`${prev.name}\` | ${fmtNs(prev.p50_ns)} | — | removed | — |`);
+      lines.push(`| \`${prev.name}\` | ${fmtNs(prev.p50_ns)} | — | removed | — | — |`);
     }
   }
 
