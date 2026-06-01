@@ -35,6 +35,7 @@ const timestampByteLength = 6;
 const randomByteLength = 10;
 const totalByteLength = timestampByteLength + randomByteLength;
 const base32Length = Math.ceil((totalByteLength * 8) / 5);
+const timestampBase32Length = Math.ceil((timestampByteLength * 8) / 5);
 const replacePattern = /[ilo]/gi;
 const replaceMap = { o: "0", i: "1", l: "1" } as const;
 const replacer = (match: string) => {
@@ -122,11 +123,10 @@ function generate<Brand extends string>(prefix: Prefix<Brand>, options: Options)
 }
 
 function extractTimestamp<Brand extends string>(prefix: Prefix<Brand>, id: Id<Brand>): Date {
-  const base32 = id.slice(prefix.length);
+  const base32 = id.slice(prefix.length, prefix.length + timestampBase32Length);
   const bytes = decodeBase32(base32);
-  const timestampBytes = bytes.subarray(0, timestampByteLength);
   let ms = 0;
-  for (const byte of timestampBytes) {
+  for (const byte of bytes) {
     ms = ms * 256 + byte;
   }
   return new Date(ms);
