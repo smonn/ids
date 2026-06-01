@@ -29,7 +29,9 @@ import { type Id, createId } from "@smonn/ids";
 const users = createId("usr");
 const orgs = createId("org");
 
-function loadUser(id: Id<"usr">) { /* ... */ }
+function loadUser(id: Id<"usr">) {
+  /* ... */
+}
 
 loadUser(orgs.generate()); // ❌ Type 'Id<"org">' is not assignable to 'Id<"usr">'.
 ```
@@ -54,9 +56,12 @@ const r = users.safeParse(input);
 
 if (!r.ok) {
   switch (r.error) {
-    case "not_string":     return 400; // wasn't a string at all
-    case "invalid_prefix": return 404; // wrong kind of ID (or not an ID)
-    case "invalid_base32": return 400; // prefix matched but payload is malformed
+    case "not_string":
+      return 400; // wasn't a string at all
+    case "invalid_prefix":
+      return 404; // wrong kind of ID (or not an ID)
+    case "invalid_base32":
+      return 400; // prefix matched but payload is malformed
   }
 }
 
@@ -101,24 +106,24 @@ Both `Options` fields are optional. Defaults are `() => new Date()` and `crypto.
 
 ```ts
 import {
-  createId,           // (brand: string, opts?: Partial<Options>) => Codec<Brand>
-  type Id,            // branded string type
-  type Codec,         // returned by createId
-  type Options,       // { now, rng } injection points
-  type ParseError,    // "not_string" | "invalid_prefix" | "invalid_base32"
-  type ParseResult,   // safeParse return type
+  createId, // (brand: string, opts?: Partial<Options>) => Codec<Brand>
+  type Id, // branded string type
+  type Codec, // returned by createId
+  type Options, // { now, rng } injection points
+  type ParseError, // "not_string" | "invalid_prefix" | "invalid_base32"
+  type ParseResult, // safeParse return type
 } from "@smonn/ids";
 ```
 
 ### `Codec<Brand>`
 
-| Method                       | Description                                                              |
-| ---------------------------- | ------------------------------------------------------------------------ |
-| `generate()`                 | Produce a fresh ID                                                       |
-| `is(value)`                  | Strict type guard: `true` only for already-canonical strings             |
-| `parse(value)`               | Lenient: normalise to canonical, or throw                                |
-| `safeParse(value)`           | Lenient: normalise to canonical, or return `{ ok: false, error }`        |
-| `extractTimestamp(id)`       | Decode the creation `Date` from an `Id<Brand>` (trusts the type)         |
+| Method                 | Description                                                       |
+| ---------------------- | ----------------------------------------------------------------- |
+| `generate()`           | Produce a fresh ID                                                |
+| `is(value)`            | Strict type guard: `true` only for already-canonical strings      |
+| `parse(value)`         | Lenient: normalise to canonical, or throw                         |
+| `safeParse(value)`     | Lenient: normalise to canonical, or return `{ ok: false, error }` |
+| `extractTimestamp(id)` | Decode the creation `Date` from an `Id<Brand>` (trusts the type)  |
 
 ## Design
 

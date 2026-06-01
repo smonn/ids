@@ -1,5 +1,6 @@
 {
   "name": "@smonn/ids",
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./dist/index.mjs",

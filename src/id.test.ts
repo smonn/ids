@@ -69,12 +69,8 @@ describe("id", () => {
 
   it("parse() normalises lenient input to canonical form", () => {
     const usr = createId("usr");
-    expect(usr.parse("USR_01H7B3K9rqxn4cw3p9r8t2sgkz")).toEqual(
-      "usr_01h7b3k9rqxn4cw3p9r8t2sgkz",
-    );
-    expect(usr.parse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual(
-      "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
-    );
+    expect(usr.parse("USR_01H7B3K9rqxn4cw3p9r8t2sgkz")).toEqual("usr_01h7b3k9rqxn4cw3p9r8t2sgkz");
+    expect(usr.parse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual("usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
   });
 
   it("safeParse() returns canonical form on success", () => {
@@ -82,6 +78,19 @@ describe("id", () => {
     expect(usr.safeParse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
       ok: true,
       id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+    });
+  });
+
+  it("safeParse() fails on bad input", () => {
+    const usr = createId("usr");
+    expect(usr.safeParse(null)).toEqual({ ok: false, error: "not_string" });
+    expect(usr.safeParse("org_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
+      ok: false,
+      error: "invalid_prefix",
+    });
+    expect(usr.safeParse("usr_01h7b3k9rqxn1cw3p9r8t2sgk!")).toEqual({
+      ok: false,
+      error: "invalid_base32",
     });
   });
 
@@ -99,7 +108,7 @@ describe("id", () => {
     expect(log.is(logId)).toBe(true);
   });
 
-  it("malformed inputs", () => {
+  it("is() does not accept malformed inputs", () => {
     const usr = createId("usr");
     expect(usr.is(null)).toBe(false);
     expect(usr.is("usr_")).toBe(false);
