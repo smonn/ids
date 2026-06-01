@@ -93,7 +93,7 @@ const users = createId("usr", {
 users.generate(); // deterministic snapshot-friendly output
 ```
 
-Both `Options` fields are optional. Defaults are `Date.now` and a wrapper around `crypto.getRandomValues`. `now` returns milliseconds since the Unix epoch. `rng` writes random bytes into the provided target (a 10-byte view into the codec's persistent buffer), so a custom RNG never has to allocate.
+Both `Options` fields are optional. Defaults are `Date.now` and an entropy harvester built on `crypto.randomUUID` (faster than `crypto.getRandomValues` for the 10-byte fills this library needs). `now` returns milliseconds since the Unix epoch. `rng` writes random bytes into the provided target (a 10-byte view into the codec's persistent buffer), so a custom RNG never has to allocate.
 
 ## What this is **not** for
 
