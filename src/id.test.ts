@@ -17,22 +17,71 @@ describe("id", () => {
     expect(usr.generate()).toBe("usr_" + "0".repeat(26)); // adjust to actual
   });
 
-  it("validation accepts case + aliases", () => {
-    const usr = createId("usr");
-    expect(usr.is("USR_01H7B3K9rqxn4cw3p9r8t2sgkz")).toBe(true);
-    expect(usr.is("usr_O1h7b3k9rqxnIcw3p9r8t2sgkz")).toBe(true); // O→0, I→1
+  it("extracts ms=0 (epoch boundary)", () => {
+    const usr = createId("usr", {
+      now: () => new Date(0),
+      rng: (n) => new Uint8Array(n),
+    });
+    expect(usr.extractTimestamp(usr.generate())).toEqual(new Date(0));
   });
 
-  it("parse does not throw when valid", () => {
-    const usr = createId("usr");
-    expect(usr.parse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual("usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
+  it("extracts ms at the 48-bit boundary", () => {
+    const maxMs = 2 ** 48 - 1;
+    const usr = createId("usr", {
+      now: () => new Date(maxMs),
+      rng: (n) => new Uint8Array(n),
+    });
+    expect(usr.extractTimestamp(usr.generate())).toEqual(new Date(maxMs));
   });
 
-  it("safeParse does not throw", () => {
+  it("rejects timestamps that overflow 48 bits", () => {
+    const usr = createId("usr", {
+      now: () => new Date(2 ** 48),
+      rng: (n) => new Uint8Array(n),
+    });
+    expect(() => usr.generate()).toThrow();
+  });
+
+  it("rejects pre-epoch timestamps", () => {
+    const usr = createId("usr", {
+      now: () => new Date(-1),
+      rng: (n) => new Uint8Array(n),
+    });
+    expect(() => usr.generate()).toThrow();
+  });
+
+  it("handles maximal random bytes", () => {
+    const usr = createId("usr", {
+      now: () => new Date(0),
+      rng: (n) => new Uint8Array(n).fill(0xff),
+    });
+    const id = usr.generate();
+    expect(usr.is(id)).toBe(true);
+    expect(usr.extractTimestamp(id)).toEqual(new Date(0));
+  });
+
+  it("is() accepts only canonical form", () => {
+    const usr = createId("usr");
+    expect(usr.is("usr_01h7b3k9rqxn1cw3p9r8t2sgkz")).toBe(true);
+    expect(usr.is("USR_01H7B3K9RQXN1CW3P9R8T2SGKZ")).toBe(false); // uppercase
+    expect(usr.is("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toBe(false); // contains o/i/l aliases
+  });
+
+  it("parse() normalises lenient input to canonical form", () => {
+    const usr = createId("usr");
+    expect(usr.parse("USR_01H7B3K9rqxn4cw3p9r8t2sgkz")).toEqual(
+      "usr_01h7b3k9rqxn4cw3p9r8t2sgkz",
+    );
+    expect(usr.parse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual(
+      "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+    );
+  });
+
+  it("safeParse() returns canonical form on success", () => {
     const usr = createId("usr");
     expect(usr.safeParse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
-      success: true,
-      data: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+      ok: true,
+      id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
     });
   });
 

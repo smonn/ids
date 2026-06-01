@@ -6,7 +6,7 @@ export type Options = {
   rng: (bytes: number) => Uint8Array;
 };
 
-export const defaultOptions: Options = {
+const defaultOptions: Options = {
   now: () => new Date(),
   rng: (bytes: number) => crypto.getRandomValues(new Uint8Array(bytes)),
 };
@@ -17,23 +17,17 @@ export type Id<Brand extends string> = `${Prefix<Brand>}${string}` & {
   readonly __brand: Brand;
 };
 
-export type Result<T, E> = { success: true; data: T } | { success: false; error: E };
-
 export type ParseError = "not_string" | "invalid_prefix" | "invalid_base32";
 
-function ok<T>(data: T): Result<T, never> {
-  return { success: true, data };
-}
-
-function err<E>(error: E): Result<never, E> {
-  return { success: false, error };
-}
+export type ParseResult<Brand extends string> =
+  | { ok: true; id: Id<Brand> }
+  | { ok: false; error: ParseError };
 
 export type Codec<Brand extends string> = {
   generate(): Id<Brand>;
   is(value: unknown): value is Id<Brand>;
   parse(value: unknown): Id<Brand>;
-  safeParse(value: unknown): Result<Id<Brand>, ParseError>;
+  safeParse(value: unknown): ParseResult<Brand>;
   extractTimestamp(id: Id<Brand>): Date;
 };
 
@@ -76,27 +70,29 @@ export function createId<Brand extends string>(
 function safeParse<Brand extends string>(
   prefix: Prefix<Brand>,
   value: unknown,
-): Result<Id<Brand>, ParseError> {
-  if (typeof value !== "string") return err("not_string");
+): ParseResult<Brand> {
+  if (typeof value !== "string") return { ok: false, error: "not_string" };
   const lowercase = value.toLowerCase();
-  if (!lowercase.startsWith(prefix)) return err("invalid_prefix");
+  if (!lowercase.startsWith(prefix)) return { ok: false, error: "invalid_prefix" };
 
   const base32 = lowercase.slice(prefix.length).replaceAll(replacePattern, replacer);
 
-  if (!base32Pattern.test(base32)) return err("invalid_base32");
+  if (!base32Pattern.test(base32)) return { ok: false, error: "invalid_base32" };
 
   const id = (prefix + base32) as Id<Brand>;
-  return ok(id);
+  return { ok: true, id };
 }
 
 function parse<Brand extends string>(prefix: Prefix<Brand>, value: unknown): Id<Brand> {
   const result = safeParse(prefix, value);
-  if (result.success) return result.data;
+  if (result.ok) return result.id;
   throw new Error(`Invalid ID: ${result.error}`);
 }
 
 function is<Brand extends string>(prefix: Prefix<Brand>, value: unknown): value is Id<Brand> {
-  return safeParse(prefix, value).success;
+  if (typeof value !== "string") return false;
+  if (!value.startsWith(prefix)) return false;
+  return base32Pattern.test(value.slice(prefix.length));
 }
 
 function encodeNumberToUint8Array(value: number, bytes: number): Uint8Array {
