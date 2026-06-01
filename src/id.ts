@@ -11,7 +11,7 @@ const defaultOptions: Options = {
   rng: (bytes: number) => crypto.getRandomValues(new Uint8Array(bytes)),
 };
 
-export type Prefix<Brand extends string> = `${Brand}_`;
+type Prefix<Brand extends string> = `${Brand}_`;
 
 export type Id<Brand extends string> = `${Prefix<Brand>}${string}` & {
   readonly __brand: Brand;

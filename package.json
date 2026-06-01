@@ -17,13 +17,17 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "knip": "knip"
+    "knip": "knip",
+    "bench:build": "tsdown -c tsdown.bench.config.ts",
+    "bench": "pnpm -s bench:build 1>&2 && node bench/dist/index.mjs",
+    "bench:compare": "pnpm -s bench:build 1>&2 && node bench/dist/compare.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "2.31.0",
     "@types/node": "25.9.1",
     "@vitest/coverage-v8": "4.1.7",
     "knip": "6.14.2",
+    "mitata": "1.0.34",
     "oxfmt": "0.52.0",
     "oxlint": "1.67.0",
     "tsdown": "0.22.1",
