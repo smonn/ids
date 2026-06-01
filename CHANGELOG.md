@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 0.0.2
+
+### Patch Changes
+
+- 4ac58fc: Correct the README's description of the default `rng`: it's an entropy harvester built on `crypto.randomUUID`, not a wrapper around `crypto.getRandomValues`.
+
 ## 0.0.1
 
 ### Patch Changes
