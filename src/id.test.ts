@@ -1,5 +1,5 @@
 import { expect, describe, it } from "vitest";
-import { createId } from "./id.js";
+import { createId, type Id } from "./id.js";
 
 describe("id", () => {
   it("roundtrip", () => {
@@ -15,6 +15,28 @@ describe("id", () => {
       rng: () => {},
     });
     expect(usr.generate()).toBe("usr_" + "0".repeat(26)); // adjust to actual
+  });
+
+  it("non-symmetric known-answer encoding", () => {
+    // Buffer: timestamp 0x123456789abc, 9 zero random bytes, last byte 0xff.
+    // Non-zero last byte exercises the tail-emit shift; non-symmetric timestamp
+    // exercises the main loop across every 5-bit alignment.
+    const usr = createId("usr", {
+      now: () => 0x123456789abc,
+      rng: (target) => {
+        target[9] = 0xff;
+      },
+    });
+    expect(usr.generate()).toBe("usr_28t5cy4tqg00000000000000zw");
+  });
+
+  it("non-symmetric known-answer decoding", () => {
+    // Inverse: decode a hard-coded string and recover the exact ms.
+    // Independent of the encoder so a decoder-only bug can't be masked by a
+    // compensating encoder bug.
+    const usr = createId("usr");
+    const id = "usr_28t5cy4tqg00000000000000zw" as Id<"usr">;
+    expect(usr.extractTimestamp(id)).toEqual(new Date(0x123456789abc));
   });
 
   it("extracts ms=0 (epoch boundary)", () => {
@@ -78,6 +100,14 @@ describe("id", () => {
     expect(usr.safeParse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
       ok: true,
       id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+    });
+  });
+
+  it("safeParse() canonicalises an all-alias base32 portion", () => {
+    const usr = createId("usr");
+    expect(usr.safeParse("usr_" + "i".repeat(26))).toEqual({
+      ok: true,
+      id: "usr_" + "1".repeat(26),
     });
   });
 
