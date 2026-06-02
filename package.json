@@ -7,6 +7,9 @@
     "type": "git",
     "url": "git+https://github.com/smonn/ids.git"
   },
+  "bin": {
+    "ids": "./dist/cli.mjs"
+  },
   "files": [
     "dist"
   ],
