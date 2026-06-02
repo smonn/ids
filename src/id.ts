@@ -3,6 +3,7 @@ import { alphabet, decodeBase32, encodeBase32 } from "./base32.js";
 export type Options = {
   now: () => number;
   rng: (target: Uint8Array) => void;
+  allowDuplicateBrand?: boolean;
 };
 
 // hex charCode → 0–15 nibble, for decoding UUIDv4 strings into bytes.
@@ -92,12 +93,32 @@ const replacer = (match: string): string => (match === "o" ? "0" : "1");
 const base32Pattern = new RegExp(`^[${alphabet}]{${base32Length}}$`);
 const brandPattern = /^[a-z]{3}$/;
 
+const registeredBrands = new Set<string>();
+const warnedBrands = new Set<string>();
+
 export function createId<Brand extends string>(
   brand: Brand,
   opts: Partial<Options> = {},
 ): Codec<Brand> {
   if (!brandPattern.test(brand)) {
     throw new Error("invalid brand, expected three lowercase a-z characters");
+  }
+
+  if (
+    typeof process !== "undefined" &&
+    process.env.NODE_ENV !== "production" &&
+    !opts.allowDuplicateBrand
+  ) {
+    if (registeredBrands.has(brand)) {
+      if (!warnedBrands.has(brand)) {
+        console.warn(
+          `[@smonn/ids] createId("${brand}") called more than once — this usually indicates a bundling or import bug. Pass { allowDuplicateBrand: true } to silence.`,
+        );
+        warnedBrands.add(brand);
+      }
+    } else {
+      registeredBrands.add(brand);
+    }
   }
 
   const options = {
