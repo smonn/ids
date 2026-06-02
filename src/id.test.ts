@@ -1,4 +1,4 @@
-import { expect, describe, it } from "vitest";
+import { expect, describe, it, expectTypeOf } from "vitest";
 import { createId, type Id } from "./id.js";
 
 describe("id", () => {
@@ -246,5 +246,95 @@ describe("id", () => {
   it("maxIdForTime() rejects dates that overflow 48 bits with the same message as generate()", () => {
     const usr = createId("usr");
     expect(() => usr.maxIdForTime(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
+  });
+
+  describe("standard schema adapter", () => {
+    it("exposes ~standard with version 1 and vendor '@smonn/ids'", () => {
+      const usr = createId("usr");
+      expect(usr["~standard"].version).toBe(1);
+      expect(usr["~standard"].vendor).toBe("@smonn/ids");
+    });
+
+    it("validate() returns { value: canonical } on lenient success", () => {
+      const usr = createId("usr");
+      expect(usr["~standard"].validate("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
+        value: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+      });
+    });
+
+    it("validate() reports non-string input with 'expected string'", () => {
+      const usr = createId("usr");
+      expect(usr["~standard"].validate(123)).toEqual({
+        issues: [{ message: "expected string" }],
+      });
+    });
+
+    it("validate() reports a wrong prefix with the expected brand prefix", () => {
+      const usr = createId("usr");
+      expect(usr["~standard"].validate("org_01h7b3k9rqxn1cw3p9r8t2sgkz")).toEqual({
+        issues: [{ message: "expected prefix 'usr_'" }],
+      });
+    });
+
+    it("validate() reports a malformed payload with 'invalid base32 payload'", () => {
+      const usr = createId("usr");
+      expect(usr["~standard"].validate("usr_01h7b3k9rqxn1cw3p9r8t2sgk!")).toEqual({
+        issues: [{ message: "invalid base32 payload" }],
+      });
+    });
+
+    it("~standard.types.output infers Id<Brand> (StandardSchemaV1.InferOutput contract)", () => {
+      const usr = createId("usr");
+      type Output = NonNullable<(typeof usr)["~standard"]["types"]>["output"];
+      expectTypeOf<Output>().toEqualTypeOf<Id<"usr">>();
+    });
+
+    // Hand-written mirror of the Standard Schema v1 interface (kept in the test
+    // file so a drift in our Codec types fails to assign to the spec shape).
+    interface StandardSchemaV1Mirror<Input = unknown, Output = Input> {
+      readonly "~standard": {
+        readonly version: 1;
+        readonly vendor: string;
+        readonly validate: (
+          value: unknown,
+          options?: { readonly libraryOptions?: Record<string, unknown> | undefined },
+        ) =>
+          | { readonly value: Output; readonly issues?: undefined }
+          | {
+              readonly issues: ReadonlyArray<{
+                readonly message: string;
+                readonly path?: ReadonlyArray<PropertyKey> | undefined;
+              }>;
+            }
+          | Promise<
+              | { readonly value: Output; readonly issues?: undefined }
+              | {
+                  readonly issues: ReadonlyArray<{
+                    readonly message: string;
+                    readonly path?: ReadonlyArray<PropertyKey> | undefined;
+                  }>;
+                }
+            >;
+        readonly types?: { readonly input: Input; readonly output: Output } | undefined;
+      };
+    }
+
+    it("Codec<Brand> structurally satisfies StandardSchemaV1<unknown, Id<Brand>>", () => {
+      const usr = createId("usr");
+      const _typecheck: StandardSchemaV1Mirror<unknown, Id<"usr">> = usr;
+      expect(_typecheck["~standard"].version).toBe(1);
+    });
+
+    it("the three ParseError variants produce three distinct messages", () => {
+      const usr = createId("usr");
+      const messages = new Set(
+        [123, "org_01h7b3k9rqxn1cw3p9r8t2sgkz", "usr_01h7b3k9rqxn1cw3p9r8t2sgk!"].map((input) => {
+          const r = usr["~standard"].validate(input);
+          if (!r.issues) throw new Error("expected failure");
+          return r.issues[0]!.message;
+        }),
+      );
+      expect(messages.size).toBe(3);
+    });
   });
 });
