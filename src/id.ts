@@ -58,6 +58,13 @@ export type ParseResult<Brand extends string> =
   | { ok: true; id: Id<Brand> }
   | { ok: false; error: ParseError };
 
+export type JsonSchema = {
+  readonly type: "string";
+  readonly pattern: string;
+  readonly description: string;
+  readonly example: string;
+};
+
 type StandardSchemaProps<Brand extends string> = {
   readonly version: 1;
   readonly vendor: "@smonn/ids";
@@ -79,6 +86,7 @@ export type Codec<Brand extends string> = {
   extractTimestamp(id: Id<Brand>): Date;
   minIdForTime(date: Date): Id<Brand>;
   maxIdForTime(date: Date): Id<Brand>;
+  toJsonSchema(): JsonSchema;
   readonly "~standard": StandardSchemaProps<Brand>;
 };
 
@@ -93,6 +101,10 @@ const replacer = (match: string): string => (match === "o" ? "0" : "1");
 
 const base32Pattern = new RegExp(`^[${alphabet}]{${base32Length}}$`);
 const brandPattern = /^[a-z]{3}$/;
+// Compact regex character class for the canonical lowercase Crockford alphabet
+// (`0123456789abcdefghjkmnpqrstvwxyz` — excludes i, l, o, u). Used in the JSON
+// Schema `pattern`, which describes the canonical wire form only (ADR-0003).
+const base32CharClass = "[0-9a-hjkmnp-tv-z]";
 
 const registeredBrands = new Set<string>();
 const warnedBrands = new Set<string>();
@@ -145,11 +157,27 @@ export function createId<Brand extends string>(
     extractTimestamp: (id: Id<Brand>) => extractTimestamp(prefix, id),
     minIdForTime: (date: Date) => sentinelIdForTime(prefix, date, 0x00, buffer, randomView),
     maxIdForTime: (date: Date) => sentinelIdForTime(prefix, date, 0xff, buffer, randomView),
+    toJsonSchema: () => toJsonSchema(brand, prefix, options, buffer, randomView),
     "~standard": {
       version: 1,
       vendor: "@smonn/ids",
       validate: (value: unknown) => standardValidate(prefix, value),
     },
+  };
+}
+
+function toJsonSchema<Brand extends string>(
+  brand: Brand,
+  prefix: Prefix<Brand>,
+  options: Options,
+  buffer: Uint8Array,
+  randomView: Uint8Array,
+): JsonSchema {
+  return {
+    type: "string",
+    pattern: `^${prefix}${base32CharClass}{${base32Length}}$`,
+    description: `Branded ID for '${brand}'`,
+    example: generate(prefix, options, buffer, randomView),
   };
 }
 

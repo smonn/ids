@@ -9,7 +9,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { createId, type Id, type Options } from "./id.js";
+import { createId, type Id, type JsonSchema, type Options } from "./id.js";
 
 describe("id", () => {
   // These tests recreate many codecs for the same brand. That's intentional —
@@ -413,6 +413,61 @@ describe("id", () => {
         }),
       );
       expect(messages.size).toBe(3);
+    });
+  });
+
+  describe("toJsonSchema (JSON Schema / OpenAPI export)", () => {
+    it("returns a string schema with pattern, description, and example", () => {
+      const usr = createId("usr");
+      const schema = usr.toJsonSchema();
+      expect(schema.type).toBe("string");
+      expect(typeof schema.pattern).toBe("string");
+      expect(typeof schema.description).toBe("string");
+      expect(typeof schema.example).toBe("string");
+    });
+
+    it("pattern is anchored at both ends and brand-specific", () => {
+      const usr = createId("usr");
+      expect(usr.toJsonSchema().pattern).toBe("^usr_[0-9a-hjkmnp-tv-z]{26}$");
+    });
+
+    it("description names the brand", () => {
+      const usr = createId("usr");
+      expect(usr.toJsonSchema().description).toBe("Branded ID for 'usr'");
+    });
+
+    it("every generate() output matches pattern (property test, many iterations)", () => {
+      const usr = createId("usr");
+      const re = new RegExp(usr.toJsonSchema().pattern);
+      for (let i = 0; i < 1000; i++) {
+        expect(re.test(usr.generate())).toBe(true);
+      }
+    });
+
+    it("example matches the returned pattern", () => {
+      const usr = createId("usr");
+      const schema = usr.toJsonSchema();
+      expect(new RegExp(schema.pattern).test(schema.example)).toBe(true);
+      expect(usr.is(schema.example)).toBe(true);
+    });
+
+    it("pattern rejects uppercase and Crockford-alias variants (strict per ADR-0003)", () => {
+      const usr = createId("usr");
+      const re = new RegExp(usr.toJsonSchema().pattern);
+      expect(re.test("USR_01H7B3K9RQXN1CW3P9R8T2SGKZ")).toBe(false); // uppercase
+      expect(re.test("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toBe(false); // o/i/l aliases
+      expect(re.test("usr_ilo7b3k9rqxn1cw3p9r8t2sgkz")).toBe(false); // i, l, o present
+    });
+
+    it("different brands produce different patterns", () => {
+      expect(createId("usr").toJsonSchema().pattern).not.toBe(
+        createId("org").toJsonSchema().pattern,
+      );
+    });
+
+    it("toJsonSchema() return type is the exported JsonSchema type", () => {
+      const usr = createId("usr");
+      expectTypeOf(usr.toJsonSchema()).toEqualTypeOf<JsonSchema>();
     });
   });
 });
