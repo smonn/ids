@@ -269,6 +269,16 @@ describe("id", () => {
     expect(() => usr.maxIdForTime(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
   });
 
+  it("minIdForTime() rejects an Invalid Date instead of producing an epoch-zero ID", () => {
+    const usr = createId("usr");
+    expect(() => usr.minIdForTime(new Date(NaN))).toThrow("timestamp is not a number");
+  });
+
+  it("maxIdForTime() rejects an Invalid Date instead of producing an epoch-zero ID", () => {
+    const usr = createId("usr");
+    expect(() => usr.maxIdForTime(new Date(NaN))).toThrow("timestamp is not a number");
+  });
+
   it.each([0, 1, 0x123456789abc, 2 ** 48 - 1])(
     "generateAt() round-trips through extractTimestamp at ms=%d",
     (ms) => {
@@ -312,8 +322,8 @@ describe("id", () => {
 
   it("generateAt() rejects an Invalid Date (NaN timestamp)", () => {
     const usr = createId("usr");
-    expect(() => usr.generateAt(new Date("not a date"))).toThrow();
-    expect(() => usr.generateAt(new Date(NaN))).toThrow();
+    expect(() => usr.generateAt(new Date("not a date"))).toThrow("timestamp is not a number");
+    expect(() => usr.generateAt(new Date(NaN))).toThrow("timestamp is not a number");
   });
 
   describe("standard schema adapter", () => {
