@@ -116,6 +116,38 @@ describe("cli", () => {
       expect(result.stdout).toContain("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
     });
 
+    it("falls back to Date.now when not overridden", () => {
+      let stdout = "";
+      const exitCode = run({
+        argv: ["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"],
+        stdout: (s) => {
+          stdout += s;
+        },
+        stderr: () => {},
+      });
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
+    });
+
+    it.each([
+      ["just now", 0],
+      ["5 minutes ago", 5 * 60_000],
+      ["3 hours ago", 3 * 3_600_000],
+      ["5 days ago", 5 * 86_400_000],
+      ["1 month ago", 30.44 * 86_400_000],
+      ["3 months ago", 3 * 30.44 * 86_400_000],
+      ["1 year ago", 12 * 30.44 * 86_400_000],
+      ["2 years 3 months ago", 27 * 30.44 * 86_400_000],
+      ["1 hour from now", -3_600_000],
+    ])("renders relative time as '%s'", (relative, offset) => {
+      const thenMs = new Date("1983-05-27T10:24:22.469Z").getTime();
+      const result = runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"], {
+        now: () => thenMs + offset,
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain(`(${relative})`);
+    });
+
     it("prints brand/timestamp/canonical/input for a canonical ID and exits 0", () => {
       const result = runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"], {
         now: () => new Date("2026-06-01T00:00:00Z").getTime(),
@@ -146,6 +178,25 @@ describe("cli", () => {
       const result = runCapture(["g", "usr"]);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toBe("usr_28t5cy4tqg0000000000000000\n");
+    });
+
+    it("falls back to default now/rng when not overridden", () => {
+      let stdout = "";
+      const exitCode = run({
+        argv: ["generate", "usr"],
+        stdout: (s) => {
+          stdout += s;
+        },
+        stderr: () => {},
+      });
+      expect(exitCode).toBe(0);
+      expect(stdout).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}\n$/);
+    });
+
+    it("missing brand arg surfaces the createId error and exits 1", () => {
+      const result = runCapture(["generate"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
     });
 
     it("invalid brand surfaces the createId error and exits 1", () => {
