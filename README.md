@@ -146,6 +146,22 @@ const r = Body({ userId: "USR_01H7B3K9RQXN1CW3P9R8T2SGKZ" });
 | `invalid_prefix` | `expected prefix 'usr_'` |
 | `invalid_base32` | `invalid base32 payload` |
 
+### "Describe an ID field in an OpenAPI / JSON Schema spec"
+
+```ts
+users.toJsonSchema();
+// {
+//   type: "string",
+//   pattern: "^usr_[0-9a-hjkmnp-tv-z]{26}$",
+//   description: "Branded ID for 'usr'",
+//   example: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+// }
+```
+
+`toJsonSchema()` returns a plain object you can drop straight into an OpenAPI `components.schemas` entry, a JSON Schema document, or any tool that derives sample payloads from `example`. The character class `[0-9a-hjkmnp-tv-z]` is the lowercase Crockford base32 alphabet (excludes `i`, `l`, `o`, `u`).
+
+The `pattern` describes the **canonical form only** — it matches `generate()` output and what `is()` accepts, but rejects uppercase and the Crockford aliases (`o`, `i`, `l`) that `safeParse()` tolerates. Normalising lenient input is the codec's job at the boundary; an artefact that describes data at rest describes the canonical wire shape (see [ADR-0003](./docs/adr/0003-canonical-strict-is.md)). `example` is a freshly generated canonical ID, so it always matches the returned `pattern`.
+
 ## What this is **not** for
 
 - **Internal surrogate primary keys.** If nobody outside your service ever sees the ID, the brand prefix and lenient parsing are dead weight. Use a `bigint` sequence.
@@ -163,21 +179,23 @@ import {
   type Options, // { now, rng, allowDuplicateBrand } injection points
   type ParseError, // "not_string" | "invalid_prefix" | "invalid_base32"
   type ParseResult, // safeParse return type
+  type JsonSchema, // toJsonSchema return type
 } from "@smonn/ids";
 ```
 
 ### `Codec<Brand>`
 
-| Method                 | Description                                                          |
-| ---------------------- | -------------------------------------------------------------------- |
-| `generate()`           | Produce a fresh ID                                                   |
-| `generateAt(date)`     | Produce a fresh ID with timestamp bytes from `date` (for backfills)  |
-| `is(value)`            | Strict type guard: `true` only for already-canonical strings         |
-| `parse(value)`         | Lenient: normalise to canonical, or throw                            |
-| `safeParse(value)`     | Lenient: normalise to canonical, or return `{ ok: false, error }`    |
-| `extractTimestamp(id)` | Decode the creation `Date` from an `Id<Brand>` (trusts the type)     |
-| `minIdForTime(date)`   | Tight lower bound for any ID generated at `date` (for range queries) |
-| `maxIdForTime(date)`   | Tight upper bound for any ID generated at `date` (for range queries) |
+| Method                 | Description                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| `generate()`           | Produce a fresh ID                                                            |
+| `generateAt(date)`     | Produce a fresh ID with timestamp bytes from `date` (for backfills)           |
+| `is(value)`            | Strict type guard: `true` only for already-canonical strings                  |
+| `parse(value)`         | Lenient: normalise to canonical, or throw                                     |
+| `safeParse(value)`     | Lenient: normalise to canonical, or return `{ ok: false, error }`             |
+| `extractTimestamp(id)` | Decode the creation `Date` from an `Id<Brand>` (trusts the type)              |
+| `minIdForTime(date)`   | Tight lower bound for any ID generated at `date` (for range queries)          |
+| `maxIdForTime(date)`   | Tight upper bound for any ID generated at `date` (for range queries)          |
+| `toJsonSchema()`       | JSON Schema (`type`/`pattern`/`description`/`example`) for the canonical form |
 
 ## CLI
 
