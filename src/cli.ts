@@ -137,7 +137,10 @@ function parseCount(flags: ReadonlyArray<string>): number | string {
 }
 
 function codecOpts(opts: RunOpts): Partial<Options> {
-  const o: Partial<Options> = {};
+  // CLI invocations are intentionally ephemeral — one codec per run, never
+  // retained — so a repeated `createId(brand)` here is not the bundling/import
+  // bug that the duplicate-brand warning is designed to catch.
+  const o: Partial<Options> = { allowDuplicateBrand: true };
   if (opts.now !== undefined) o.now = opts.now;
   if (opts.rng !== undefined) o.rng = opts.rng;
   return o;

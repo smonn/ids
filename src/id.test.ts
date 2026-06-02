@@ -1,7 +1,28 @@
-import { expect, describe, it, expectTypeOf } from "vitest";
-import { createId, type Id } from "./id.js";
+import {
+  expect,
+  describe,
+  it,
+  expectTypeOf,
+  vi,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
+import { createId, type Id, type Options } from "./id.js";
 
 describe("id", () => {
+  // These tests recreate many codecs for the same brand. That's intentional —
+  // they're testing the codec contract, not the duplicate-brand heuristic. The
+  // dedicated heuristic tests live in the describe block below.
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
   it("roundtrip", () => {
     const fixed = new Date("2026-05-28T12:00:00Z");
     const usr = createId("usr", { now: () => fixed.getTime() });
@@ -336,5 +357,77 @@ describe("id", () => {
       );
       expect(messages.size).toBe(3);
     });
+  });
+});
+
+describe("dev-mode duplicate-brand warning", () => {
+  // Each test below picks a unique three-letter brand that no other test uses.
+  // The duplicate-brand registry is module-level state that persists across
+  // tests in the same process; reusing brands would cross-contaminate.
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+    vi.unstubAllEnvs();
+  });
+
+  it("warns when createId is called a second time for the same brand", () => {
+    createId("zaa");
+    expect(warnSpy).not.toHaveBeenCalled();
+    createId("zaa");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not warn again on a third call for the same brand", () => {
+    createId("zab");
+    createId("zab");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    createId("zab");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not warn when allowDuplicateBrand is true, even on repeated calls", () => {
+    createId("zac", { allowDuplicateBrand: true });
+    createId("zac", { allowDuplicateBrand: true });
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("allowDuplicateBrand: true does not poison the registry for later un-flagged calls", () => {
+    createId("zad", { allowDuplicateBrand: true });
+    createId("zad");
+    expect(warnSpy).not.toHaveBeenCalled();
+    createId("zad");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("Options exposes allowDuplicateBrand as an optional boolean", () => {
+    expectTypeOf<Options["allowDuplicateBrand"]>().toEqualTypeOf<boolean | undefined>();
+  });
+
+  it("warning message names the brand and the opt-out flag", () => {
+    createId("zaf");
+    createId("zaf");
+    const message = warnSpy.mock.calls[0]?.[0];
+    expect(message).toContain('"zaf"');
+    expect(message).toContain("allowDuplicateBrand");
+  });
+
+  it("in production: no warning is emitted and the registry is not touched", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    createId("zae");
+    createId("zae");
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    // Lift production gate; the production calls above must not have
+    // registered "zae", so the next call should be a fresh first registration.
+    vi.unstubAllEnvs();
+    createId("zae");
+    expect(warnSpy).not.toHaveBeenCalled();
+    createId("zae");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 });

@@ -106,6 +106,16 @@ users.generate(); // deterministic snapshot-friendly output
 
 Both `Options` fields are optional. Defaults are `Date.now` and an entropy harvester built on `crypto.randomUUID` (faster than `crypto.getRandomValues` for the 10-byte fills this library needs). `now` returns milliseconds since the Unix epoch. `rng` writes random bytes into the provided target (a 10-byte view into the codec's persistent buffer), so a custom RNG never has to allocate.
 
+### "Catch a double-registered brand before it bites in production"
+
+The intended pattern is one codec per brand per process, constructed at module init. Calling `createId(brand)` a second time for the same brand usually means a bundling or import bug (accidental re-export, a test re-importing without resetting). In development (`process.env.NODE_ENV !== "production"`), the second call emits a one-shot `console.warn`; the brand-tracking registry is skipped in production. Tests that intentionally re-create codecs can opt out:
+
+```ts
+const users = createId("usr", { allowDuplicateBrand: true });
+```
+
+The check is a heuristic, not a guarantee. Two physical copies of `@smonn/ids` loaded into the same process (the worst-case bundling bug) each keep their own registry, so neither warns — it catches re-imports of a single module copy, not duplicate copies of the module itself.
+
 ### "Use with any Standard Schema validator"
 
 Each codec implements [Standard Schema v1](https://standardschema.dev/), so it slots directly into any validator-aware library (Zod, Valibot, ArkType, tRPC inputs, Hono, etc.) without rewriting the same `z.string().refine(usr.is)` boilerplate:
@@ -141,7 +151,7 @@ import {
   createId, // (brand: string, opts?: Partial<Options>) => Codec<Brand>
   type Id, // branded string type
   type Codec, // returned by createId
-  type Options, // { now, rng } injection points
+  type Options, // { now, rng, allowDuplicateBrand } injection points
   type ParseError, // "not_string" | "invalid_prefix" | "invalid_base32"
   type ParseResult, // safeParse return type
 } from "@smonn/ids";
