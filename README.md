@@ -160,7 +160,9 @@ users.toJsonSchema();
 
 `toJsonSchema()` returns a plain object you can drop straight into an OpenAPI `components.schemas` entry, a JSON Schema document, or any tool that derives sample payloads from `example`. The character class `[0-9a-hjkmnp-tv-z]` is the lowercase Crockford base32 alphabet (excludes `i`, `l`, `o`, `u`).
 
-The `pattern` describes the **canonical form only** — it matches `generate()` output and what `is()` accepts, but rejects uppercase and the Crockford aliases (`o`, `i`, `l`) that `safeParse()` tolerates. Normalising lenient input is the codec's job at the boundary; an artefact that describes data at rest describes the canonical wire shape (see [ADR-0003](./docs/adr/0003-canonical-strict-is.md)). `example` is a freshly generated canonical ID, so it always matches the returned `pattern`.
+The `pattern` describes the **canonical form only** — it matches `generate()` output and what `is()` accepts, but rejects uppercase and the Crockford aliases (`o`, `i`, `l`) that `safeParse()` tolerates. Normalising lenient input is the codec's job at the boundary; an artefact that describes data at rest describes the canonical wire shape (see [ADR-0003](./docs/adr/0003-canonical-strict-is.md)).
+
+`example` is produced by calling `generate()` on each invocation, so it is fresh (non-deterministic) and always matches the returned `pattern`. One consequence: a codec wired with an injected `now` outside the 48-bit range — the same misconfiguration that breaks `generate()` — makes `toJsonSchema()` throw too.
 
 ## What this is **not** for
 
