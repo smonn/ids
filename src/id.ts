@@ -63,6 +63,8 @@ export type Codec<Brand extends string> = {
   parse(value: unknown): Id<Brand>;
   safeParse(value: unknown): ParseResult<Brand>;
   extractTimestamp(id: Id<Brand>): Date;
+  minIdForTime(date: Date): Id<Brand>;
+  maxIdForTime(date: Date): Id<Brand>;
 };
 
 const timestampByteLength = 6;
@@ -91,10 +93,11 @@ export function createId<Brand extends string>(
   } satisfies Options;
 
   const prefix: Prefix<Brand> = `${brand}_`;
-  // Per-codec scratch buffer. Reused across generate() calls — generate is
-  // synchronous, so successive callers see the buffer overwritten, not the
-  // previous result. encodeBase32 reads the buffer and returns an independent
-  // string, so the caller never sees the buffer itself.
+  // Per-codec scratch buffer. Shared across generate(), minIdForTime(), and
+  // maxIdForTime() — all three are synchronous and overwrite both the
+  // timestamp and random slices before encoding, so successive callers see
+  // their own freshly-written bytes. encodeBase32 reads the buffer and
+  // returns an independent string, so the caller never sees the buffer itself.
   const buffer = new Uint8Array(totalByteLength);
   const randomView = new Uint8Array(buffer.buffer, timestampByteLength, randomByteLength);
 
@@ -104,6 +107,8 @@ export function createId<Brand extends string>(
     parse: (value: unknown) => parse(prefix, value),
     safeParse: (value: unknown) => safeParse(prefix, value),
     extractTimestamp: (id: Id<Brand>) => extractTimestamp(prefix, id),
+    minIdForTime: (date: Date) => sentinelIdForTime(prefix, date, 0x00, buffer, randomView),
+    maxIdForTime: (date: Date) => sentinelIdForTime(prefix, date, 0xff, buffer, randomView),
   };
 }
 
@@ -138,21 +143,36 @@ function is<Brand extends string>(prefix: Prefix<Brand>, value: unknown): value 
   return base32Pattern.test(value.slice(prefix.length));
 }
 
+// write the timestamp in big-endian; encoded via mod-256 to avoid 32-bit bitwise coercion
+function writeTimestamp(ms: number, buffer: Uint8Array): void {
+  if (ms < 0) throw new Error("timestamp is negative");
+  if (ms >= 2 ** (timestampByteLength * 8)) throw new Error("timestamp exceeds 48-bit range");
+  for (let i = timestampByteLength - 1; i >= 0; i--) {
+    buffer[i] = ms % 256;
+    ms = Math.floor(ms / 256);
+  }
+}
+
 function generate<Brand extends string>(
   prefix: Prefix<Brand>,
   options: Options,
   buffer: Uint8Array,
   randomView: Uint8Array,
 ): Id<Brand> {
-  let ms = options.now();
-  if (ms < 0) throw new Error("timestamp is negative");
-  if (ms >= 2 ** (timestampByteLength * 8)) throw new Error("timestamp exceeds 48-bit range");
-  // write the timestamp in big-endian; encoded via mod-256 to avoid 32-bit bitwise coercion
-  for (let i = timestampByteLength - 1; i >= 0; i--) {
-    buffer[i] = ms % 256;
-    ms = Math.floor(ms / 256);
-  }
+  writeTimestamp(options.now(), buffer);
   options.rng(randomView);
+  return (prefix + encodeBase32(buffer)) as Id<Brand>;
+}
+
+function sentinelIdForTime<Brand extends string>(
+  prefix: Prefix<Brand>,
+  date: Date,
+  fill: number,
+  buffer: Uint8Array,
+  randomView: Uint8Array,
+): Id<Brand> {
+  writeTimestamp(date.getTime(), buffer);
+  randomView.fill(fill);
   return (prefix + encodeBase32(buffer)) as Id<Brand>;
 }
 
