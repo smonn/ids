@@ -269,6 +269,63 @@ describe("id", () => {
     expect(() => usr.maxIdForTime(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
   });
 
+  it("minIdForTime() rejects an Invalid Date instead of producing an epoch-zero ID", () => {
+    const usr = createId("usr");
+    expect(() => usr.minIdForTime(new Date(NaN))).toThrow("timestamp is not a number");
+  });
+
+  it("maxIdForTime() rejects an Invalid Date instead of producing an epoch-zero ID", () => {
+    const usr = createId("usr");
+    expect(() => usr.maxIdForTime(new Date(NaN))).toThrow("timestamp is not a number");
+  });
+
+  it.each([0, 1, 0x123456789abc, 2 ** 48 - 1])(
+    "generateAt() round-trips through extractTimestamp at ms=%d",
+    (ms) => {
+      const usr = createId("usr");
+      const d = new Date(ms);
+      expect(usr.extractTimestamp(usr.generateAt(d))).toEqual(d);
+    },
+  );
+
+  it("generateAt() return type is Id<Brand>", () => {
+    const usr = createId("usr");
+    expectTypeOf(usr.generateAt).returns.toEqualTypeOf<Id<"usr">>();
+  });
+
+  it("generateAt() produces canonical form (lowercase, no aliases)", () => {
+    const usr = createId("usr");
+    const id = usr.generateAt(new Date("2024-03-15T12:00:00Z"));
+    expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
+    expect(usr.is(id)).toBe(true);
+  });
+
+  it("generateAt() fills the random portion from the codec's rng option", () => {
+    const date = new Date("2024-03-15T12:00:00Z");
+    // A deterministic rng that fills the 10-byte tail with a fixed pattern means
+    // generateAt(date) must equal the sentinel built from that same fill.
+    const min = createId("usr", { rng: (target) => target.fill(0x00) });
+    const max = createId("usr", { rng: (target) => target.fill(0xff) });
+    expect(min.generateAt(date)).toBe(min.minIdForTime(date));
+    expect(max.generateAt(date)).toBe(max.maxIdForTime(date));
+  });
+
+  it("generateAt() rejects pre-epoch dates with the same message as generate()", () => {
+    const usr = createId("usr");
+    expect(() => usr.generateAt(new Date(-1))).toThrow("timestamp is negative");
+  });
+
+  it("generateAt() rejects dates that overflow 48 bits with the same message as generate()", () => {
+    const usr = createId("usr");
+    expect(() => usr.generateAt(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
+  });
+
+  it("generateAt() rejects an Invalid Date (NaN timestamp)", () => {
+    const usr = createId("usr");
+    expect(() => usr.generateAt(new Date("not a date"))).toThrow("timestamp is not a number");
+    expect(() => usr.generateAt(new Date(NaN))).toThrow("timestamp is not a number");
+  });
+
   describe("standard schema adapter", () => {
     it("exposes ~standard with version 1 and vendor '@smonn/ids'", () => {
       const usr = createId("usr");

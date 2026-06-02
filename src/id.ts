@@ -72,6 +72,7 @@ type StandardSchemaProps<Brand extends string> = {
 
 export type Codec<Brand extends string> = {
   generate(): Id<Brand>;
+  generateAt(date: Date): Id<Brand>;
   is(value: unknown): value is Id<Brand>;
   parse(value: unknown): Id<Brand>;
   safeParse(value: unknown): ParseResult<Brand>;
@@ -127,9 +128,9 @@ export function createId<Brand extends string>(
   } satisfies Options;
 
   const prefix: Prefix<Brand> = `${brand}_`;
-  // Per-codec scratch buffer. Shared across generate(), minIdForTime(), and
-  // maxIdForTime() — all three are synchronous and overwrite both the
-  // timestamp and random slices before encoding, so successive callers see
+  // Per-codec scratch buffer. Shared across generate(), generateAt(),
+  // minIdForTime(), and maxIdForTime() — all are synchronous and overwrite both
+  // the timestamp and random slices before encoding, so successive callers see
   // their own freshly-written bytes. encodeBase32 reads the buffer and
   // returns an independent string, so the caller never sees the buffer itself.
   const buffer = new Uint8Array(totalByteLength);
@@ -137,6 +138,7 @@ export function createId<Brand extends string>(
 
   return {
     generate: () => generate(prefix, options, buffer, randomView),
+    generateAt: (date: Date) => generate(prefix, options, buffer, randomView, date.getTime()),
     is: (value: unknown) => is(prefix, value),
     parse: (value: unknown) => parse(prefix, value),
     safeParse: (value: unknown) => safeParse(prefix, value),
@@ -206,6 +208,7 @@ function is<Brand extends string>(prefix: Prefix<Brand>, value: unknown): value 
 
 // write the timestamp in big-endian; encoded via mod-256 to avoid 32-bit bitwise coercion
 function writeTimestamp(ms: number, buffer: Uint8Array): void {
+  if (Number.isNaN(ms)) throw new Error("timestamp is not a number");
   if (ms < 0) throw new Error("timestamp is negative");
   if (ms >= 2 ** (timestampByteLength * 8)) throw new Error("timestamp exceeds 48-bit range");
   for (let i = timestampByteLength - 1; i >= 0; i--) {
@@ -219,8 +222,9 @@ function generate<Brand extends string>(
   options: Options,
   buffer: Uint8Array,
   randomView: Uint8Array,
+  ms: number = options.now(),
 ): Id<Brand> {
-  writeTimestamp(options.now(), buffer);
+  writeTimestamp(ms, buffer);
   options.rng(randomView);
   return (prefix + encodeBase32(buffer)) as Id<Brand>;
 }

@@ -89,6 +89,15 @@ sql`SELECT * FROM users WHERE id BETWEEN ${users.minIdForTime(start)} AND ${user
 
 Both validate the date the same way `generate()` does — pre-epoch or past the 48-bit ceiling throws.
 
+To mint a real ID (random tail and all) at a timestamp you choose rather than at `now`, use `generateAt(date)`. The timestamp bytes come from the supplied `Date`; the random portion is filled by the codec's `rng`, so the result round-trips through `extractTimestamp` exactly:
+
+```ts
+const id = users.generateAt(new Date("2024-03-15T12:00:00Z")); // Id<"usr">
+users.extractTimestamp(id); // → 2024-03-15T12:00:00.000Z
+```
+
+This is the one-liner for backfilling: migrating from UUIDv7 / ULID / Snowflake is `oldRows.map((r) => users.generateAt(extractTime(r)))`, with no need to spin up a throwaway codec per timestamp. It validates the date exactly like `generate()` — pre-epoch, past the 48-bit ceiling, or an `Invalid Date` throws.
+
 The timestamp layout (millisecond precision, big-endian, Unix epoch) is part of the public contract — see [ADR-0002](./docs/adr/0002-payload-layout.md).
 
 Caveat: two IDs generated in the same millisecond by the same process have independent random tails and do **not** sort deterministically relative to each other. If you need stable intra-millisecond ordering, this library isn't the right tool.
@@ -162,6 +171,7 @@ import {
 | Method                 | Description                                                          |
 | ---------------------- | -------------------------------------------------------------------- |
 | `generate()`           | Produce a fresh ID                                                   |
+| `generateAt(date)`     | Produce a fresh ID with timestamp bytes from `date` (for backfills)  |
 | `is(value)`            | Strict type guard: `true` only for already-canonical strings         |
 | `parse(value)`         | Lenient: normalise to canonical, or throw                            |
 | `safeParse(value)`     | Lenient: normalise to canonical, or return `{ ok: false, error }`    |
