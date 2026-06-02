@@ -167,4 +167,12 @@ describe("id", () => {
       ids.add(id);
     }
   });
+
+  it.each([0, 1, 2, 3, 4, 1719000000001, 2 ** 48 - 1])(
+    "extractTimestamp() processes the correct bits %d",
+    (time) => {
+      const usr = createId("usr", { now: () => time });
+      expect(usr.extractTimestamp(usr.generate())).toEqual(new Date(time));
+    },
+  );
 });
