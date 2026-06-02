@@ -106,6 +106,27 @@ users.generate(); // deterministic snapshot-friendly output
 
 Both `Options` fields are optional. Defaults are `Date.now` and an entropy harvester built on `crypto.randomUUID` (faster than `crypto.getRandomValues` for the 10-byte fills this library needs). `now` returns milliseconds since the Unix epoch. `rng` writes random bytes into the provided target (a 10-byte view into the codec's persistent buffer), so a custom RNG never has to allocate.
 
+### "Use with any Standard Schema validator"
+
+Each codec implements [Standard Schema v1](https://standardschema.dev/), so it slots directly into any validator-aware library (Zod, Valibot, ArkType, tRPC inputs, Hono, etc.) without rewriting the same `z.string().refine(usr.is)` boilerplate:
+
+```ts
+import { type } from "arktype";
+
+const Body = type({ userId: users });
+
+const r = Body({ userId: "USR_01H7B3K9RQXN1CW3P9R8T2SGKZ" });
+// → { userId: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz" } typed as Id<"usr">
+```
+
+`validate` is synchronous, wraps `safeParse`, and returns the canonical `Id<Brand>` on success. Each `ParseError` variant maps to a distinct `issues[].message`:
+
+| ParseError       | message                  |
+| ---------------- | ------------------------ |
+| `not_string`     | `expected string`        |
+| `invalid_prefix` | `expected prefix 'usr_'` |
+| `invalid_base32` | `invalid base32 payload` |
+
 ## What this is **not** for
 
 - **Internal surrogate primary keys.** If nobody outside your service ever sees the ID, the brand prefix and lenient parsing are dead weight. Use a `bigint` sequence.

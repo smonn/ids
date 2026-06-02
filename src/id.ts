@@ -57,6 +57,18 @@ export type ParseResult<Brand extends string> =
   | { ok: true; id: Id<Brand> }
   | { ok: false; error: ParseError };
 
+type StandardSchemaProps<Brand extends string> = {
+  readonly version: 1;
+  readonly vendor: "@smonn/ids";
+  readonly validate: (
+    value: unknown,
+    options?: { readonly libraryOptions?: Record<string, unknown> | undefined },
+  ) =>
+    | { readonly value: Id<Brand>; readonly issues?: undefined }
+    | { readonly issues: ReadonlyArray<{ readonly message: string }> };
+  readonly types?: { readonly input: unknown; readonly output: Id<Brand> };
+};
+
 export type Codec<Brand extends string> = {
   generate(): Id<Brand>;
   is(value: unknown): value is Id<Brand>;
@@ -65,6 +77,7 @@ export type Codec<Brand extends string> = {
   extractTimestamp(id: Id<Brand>): Date;
   minIdForTime(date: Date): Id<Brand>;
   maxIdForTime(date: Date): Id<Brand>;
+  readonly "~standard": StandardSchemaProps<Brand>;
 };
 
 const timestampByteLength = 6;
@@ -109,7 +122,34 @@ export function createId<Brand extends string>(
     extractTimestamp: (id: Id<Brand>) => extractTimestamp(prefix, id),
     minIdForTime: (date: Date) => sentinelIdForTime(prefix, date, 0x00, buffer, randomView),
     maxIdForTime: (date: Date) => sentinelIdForTime(prefix, date, 0xff, buffer, randomView),
+    "~standard": {
+      version: 1,
+      vendor: "@smonn/ids",
+      validate: (value: unknown) => standardValidate(prefix, value),
+    },
   };
+}
+
+function standardValidate<Brand extends string>(
+  prefix: Prefix<Brand>,
+  value: unknown,
+):
+  | { readonly value: Id<Brand>; readonly issues?: undefined }
+  | { readonly issues: ReadonlyArray<{ readonly message: string }> } {
+  const result = safeParse(prefix, value);
+  if (result.ok) return { value: result.id };
+  return { issues: [{ message: errorMessage(prefix, result.error) }] };
+}
+
+function errorMessage<Brand extends string>(prefix: Prefix<Brand>, error: ParseError): string {
+  switch (error) {
+    case "not_string":
+      return "expected string";
+    case "invalid_prefix":
+      return `expected prefix '${prefix}'`;
+    case "invalid_base32":
+      return "invalid base32 payload";
+  }
 }
 
 function safeParse<Brand extends string>(
