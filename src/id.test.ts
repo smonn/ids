@@ -175,4 +175,76 @@ describe("id", () => {
       expect(usr.extractTimestamp(usr.generate())).toEqual(new Date(time));
     },
   );
+
+  it.each([0, 1, 0x123456789abc, 2 ** 48 - 1])(
+    "minIdForTime() round-trips through extractTimestamp at ms=%d",
+    (ms) => {
+      const usr = createId("usr");
+      const d = new Date(ms);
+      expect(usr.extractTimestamp(usr.minIdForTime(d))).toEqual(d);
+    },
+  );
+
+  it.each([0, 1, 0x123456789abc, 2 ** 48 - 1])(
+    "maxIdForTime() round-trips through extractTimestamp at ms=%d",
+    (ms) => {
+      const usr = createId("usr");
+      const d = new Date(ms);
+      expect(usr.extractTimestamp(usr.maxIdForTime(d))).toEqual(d);
+    },
+  );
+
+  it("minIdForTime(d) equals a zero-RNG generate() at the same time (tight lower bound)", () => {
+    // Equality at the extreme RNG output proves min is the *tight* lower bound,
+    // not merely some lower bound. Uses the non-symmetric timestamp from the
+    // known-answer test so the cross-boundary base32 char (bits 45–49, where
+    // the last 3 timestamp bits meet the first 2 random bits) is exercised.
+    const ms = 0x123456789abc;
+    const usr = createId("usr", {
+      now: () => ms,
+      rng: (target) => target.fill(0x00),
+    });
+    expect(usr.minIdForTime(new Date(ms))).toBe(usr.generate());
+  });
+
+  it("maxIdForTime(d) equals an all-0xFF-RNG generate() at the same time (tight upper bound)", () => {
+    const ms = 0x123456789abc;
+    const usr = createId("usr", {
+      now: () => ms,
+      rng: (target) => target.fill(0xff),
+    });
+    expect(usr.maxIdForTime(new Date(ms))).toBe(usr.generate());
+  });
+
+  it("minIdForTime(d) <= generate() <= maxIdForTime(d) for the default RNG", () => {
+    const d = new Date("2026-05-28T12:00:00Z");
+    const usr = createId("usr", { now: () => d.getTime() });
+    const min = usr.minIdForTime(d);
+    const max = usr.maxIdForTime(d);
+    for (let i = 0; i < 100; i++) {
+      const id = usr.generate();
+      expect(min <= id).toBe(true);
+      expect(id <= max).toBe(true);
+    }
+  });
+
+  it("minIdForTime() rejects pre-epoch dates with the same message as generate()", () => {
+    const usr = createId("usr");
+    expect(() => usr.minIdForTime(new Date(-1))).toThrow("timestamp is negative");
+  });
+
+  it("maxIdForTime() rejects pre-epoch dates with the same message as generate()", () => {
+    const usr = createId("usr");
+    expect(() => usr.maxIdForTime(new Date(-1))).toThrow("timestamp is negative");
+  });
+
+  it("minIdForTime() rejects dates that overflow 48 bits with the same message as generate()", () => {
+    const usr = createId("usr");
+    expect(() => usr.minIdForTime(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
+  });
+
+  it("maxIdForTime() rejects dates that overflow 48 bits with the same message as generate()", () => {
+    const usr = createId("usr");
+    expect(() => usr.maxIdForTime(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
+  });
 });

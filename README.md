@@ -78,6 +78,17 @@ The first 6 bytes of the payload are a big-endian millisecond Unix timestamp, so
 users.extractTimestamp(id); // Date
 ```
 
+For time-range queries, `minIdForTime(date)` and `maxIdForTime(date)` build synthetic IDs at the tight lower and upper bounds of a given millisecond — same timestamp bytes, random portion filled with all `0x00` (min) or all `0xFF` (max). No separate `created_at` column needed:
+
+```ts
+const start = new Date("2026-01-01T00:00:00Z");
+const end = new Date("2026-02-01T00:00:00Z");
+
+sql`SELECT * FROM users WHERE id BETWEEN ${users.minIdForTime(start)} AND ${users.maxIdForTime(end)}`;
+```
+
+Both validate the date the same way `generate()` does — pre-epoch or past the 48-bit ceiling throws.
+
 The timestamp layout (millisecond precision, big-endian, Unix epoch) is part of the public contract — see [ADR-0002](./docs/adr/0002-payload-layout.md).
 
 Caveat: two IDs generated in the same millisecond by the same process have independent random tails and do **not** sort deterministically relative to each other. If you need stable intra-millisecond ordering, this library isn't the right tool.
@@ -117,13 +128,15 @@ import {
 
 ### `Codec<Brand>`
 
-| Method                 | Description                                                       |
-| ---------------------- | ----------------------------------------------------------------- |
-| `generate()`           | Produce a fresh ID                                                |
-| `is(value)`            | Strict type guard: `true` only for already-canonical strings      |
-| `parse(value)`         | Lenient: normalise to canonical, or throw                         |
-| `safeParse(value)`     | Lenient: normalise to canonical, or return `{ ok: false, error }` |
-| `extractTimestamp(id)` | Decode the creation `Date` from an `Id<Brand>` (trusts the type)  |
+| Method                 | Description                                                          |
+| ---------------------- | -------------------------------------------------------------------- |
+| `generate()`           | Produce a fresh ID                                                   |
+| `is(value)`            | Strict type guard: `true` only for already-canonical strings         |
+| `parse(value)`         | Lenient: normalise to canonical, or throw                            |
+| `safeParse(value)`     | Lenient: normalise to canonical, or return `{ ok: false, error }`    |
+| `extractTimestamp(id)` | Decode the creation `Date` from an `Id<Brand>` (trusts the type)     |
+| `minIdForTime(date)`   | Tight lower bound for any ID generated at `date` (for range queries) |
+| `maxIdForTime(date)`   | Tight upper bound for any ID generated at `date` (for range queries) |
 
 ## Design
 
