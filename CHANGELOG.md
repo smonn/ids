@@ -1,5 +1,17 @@
 # @smonn/ids
 
+## 0.2.0
+
+### Minor Changes
+
+- 7ab5dd6: Add `Codec.generateAt(date)` for minting an ID at a caller-supplied timestamp. The 6-byte timestamp portion is encoded from the supplied `Date`; the 10-byte random portion is filled by the codec's `rng`, so the result is canonical and round-trips through `extractTimestamp` exactly. Validation matches `generate()`: pre-epoch dates, dates past the 48-bit ceiling, and `Invalid Date` (`NaN`) all throw. This closes the gap that previously forced migration scripts and test fixtures to construct a throwaway codec with a fake `now` per timestamp — backfilling from UUIDv7 / ULID / Snowflake is now a few lines of user code.
+
+  The `Invalid Date` guard is centralized in the shared timestamp encoder, so `minIdForTime`/`maxIdForTime` now also reject an `Invalid Date` (throwing `"timestamp is not a number"`) instead of silently producing an epoch-zero ID.
+
+- d6549be: Add `Codec.toJsonSchema()` for exporting a brand's IDs as a JSON Schema fragment, ready to drop into an OpenAPI `components.schemas` entry, a JSON Schema document, or any tooling that derives sample payloads. It returns `{ type: "string", pattern, description, example }`, where `pattern` is anchored and brand-specific (e.g. `"^usr_[0-9a-hjkmnp-tv-z]{26}$"`) and `example` is a freshly generated canonical ID.
+
+  The `pattern` describes the **canonical wire form only** — it matches `generate()` output and what `is()` accepts, but rejects the uppercase and Crockford-alias (`o`, `i`, `l`) input that `safeParse()` tolerates. Per ADR-0003, lenient normalisation is the codec's boundary job; artefacts that describe data at rest describe the canonical shape. The return type is exported as `JsonSchema` so consumers can type their OpenAPI builders.
+
 ## 0.1.0
 
 ### Minor Changes
