@@ -159,6 +159,25 @@ import {
 | `minIdForTime(date)`   | Tight lower bound for any ID generated at `date` (for range queries) |
 | `maxIdForTime(date)`   | Tight upper bound for any ID generated at `date` (for range queries) |
 
+## CLI
+
+Two brand-agnostic subcommands, no install required:
+
+```bash
+$ npx @smonn/ids inspect usr_01h7b3k9rqxn1cw3p9r8t2sgkz
+brand:     usr
+timestamp: 1983-05-27T10:24:22.469Z (43 years ago)
+canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz
+input:     canonical
+
+$ npx @smonn/ids generate usr --count 3
+usr_…
+usr_…
+usr_…
+```
+
+`inspect` accepts non-canonical input (uppercase, Crockford aliases) and shows the canonical form. `generate` prints one ID per line so output is pipeable. Invalid input prints the parse error to stderr and exits non-zero.
+
 ## Design
 
 - [`CONTEXT.md`](./CONTEXT.md) — glossary of the project's vocabulary
