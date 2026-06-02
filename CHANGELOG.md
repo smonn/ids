@@ -1,5 +1,21 @@
 # @smonn/ids
 
+## 0.1.0
+
+### Minor Changes
+
+- a2705a8: Add a CLI runnable as `npx @smonn/ids <subcommand>` with two brand-agnostic subcommands: `inspect <id>` decodes an existing ID and prints the brand, ISO timestamp with a relative-time tail, canonical form, and whether the input was already canonical (flagging uppercase and Crockford aliases). `generate <brand> [--count N]` mints one or more canonical IDs (default 1), one per line for pipeable output. Brand validation is delegated to `createId`; invalid input prints the parse error and exits non-zero.
+- 3aefddc: `createId(brand)` now emits a one-shot `console.warn` in development when called a second time for the same brand in the same process — almost always a bundling or import bug (two module copies, accidental re-export, a test re-importing without resetting). Subsequent duplicate calls for the same brand stay silent so logs don't spam. The check is gated on `process.env.NODE_ENV !== "production"`, so production keeps the no-op behaviour. `Options` gains an optional `allowDuplicateBrand` flag: when `true`, the call skips both the warning and the brand registry, so tests that intentionally re-create codecs can opt out cleanly.
+- 25ccb9a: Add `Codec.minIdForTime(date)` and `Codec.maxIdForTime(date)` for time-range queries against the ID column. Both build a synthetic `Id<Brand>` whose 6-byte timestamp encodes `date` and whose 10 random bytes are filled with `0x00` (min) or `0xFF` (max), giving the tight lower/upper bounds for any ID generated in that millisecond. Date validation matches `generate()` — pre-epoch or past the 48-bit ceiling throws with the same messages. No new RNG calls.
+
+  ```ts
+  sql`SELECT * FROM users WHERE id BETWEEN ${users.minIdForTime(
+    start,
+  )} AND ${users.maxIdForTime(end)}`;
+  ```
+
+- 2676fd3: Each `Codec<Brand>` now implements [Standard Schema v1](https://standardschema.dev/) via a `~standard` property, so a codec can be passed directly to any validator that consumes Standard Schema (Zod, Valibot, ArkType, tRPC inputs, Hono, etc.). `validate` is synchronous, wraps `safeParse`, and returns the canonical `Id<Brand>` on success. Each `ParseError` variant maps to a distinct, human-readable message: `not_string` → `"expected string"`, `invalid_prefix` → `"expected prefix '<brand>_'"`, `invalid_base32` → `"invalid base32 payload"`. No runtime dependency; the spec types are inlined.
+
 ## 0.0.2
 
 ### Patch Changes
