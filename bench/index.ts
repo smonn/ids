@@ -47,6 +47,11 @@ type Bench = {
 
 const results: Bench[] = [];
 
+// Pin sample counts so async ops (especially extractTimestamp at ~30µs)
+// collect enough samples for reliable percentiles. Mitata's adaptive sampling
+// otherwise stops at ~12 samples for the slow async paths.
+const measureOpts = { min_samples: 1000, max_samples: 1000 } as const;
+
 for (const c of cases) {
   const stats = await measure(function* () {
     if (c.async) {
@@ -56,7 +61,7 @@ for (const c of cases) {
       const fn = c.fn;
       yield () => do_not_optimize(fn());
     }
-  });
+  }, measureOpts);
   results.push({
     name: c.name,
     avg_ns: stats.avg,
