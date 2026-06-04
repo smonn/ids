@@ -1,6 +1,7 @@
 import { do_not_optimize, measure } from "mitata";
 import { decodeBase32, encodeBase32 } from "../src/base32.js";
-import { createId, type Id } from "../src/id.js";
+import { createId } from "../src/id.js";
+import type { Id } from "../src/types.js";
 
 const usr = createId("usr");
 

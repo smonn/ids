@@ -16,6 +16,7 @@
   "type": "module",
   "exports": {
     ".": "./dist/index.mjs",
+    "./opaque": "./dist/opaque.mjs",
     "./package.json": "./package.json"
   },
   "scripts": {

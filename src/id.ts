@@ -1,9 +1,36 @@
-import { alphabet, decodeBase32, encodeBase32 } from "./base32.js";
+import { decodeBase32, encodeBase32 } from "./base32.js";
+import { registerBrand, validateBrand } from "./registry.js";
+import {
+  base32CharClass,
+  is,
+  parse,
+  payloadBase32Length,
+  payloadByteLength,
+  readTimestampMs,
+  safeParse,
+  standardValidate,
+  timestampByteLength,
+  writeTimestamp,
+} from "./shared.js";
+import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 
 export type Options = {
   now: () => number;
   rng: (target: Uint8Array) => void;
   allowDuplicateBrand?: boolean;
+};
+
+export type Codec<Brand extends string> = {
+  generate(): Id<Brand>;
+  generateAt(date: Date): Id<Brand>;
+  is(value: unknown): value is Id<Brand>;
+  parse(value: unknown): Id<Brand>;
+  safeParse(value: unknown): ParseResult<Brand>;
+  extractTimestamp(id: Id<Brand>): Date;
+  minIdForTime(date: Date): Id<Brand>;
+  maxIdForTime(date: Date): Id<Brand>;
+  toJsonSchema(): JsonSchema;
+  readonly "~standard": StandardSchemaProps<Brand>;
 };
 
 // hex charCode → 0–15 nibble, for decoding UUIDv4 strings into bytes.
@@ -46,93 +73,15 @@ const defaultOptions: Options = {
   },
 };
 
-type Prefix<Brand extends string> = `${Brand}_`;
-
-export type Id<Brand extends string> = `${Prefix<Brand>}${string}` & {
-  readonly __brand: Brand;
-};
-
-export type ParseError = "not_string" | "invalid_prefix" | "invalid_base32";
-
-export type ParseResult<Brand extends string> =
-  | { ok: true; id: Id<Brand> }
-  | { ok: false; error: ParseError };
-
-export type JsonSchema = {
-  readonly type: "string";
-  readonly pattern: string;
-  readonly description: string;
-  readonly example: string;
-};
-
-type StandardSchemaProps<Brand extends string> = {
-  readonly version: 1;
-  readonly vendor: "@smonn/ids";
-  readonly validate: (
-    value: unknown,
-    options?: { readonly libraryOptions?: Record<string, unknown> | undefined },
-  ) =>
-    | { readonly value: Id<Brand>; readonly issues?: undefined }
-    | { readonly issues: ReadonlyArray<{ readonly message: string }> };
-  readonly types?: { readonly input: unknown; readonly output: Id<Brand> };
-};
-
-export type Codec<Brand extends string> = {
-  generate(): Id<Brand>;
-  generateAt(date: Date): Id<Brand>;
-  is(value: unknown): value is Id<Brand>;
-  parse(value: unknown): Id<Brand>;
-  safeParse(value: unknown): ParseResult<Brand>;
-  extractTimestamp(id: Id<Brand>): Date;
-  minIdForTime(date: Date): Id<Brand>;
-  maxIdForTime(date: Date): Id<Brand>;
-  toJsonSchema(): JsonSchema;
-  readonly "~standard": StandardSchemaProps<Brand>;
-};
-
-const timestampByteLength = 6;
-const randomByteLength = 10;
-const totalByteLength = timestampByteLength + randomByteLength;
-const base32Length = Math.ceil((totalByteLength * 8) / 5);
+const randomByteLength = payloadByteLength - timestampByteLength;
 const timestampBase32Length = Math.ceil((timestampByteLength * 8) / 5);
-const replacePattern = /[ilo]/g;
-const aliasTestPattern = /[ilo]/;
-const replacer = (match: string): string => (match === "o" ? "0" : "1");
-
-const base32Pattern = new RegExp(`^[${alphabet}]{${base32Length}}$`);
-const brandPattern = /^[a-z]{3}$/;
-// Compact regex character class for the canonical lowercase Crockford alphabet
-// (`0123456789abcdefghjkmnpqrstvwxyz` — excludes i, l, o, u). Used in the JSON
-// Schema `pattern`, which describes the canonical wire form only (ADR-0003).
-const base32CharClass = "[0-9a-hjkmnp-tv-z]";
-
-const registeredBrands = new Set<string>();
-const warnedBrands = new Set<string>();
 
 export function createId<Brand extends string>(
   brand: Brand,
   opts: Partial<Options> = {},
 ): Codec<Brand> {
-  if (!brandPattern.test(brand)) {
-    throw new Error("invalid brand, expected three lowercase a-z characters");
-  }
-
-  if (
-    typeof process !== "undefined" &&
-    process.env.NODE_ENV !== "production" &&
-    !opts.allowDuplicateBrand
-  ) {
-    if (registeredBrands.has(brand)) {
-      if (!warnedBrands.has(brand)) {
-        console.warn(
-          `[@smonn/ids] createId("${brand}") called more than once — this usually indicates a bundling or import bug. Pass { allowDuplicateBrand: true } to silence.`,
-        );
-        warnedBrands.add(brand);
-      }
-    } else {
-      registeredBrands.add(brand);
-    }
-  }
+  validateBrand(brand);
+  registerBrand(brand, opts.allowDuplicateBrand);
 
   const options = {
     ...defaultOptions,
@@ -145,7 +94,7 @@ export function createId<Brand extends string>(
   // the timestamp and random slices before encoding, so successive callers see
   // their own freshly-written bytes. encodeBase32 reads the buffer and
   // returns an independent string, so the caller never sees the buffer itself.
-  const buffer = new Uint8Array(totalByteLength);
+  const buffer = new Uint8Array(payloadByteLength);
   const randomView = new Uint8Array(buffer.buffer, timestampByteLength, randomByteLength);
 
   return {
@@ -175,74 +124,10 @@ function toJsonSchema<Brand extends string>(
 ): JsonSchema {
   return {
     type: "string",
-    pattern: `^${prefix}${base32CharClass}{${base32Length}}$`,
+    pattern: `^${prefix}${base32CharClass}{${payloadBase32Length}}$`,
     description: `Branded ID for '${brand}'`,
     example: generate(prefix, options, buffer, randomView),
   };
-}
-
-function standardValidate<Brand extends string>(
-  prefix: Prefix<Brand>,
-  value: unknown,
-):
-  | { readonly value: Id<Brand>; readonly issues?: undefined }
-  | { readonly issues: ReadonlyArray<{ readonly message: string }> } {
-  const result = safeParse(prefix, value);
-  if (result.ok) return { value: result.id };
-  return { issues: [{ message: errorMessage(prefix, result.error) }] };
-}
-
-function errorMessage<Brand extends string>(prefix: Prefix<Brand>, error: ParseError): string {
-  switch (error) {
-    case "not_string":
-      return "expected string";
-    case "invalid_prefix":
-      return `expected prefix '${prefix}'`;
-    case "invalid_base32":
-      return "invalid base32 payload";
-  }
-}
-
-function safeParse<Brand extends string>(
-  prefix: Prefix<Brand>,
-  value: unknown,
-): ParseResult<Brand> {
-  if (typeof value !== "string") return { ok: false, error: "not_string" };
-  const lowercase = value.toLowerCase();
-  if (!lowercase.startsWith(prefix)) return { ok: false, error: "invalid_prefix" };
-
-  const sliced = lowercase.slice(prefix.length);
-  const base32 = aliasTestPattern.test(sliced)
-    ? sliced.replaceAll(replacePattern, replacer)
-    : sliced;
-
-  if (!base32Pattern.test(base32)) return { ok: false, error: "invalid_base32" };
-
-  const id = (prefix + base32) as Id<Brand>;
-  return { ok: true, id };
-}
-
-function parse<Brand extends string>(prefix: Prefix<Brand>, value: unknown): Id<Brand> {
-  const result = safeParse(prefix, value);
-  if (result.ok) return result.id;
-  throw new Error(`Invalid ID: ${result.error}`);
-}
-
-function is<Brand extends string>(prefix: Prefix<Brand>, value: unknown): value is Id<Brand> {
-  if (typeof value !== "string") return false;
-  if (!value.startsWith(prefix)) return false;
-  return base32Pattern.test(value.slice(prefix.length));
-}
-
-// write the timestamp in big-endian; encoded via mod-256 to avoid 32-bit bitwise coercion
-function writeTimestamp(ms: number, buffer: Uint8Array): void {
-  if (Number.isNaN(ms)) throw new Error("timestamp is not a number");
-  if (ms < 0) throw new Error("timestamp is negative");
-  if (ms >= 2 ** (timestampByteLength * 8)) throw new Error("timestamp exceeds 48-bit range");
-  for (let i = timestampByteLength - 1; i >= 0; i--) {
-    buffer[i] = ms % 256;
-    ms = Math.floor(ms / 256);
-  }
 }
 
 function generate<Brand extends string>(
@@ -271,10 +156,5 @@ function sentinelIdForTime<Brand extends string>(
 
 function extractTimestamp<Brand extends string>(prefix: Prefix<Brand>, id: Id<Brand>): Date {
   const base32 = id.slice(prefix.length, prefix.length + timestampBase32Length);
-  const bytes = decodeBase32(base32);
-  let ms = 0;
-  for (const byte of bytes) {
-    ms = ms * 256 + byte;
-  }
-  return new Date(ms);
+  return new Date(readTimestampMs(decodeBase32(base32)));
 }

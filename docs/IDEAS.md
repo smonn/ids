@@ -9,8 +9,9 @@ If trust-mode variants ever ship, each gets its own factory (`createTimestampId`
 the explicit name for the current one). They do not share a Codec contract — same wire
 skin, different invariants.
 
-- **`createOpaqueId(brand, {key})`** — 16-byte payload is exactly one AES-128 block.
-  Encrypts the body, hides the timestamp. `extractTimestamp` becomes key-gated.
+- ~~`createOpaqueId(brand, {key})`~~ — shipped. See [ADR-0004](./adr/0004-aes-cbc-strip-trick.md),
+  [ADR-0005](./adr/0005-codec-variant-subpath-exports.md), [ADR-0006](./adr/0006-async-keyed-codec-contract.md),
+  [ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md).
 - **`createSignedId(brand, {key})`** — random tail becomes a truncated HMAC over
   brand+timestamp. Tamper-evident share links verified without a DB lookup.
 - **`createDerivedId(brand, {ns, key})`** — drops timestamp and random; payload is
@@ -28,6 +29,15 @@ optional peer deps on the third-party lib — not as sibling packages.
 - **`@smonn/ids/<web>`** (Hono / Express / Fastify) — route-param middleware that
   validates against a codec and 404s on brand mismatch (not 400 — distinguishes
   "wrong kind of ID" from "malformed ID").
+
+## Developer-facing documentation
+
+- **JSDoc on public codec methods.** `Codec` / `OpaqueCodec` method names are
+  self-describing once you've read the README, but consumer IDE tooltips
+  currently surface nothing about the contracts. The two most consequential to
+  document inline: `extractTimestamp` trusts the `Id<Brand>` type (ADR-0002)
+  and the `is()` strict / `safeParse()` lenient split (ADR-0003). Probably one
+  pass across both codec types, linking to the relevant ADR per method.
 
 ## Explicitly rejected
 
