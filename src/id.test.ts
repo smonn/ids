@@ -9,7 +9,8 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { createId, type Id, type JsonSchema, type Options } from "./id.js";
+import { createId, type Options } from "./id.js";
+import type { Id, JsonSchema } from "./types.js";
 
 describe("id", () => {
   // These tests recreate many codecs for the same brand. That's intentional —

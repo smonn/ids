@@ -1,6 +1,8 @@
-# Payload layout: ULID-shaped, with deliberate divergences
+# Timestamp byte layout: ULID-shaped, with deliberate divergences
 
-The payload is laid out exactly like a ULID: 48-bit millisecond Unix timestamp (big-endian) followed by 80 random bits, encoded as 26 Crockford base32 characters. We adopt the ULID byte split because it's already k-sortable, fits cleanly into 26 base32 chars, and gives ~80 bits of randomness per millisecond (collision-safe for any plausible single-app throughput).
+The Timestamp codec's byte layout — 48-bit millisecond Unix timestamp (big-endian) followed by 80 random bits — fills the 16-byte payload directly. We adopt the ULID byte split because it's already k-sortable, fits cleanly into 26 base32 chars, and gives ~80 bits of randomness per millisecond (collision-safe for any plausible single-app throughput).
+
+The wire-format invariant is codec-agnostic: 16 bytes of payload, lowercase Crockford base32, prefix-wrapped. The 6+10 split documented here is specific to the Timestamp codec. Other codec variants (see [ADR-0005](./0005-codec-variant-subpath-exports.md)) define their own byte layouts within the same 16-byte envelope.
 
 Three deliberate divergences from the spec:
 
@@ -23,4 +25,6 @@ Unix is non-negotiable. 48 bits of ms gives ~8919 years of headroom from 1970, s
 
 ## Consequences
 
-The 16-byte payload layout is part of the wire format. Changing the byte split (e.g. 8+8, 4+12), the timestamp precision, the byte order, or the epoch invalidates every previously-issued ID — the same constraint as the brand width.
+The Timestamp byte layout (6 timestamp + 10 random) is part of the Timestamp codec's wire-format contract. Changing the byte split, the timestamp precision, the byte order, or the epoch invalidates every previously-issued Timestamp ID — the same constraint as the brand width.
+
+The shared 16-byte / base32 / prefix-wrapped invariant is stronger: changing it would invalidate every ID across every codec variant.

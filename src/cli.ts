@@ -1,4 +1,5 @@
-import { createId, type Id, type Options } from "./id.js";
+import { createId, type Options } from "./id.js";
+import type { Id } from "./types.js";
 
 export type RunOpts = {
   argv: ReadonlyArray<string>;
