@@ -6,7 +6,7 @@ Public-facing branded IDs for TypeScript apps.
 pnpm add @smonn/ids
 ```
 
-Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkz`: a three-letter brand, an underscore, then 26 Crockford base32 characters encoding a 48-bit millisecond Unix timestamp followed by 80 random bits. Same byte layout as a [ULID](https://github.com/ulid/spec); see [ADR-0002](./docs/adr/0002-payload-layout.md) for the deliberate divergences.
+Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkz`: a three-letter brand, an underscore, then 26 Crockford base32 characters of payload. The default codec encodes a 48-bit millisecond Unix timestamp followed by 80 random bits — same byte layout as a [ULID](https://github.com/ulid/spec); see [ADR-0002](./docs/adr/0002-payload-layout.md) for the deliberate divergences. A second codec (`@smonn/ids/opaque`) keeps the same wire shape but encrypts the payload under a key, so the timestamp isn't readable from the ID.
 
 ## What this is for
 
@@ -117,7 +117,7 @@ Both `Options` fields are optional. Defaults are `Date.now` and an entropy harve
 
 ### "Catch a double-registered brand before it bites in production"
 
-The intended pattern is one codec per brand per process, constructed at module init. Calling `createId(brand)` a second time for the same brand usually means a bundling or import bug (accidental re-export, a test re-importing without resetting). In development (`process.env.NODE_ENV !== "production"`), the second call emits a one-shot `console.warn`; the brand-tracking registry is skipped in production. Tests that intentionally re-create codecs can opt out:
+The intended pattern is one codec per brand per process, constructed at module init. Calling `createId(brand)` a second time for the same brand usually means a bundling or import bug (accidental re-export, a test re-importing without resetting). In development (`process.env.NODE_ENV !== "production"`), the second call emits a one-shot `console.warn`; the brand-tracking registry is skipped in production. The same registry covers cross-codec collisions: `createId("usr")` followed by `createOpaqueId("usr")` warns too, because codec choice is a per-brand commitment ([ADR-0007](./docs/adr/0007-wire-indistinguishable-codec-variants.md)). Tests that intentionally re-create codecs can opt out:
 
 ```ts
 const users = createId("usr", { allowDuplicateBrand: true });
@@ -164,12 +164,34 @@ The `pattern` describes the **canonical form only** — it matches `generate()` 
 
 `example` is produced by calling `generate()` on each invocation, so it is fresh (non-deterministic) and always matches the returned `pattern`. One consequence: a codec wired with an injected `now` outside the 48-bit range — the same misconfiguration that breaks `generate()` — makes `toJsonSchema()` throw too.
 
+### "Don't leak creation time in IDs that customers can see"
+
+The default codec exposes the creation timestamp by design — that's what makes `ORDER BY id` work. If that's a leak you can't accept (invoice IDs revealing billing cadence, signup IDs revealing acquisition velocity), use the opaque codec at `@smonn/ids/opaque`. Same `<brand>_<26 chars>` wire shape, but the payload is AES-encrypted under a key you supply.
+
+```ts
+import { createOpaqueId, importOpaqueKey } from "@smonn/ids/opaque";
+
+const key = await importOpaqueKey(new Uint8Array(16)); // 128- or 256-bit raw key
+const invoices = createOpaqueId("inv", { key });
+
+const id = await invoices.generate(); // "inv_…", timestamp not extractable without the key
+await invoices.extractTimestamp(id); // Date — same codec, same key required
+```
+
+Three differences from the default codec:
+
+- **Async key-dependent methods.** WebCrypto is async-only, so `generate`, `generateAt`, and `extractTimestamp` return `Promise`s. `is`, `parse`, `safeParse`, `toJsonSchema`, and the Standard Schema adapter stay sync — they work on the wire form only ([ADR-0006](./docs/adr/0006-async-keyed-codec-contract.md)).
+- **No `minIdForTime` / `maxIdForTime`.** Encrypted payloads don't sort by time. If you need time-range scans on opaque-coded entities, store the timestamp in a separate column.
+- **Wire-indistinguishable from the default codec.** Codec choice is a per-brand commitment; the brand registry warns if you register the same brand against both in dev ([ADR-0007](./docs/adr/0007-wire-indistinguishable-codec-variants.md)).
+
+Encryption is AES-CBC with a zero IV. That's deliberately safe here because the plaintext already carries 80 bits of entropy per ID; see [ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md) for the full rationale.
+
 ## What this is **not** for
 
 - **Internal surrogate primary keys.** If nobody outside your service ever sees the ID, the brand prefix and lenient parsing are dead weight. Use a `bigint` sequence.
 - **Wire-compatible ULIDs.** The byte layout is ULID-shaped but the encoding is lowercase and wrapped in a brand envelope. Stock ULID parsers will reject these.
 - **Distributed-trace / request-correlation IDs.** Use OpenTelemetry-format IDs.
-- **Hiding when your system launched.** Anyone with one known-time ID can compute the epoch offset. A custom epoch isn't supported, and wouldn't help anyway.
+- **Hiding creation time with the default codec.** Anyone with one ID at a known creation time can compute the epoch offset. A custom epoch wouldn't help and isn't supported. To hide creation time per-ID, use the opaque codec (above).
 
 ## API surface
 
@@ -183,21 +205,28 @@ import {
   type ParseResult, // safeParse return type
   type JsonSchema, // toJsonSchema return type
 } from "@smonn/ids";
+
+import {
+  createOpaqueId, // (brand: string, opts: { key, now?, rng?, allowDuplicateBrand? }) => OpaqueCodec<Brand>
+  importOpaqueKey, // (bytes: Uint8Array) => Promise<CryptoKey>
+  type OpaqueCodec, // returned by createOpaqueId
+  type OpaqueOptions, // { key, now, rng, allowDuplicateBrand } injection points
+} from "@smonn/ids/opaque";
 ```
 
-### `Codec<Brand>`
+### Codec methods
 
-| Method                 | Description                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------- |
-| `generate()`           | Produce a fresh ID                                                            |
-| `generateAt(date)`     | Produce a fresh ID with timestamp bytes from `date` (for backfills)           |
-| `is(value)`            | Strict type guard: `true` only for already-canonical strings                  |
-| `parse(value)`         | Lenient: normalise to canonical, or throw                                     |
-| `safeParse(value)`     | Lenient: normalise to canonical, or return `{ ok: false, error }`             |
-| `extractTimestamp(id)` | Decode the creation `Date` from an `Id<Brand>` (trusts the type)              |
-| `minIdForTime(date)`   | Tight lower bound for any ID generated at `date` (for range queries)          |
-| `maxIdForTime(date)`   | Tight upper bound for any ID generated at `date` (for range queries)          |
-| `toJsonSchema()`       | JSON Schema (`type`/`pattern`/`description`/`example`) for the canonical form |
+| Method                 | `Codec<Brand>` | `OpaqueCodec<Brand>` | Description                                                                   |
+| ---------------------- | -------------- | -------------------- | ----------------------------------------------------------------------------- |
+| `generate()`           | sync           | async                | Produce a fresh ID                                                            |
+| `generateAt(date)`     | sync           | async                | Produce a fresh ID with timestamp bytes from `date` (for backfills)           |
+| `is(value)`            | sync           | sync                 | Strict type guard: `true` only for already-canonical strings                  |
+| `parse(value)`         | sync           | sync                 | Lenient: normalise to canonical, or throw                                     |
+| `safeParse(value)`     | sync           | sync                 | Lenient: normalise to canonical, or return `{ ok: false, error }`             |
+| `extractTimestamp(id)` | sync           | async                | Decode the creation `Date` from an `Id<Brand>` (trusts the type)              |
+| `minIdForTime(date)`   | sync           | —                    | Tight lower bound for any ID generated at `date` (for range queries)          |
+| `maxIdForTime(date)`   | sync           | —                    | Tight upper bound for any ID generated at `date` (for range queries)          |
+| `toJsonSchema()`       | sync           | sync                 | JSON Schema (`type`/`pattern`/`description`/`example`) for the canonical form |
 
 ## CLI
 
