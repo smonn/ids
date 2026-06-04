@@ -21,8 +21,12 @@ The unique representation of an ID — lowercase, with Crockford base32 aliases 
 _Avoid_: normalised form (use **Canonical form**), valid form.
 
 **Payload**:
-The 16 raw bytes that follow the prefix in an encoded ID: 6 bytes of millisecond-precision Unix timestamp (big-endian) followed by 10 bytes of randomness. ULID-shaped — same byte layout as a [ULID](https://github.com/ulid/spec), but encoded in lowercase Crockford base32 and wrapped in a brand envelope rather than emitted bare.
-_Avoid_: ULID (use **Payload** when talking about our bytes; reserve "ULID" for the spec itself), body, contents.
+The 16 raw bytes that follow the prefix in an encoded ID. Always 16 bytes, always base32-encoded, regardless of codec. What those bytes mean is the codec's **Byte layout** — payload is the wire-level concept, byte layout is the per-codec interpretation.
+_Avoid_: ULID (reserve "ULID" for the spec itself), body, contents.
+
+**Byte layout**:
+A per-codec description of what the 16 payload bytes are and how they're produced. The Timestamp byte layout is 6 bytes of millisecond-precision Unix timestamp (big-endian) followed by 10 bytes of randomness — ULID-shaped, encoded in lowercase Crockford base32, wrapped in a brand envelope rather than emitted bare. Other codecs (if added) define their own byte layouts; the shared invariant is the 16-byte width and the base32 encoding.
+_Avoid_: layout (ambiguous with UI/visual), scheme (loses byte-level specificity), format.
 
 ## Example dialogue
 
