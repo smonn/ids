@@ -47,9 +47,11 @@ type Bench = {
 
 const results: Bench[] = [];
 
-// Pin sample counts so async ops (especially extractTimestamp at ~30µs)
-// collect enough samples for reliable percentiles. Mitata's adaptive sampling
-// otherwise stops at ~12 samples for the slow async paths.
+// Pin sample counts. Mitata batches ops under ~65µs (every op here), so each
+// "sample" is the mean of 4096 individual calls — 1000 batch-means already
+// gives very stable percentiles for compare.ts's 15% regression threshold.
+// Going higher hits a wall: 10k × 4096 × ~30µs = ~20 min for the slow async
+// ops. Raise only if comparison shows false-positive noise above the threshold.
 const measureOpts = { min_samples: 1000, max_samples: 1000 } as const;
 
 for (const c of cases) {
