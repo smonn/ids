@@ -1,6 +1,7 @@
 import { do_not_optimize, measure } from "mitata";
 import { decodeBase32, encodeBase32 } from "../src/base32.js";
 import { createId } from "../src/id.js";
+import { createOpaqueId, importOpaqueKey } from "../src/opaque.js";
 import type { Id } from "../src/types.js";
 
 const usr = createId("usr");
@@ -12,7 +13,14 @@ const base32Payload = canonicalId.slice("usr_".length);
 const bytesPayload = new Uint8Array(16);
 for (let i = 0; i < 16; i++) bytesPayload[i] = (i * 17) & 0xff;
 
-type Case = { name: string; fn: () => unknown };
+// Pre-import the AES key once; bench measures steady-state codec cost, not key import.
+const opaqueKey = await importOpaqueKey(new Uint8Array(16));
+const opa = createOpaqueId("opa", { key: opaqueKey });
+const opaqueId = await opa.generate();
+
+type Case =
+  | { name: string; fn: () => unknown; async?: false }
+  | { name: string; fn: () => Promise<unknown>; async: true };
 
 const cases: Case[] = [
   { name: "generate", fn: () => usr.generate() },
@@ -23,6 +31,8 @@ const cases: Case[] = [
   { name: "extractTimestamp", fn: () => usr.extractTimestamp(canonicalId) },
   { name: "encodeBase32", fn: () => encodeBase32(bytesPayload) },
   { name: "decodeBase32", fn: () => decodeBase32(base32Payload) },
+  { name: "opaque.generate", fn: () => opa.generate(), async: true },
+  { name: "opaque.extractTimestamp", fn: () => opa.extractTimestamp(opaqueId), async: true },
 ];
 
 type Bench = {
@@ -39,8 +49,13 @@ const results: Bench[] = [];
 
 for (const c of cases) {
   const stats = await measure(function* () {
-    const fn = c.fn;
-    yield () => do_not_optimize(fn());
+    if (c.async) {
+      const fn = c.fn;
+      yield async () => do_not_optimize(await fn());
+    } else {
+      const fn = c.fn;
+      yield () => do_not_optimize(fn());
+    }
   });
   results.push({
     name: c.name,
