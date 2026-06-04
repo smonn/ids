@@ -19,6 +19,43 @@ skin, different invariants.
 - **`createReverseId(brand)`** — bitwise-inverted timestamp bytes; lexicographic order
   = newest first. For KV stores where descending range scans are awkward.
 
+## Opaque key management
+
+Three related threads around operating the Opaque codec's key. Sketches, not commitments.
+
+- **Key rotation is caller-driven, not transparent.** The blast radius of a rotation is
+  narrower than it looks: the key only feeds `extractTimestamp`. `generate`, `parse`,
+  `safeParse`, `is`, and `toJsonSchema` work on the wire form and never touch it. So
+  swapping the key forward is nearly free — new IDs encrypt under the new key, old IDs
+  stay valid opaque strings whose _timestamp_ simply becomes unreadable without the old
+  key. What blocks _transparent_ "try every key in a ring" rotation is that the
+  construction is unauthenticated (ADR-0004: decrypt never throws, wrong key yields
+  garbage) and carries no key-id (ADR-0007: payloads are wire-indistinguishable, no
+  version marker). There is nothing to match a key against and nothing to validate a
+  guess. Options, roughly in order of honesty:
+  - _Forward-only, caller-tracked._ A keyring where `generate` uses the newest key and
+    `extractTimestamp` takes an explicit key/epoch hint the caller supplies from its own
+    records (DB column, tenant partition). No wire change.
+  - _Probabilistic trial-decrypt._ Try each key, accept the one whose decoded 48-bit
+    timestamp lands in a plausible window. A stale key false-accepts at ≈ 10yr / 2⁴⁸ms ≈
+    0.1% — dashboard-grade, never correctness-grade, and only if documented as such.
+  - _Transparent try-all-keys_ belongs to an authenticated variant (`createSignedId`'s
+    truncated HMAC gives a tag to verify a decrypt against); an 80-bit tag makes a small
+    ring effectively false-positive-free. Adding a key-id to Opaque itself is rejected
+    for the same reasons GCM was in ADR-0004: it either eats the random budget or breaks
+    the 16-byte / strip-trick invariant. Likely worth its own ADR.
+- **`ids keygen [--bits 128|256] [--format hex|base64url]`** — emit a random AES key
+  (default 256-bit) for `importOpaqueKey`. Needs a documented decode helper so the
+  emitted string round-trips back to raw bytes. Format is `hex`/`base64url` (secret
+  conventions), not Crockford base32 (that's the payload encoding). Stdout only; it's a
+  secret.
+- **Opaque generation from the CLI, key via env var.** `ids generate <brand> --opaque`
+  (and `inspect --opaque`) reading the key from `IDS_KEY`, decoded with the same format
+  as `keygen`. Env over argv deliberately — argv leaks via `ps` and shell history. A
+  missing or malformed `IDS_KEY` is a clear stderr error, exit 1. Consequence: the
+  opaque codec's `generate`/`extractTimestamp` are async, so `run()` would return a
+  Promise and `bin/cli.ts` would await it — a contained change to the otherwise-sync CLI.
+
 ## Adapter integrations (subpath exports)
 
 If ergonomic adapters ship, they live as subpath exports inside `@smonn/ids` with
