@@ -29,6 +29,8 @@ jobs:
 
       - run: pnpm lint
 
+      - run: pnpm depcruise
+
       - run: pnpm fmt:check
 
       - run: pnpm typecheck
