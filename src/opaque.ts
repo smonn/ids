@@ -14,6 +14,8 @@ import {
 } from "./shared.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 
+export { decodeOpaqueKey, encodeOpaqueKey, type OpaqueKeyFormat } from "./opaque-key.js";
+
 /**
  * Configuration options for an opaque codec instance.
  */

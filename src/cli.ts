@@ -1,4 +1,6 @@
 import { createId, type Options } from "./id.js";
+import { createOpaqueId, decodeOpaqueKey, importOpaqueKey } from "./opaque.js";
+import { encodeOpaqueKey, type OpaqueKeyFormat } from "./opaque-key.js";
 import type { Id } from "./types.js";
 
 export type RunOpts = {
@@ -7,12 +9,15 @@ export type RunOpts = {
   stderr: (chunk: string) => void;
   now?: Options["now"];
   rng?: Options["rng"];
+  /** Defaults to `process.env`. Injected in tests for `IDS_KEY`. */
+  env?: Readonly<Record<string, string | undefined>>;
 };
 
-export function run(opts: RunOpts): number {
+export async function run(opts: RunOpts): Promise<number> {
   const [subcommand, ...rest] = opts.argv;
   if (subcommand === "generate" || subcommand === "g") return runGenerate(rest, opts);
   if (subcommand === "inspect" || subcommand === "i") return runInspect(rest, opts);
+  if (subcommand === "keygen" || subcommand === "k") return runKeygen(rest, opts);
   if (subcommand === undefined || subcommand === "--help" || subcommand === "-h") {
     opts.stdout(usage());
     return 0;
@@ -26,22 +31,78 @@ function usage(): string {
     "Usage: ids <subcommand> [args]",
     "",
     "Subcommands:",
-    "  inspect, i <id>                       Decode an ID and print brand, timestamp, and canonical form.",
-    "  generate, g <brand> [--count, -c N]   Mint one or more canonical IDs for the given brand.",
+    "  inspect, i <id> [--opaque] [--key-format hex|base64url]",
+    "    Decode an ID and print brand, timestamp, and canonical form.",
+    "    --opaque reads the AES key from IDS_KEY (default format: hex).",
+    "  generate, g <brand> [--count, -c N] [--opaque] [--key-format hex|base64url]",
+    "    Mint one or more canonical IDs for the given brand.",
+    "    --opaque reads the AES key from IDS_KEY (default format: hex).",
+    "  keygen, k [--bits 128|256] [--key-format hex|base64url]",
+    "    Emit a random AES key for importOpaqueKey (stdout only).",
     "",
   ].join("\n");
 }
 
-function runInspect(args: ReadonlyArray<string>, opts: RunOpts): number {
-  const [input] = args;
+function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
+  const { flags, values, positionals } = splitFlags(args);
+  const [input] = positionals;
   if (input === undefined) {
     opts.stderr(usage());
-    return 1;
+    return Promise.resolve(1);
   }
+  const opaque = flags.has("--opaque");
   const brand = input.slice(0, 3).toLowerCase();
+  if (opaque) {
+    const format = parseKeyFormat(values, opts);
+    if (isKeyFormatError(format)) {
+      opts.stderr(format + "\n");
+      return Promise.resolve(1);
+    }
+    return runOpaqueInspect(brand, input, format, opts);
+  }
   let codec;
   try {
     codec = createId(brand, codecOpts(opts));
+  } catch (err) {
+    opts.stderr((err as Error).message + "\n");
+    return Promise.resolve(1);
+  }
+  const validation = codec["~standard"].validate(input);
+  if (validation.issues) {
+    opts.stderr(validation.issues[0]!.message + "\n");
+    return Promise.resolve(1);
+  }
+  const canonical = validation.value;
+  const timestamp = codec.extractTimestamp(canonical);
+  const nowMs = (opts.now ?? Date.now)();
+  const relative = formatRelative(timestamp.getTime(), nowMs);
+  const inputLine = describeInputForm(input, canonical);
+  opts.stdout(
+    [
+      `brand:     ${brand}`,
+      `timestamp: ${timestamp.toISOString()} (${relative})`,
+      `canonical: ${canonical}`,
+      `input:     ${inputLine}`,
+      "",
+    ].join("\n"),
+  );
+  return Promise.resolve(0);
+}
+
+async function runOpaqueInspect(
+  brand: string,
+  input: string,
+  format: OpaqueKeyFormat,
+  opts: RunOpts,
+): Promise<number> {
+  const keyResult = await loadOpaqueKey(opts, format);
+  if (typeof keyResult === "string") {
+    opts.stderr(keyResult + "\n");
+    return 1;
+  }
+  let codec;
+  try {
+    codec = createOpaqueId(brand, { key: keyResult, ...codecOpts(opts) });
   } catch (err) {
     opts.stderr((err as Error).message + "\n");
     return 1;
@@ -52,7 +113,7 @@ function runInspect(args: ReadonlyArray<string>, opts: RunOpts): number {
     return 1;
   }
   const canonical = validation.value;
-  const timestamp = codec.extractTimestamp(canonical);
+  const timestamp = await codec.extractTimestamp(canonical);
   const nowMs = (opts.now ?? Date.now)();
   const relative = formatRelative(timestamp.getTime(), nowMs);
   const inputLine = describeInputForm(input, canonical);
@@ -110,31 +171,167 @@ function unit(n: number, name: string): string {
   return `${n} ${n === 1 ? name : `${name}s`}`;
 }
 
-function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): number {
-  const [brand, ...flags] = args;
-  const count = parseCount(flags);
+function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
+  const { flags, values, positionals } = splitFlags(args);
+  const [brand] = positionals;
+  const count = parseCount(values);
   if (typeof count === "string") {
     opts.stderr(count + "\n");
-    return 1;
+    return Promise.resolve(1);
+  }
+  const opaque = flags.has("--opaque");
+  if (opaque) {
+    const format = parseKeyFormat(values, opts);
+    if (isKeyFormatError(format)) {
+      opts.stderr(format + "\n");
+      return Promise.resolve(1);
+    }
+    return runOpaqueGenerate(brand ?? "", count, format, opts);
   }
   let codec;
   try {
     codec = createId(brand ?? "", codecOpts(opts));
   } catch (err) {
     opts.stderr((err as Error).message + "\n");
-    return 1;
+    return Promise.resolve(1);
   }
   for (let i = 0; i < count; i++) opts.stdout(codec.generate() + "\n");
+  return Promise.resolve(0);
+}
+
+async function runOpaqueGenerate(
+  brand: string,
+  count: number,
+  format: OpaqueKeyFormat,
+  opts: RunOpts,
+): Promise<number> {
+  const keyResult = await loadOpaqueKey(opts, format);
+  if (typeof keyResult === "string") {
+    opts.stderr(keyResult + "\n");
+    return 1;
+  }
+  let codec;
+  try {
+    codec = createOpaqueId(brand, { key: keyResult, ...codecOpts(opts) });
+  } catch (err) {
+    opts.stderr((err as Error).message + "\n");
+    return 1;
+  }
+  for (let i = 0; i < count; i++) opts.stdout((await codec.generate()) + "\n");
   return 0;
 }
 
-function parseCount(flags: ReadonlyArray<string>): number | string {
-  const idx = flags.findIndex((f) => f === "--count" || f === "-c");
-  if (idx === -1) return 1;
-  const raw = flags[idx + 1];
-  if (raw === undefined) return "--count requires a value";
+function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
+  const { values } = splitFlags(args);
+  const bits = parseBits(values);
+  if (typeof bits === "string") {
+    opts.stderr(bits + "\n");
+    return Promise.resolve(1);
+  }
+  const format = parseKeyFormat(values, opts);
+  if (isKeyFormatError(format)) {
+    opts.stderr(format + "\n");
+    return Promise.resolve(1);
+  }
+  const bytes = new Uint8Array(bits / 8);
+  crypto.getRandomValues(bytes);
+  opts.stdout(encodeOpaqueKey(bytes, format) + "\n");
+  return Promise.resolve(0);
+}
+
+async function loadOpaqueKey(opts: RunOpts, format: OpaqueKeyFormat): Promise<CryptoKey | string> {
+  const env = opts.env ?? process.env;
+  const raw = env.IDS_KEY;
+  if (raw === undefined || raw === "") return "missing IDS_KEY environment variable";
+  try {
+    return importOpaqueKey(decodeOpaqueKey(raw, format));
+  } catch (err) {
+    return (err as Error).message;
+  }
+}
+
+function parseCount(values: Map<string, string>): number | string {
+  const raw = values.get("--count") ?? values.get("-c");
+  if (raw === undefined) return 1;
+  if (raw === "") return "--count requires a value";
   if (!/^[1-9][0-9]*$/.test(raw)) return `--count must be a positive integer, got '${raw}'`;
   return Number(raw);
+}
+
+function parseBits(values: Map<string, string>): number | string {
+  const raw = values.get("--bits");
+  if (raw === undefined) return 256;
+  if (raw === "") return "--bits requires a value";
+  if (raw === "128") return 128;
+  if (raw === "256") return 256;
+  return `--bits must be 128 or 256, got '${raw}'`;
+}
+
+function isKeyFormatError(result: OpaqueKeyFormat | string): result is string {
+  return result !== "hex" && result !== "base64url";
+}
+
+function parseKeyFormat(values: Map<string, string>, opts: RunOpts): OpaqueKeyFormat | string {
+  const fromFlag = values.get("--key-format");
+  if (fromFlag !== undefined) {
+    if (fromFlag === "") return "--key-format requires a value";
+    if (fromFlag === "hex" || fromFlag === "base64url") return fromFlag;
+    return `--key-format must be hex or base64url, got '${fromFlag}'`;
+  }
+  const env = opts.env ?? process.env;
+  const fromEnv = env.IDS_KEY_FORMAT;
+  if (fromEnv === undefined || fromEnv === "") return "hex";
+  if (fromEnv === "hex" || fromEnv === "base64url") return fromEnv;
+  return `IDS_KEY_FORMAT must be hex or base64url, got '${fromEnv}'`;
+}
+
+type ParsedFlags = {
+  flags: Set<string>;
+  values: Map<string, string>;
+  positionals: string[];
+};
+
+function splitFlagToken(arg: string): { flag: string; inlineValue: string | undefined } {
+  const eq = arg.indexOf("=");
+  if (eq <= 0) return { flag: arg, inlineValue: undefined };
+  return { flag: arg.slice(0, eq), inlineValue: arg.slice(eq + 1) };
+}
+
+function splitFlags(args: ReadonlyArray<string>): ParsedFlags {
+  const flags = new Set<string>();
+  const values = new Map<string, string>();
+  const positionals: string[] = [];
+  const valueFlags = new Set(["--count", "-c", "--bits", "--key-format"]);
+  for (let i = 0; i < args.length; i++) {
+    const raw = args[i]!;
+    const { flag, inlineValue } = splitFlagToken(raw);
+    if (flag === "--opaque") {
+      flags.add(flag);
+      continue;
+    }
+    if (valueFlags.has(flag)) {
+      if (inlineValue !== undefined) {
+        flags.add(flag);
+        values.set(flag, inlineValue);
+        continue;
+      }
+      const value = args[i + 1];
+      if (value === undefined || value.startsWith("-")) {
+        values.set(flag, "");
+        continue;
+      }
+      flags.add(flag);
+      values.set(flag, value);
+      i++;
+      continue;
+    }
+    if (flag.startsWith("-")) {
+      flags.add(flag);
+      continue;
+    }
+    positionals.push(raw);
+  }
+  return { flags, values, positionals };
 }
 
 function codecOpts(opts: RunOpts): Partial<Options> {
