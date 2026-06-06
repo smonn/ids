@@ -8,7 +8,7 @@ import {
   payloadByteLength,
   randomByteLength,
   timestampByteLength,
-  toWireIdFromBuffer,
+  toWireId,
 } from "./layouts/timestamp.js";
 import { wireMethods } from "./wire/codec-shell.js";
 
@@ -128,19 +128,19 @@ export function createId<Brand extends string>(
   // Per-codec scratch buffer. Shared across generate(), generateAt(),
   // minIdForTime(), and maxIdForTime() — all are synchronous and overwrite both
   // the timestamp and random slices before encoding, so successive callers see
-  // their own freshly-written bytes. encodePayload reads the buffer and returns
-  // an independent string, so the caller never sees the buffer itself.
+  // their own freshly-written bytes. toWireId reads the buffer and returns an
+  // independent string, so the caller never sees the buffer itself.
   const buffer = new Uint8Array(payloadByteLength);
   const randomView = new Uint8Array(buffer.buffer, timestampByteLength, randomByteLength);
 
   return {
     generate: () => {
       buildPayload(options.now(), options.rng, buffer, randomView);
-      return toWireIdFromBuffer(prefix, buffer);
+      return toWireId(prefix, buffer);
     },
     generateAt: (date: Date) => {
       buildPayload(date.getTime(), options.rng, buffer, randomView);
-      return toWireIdFromBuffer(prefix, buffer);
+      return toWireId(prefix, buffer);
     },
     is: wire.is,
     parse: wire.parse,
@@ -148,15 +148,15 @@ export function createId<Brand extends string>(
     extractTimestamp: (id: Id<Brand>) => extractTimestampFromId(prefix, id),
     minIdForTime: (date: Date) => {
       buildSentinelPayload(date.getTime(), 0x00, buffer, randomView);
-      return toWireIdFromBuffer(prefix, buffer);
+      return toWireId(prefix, buffer);
     },
     maxIdForTime: (date: Date) => {
       buildSentinelPayload(date.getTime(), 0xff, buffer, randomView);
-      return toWireIdFromBuffer(prefix, buffer);
+      return toWireId(prefix, buffer);
     },
     toJsonSchema: () => {
       buildPayload(options.now(), options.rng, buffer, randomView);
-      return wire.toJsonSchema(brand, toWireIdFromBuffer(prefix, buffer));
+      return wire.toJsonSchema(brand, toWireId(prefix, buffer));
     },
     "~standard": wire["~standard"],
   };

@@ -1,10 +1,15 @@
 import type { Id, Prefix } from "../types.js";
-import { payloadBytesFromId, toWireId } from "../wire/envelope.js";
+import { toWireId } from "../wire/envelope.js";
 import { payloadByteLength } from "../wire/invariants.js";
-import { readTimestampMs, timestampByteLength, writeTimestamp } from "../wire/timestamp-bytes.js";
+import {
+  readTimestampMsFromBase32Suffix,
+  timestampByteLength,
+  writeTimestamp,
+} from "../wire/timestamp-bytes.js";
 
 export { payloadByteLength } from "../wire/invariants.js";
 export { timestampByteLength } from "../wire/timestamp-bytes.js";
+export { toWireId } from "../wire/envelope.js";
 
 export const randomByteLength: number = payloadByteLength - timestampByteLength;
 
@@ -35,13 +40,5 @@ export function extractTimestampFromId<Brand extends string>(
   prefix: Prefix<Brand>,
   id: Id<Brand>,
 ): Date {
-  return new Date(readTimestampMs(payloadBytesFromId(prefix, id)));
-}
-
-/** Encodes scratch buffer contents as a canonical wire ID. */
-export function toWireIdFromBuffer<Brand extends string>(
-  prefix: Prefix<Brand>,
-  buffer: Uint8Array,
-): Id<Brand> {
-  return toWireId(prefix, buffer);
+  return new Date(readTimestampMsFromBase32Suffix(id.slice(prefix.length)));
 }

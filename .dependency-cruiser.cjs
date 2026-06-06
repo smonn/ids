@@ -28,7 +28,17 @@ module.exports = {
       to: { path: "^src/wire/(parse|envelope|codec-shell)" },
     },
     {
-      name: "factories-wire-codec-shell-only",
+      name: "codec-shell-parse-invariants-only",
+      severity: "error",
+      comment: "codec-shell may import only wire/parse and wire/invariants",
+      from: { path: "^src/wire/codec-shell\\.ts$" },
+      to: {
+        path: "^src/wire",
+        pathNot: "^src/wire/(parse|invariants)\\.ts$",
+      },
+    },
+    {
+      name: "codec-constructors-wire-codec-shell-only",
       severity: "error",
       from: { path: "^src/(id|opaque)\\.ts$" },
       to: { path: "^src/wire", pathNot: "^src/wire/codec-shell" },
@@ -40,16 +50,11 @@ module.exports = {
       to: { path: "^src/(id|opaque|cli|registry)\\.ts$" },
     },
     {
-      name: "layouts-no-sibling-timestamp-to-opaque",
+      name: "layouts-no-sibling-layouts",
       severity: "error",
-      from: { path: "^src/layouts/timestamp" },
-      to: { path: "^src/layouts/opaque" },
-    },
-    {
-      name: "layouts-no-sibling-opaque-to-timestamp",
-      severity: "error",
-      from: { path: "^src/layouts/opaque" },
-      to: { path: "^src/layouts/timestamp" },
+      comment: "layouts must not import sibling layout modules",
+      from: { path: "^src/layouts" },
+      to: { path: "^src/layouts" },
     },
     {
       name: "layouts-no-base32",
@@ -59,7 +64,7 @@ module.exports = {
       to: { path: "^src/base32" },
     },
     {
-      name: "factories-no-base32",
+      name: "codec-constructors-no-base32",
       severity: "error",
       from: { path: "^src/(id|opaque)\\.ts$" },
       to: { path: "^src/base32" },
@@ -71,7 +76,7 @@ module.exports = {
       to: { path: "^src/(wire|layouts)" },
     },
     {
-      name: "registry-only-from-factories",
+      name: "registry-only-from-codec-constructors",
       severity: "error",
       from: { path: "^src", pathNot: "^src/(id|opaque)\\.ts$" },
       to: { path: "^src/registry" },

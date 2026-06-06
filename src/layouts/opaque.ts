@@ -49,9 +49,18 @@ async function decryptPayload(key: CryptoKey, c1: Uint8Array): Promise<Uint8Arra
   );
 }
 
+async function extractTimestampFromId<Brand extends string>(
+  prefix: Prefix<Brand>,
+  key: CryptoKey,
+  id: Id<Brand>,
+): Promise<Date> {
+  const plaintext = await decryptPayload(key, payloadBytesFromId(prefix, id));
+  return new Date(readTimestampMs(plaintext));
+}
+
 /** Produces a canonical encrypted wire ID. Per-call plaintext/ciphertext buffers —
  * subtle dominates this path; reuse would be safe but not worth pinning to spec detail. */
-export async function generateWireId<Brand extends string>(
+async function generateWireId<Brand extends string>(
   prefix: Prefix<Brand>,
   key: CryptoKey,
   rng: (target: Uint8Array) => void,
@@ -62,14 +71,16 @@ export async function generateWireId<Brand extends string>(
   return toWireId(prefix, encrypted);
 }
 
-/** Decrypts and decodes the creation timestamp from a trusted wire ID. */
-export async function extractTimestampFromId<Brand extends string>(
+/** Wire generate/extract ops for the Opaque layout (module-private extract). */
+export function createOpaqueWireOps<Brand extends string>(
   prefix: Prefix<Brand>,
   key: CryptoKey,
-  id: Id<Brand>,
-): Promise<Date> {
-  const plaintext = await decryptPayload(key, payloadBytesFromId(prefix, id));
-  return new Date(readTimestampMs(plaintext));
+  rng: (target: Uint8Array) => void,
+) {
+  return {
+    generateAt: (ms: number): Promise<Id<Brand>> => generateWireId(prefix, key, rng, ms),
+    extractTimestamp: (id: Id<Brand>): Promise<Date> => extractTimestampFromId(prefix, key, id),
+  };
 }
 
 /** Structural placeholder for JSON Schema (encrypt is async). */

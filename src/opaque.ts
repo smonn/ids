@@ -1,5 +1,5 @@
 import { validateBrand } from "./brand.js";
-import { extractTimestampFromId, generateWireId, schemaExample } from "./layouts/opaque.js";
+import { createOpaqueWireOps, schemaExample } from "./layouts/opaque.js";
 import { registerBrand } from "./registry.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
@@ -90,14 +90,15 @@ export function createOpaqueId<Brand extends string>(
   const rng = opts.rng ?? defaultRng;
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);
+  const layout = createOpaqueWireOps(prefix, key, rng);
 
   return {
-    generate: () => generateWireId(prefix, key, rng, now()),
-    generateAt: (date: Date) => generateWireId(prefix, key, rng, date.getTime()),
+    generate: () => layout.generateAt(now()),
+    generateAt: (date: Date) => layout.generateAt(date.getTime()),
     is: wire.is,
     parse: wire.parse,
     safeParse: wire.safeParse,
-    extractTimestamp: (id: Id<Brand>) => extractTimestampFromId(prefix, key, id),
+    extractTimestamp: layout.extractTimestamp,
     toJsonSchema: () => wire.toJsonSchema(brand, schemaExample(prefix)),
     "~standard": wire["~standard"],
   };
