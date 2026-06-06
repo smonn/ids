@@ -1,12 +1,5 @@
-const brandPattern = /^[a-z]{3}$/;
 const registeredBrands = new Set<string>();
 const warnedBrands = new Set<string>();
-
-export function validateBrand(brand: string): void {
-  if (!brandPattern.test(brand)) {
-    throw new Error("invalid brand, expected three lowercase a-z characters");
-  }
-}
 
 export function registerBrand(brand: string, allowDuplicateBrand: boolean | undefined): void {
   if (

@@ -1,18 +1,8 @@
-import { decodeBase32, encodeBase32 } from "./base32.js";
-import { registerBrand, validateBrand } from "./registry.js";
-import {
-  base32CharClass,
-  is,
-  parse,
-  payloadBase32Length,
-  payloadByteLength,
-  readTimestampMs,
-  safeParse,
-  standardValidate,
-  timestampByteLength,
-  writeTimestamp,
-} from "./shared.js";
+import { validateBrand } from "./brand.js";
+import { createTimestampLayoutOps } from "./layouts/timestamp.js";
+import { registerBrand } from "./registry.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
+import { wireMethods } from "./wire/codec-shell.js";
 
 /**
  * Configuration options for a codec instance.
@@ -107,9 +97,6 @@ const defaultOptions: Options = {
   },
 };
 
-const randomByteLength = payloadByteLength - timestampByteLength;
-const timestampBase32Length = Math.ceil((timestampByteLength * 8) / 5);
-
 /**
  * Creates a codec for `brand` (three lowercase a–z characters).
  *
@@ -129,72 +116,19 @@ export function createId<Brand extends string>(
   } satisfies Options;
 
   const prefix: Prefix<Brand> = `${brand}_`;
-  // Per-codec scratch buffer. Shared across generate(), generateAt(),
-  // minIdForTime(), and maxIdForTime() — all are synchronous and overwrite both
-  // the timestamp and random slices before encoding, so successive callers see
-  // their own freshly-written bytes. encodeBase32 reads the buffer and
-  // returns an independent string, so the caller never sees the buffer itself.
-  const buffer = new Uint8Array(payloadByteLength);
-  const randomView = new Uint8Array(buffer.buffer, timestampByteLength, randomByteLength);
+  const wire = wireMethods(prefix);
+  const layout = createTimestampLayoutOps(prefix, options.rng);
 
   return {
-    generate: () => generate(prefix, options, buffer, randomView),
-    generateAt: (date: Date) => generate(prefix, options, buffer, randomView, date.getTime()),
-    is: (value: unknown) => is(prefix, value),
-    parse: (value: unknown) => parse(prefix, value),
-    safeParse: (value: unknown) => safeParse(prefix, value),
-    extractTimestamp: (id: Id<Brand>) => extractTimestamp(prefix, id),
-    minIdForTime: (date: Date) => sentinelIdForTime(prefix, date, 0x00, buffer, randomView),
-    maxIdForTime: (date: Date) => sentinelIdForTime(prefix, date, 0xff, buffer, randomView),
-    toJsonSchema: () => toJsonSchema(brand, prefix, options, buffer, randomView),
-    "~standard": {
-      version: 1,
-      vendor: "@smonn/ids",
-      validate: (value: unknown) => standardValidate(prefix, value),
-    },
+    generate: () => layout.generateAt(options.now()),
+    generateAt: (date: Date) => layout.generateAt(date.getTime()),
+    is: wire.is,
+    parse: wire.parse,
+    safeParse: wire.safeParse,
+    extractTimestamp: layout.extractTimestamp,
+    minIdForTime: (date: Date) => layout.minIdForTime(date.getTime()),
+    maxIdForTime: (date: Date) => layout.maxIdForTime(date.getTime()),
+    toJsonSchema: () => wire.toJsonSchema(brand, layout.exampleWireId(options.now())),
+    "~standard": wire["~standard"],
   };
-}
-
-function toJsonSchema<Brand extends string>(
-  brand: Brand,
-  prefix: Prefix<Brand>,
-  options: Options,
-  buffer: Uint8Array,
-  randomView: Uint8Array,
-): JsonSchema {
-  return {
-    type: "string",
-    pattern: `^${prefix}${base32CharClass}{${payloadBase32Length}}$`,
-    description: `Branded ID for '${brand}'`,
-    example: generate(prefix, options, buffer, randomView),
-  };
-}
-
-function generate<Brand extends string>(
-  prefix: Prefix<Brand>,
-  options: Options,
-  buffer: Uint8Array,
-  randomView: Uint8Array,
-  ms: number = options.now(),
-): Id<Brand> {
-  writeTimestamp(ms, buffer);
-  options.rng(randomView);
-  return (prefix + encodeBase32(buffer)) as Id<Brand>;
-}
-
-function sentinelIdForTime<Brand extends string>(
-  prefix: Prefix<Brand>,
-  date: Date,
-  fill: number,
-  buffer: Uint8Array,
-  randomView: Uint8Array,
-): Id<Brand> {
-  writeTimestamp(date.getTime(), buffer);
-  randomView.fill(fill);
-  return (prefix + encodeBase32(buffer)) as Id<Brand>;
-}
-
-function extractTimestamp<Brand extends string>(prefix: Prefix<Brand>, id: Id<Brand>): Date {
-  const base32 = id.slice(prefix.length, prefix.length + timestampBase32Length);
-  return new Date(readTimestampMs(decodeBase32(base32)));
 }
