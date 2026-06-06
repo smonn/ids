@@ -56,6 +56,13 @@ describe("cli", () => {
       expect(result.stdout).toContain("generate");
     });
 
+    it("help documents the generate count range", async () => {
+      const result = await runCapture(["--help"]);
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(result.stdout).toContain("Mint 1..10000 canonical IDs");
+    });
+
     it("unknown subcommand prints usage to stderr and exits 1", async () => {
       const result = await runCapture(["nope"]);
       expect(result.exitCode).toBe(1);
@@ -451,13 +458,37 @@ describe("cli", () => {
       expect(result.stderr).toBe("unsupported flag: --\n");
     });
 
-    it.each([["--count", "abc"], ["--count", "0"], ["--count", "1.5"], ["--count"]])(
-      "rejects %s %s with exit 1 and a stderr message",
-      async (...flags) => {
-        const result = await runCapture(["generate", "usr", ...flags]);
+    it.each([
+      ["--count", "abc"],
+      ["--count", "0"],
+      ["--count", "1.5"],
+      ["--count", "Infinity"],
+      ["--count", "1e309"],
+      ["--count", "1_000"],
+      ["--count", "+3"],
+      ["--count", "03"],
+      ["--count"],
+    ])("rejects %s %s with exit 1 and a stderr message", async (...flags) => {
+      const result = await runCapture(["generate", "usr", ...flags]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toMatch(/--count/);
+    });
+
+    it("rejects --count values above the CLI ceiling before generating", async () => {
+      const result = await runCapture(["generate", "usr", "--count", "10001"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("--count must be at most 10000, got '10001'\n");
+    });
+
+    it.each(["9007199254740992", "9".repeat(400)])(
+      "rejects oversized positive integer --count %s before generating",
+      async (count) => {
+        const result = await runCapture(["generate", "usr", "--count", count]);
         expect(result.exitCode).toBe(1);
         expect(result.stdout).toBe("");
-        expect(result.stderr).toMatch(/--count/);
+        expect(result.stderr).toBe(`--count must be at most 10000, got '${count}'\n`);
       },
     );
 
@@ -466,6 +497,20 @@ describe("cli", () => {
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
       expect(result.stderr).toBe("unsupported flag: -3\n");
+    });
+
+    it("accepts the explicit lower --count boundary", async () => {
+      const result = await runCapture(["generate", "usr", "--count", "1"]);
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(result.stdout.trimEnd().split("\n")).toHaveLength(1);
+    });
+
+    it("accepts the upper --count boundary", async () => {
+      const result = await runCapture(["generate", "usr", "--count", "10000"]);
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(result.stdout.trimEnd().split("\n")).toHaveLength(10_000);
     });
 
     it("`-c` is an alias for --count", async () => {
@@ -509,6 +554,15 @@ describe("cli", () => {
       const result = await runCapture(["generate", "usr", "--opaque"], { env: {} });
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toBe("missing IDS_KEY environment variable\n");
+    });
+
+    it("--opaque rejects --count above the CLI ceiling before loading IDS_KEY", async () => {
+      const result = await runCapture(["generate", "usr", "--opaque", "--count", "10001"], {
+        env: {},
+      });
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("--count must be at most 10000, got '10001'\n");
     });
 
     it("rejects an inline value for --opaque", async () => {
@@ -609,6 +663,16 @@ describe("cli", () => {
       expect(ids).toHaveLength(2);
       expect(new Set(ids).size).toBe(2);
       for (const id of ids) expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
+    });
+
+    it("--opaque accepts the upper --count boundary", async () => {
+      const result = await runCapture(["generate", "usr", "--opaque", "--count", "10000"], {
+        env: { IDS_KEY: testKeyHex },
+        now: () => 0x123456789abc,
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(result.stdout.trimEnd().split("\n")).toHaveLength(10_000);
     });
 
     it("--key-format on the command line wins over IDS_KEY_FORMAT", async () => {

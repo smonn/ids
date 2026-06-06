@@ -8,6 +8,8 @@ import {
 } from "./opaque.js";
 import type { Id } from "./types.js";
 
+const maxGenerateCount = 10_000;
+
 export type RunOpts = {
   argv: ReadonlyArray<string>;
   stdout: (chunk: string) => void;
@@ -40,7 +42,7 @@ function usage(): string {
     "    Decode an ID and print brand, timestamp, and canonical form.",
     "    --opaque reads the AES key from IDS_KEY (hex by default; IDS_KEY_FORMAT or --key-format).",
     "  generate, g <brand> [--count, -c N] [--opaque] [--key-format hex|base64url]",
-    "    Mint one or more canonical IDs for the given brand.",
+    `    Mint 1..${maxGenerateCount} canonical IDs for the given brand.`,
     "    --opaque reads the AES key from IDS_KEY (hex by default; IDS_KEY_FORMAT or --key-format).",
     "  keygen, k [--bits 128|192|256] [--key-format hex|base64url]",
     "    Emit a random AES key for importOpaqueKey (stdout only).",
@@ -325,7 +327,11 @@ function parseCount(values: Map<string, string>): number | string {
   if (raw === undefined) return 1;
   if (raw === "") return "--count requires a value";
   if (!/^[1-9][0-9]*$/.test(raw)) return `--count must be a positive integer, got '${raw}'`;
-  return Number(raw);
+  const count = Number.parseInt(raw, 10);
+  if (!Number.isSafeInteger(count) || count > maxGenerateCount) {
+    return `--count must be at most ${maxGenerateCount}, got '${raw}'`;
+  }
+  return count;
 }
 
 function parseBits(values: Map<string, string>): number | string {

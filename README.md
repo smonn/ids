@@ -268,7 +268,7 @@ usr_…
 usr_…
 ```
 
-Flags: `--count` / `-c N` (default 1). Uses the Timestamp codec unless `--opaque` is set.
+Flags: `--count` / `-c N` (default 1, max 10000). Uses the Timestamp codec unless `--opaque` is set.
 
 ```bash
 IDS_KEY=<hex-or-base64url-key> npx @smonn/ids generate inv --opaque --count 2
