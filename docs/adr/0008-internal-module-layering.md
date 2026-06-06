@@ -17,19 +17,21 @@ createId / createOpaqueId           ← validateBrand, registerBrand, inject def
   ├→ wire/codec-shell.ts            ← wireMethods(prefix)
   └→ layouts/<variant>.ts           ← create*LayoutOps(prefix, …)
         ↓
-      wire/invariants.ts, wire/envelope.ts, wire/parse.ts, wire/timestamp-bytes.ts
+      wire/invariants.ts, wire/envelope.ts, wire/timestamp-bytes.ts
         ↓
       base32, bytes, types          ← leaves
   brand.ts, registry.ts             ← peer leaves (codec constructors only)
 ```
 
+Codec constructors import **`wire/codec-shell`** separately from **`layouts/<variant>`** — the diagram shows two composition edges, not a single chain through layouts into all of `wire/`.
+
 **`registry.ts`** is shell-only (dev duplicate-brand warnings). Pure **`brand.ts`** holds `validateBrand`. Only codec constructors import both.
 
-Within **`wire/`**, `invariants` and `timestamp-bytes` are leaves; `parse` imports `invariants` only; `envelope` imports `base32` and `types` only; `codec-shell` composes `parse` + `invariants`. Codec constructors import **`wire/codec-shell` only** from `wire/`.
+Within **`wire/`**, `invariants` and `timestamp-bytes` are leaves; `parse` imports `invariants`, `base32`, and `types`; `envelope` imports `base32` and `types` only; `codec-shell` composes `parse` + `invariants`. Codec constructors import **`wire/codec-shell` only** from `wire/`.
 
 ### Layout ops binder (canonical composition pattern)
 
-Each `layouts/<variant>.ts` exports a single factory — `createTimestampLayoutOps`, `createOpaqueLayoutOps`, etc. — consumed by the matching codec constructor. The factory closes over variant inputs (`prefix`, `rng`, and for Opaque `key`), owns any per-codec scratch state, and returns the layout methods the public codec surface needs (`generateAt`, `extractTimestamp`, and variant-specific helpers such as `minIdForTime` / `exampleWireId`). Codec constructors bind `now()` and wire methods; they do not import layout helpers or wire internals directly.
+Each `layouts/<variant>.ts` exports a single binder — `createTimestampLayoutOps`, `createOpaqueLayoutOps`, etc. — consumed by the matching codec constructor. The binder closes over variant inputs (`prefix`, `rng`, and for Opaque `key`), owns any per-codec scratch state, and returns the layout methods the public codec surface needs (`generateAt`, `extractTimestamp`, and variant-specific helpers such as `minIdForTime` / `exampleWireId`). Codec constructors bind `now()` and wire methods; they do not import layout helpers or wire internals directly.
 
 ### Responsibilities
 
@@ -47,6 +49,6 @@ Each `layouts/<variant>.ts` exports a single factory — `createTimestampLayoutO
 
 - Adding a codec variant means `layouts/<variant>.ts` (export `create*LayoutOps`) + `<variant>.ts` codec constructor + subpath export ([ADR-0005](./0005-codec-variant-subpath-exports.md)) — no changes to parse or envelope.
 - `layouts/*` must not import sibling layouts; Opaque depends on `wire/timestamp-bytes`, not `layouts/timestamp`.
-- Codec constructors must not import `base32` directly — envelope owns payload encoding. Codec constructors import `wire/codec-shell` only from `wire/`, and `create*LayoutOps` only from `layouts/`.
+- Codec constructors must not import `base32` directly — envelope owns payload encoding. Codec constructors import `wire/codec-shell` only from `wire/`, and `create*LayoutOps` binders only from `layouts/`.
 - **dependency-cruiser** enforces the rings in CI; `.dependency-cruiser.cjs` is the source of truth.
 - `CONTEXT.md` unchanged — Payload, Byte layout, Prefix already cover the domain; wire/layouts are implementation.

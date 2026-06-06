@@ -71,7 +71,12 @@ async function generateWireId<Brand extends string>(
   return toWireId(prefix, encrypted);
 }
 
-/** Layout generate/extract ops for the Opaque layout (module-private extract). */
+/** Structural placeholder for JSON Schema (encrypt is async). */
+function schemaExample<Brand extends string>(prefix: Prefix<Brand>): string {
+  return prefix + "0".repeat(payloadBase32Length);
+}
+
+/** Layout ops binder for the Opaque variant. `extractTimestampFromId` is module-private; the binder exposes `extractTimestamp` for the codec constructor. */
 export function createOpaqueLayoutOps<Brand extends string>(
   prefix: Prefix<Brand>,
   key: CryptoKey,
@@ -80,10 +85,6 @@ export function createOpaqueLayoutOps<Brand extends string>(
   return {
     generateAt: (ms: number): Promise<Id<Brand>> => generateWireId(prefix, key, rng, ms),
     extractTimestamp: (id: Id<Brand>): Promise<Date> => extractTimestampFromId(prefix, key, id),
+    exampleWireId: (): Id<Brand> => schemaExample(prefix) as Id<Brand>,
   };
-}
-
-/** Structural placeholder for JSON Schema (encrypt is async). */
-export function schemaExample<Brand extends string>(prefix: Prefix<Brand>): string {
-  return prefix + "0".repeat(payloadBase32Length);
 }

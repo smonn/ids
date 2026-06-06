@@ -36,7 +36,7 @@ function extractTimestampFromId<Brand extends string>(prefix: Prefix<Brand>, id:
   return new Date(readTimestampMsFromBase32Suffix(id.slice(prefix.length)));
 }
 
-/** Layout generate/extract ops for the Timestamp layout (module-private extract). */
+/** Layout ops binder for the Timestamp variant. `extractTimestampFromId` is module-private; the binder exposes `extractTimestamp` for the codec constructor. */
 export function createTimestampLayoutOps<Brand extends string>(
   prefix: Prefix<Brand>,
   rng: (target: Uint8Array) => void,

@@ -1,5 +1,5 @@
 import { validateBrand } from "./brand.js";
-import { createOpaqueLayoutOps, schemaExample } from "./layouts/opaque.js";
+import { createOpaqueLayoutOps } from "./layouts/opaque.js";
 import { registerBrand } from "./registry.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
@@ -99,7 +99,7 @@ export function createOpaqueId<Brand extends string>(
     parse: wire.parse,
     safeParse: wire.safeParse,
     extractTimestamp: layout.extractTimestamp,
-    toJsonSchema: () => wire.toJsonSchema(brand, schemaExample(prefix)),
+    toJsonSchema: () => wire.toJsonSchema(brand, layout.exampleWireId()),
     "~standard": wire["~standard"],
   };
 }

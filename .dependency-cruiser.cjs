@@ -28,6 +28,36 @@ module.exports = {
       to: { path: "^src/wire/(parse|envelope|codec-shell)" },
     },
     {
+      name: "wire-parse-imports-allowlist",
+      severity: "error",
+      comment: "parse may import only invariants, base32, and types",
+      from: { path: "^src/wire/parse\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/(wire/invariants|base32|types)\\.ts$",
+      },
+    },
+    {
+      name: "wire-envelope-imports-allowlist",
+      severity: "error",
+      comment: "envelope may import only base32 and types",
+      from: { path: "^src/wire/envelope\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/(base32|types)\\.ts$",
+      },
+    },
+    {
+      name: "wire-timestamp-bytes-imports-allowlist",
+      severity: "error",
+      comment: "timestamp-bytes may import only base32",
+      from: { path: "^src/wire/timestamp-bytes\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/base32\\.ts$",
+      },
+    },
+    {
       name: "codec-shell-parse-invariants-only",
       severity: "error",
       comment: "codec-shell may import only wire/parse and wire/invariants",
@@ -44,6 +74,13 @@ module.exports = {
       to: { path: "^src/wire", pathNot: "^src/wire/codec-shell" },
     },
     {
+      name: "codec-constructors-layouts-only",
+      severity: "error",
+      comment: "only codec constructors may import layouts",
+      from: { path: "^src", pathNot: "^src/(id|opaque)\\.ts$" },
+      to: { path: "^src/layouts" },
+    },
+    {
       name: "layouts-no-shell",
       severity: "error",
       from: { path: "^src/layouts" },
@@ -55,6 +92,17 @@ module.exports = {
       comment: "layouts must not import sibling layout modules",
       from: { path: "^src/layouts" },
       to: { path: "^src/layouts" },
+    },
+    {
+      name: "layouts-wire-imports-allowlist",
+      severity: "error",
+      comment:
+        "layouts may import wire/envelope, wire/invariants, wire/timestamp-bytes, and types only",
+      from: { path: "^src/layouts" },
+      to: {
+        path: "^src",
+        pathNot: "^src/(wire/(envelope|invariants|timestamp-bytes)|types)\\.ts$",
+      },
     },
     {
       name: "layouts-no-base32",
@@ -72,8 +120,15 @@ module.exports = {
     {
       name: "cli-no-internals",
       severity: "error",
-      from: { path: "^src/cli\\.ts$" },
+      from: { path: "^src/cli\\.ts$|^bin/cli\\.ts$" },
       to: { path: "^src/(wire|layouts)" },
+    },
+    {
+      name: "brand-only-from-codec-constructors",
+      severity: "error",
+      comment: "only codec constructors may import brand",
+      from: { path: "^src", pathNot: "^src/(id|opaque)\\.ts$" },
+      to: { path: "^src/brand" },
     },
     {
       name: "registry-only-from-codec-constructors",
