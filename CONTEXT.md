@@ -13,8 +13,28 @@ The brand plus the trailing separator — `"usr_"`. Distinct from the brand itse
 _Avoid_: brand (use **Brand** for the unsuffixed form), header.
 
 **Codec**:
-The brand-scoped object returned by `createId(brand)`, exposing `generate`, `is`, `parse`, `safeParse`, and `extractTimestamp`. The brand is validated once at codec creation; the prefix is then captured by each method. One codec per entity type, typically constructed at module init.
+The brand-scoped object that generates, parses, and validates IDs for one entity type. The brand is validated once at construction; the prefix is captured by each method. One codec per brand, typically constructed at module init. Concrete codecs are **Codec variants**.
 _Avoid_: factory, generator, encoder.
+
+**Codec variant**:
+A concrete codec algorithm sharing the same wire shape (`<brand>_` + 26 Crockford base32 chars) but differing in byte layout and capabilities. Shipped today: the **Timestamp codec** and the **Opaque codec**. Each variant is a separate subpath export — see [ADR-0005](./docs/adr/0005-codec-variant-subpath-exports.md).
+_Avoid_: default codec (use **Timestamp codec** for the dominant variant), trust mode, algorithm.
+
+**Timestamp codec**:
+The dominant codec variant. Payload carries the **Timestamp byte layout** in plaintext — IDs sort by creation time and `extractTimestamp` works without a key. Constructed via `createId(brand)` on the main entry; fully synchronous.
+_Avoid_: default codec, standard codec, ULID codec.
+
+**Opaque codec**:
+A codec variant that AES-encrypts the payload under caller-supplied **Opaque key** material. Same wire shape as the Timestamp codec, but the timestamp is not readable from the ID without the key. `generate` and `extractTimestamp` are key-dependent; parsing methods work on the wire form only — see [ADR-0006](./docs/adr/0006-async-keyed-codec-contract.md). No time-range bound methods (`minIdForTime` / `maxIdForTime`) — encrypted payloads do not sort by creation time.
+_Avoid_: encrypted codec, private codec, secure codec.
+
+**Opaque key**:
+The AES key (128, 192, or 256 bits of raw bytes) that gates encryption and decryption in the Opaque codec. Distinct from the ID **Payload** — an Opaque key is operator-supplied secret material, never embedded in an ID. `extractTimestamp` requires the same key that was used at generation time.
+_Avoid_: secret, encryption key (too generic), master key.
+
+**Opaque key format**:
+How raw Opaque key bytes are encoded for storage or transport outside the library — `hex` (lowercase) or `base64url`. Not Crockford base32; that alphabet is reserved for ID payloads. The CLI's `keygen` emits keys in this format; `encodeOpaqueKey` / `decodeOpaqueKey` round-trip between encoded strings and raw bytes.
+_Avoid_: key encoding (ambiguous with payload encoding), format (use **Opaque key format** or **Byte layout** depending on context).
 
 **Canonical form**:
 The unique representation of an ID — lowercase, with Crockford base32 aliases (`o`, `i`, `l`) already resolved to `0`, `1`, `1`. Two strings denote the same ID iff their canonical forms are equal. `Id<Brand>` always holds a canonical string: `generate()` produces canonical, `parse()`/`safeParse()` normalise to canonical at the boundary, and `is()` is strict — see [ADR-0003](./docs/adr/0003-canonical-strict-is.md).
@@ -49,7 +69,15 @@ _Avoid_: layout (ambiguous with UI/visual), scheme (loses byte-level specificity
 > **Dev:** And the part after `usr_` is just random?
 >
 > **Domain expert:** No — it's the payload. First 6 bytes are a millisecond Unix timestamp, then 10 random bytes. ULID-shaped, but lowercase and wrapped in a brand envelope. That's why IDs sort by creation time.
+>
+> **Dev:** Support pasted an invoice ID — can I get the creation time from it?
+>
+> **Domain expert:** Only if that brand uses the Opaque codec and you have the Opaque key. `extractTimestamp` decrypts under the key; without it, the timestamp isn't recoverable from the wire form. Same on the CLI: `inspect --opaque` with `IDS_KEY` set. Run `inspect` without `--opaque` on an Opaque-encoded ID and you'll get a timestamp line — but it's meaningless; the variants are wire-indistinguishable.
 
 ## Flagged ambiguities / known gaps
 
 **Same-millisecond sort order is non-deterministic.** Two IDs generated in the same ms by the same process have independent random tails; they sort randomly relative to each other rather than by generation order. This is deliberate — see ADR-0002. Adding ULID-style monotonic increment would require a stateful generator and a breaking change to `Options`, and is a separate design exercise if the need ever arises.
+
+**Wire-indistinguishable variants cannot be inferred from an ID alone.** An Opaque-encoded ID looks identical to a Timestamp-encoded ID on the wire. Any tool that decodes a timestamp without the correct Opaque key — including `inspect` run without `--opaque` — interprets encrypted payload bytes as plaintext Timestamp bytes and prints a meaningless timestamp. The operator must know which codec variant the brand uses; see [ADR-0007](./docs/adr/0007-wire-indistinguishable-codec-variants.md).
+
+**Wrong Opaque key is indistinguishable from the right one at decrypt time.** Unauthenticated AES-CBC (ADR-0004) never throws on decrypt; a well-formed but incorrect key yields a plausible-looking timestamp, not an error. `extractTimestamp` — and CLI `inspect --opaque` — assume the operator supplied the same key used at generation. Missing or malformed key material is rejected; key mismatch is not detectable. See [docs/IDEAS.md](./docs/IDEAS.md) (key rotation) for rotation and plausibility-check options.
