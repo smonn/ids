@@ -65,7 +65,48 @@ describe("cli", () => {
     });
   });
 
+  describe("unsupported opaque typo flags", () => {
+    it.each([
+      ["inspect", ["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"]],
+      ["generate", ["generate", "usr"]],
+      ["keygen", ["keygen"]],
+    ])("%s rejects a misspelled --opaque flag", async (_command, argv) => {
+      const result = await runCapture([...argv, "--opqaue"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --opqaue\n");
+    });
+
+    it.each([
+      ["inspect", ["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"]],
+      ["generate", ["generate", "usr"]],
+      ["keygen", ["keygen"]],
+    ])("%s rejects a misspelled --opaque flag with an inline value", async (_command, argv) => {
+      const result = await runCapture([...argv, "--opqaue=true"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --opqaue\n");
+    });
+  });
+
   describe("inspect", () => {
+    it("rejects a misspelled --opaque flag before inspecting", async () => {
+      const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz", "--opqaue"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --opqaue\n");
+    });
+
+    it("rejects duplicate --opaque flags", async () => {
+      const result = await runCapture(
+        ["inspect", "usr_00000000000000000000000000", "--opaque", "--opaque"],
+        { env: { IDS_KEY: testKeyHex } },
+      );
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("duplicate flag: --opaque\n");
+    });
+
     it("invalid base32 payload prints the parse error and exits 1", async () => {
       const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgk!"]);
       expect(result.exitCode).toBe(1);
@@ -79,6 +120,13 @@ describe("cli", () => {
       expect(result.stdout).toBe("");
       expect(result.stderr).toContain("inspect");
       expect(result.stderr).toContain("generate");
+    });
+
+    it("rejects an unexpected extra positional argument", async () => {
+      const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz", "extra"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unexpected argument: extra\n");
     });
 
     it("wrong-shape brand prints the createId error and exits 1", async () => {
@@ -202,6 +250,18 @@ describe("cli", () => {
       expect(result.stderr).toBe("--key-format requires a value\n");
     });
 
+    it("rejects --key-format without --opaque", async () => {
+      const result = await runCapture([
+        "inspect",
+        "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+        "--key-format",
+        "base64url",
+      ]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("--key-format requires --opaque\n");
+    });
+
     it("--opaque rejects an invalid brand", async () => {
       const result = await runCapture(["inspect", "12X_00000000000000000000000000", "--opaque"], {
         env: { IDS_KEY: testKeyHex },
@@ -285,6 +345,13 @@ describe("cli", () => {
   });
 
   describe("generate", () => {
+    it("rejects an unexpected extra positional argument", async () => {
+      const result = await runCapture(["generate", "usr", "extra"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unexpected argument: extra\n");
+    });
+
     it("prints one canonical ID and exits 0", async () => {
       const result = await runCapture(["generate", "usr"]);
       expect(result.exitCode).toBe(0);
@@ -324,17 +391,81 @@ describe("cli", () => {
       expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
     });
 
-    it.each([
-      ["--count", "abc"],
-      ["--count", "0"],
-      ["--count", "-3"],
-      ["--count", "1.5"],
-      ["--count"],
-    ])("rejects %s %s with exit 1 and a stderr message", async (...flags) => {
-      const result = await runCapture(["generate", "usr", ...flags]);
+    it("rejects flags that belong to another command", async () => {
+      const result = await runCapture(["generate", "usr", "--bits", "128"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toMatch(/--count/);
+      expect(result.stderr).toBe("unsupported flag for generate: --bits\n");
+    });
+
+    it("rejects flags that belong to another command before value-shape errors", async () => {
+      const result = await runCapture(["generate", "usr", "--bits"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag for generate: --bits\n");
+    });
+
+    it("rejects an unsupported dash-prefixed token after a missing value flag", async () => {
+      const result = await runCapture(["generate", "usr", "--count", "--opqaue"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --opqaue\n");
+    });
+
+    it("reports the missing value when the following dash-prefixed token is allowed", async () => {
+      const result = await runCapture(["generate", "usr", "--count", "--opaque"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("--count requires a value\n");
+    });
+
+    it("rejects a misspelled --opaque flag before generating", async () => {
+      const result = await runCapture(["generate", "usr", "--opqaue"], {
+        env: { IDS_KEY: testKeyHex },
+      });
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --opqaue\n");
+    });
+
+    it("rejects a misspelled --opaque flag with an inline value by flag name", async () => {
+      const result = await runCapture(["generate", "usr", "--opqaue=true"], {
+        env: { IDS_KEY: testKeyHex },
+      });
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --opqaue\n");
+    });
+
+    it("rejects subcommand-local help for now", async () => {
+      const result = await runCapture(["generate", "--help"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --help\n");
+    });
+
+    it("rejects -- as an unsupported flag", async () => {
+      const result = await runCapture(["generate", "--", "usr"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --\n");
+    });
+
+    it.each([["--count", "abc"], ["--count", "0"], ["--count", "1.5"], ["--count"]])(
+      "rejects %s %s with exit 1 and a stderr message",
+      async (...flags) => {
+        const result = await runCapture(["generate", "usr", ...flags]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toMatch(/--count/);
+      },
+    );
+
+    it("rejects dash-prefixed count values as unsupported flags", async () => {
+      const result = await runCapture(["generate", "usr", "--count", "-3"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: -3\n");
     });
 
     it("`-c` is an alias for --count", async () => {
@@ -347,6 +478,13 @@ describe("cli", () => {
       });
       expect(result.exitCode).toBe(0);
       expect(result.stdout.trimEnd().split("\n")).toHaveLength(3);
+    });
+
+    it("rejects duplicate count flags even when one uses the alias", async () => {
+      const result = await runCapture(["generate", "usr", "-c", "2", "--count", "3"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("duplicate flag: --count\n");
     });
 
     it("--count N prints N distinct IDs, one per line", async () => {
@@ -371,6 +509,15 @@ describe("cli", () => {
       const result = await runCapture(["generate", "usr", "--opaque"], { env: {} });
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toBe("missing IDS_KEY environment variable\n");
+    });
+
+    it("rejects an inline value for --opaque", async () => {
+      const result = await runCapture(["generate", "usr", "--opaque=true"], {
+        env: { IDS_KEY: testKeyHex },
+      });
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("flag does not take a value: --opaque\n");
     });
 
     it("--opaque rejects an invalid --key-format", async () => {
@@ -479,9 +626,51 @@ describe("cli", () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toBe(`${expected}\n`);
     });
+
+    it("rejects --key-format without --opaque", async () => {
+      const result = await runCapture(["generate", "usr", "--key-format", "base64url"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("--key-format requires --opaque\n");
+    });
+
+    it("rejects duplicate --key-format flags", async () => {
+      const result = await runCapture([
+        "generate",
+        "usr",
+        "--opaque",
+        "--key-format",
+        "hex",
+        "--key-format=base64url",
+      ]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("duplicate flag: --key-format\n");
+    });
   });
 
   describe("keygen", () => {
+    it("rejects an unexpected positional argument", async () => {
+      const result = await runCapture(["keygen", "extra"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unexpected argument: extra\n");
+    });
+
+    it("rejects flags that belong to another command", async () => {
+      const result = await runCapture(["keygen", "--opaque"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag for keygen: --opaque\n");
+    });
+
+    it("rejects unknown flags", async () => {
+      const result = await runCapture(["keygen", "--bogus"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --bogus\n");
+    });
+
     it("emits a 256-bit hex key by default", async () => {
       const result = await runCapture(["keygen"]);
       expect(result.exitCode).toBe(0);
@@ -507,6 +696,13 @@ describe("cli", () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout.trim()).toMatch(/^[A-Za-z0-9_-]+$/);
       expect(result.stdout.trim()).toHaveLength(22);
+    });
+
+    it("rejects duplicate --bits flags", async () => {
+      const result = await runCapture(["keygen", "--bits", "128", "--bits=256"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("duplicate flag: --bits\n");
     });
 
     it("rejects invalid --bits", async () => {

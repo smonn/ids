@@ -49,13 +49,35 @@ function usage(): string {
 }
 
 function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
-  const { flags, values, positionals } = splitFlags(args);
+  const { flags, values, positionals, errors } = splitFlags(args);
+  const unsupported = unsupportedFlagForCommand(
+    "inspect",
+    flags,
+    new Set(["--opaque", "--key-format"]),
+  );
+  if (unsupported !== undefined) {
+    opts.stderr(unsupported + "\n");
+    return Promise.resolve(1);
+  }
+  if (errors[0] !== undefined) {
+    opts.stderr(errors[0] + "\n");
+    return Promise.resolve(1);
+  }
   const [input] = positionals;
   if (input === undefined) {
     opts.stderr(usage());
     return Promise.resolve(1);
   }
+  const extra = positionals[1];
+  if (extra !== undefined) {
+    opts.stderr(`unexpected argument: ${extra}\n`);
+    return Promise.resolve(1);
+  }
   const opaque = flags.has("--opaque");
+  if (!opaque && flags.has("--key-format")) {
+    opts.stderr("--key-format requires --opaque\n");
+    return Promise.resolve(1);
+  }
   const brand = input.slice(0, 3).toLowerCase();
   if (opaque) {
     const format = parseOpaqueKeyFormat(values, opts);
@@ -180,7 +202,25 @@ function unit(n: number, name: string): string {
 }
 
 function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
-  const { flags, values, positionals } = splitFlags(args);
+  const { flags, values, positionals, errors } = splitFlags(args);
+  const unsupported = unsupportedFlagForCommand(
+    "generate",
+    flags,
+    new Set(["--count", "-c", "--opaque", "--key-format"]),
+  );
+  if (unsupported !== undefined) {
+    opts.stderr(unsupported + "\n");
+    return Promise.resolve(1);
+  }
+  if (errors[0] !== undefined) {
+    opts.stderr(errors[0] + "\n");
+    return Promise.resolve(1);
+  }
+  const extra = positionals[1];
+  if (extra !== undefined) {
+    opts.stderr(`unexpected argument: ${extra}\n`);
+    return Promise.resolve(1);
+  }
   const [brand] = positionals;
   const count = parseCount(values);
   if (typeof count === "string") {
@@ -188,6 +228,10 @@ function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise<number
     return Promise.resolve(1);
   }
   const opaque = flags.has("--opaque");
+  if (!opaque && flags.has("--key-format")) {
+    opts.stderr("--key-format requires --opaque\n");
+    return Promise.resolve(1);
+  }
   if (opaque) {
     const format = parseOpaqueKeyFormat(values, opts);
     if (isKeyFormatError(format)) {
@@ -230,7 +274,25 @@ async function runOpaqueGenerate(
 }
 
 function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
-  const { values } = splitFlags(args);
+  const { flags, values, positionals, errors } = splitFlags(args);
+  const unsupported = unsupportedFlagForCommand(
+    "keygen",
+    flags,
+    new Set(["--bits", "--key-format"]),
+  );
+  if (unsupported !== undefined) {
+    opts.stderr(unsupported + "\n");
+    return Promise.resolve(1);
+  }
+  if (errors[0] !== undefined) {
+    opts.stderr(errors[0] + "\n");
+    return Promise.resolve(1);
+  }
+  const extra = positionals[0];
+  if (extra !== undefined) {
+    opts.stderr(`unexpected argument: ${extra}\n`);
+    return Promise.resolve(1);
+  }
   const bits = parseBits(values);
   if (typeof bits === "string") {
     opts.stderr(bits + "\n");
@@ -311,6 +373,7 @@ type ParsedFlags = {
   flags: Set<string>;
   values: Map<string, string>;
   positionals: string[];
+  errors: string[];
 };
 
 function splitFlagToken(arg: string): { flag: string; inlineValue: string | undefined } {
@@ -323,37 +386,69 @@ function splitFlags(args: ReadonlyArray<string>): ParsedFlags {
   const flags = new Set<string>();
   const values = new Map<string, string>();
   const positionals: string[] = [];
+  const errors: string[] = [];
+  const seenFlags = new Set<string>();
   const valueFlags = new Set(["--count", "-c", "--bits", "--key-format"]);
+  const addFlag = (flag: string) => {
+    const canonical = canonicalFlag(flag);
+    if (seenFlags.has(canonical)) errors.push(`duplicate flag: ${canonical}`);
+    seenFlags.add(canonical);
+    flags.add(flag);
+  };
   for (let i = 0; i < args.length; i++) {
     const raw = args[i]!;
     const { flag, inlineValue } = splitFlagToken(raw);
     if (flag === "--opaque") {
-      flags.add(flag);
+      addFlag(flag);
+      if (inlineValue !== undefined) errors.push("flag does not take a value: --opaque");
       continue;
     }
     if (valueFlags.has(flag)) {
       if (inlineValue !== undefined) {
-        flags.add(flag);
+        addFlag(flag);
         values.set(flag, inlineValue);
         continue;
       }
       const value = args[i + 1];
       if (value === undefined || value.startsWith("-")) {
+        addFlag(flag);
         values.set(flag, "");
         continue;
       }
-      flags.add(flag);
+      addFlag(flag);
       values.set(flag, value);
       i++;
       continue;
     }
     if (flag.startsWith("-")) {
-      flags.add(flag);
+      addFlag(flag);
       continue;
     }
     positionals.push(raw);
   }
-  return { flags, values, positionals };
+  return { flags, values, positionals, errors };
+}
+
+function canonicalFlag(flag: string): string {
+  if (flag === "-c") return "--count";
+  return flag;
+}
+
+const knownFlags = new Set(["--opaque", "--key-format", "--count", "-c", "--bits"]);
+
+function unsupportedFlagForCommand(
+  command: string,
+  flags: Set<string>,
+  allowed: Set<string>,
+): string | undefined {
+  for (const flag of flags) {
+    if (!allowed.has(flag)) {
+      return knownFlags.has(flag)
+        ? `unsupported flag for ${command}: ${flag}`
+        : `unsupported flag: ${flag}`;
+    }
+  }
+  return undefined;
 }
 
 function codecOpts(opts: RunOpts): Partial<Options> {
