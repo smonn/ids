@@ -413,7 +413,6 @@ function splitFlags(args: ReadonlyArray<string>): ParsedFlags {
       if (value === undefined || value.startsWith("-")) {
         addFlag(flag);
         values.set(flag, "");
-        if (value !== undefined) i++;
         continue;
       }
       addFlag(flag);

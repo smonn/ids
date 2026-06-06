@@ -65,6 +65,30 @@ describe("cli", () => {
     });
   });
 
+  describe("unsupported opaque typo flags", () => {
+    it.each([
+      ["inspect", ["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"]],
+      ["generate", ["generate", "usr"]],
+      ["keygen", ["keygen"]],
+    ])("%s rejects a misspelled --opaque flag", async (_command, argv) => {
+      const result = await runCapture([...argv, "--opqaue"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --opqaue\n");
+    });
+
+    it.each([
+      ["inspect", ["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"]],
+      ["generate", ["generate", "usr"]],
+      ["keygen", ["keygen"]],
+    ])("%s rejects a misspelled --opaque flag with an inline value", async (_command, argv) => {
+      const result = await runCapture([...argv, "--opqaue=true"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --opqaue\n");
+    });
+  });
+
   describe("inspect", () => {
     it("rejects a misspelled --opaque flag before inspecting", async () => {
       const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz", "--opqaue"]);
@@ -381,6 +405,20 @@ describe("cli", () => {
       expect(result.stderr).toBe("unsupported flag for generate: --bits\n");
     });
 
+    it("rejects an unsupported dash-prefixed token after a missing value flag", async () => {
+      const result = await runCapture(["generate", "usr", "--count", "--opqaue"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag: --opqaue\n");
+    });
+
+    it("reports the missing value when the following dash-prefixed token is allowed", async () => {
+      const result = await runCapture(["generate", "usr", "--count", "--opaque"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("--count requires a value\n");
+    });
+
     it("rejects a misspelled --opaque flag before generating", async () => {
       const result = await runCapture(["generate", "usr", "--opqaue"], {
         env: { IDS_KEY: testKeyHex },
@@ -413,17 +451,21 @@ describe("cli", () => {
       expect(result.stderr).toBe("unsupported flag: --\n");
     });
 
-    it.each([
-      ["--count", "abc"],
-      ["--count", "0"],
-      ["--count", "-3"],
-      ["--count", "1.5"],
-      ["--count"],
-    ])("rejects %s %s with exit 1 and a stderr message", async (...flags) => {
-      const result = await runCapture(["generate", "usr", ...flags]);
+    it.each([["--count", "abc"], ["--count", "0"], ["--count", "1.5"], ["--count"]])(
+      "rejects %s %s with exit 1 and a stderr message",
+      async (...flags) => {
+        const result = await runCapture(["generate", "usr", ...flags]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toMatch(/--count/);
+      },
+    );
+
+    it("rejects dash-prefixed count values as unsupported flags", async () => {
+      const result = await runCapture(["generate", "usr", "--count", "-3"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toMatch(/--count/);
+      expect(result.stderr).toBe("unsupported flag: -3\n");
     });
 
     it("`-c` is an alias for --count", async () => {
