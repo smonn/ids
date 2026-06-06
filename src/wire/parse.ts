@@ -1,11 +1,6 @@
 import { alphabet } from "../base32.js";
 import type { Id, ParseError, ParseResult, Prefix } from "../types.js";
-import { payloadBase32Length } from "./envelope.js";
-
-// Compact regex character class for the canonical lowercase Crockford alphabet
-// (`0123456789abcdefghjkmnpqrstvwxyz` — excludes i, l, o, u). Used in the JSON
-// Schema `pattern`, which describes the canonical wire form only (ADR-0003).
-export const base32CharClass: string = "[0-9a-hjkmnp-tv-z]";
+import { payloadBase32Length } from "./invariants.js";
 
 const replacePattern = /[ilo]/g;
 const aliasTestPattern = /[ilo]/;

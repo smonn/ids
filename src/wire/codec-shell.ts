@@ -1,6 +1,6 @@
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../types.js";
-import { payloadBase32Length } from "./envelope.js";
-import { base32CharClass, is, parse, safeParse, standardValidate } from "./parse.js";
+import { base32CharClass, payloadBase32Length } from "./invariants.js";
+import { is, parse, safeParse, standardValidate } from "./parse.js";
 
 type WireMethods<Brand extends string> = {
   is: (value: unknown) => value is Id<Brand>;

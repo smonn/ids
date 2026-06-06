@@ -1,9 +1,5 @@
 import { validateBrand } from "./brand.js";
-import {
-  extractTimestampFromId,
-  generateWireId,
-  schemaExample,
-} from "./layouts/opaque.js";
+import { extractTimestampFromId, generateWireId, schemaExample } from "./layouts/opaque.js";
 import { registerBrand } from "./registry.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";

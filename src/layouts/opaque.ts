@@ -1,10 +1,6 @@
 import type { Id, Prefix } from "../types.js";
-import {
-  payloadBase32Length,
-  payloadByteLength,
-  payloadBytesFromId,
-  toWireId,
-} from "../wire/envelope.js";
+import { payloadBytesFromId, toWireId } from "../wire/envelope.js";
+import { payloadBase32Length, payloadByteLength } from "../wire/invariants.js";
 import { readTimestampMs, timestampByteLength, writeTimestamp } from "../wire/timestamp-bytes.js";
 
 const zeroIv = new Uint8Array(payloadByteLength);
@@ -28,6 +24,9 @@ async function encryptPayload(key: CryptoKey, plaintext: Uint8Array): Promise<Ui
   return encrypted.subarray(0, payloadByteLength);
 }
 
+// AES-CBC strip-and-reconstruct decrypt (ADR-0004). The wire carries only C1
+// (16 bytes); C2 = AES_K(P2 XOR C1) where P2 is the PKCS#7 pad block (0x10×16).
+// Recompute C2 via CBC encrypt of (P2 XOR C1) with IV=0, then decrypt C1‖C2.
 async function decryptPayload(key: CryptoKey, c1: Uint8Array): Promise<Uint8Array> {
   const c2Input = new Uint8Array(payloadByteLength);
   for (let i = 0; i < payloadByteLength; i++) c2Input[i] = pkcsPad ^ c1[i]!;
@@ -50,7 +49,8 @@ async function decryptPayload(key: CryptoKey, c1: Uint8Array): Promise<Uint8Arra
   );
 }
 
-/** Produces a canonical encrypted wire ID. */
+/** Produces a canonical encrypted wire ID. Per-call plaintext/ciphertext buffers —
+ * subtle dominates this path; reuse would be safe but not worth pinning to spec detail. */
 export async function generateWireId<Brand extends string>(
   prefix: Prefix<Brand>,
   key: CryptoKey,

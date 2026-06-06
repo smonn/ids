@@ -15,6 +15,25 @@ module.exports = {
       to: { path: "^src/(id|opaque|cli|registry)\\.ts$" },
     },
     {
+      name: "wire-middle-no-siblings",
+      severity: "error",
+      comment: "parse and envelope import invariants only, not each other",
+      from: { path: "^src/wire/(parse|envelope)\\.ts$" },
+      to: { path: "^src/wire/(parse|envelope|codec-shell)\\.ts$" },
+    },
+    {
+      name: "wire-leaves-no-upward",
+      severity: "error",
+      from: { path: "^src/wire/(invariants|timestamp-bytes)\\.ts$" },
+      to: { path: "^src/wire/(parse|envelope|codec-shell)" },
+    },
+    {
+      name: "factories-wire-codec-shell-only",
+      severity: "error",
+      from: { path: "^src/(id|opaque)\\.ts$" },
+      to: { path: "^src/wire", pathNot: "^src/wire/codec-shell" },
+    },
+    {
       name: "layouts-no-shell",
       severity: "error",
       from: { path: "^src/layouts" },

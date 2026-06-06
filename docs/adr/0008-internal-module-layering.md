@@ -11,36 +11,37 @@ Codec variants share wire parsing (`is`, `parse`, `safeParse`, `~standard`) but 
 ## Module rings
 
 ```text
-cli.ts                          ← argv, env, stdout
+cli.ts                              ← argv, env, stdout
   ↓
-createId / createOpaqueId       ← validateBrand, registerBrand, inject defaults
-  ↓
-wire/codec-shell.ts             ← wireMethods(prefix)
-  ↓
-layouts/<variant>.ts            ← byte semantics (16 bytes in/out)
-  ↓
-wire/envelope.ts, wire/parse.ts, wire/timestamp-bytes.ts
-  ↓
-base32, bytes, types, brand.ts  ← leaves
+createId / createOpaqueId           ← validateBrand, registerBrand, inject defaults
+  ├→ wire/codec-shell.ts            ← wireMethods(prefix)
+  └→ layouts/<variant>.ts           ← byte semantics (16 bytes in/out)
+        ↓
+      wire/invariants.ts, wire/envelope.ts, wire/parse.ts, wire/timestamp-bytes.ts
+        ↓
+      base32, bytes, types, brand.ts  ← leaves
 ```
 
 **`registry.ts`** is shell-only (dev duplicate-brand warnings). Pure **`brand.ts`** holds `validateBrand`. Only factories import both.
 
+Within **`wire/`**, `invariants` and `timestamp-bytes` are leaves; `parse` and `envelope` import invariants only (not each other); `codec-shell` composes `parse` + invariants. Factories import **`wire/codec-shell` only** from `wire/` — sizing constants for codec scratch buffers come from `layouts/timestamp`.
+
 ### Responsibilities
 
-| Module | Role |
-|--------|------|
-| `wire/parse.ts` | Canonical normalization at the boundary (`safeParse`, `is`); Standard Schema validate |
-| `wire/envelope.ts` | Payload ↔ base32; `toWireId` / `payloadBytesFromId` (trust-the-type) |
+| Module                    | Role                                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `wire/invariants.ts`      | Shared wire constants (`payloadByteLength`, `payloadBase32Length`, `base32CharClass`)                 |
+| `wire/parse.ts`           | Canonical normalization at the boundary (`safeParse`, `is`); Standard Schema validate                 |
+| `wire/envelope.ts`        | Payload ↔ base32; `toWireId` / `payloadBytesFromId` (trust-the-type)                                  |
 | `wire/timestamp-bytes.ts` | 6-byte big-endian ms read/write — shared by every variant whose **plaintext** starts with a timestamp |
-| `wire/codec-shell.ts` | `wireMethods(prefix)` — wire surface shared by all variants |
-| `layouts/timestamp.ts` | Timestamp byte layout; writes into factory-owned scratch buffer |
-| `layouts/opaque.ts` | AES-CBC encrypt/decrypt; builds plaintext via `wire/timestamp-bytes`, not `layouts/timestamp` |
+| `wire/codec-shell.ts`     | `wireMethods(prefix)` — wire surface shared by all variants                                           |
+| `layouts/timestamp.ts`    | Timestamp byte layout; writes into codec-owned scratch buffer; owns timestamp read from wire ID       |
+| `layouts/opaque.ts`       | AES-CBC encrypt/decrypt; builds plaintext via `wire/timestamp-bytes`, not `layouts/timestamp`         |
 
 ## Consequences
 
 - Adding a codec variant means `layouts/<variant>.ts` + `<variant>.ts` factory + subpath export ([ADR-0005](./0005-codec-variant-subpath-exports.md)) — no changes to parse or envelope.
 - `layouts/*` must not import sibling layouts; Opaque depends on `wire/timestamp-bytes`, not `layouts/timestamp`.
-- Factories must not import `base32` directly — envelope owns payload encoding.
+- Factories must not import `base32` directly — envelope owns payload encoding. Factories import `wire/codec-shell` only from `wire/`.
 - **dependency-cruiser** enforces the rings in CI; `.dependency-cruiser.cjs` is the source of truth.
 - `CONTEXT.md` unchanged — Payload, Byte layout, Prefix already cover the domain; wire/layouts are implementation.

@@ -1,10 +1,14 @@
 import type { Id, Prefix } from "../types.js";
-import { payloadByteLength, readTimestampMsFromId, toWireId } from "../wire/envelope.js";
-import { timestampByteLength, writeTimestamp } from "../wire/timestamp-bytes.js";
+import { payloadBytesFromId, toWireId } from "../wire/envelope.js";
+import { payloadByteLength } from "../wire/invariants.js";
+import { readTimestampMs, timestampByteLength, writeTimestamp } from "../wire/timestamp-bytes.js";
+
+export { payloadByteLength } from "../wire/invariants.js";
+export { timestampByteLength } from "../wire/timestamp-bytes.js";
 
 export const randomByteLength: number = payloadByteLength - timestampByteLength;
 
-/** Writes a 16-byte timestamp-layout payload into factory-owned scratch. */
+/** Writes a 16-byte timestamp-layout payload into codec-owned scratch. */
 export function buildPayload(
   ms: number,
   rng: (target: Uint8Array) => void,
@@ -15,7 +19,7 @@ export function buildPayload(
   rng(randomView);
 }
 
-/** Writes sentinel min/max random bytes into factory-owned scratch. */
+/** Writes sentinel min/max random bytes into codec-owned scratch. */
 export function buildSentinelPayload(
   ms: number,
   fill: number,
@@ -31,7 +35,7 @@ export function extractTimestampFromId<Brand extends string>(
   prefix: Prefix<Brand>,
   id: Id<Brand>,
 ): Date {
-  return new Date(readTimestampMsFromId(prefix, id));
+  return new Date(readTimestampMs(payloadBytesFromId(prefix, id)));
 }
 
 /** Encodes scratch buffer contents as a canonical wire ID. */

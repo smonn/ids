@@ -5,12 +5,12 @@ import {
   buildPayload,
   buildSentinelPayload,
   extractTimestampFromId,
+  payloadByteLength,
   randomByteLength,
+  timestampByteLength,
   toWireIdFromBuffer,
 } from "./layouts/timestamp.js";
-import { payloadByteLength } from "./wire/envelope.js";
 import { wireMethods } from "./wire/codec-shell.js";
-import { timestampByteLength } from "./wire/timestamp-bytes.js";
 
 /**
  * Configuration options for a codec instance.
