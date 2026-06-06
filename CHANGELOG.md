@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 0.3.3
+
+### Patch Changes
+
+- 2a58bf9: Internal refactor: split `shared.ts` into `wire/` and `layouts/` layers with `create*LayoutOps` binders (ADR-0008). No public API or wire-format changes.
+
 ## 0.3.2
 
 ### Patch Changes
