@@ -71,8 +71,8 @@ async function generateWireId<Brand extends string>(
   return toWireId(prefix, encrypted);
 }
 
-/** Wire generate/extract ops for the Opaque layout (module-private extract). */
-export function createOpaqueWireOps<Brand extends string>(
+/** Layout generate/extract ops for the Opaque layout (module-private extract). */
+export function createOpaqueLayoutOps<Brand extends string>(
   prefix: Prefix<Brand>,
   key: CryptoKey,
   rng: (target: Uint8Array) => void,

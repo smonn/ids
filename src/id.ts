@@ -1,15 +1,7 @@
 import { validateBrand } from "./brand.js";
+import { createTimestampLayoutOps } from "./layouts/timestamp.js";
 import { registerBrand } from "./registry.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
-import {
-  buildPayload,
-  buildSentinelPayload,
-  extractTimestampFromId,
-  payloadByteLength,
-  randomByteLength,
-  timestampByteLength,
-  toWireId,
-} from "./layouts/timestamp.js";
 import { wireMethods } from "./wire/codec-shell.js";
 
 /**
@@ -125,39 +117,18 @@ export function createId<Brand extends string>(
 
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);
-  // Per-codec scratch buffer. Shared across generate(), generateAt(),
-  // minIdForTime(), and maxIdForTime() — all are synchronous and overwrite both
-  // the timestamp and random slices before encoding, so successive callers see
-  // their own freshly-written bytes. toWireId reads the buffer and returns an
-  // independent string, so the caller never sees the buffer itself.
-  const buffer = new Uint8Array(payloadByteLength);
-  const randomView = new Uint8Array(buffer.buffer, timestampByteLength, randomByteLength);
+  const layout = createTimestampLayoutOps(prefix, options.rng);
 
   return {
-    generate: () => {
-      buildPayload(options.now(), options.rng, buffer, randomView);
-      return toWireId(prefix, buffer);
-    },
-    generateAt: (date: Date) => {
-      buildPayload(date.getTime(), options.rng, buffer, randomView);
-      return toWireId(prefix, buffer);
-    },
+    generate: () => layout.generateAt(options.now()),
+    generateAt: (date: Date) => layout.generateAt(date.getTime()),
     is: wire.is,
     parse: wire.parse,
     safeParse: wire.safeParse,
-    extractTimestamp: (id: Id<Brand>) => extractTimestampFromId(prefix, id),
-    minIdForTime: (date: Date) => {
-      buildSentinelPayload(date.getTime(), 0x00, buffer, randomView);
-      return toWireId(prefix, buffer);
-    },
-    maxIdForTime: (date: Date) => {
-      buildSentinelPayload(date.getTime(), 0xff, buffer, randomView);
-      return toWireId(prefix, buffer);
-    },
-    toJsonSchema: () => {
-      buildPayload(options.now(), options.rng, buffer, randomView);
-      return wire.toJsonSchema(brand, toWireId(prefix, buffer));
-    },
+    extractTimestamp: layout.extractTimestamp,
+    minIdForTime: (date: Date) => layout.minIdForTime(date.getTime()),
+    maxIdForTime: (date: Date) => layout.maxIdForTime(date.getTime()),
+    toJsonSchema: () => wire.toJsonSchema(brand, layout.exampleWireId(options.now())),
     "~standard": wire["~standard"],
   };
 }

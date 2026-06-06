@@ -1,5 +1,5 @@
 import { validateBrand } from "./brand.js";
-import { createOpaqueWireOps, schemaExample } from "./layouts/opaque.js";
+import { createOpaqueLayoutOps, schemaExample } from "./layouts/opaque.js";
 import { registerBrand } from "./registry.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
@@ -90,7 +90,7 @@ export function createOpaqueId<Brand extends string>(
   const rng = opts.rng ?? defaultRng;
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);
-  const layout = createOpaqueWireOps(prefix, key, rng);
+  const layout = createOpaqueLayoutOps(prefix, key, rng);
 
   return {
     generate: () => layout.generateAt(now()),

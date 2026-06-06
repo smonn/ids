@@ -1,9 +1,7 @@
 import { decodeBase32 } from "../base32.js";
 
 // Timestamp byte layout: first N bytes of the plaintext payload encode a
-// big-endian Unix-ms timestamp. Shared by codec variants whose plaintext begins
-// with a timestamp (Timestamp and Opaque today, and future variants with the
-// same plaintext prefix).
+// big-endian Unix-ms timestamp. Shared by Timestamp and Opaque layouts.
 export const timestampByteLength: number = 6;
 
 const timestampBase32Length: number = Math.ceil((timestampByteLength * 8) / 5);
