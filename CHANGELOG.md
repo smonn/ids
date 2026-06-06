@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 0.3.4
+
+### Patch Changes
+
+- dc8db2c: Reject unsupported CLI arguments before running commands.
+
 ## 0.3.3
 
 ### Patch Changes
