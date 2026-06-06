@@ -1,6 +1,11 @@
 import { createId, type Options } from "./id.js";
-import { createOpaqueId, decodeOpaqueKey, importOpaqueKey } from "./opaque.js";
-import { encodeOpaqueKey, type OpaqueKeyFormat } from "./opaque-key.js";
+import {
+  createOpaqueId,
+  decodeOpaqueKey,
+  encodeOpaqueKey,
+  importOpaqueKey,
+  type OpaqueKeyFormat,
+} from "./opaque.js";
 import type { Id } from "./types.js";
 
 export type RunOpts = {
@@ -53,7 +58,7 @@ function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<number>
   const opaque = flags.has("--opaque");
   const brand = input.slice(0, 3).toLowerCase();
   if (opaque) {
-    const format = parseKeyFormat(values, opts);
+    const format = parseOpaqueKeyFormat(values, opts);
     if (isKeyFormatError(format)) {
       opts.stderr(format + "\n");
       return Promise.resolve(1);
@@ -181,7 +186,7 @@ function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise<number
   }
   const opaque = flags.has("--opaque");
   if (opaque) {
-    const format = parseKeyFormat(values, opts);
+    const format = parseOpaqueKeyFormat(values, opts);
     if (isKeyFormatError(format)) {
       opts.stderr(format + "\n");
       return Promise.resolve(1);
@@ -228,7 +233,7 @@ function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> 
     opts.stderr(bits + "\n");
     return Promise.resolve(1);
   }
-  const format = parseKeyFormat(values, opts);
+  const format = parseKeygenFormat(values);
   if (isKeyFormatError(format)) {
     opts.stderr(format + "\n");
     return Promise.resolve(1);
@@ -271,13 +276,23 @@ function isKeyFormatError(result: OpaqueKeyFormat | string): result is string {
   return result !== "hex" && result !== "base64url";
 }
 
-function parseKeyFormat(values: Map<string, string>, opts: RunOpts): OpaqueKeyFormat | string {
+function parseKeyFormatFlag(values: Map<string, string>): OpaqueKeyFormat | string | undefined {
   const fromFlag = values.get("--key-format");
-  if (fromFlag !== undefined) {
-    if (fromFlag === "") return "--key-format requires a value";
-    if (fromFlag === "hex" || fromFlag === "base64url") return fromFlag;
-    return `--key-format must be hex or base64url, got '${fromFlag}'`;
-  }
+  if (fromFlag === undefined) return undefined;
+  if (fromFlag === "") return "--key-format requires a value";
+  if (fromFlag === "hex" || fromFlag === "base64url") return fromFlag;
+  return `--key-format must be hex or base64url, got '${fromFlag}'`;
+}
+
+function parseKeygenFormat(values: Map<string, string>): OpaqueKeyFormat | string {
+  const fromFlag = parseKeyFormatFlag(values);
+  if (fromFlag === undefined) return "hex";
+  return fromFlag;
+}
+
+function parseOpaqueKeyFormat(values: Map<string, string>, opts: RunOpts): OpaqueKeyFormat | string {
+  const fromFlag = parseKeyFormatFlag(values);
+  if (fromFlag !== undefined) return fromFlag;
   const env = opts.env ?? process.env;
   const fromEnv = env.IDS_KEY_FORMAT;
   if (fromEnv === undefined || fromEnv === "") return "hex";

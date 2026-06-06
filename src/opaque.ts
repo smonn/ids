@@ -17,7 +17,7 @@ import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from ".
 export { decodeOpaqueKey, encodeOpaqueKey, type OpaqueKeyFormat } from "./opaque-key.js";
 
 /**
- * Configuration options for an opaque codec instance.
+ * Configuration options for an Opaque codec instance.
  */
 export type OpaqueOptions = {
   /** AES-CBC key used for encryption and decryption. */
@@ -33,7 +33,7 @@ export type OpaqueOptions = {
 /**
  * A brand-scoped codec for generating and validating encrypted (opaque) IDs.
  *
- * Same wire shape as the default codec (`{brand}_` + 26 base32 chars) but the
+ * Same wire shape as the Timestamp codec (`{brand}_` + 26 base32 chars) but the
  * payload is AES-CBC encrypted. `generate`, `generateAt`, and `extractTimestamp`
  * are async; parsing methods are sync. No `minIdForTime` / `maxIdForTime` —
  * encrypted payloads do not sort by creation time.
@@ -74,7 +74,7 @@ function defaultRng(target: Uint8Array): void {
 }
 
 /**
- * Imports a raw AES key for use with the opaque codec.
+ * Imports a raw AES key for use with the Opaque codec.
  *
  * @param bytes - Raw key bytes (16, 24, or 32 bytes for AES-128/192/256).
  */
@@ -86,7 +86,7 @@ export function importOpaqueKey(bytes: Uint8Array): Promise<CryptoKey> {
 }
 
 /**
- * Creates an opaque codec for `brand` (three lowercase a–z characters).
+ * Creates an Opaque codec for `brand` (three lowercase a–z characters).
  *
  * @param brand - Entity type brand validated once at construction.
  * @param opts - Required `key` plus optional `now`, `rng`, and `allowDuplicateBrand` overrides.

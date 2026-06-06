@@ -44,17 +44,18 @@ Three related threads around operating the Opaque codec's key. Sketches, not com
     ring effectively false-positive-free. Adding a key-id to Opaque itself is rejected
     for the same reasons GCM was in ADR-0004: it either eats the random budget or breaks
     the 16-byte / strip-trick invariant. Likely worth its own ADR.
-- **`ids keygen [--bits 128|256] [--format hex|base64url]`** — emit a random AES key
+- ~~**`ids keygen [--bits 128|256] [--key-format hex|base64url]`** — emit a random AES key
   (default 256-bit) for `importOpaqueKey`. Needs a documented decode helper so the
   emitted string round-trips back to raw bytes. Format is `hex`/`base64url` (secret
   conventions), not Crockford base32 (that's the payload encoding). Stdout only; it's a
-  secret.
-- **Opaque generation from the CLI, key via env var.** `ids generate <brand> --opaque`
+  secret.~~ — shipped. See `encodeOpaqueKey` / `decodeOpaqueKey` on `@smonn/ids/opaque`.
+- ~~**Opaque generation from the CLI, key via env var.** `ids generate <brand> --opaque`
   (and `inspect --opaque`) reading the key from `IDS_KEY`, decoded with the same format
   as `keygen`. Env over argv deliberately — argv leaks via `ps` and shell history. A
   missing or malformed `IDS_KEY` is a clear stderr error, exit 1. Consequence: the
   opaque codec's `generate`/`extractTimestamp` are async, so `run()` would return a
-  Promise and `bin/cli.ts` would await it — a contained change to the otherwise-sync CLI.
+  Promise and `bin/cli.ts` would await it — a contained change to the otherwise-sync CLI.~~
+  — shipped.
 
 ## Adapter integrations (subpath exports)
 

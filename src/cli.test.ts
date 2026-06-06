@@ -485,6 +485,22 @@ describe("cli", () => {
       expect(result.stderr).toBe("--key-format requires a value\n");
     });
 
+    it("ignores IDS_KEY_FORMAT and emits hex by default", async () => {
+      const result = await runCapture(["keygen"], {
+        env: { IDS_KEY_FORMAT: "base64url" },
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it("ignores a bogus IDS_KEY_FORMAT env var", async () => {
+      const result = await runCapture(["keygen"], {
+        env: { IDS_KEY_FORMAT: "bogus" },
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+    });
+
     it("rejects an invalid IDS_KEY_FORMAT env var", async () => {
       const result = await runCapture(["generate", "usr", "--opaque"], {
         env: { IDS_KEY: testKeyHex, IDS_KEY_FORMAT: "bogus" },

@@ -6,7 +6,7 @@ Public-facing branded IDs for TypeScript apps.
 pnpm add @smonn/ids
 ```
 
-Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkz`: a three-letter brand, an underscore, then 26 Crockford base32 characters of payload. The default codec encodes a 48-bit millisecond Unix timestamp followed by 80 random bits — same byte layout as a [ULID](https://github.com/ulid/spec); see [ADR-0002](./docs/adr/0002-payload-layout.md) for the deliberate divergences. A second codec (`@smonn/ids/opaque`) keeps the same wire shape but encrypts the payload under a key, so the timestamp isn't readable from the ID.
+Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkz`: a three-letter brand, an underscore, then 26 Crockford base32 characters of payload. The Timestamp codec encodes a 48-bit millisecond Unix timestamp followed by 80 random bits — same byte layout as a [ULID](https://github.com/ulid/spec); see [ADR-0002](./docs/adr/0002-payload-layout.md) for the deliberate divergences. The Opaque codec (`@smonn/ids/opaque`) keeps the same wire shape but encrypts the payload under a key, so the timestamp isn't readable from the ID.
 
 ## What this is for
 
@@ -166,7 +166,7 @@ The `pattern` describes the **canonical form only** — it matches `generate()` 
 
 ### "Don't leak creation time in IDs that customers can see"
 
-The default codec exposes the creation timestamp by design — that's what makes `ORDER BY id` work. If that's a leak you can't accept (invoice IDs revealing billing cadence, signup IDs revealing acquisition velocity), use the opaque codec at `@smonn/ids/opaque`. Same `<brand>_<26 chars>` wire shape, but the payload is AES-encrypted under a key you supply.
+The Timestamp codec exposes the creation timestamp by design — that's what makes `ORDER BY id` work. If that's a leak you can't accept (invoice IDs revealing billing cadence, signup IDs revealing acquisition velocity), use the Opaque codec at `@smonn/ids/opaque`. Same `<brand>_<26 chars>` wire shape, but the payload is AES-encrypted under a key you supply.
 
 ```ts
 import { createOpaqueId, importOpaqueKey } from "@smonn/ids/opaque";
@@ -178,20 +178,22 @@ const id = await invoices.generate(); // "inv_…", timestamp not extractable wi
 await invoices.extractTimestamp(id); // Date — same codec, same key required
 ```
 
-Three differences from the default codec:
+Three differences from the Timestamp codec:
 
 - **Async key-dependent methods.** WebCrypto is async-only, so `generate`, `generateAt`, and `extractTimestamp` return `Promise`s. `is`, `parse`, `safeParse`, `toJsonSchema`, and the Standard Schema adapter stay sync — they work on the wire form only ([ADR-0006](./docs/adr/0006-async-keyed-codec-contract.md)).
-- **No `minIdForTime` / `maxIdForTime`.** Encrypted payloads don't sort by time. If you need time-range scans on opaque-coded entities, store the timestamp in a separate column.
-- **Wire-indistinguishable from the default codec.** Codec choice is a per-brand commitment; the brand registry warns if you register the same brand against both in dev ([ADR-0007](./docs/adr/0007-wire-indistinguishable-codec-variants.md)).
+- **No `minIdForTime` / `maxIdForTime`.** Encrypted payloads don't sort by time. If you need time-range scans on Opaque-coded entities, store the timestamp in a separate column.
+- **Wire-indistinguishable from the Timestamp codec.** Codec choice is a per-brand commitment; the brand registry warns if you register the same brand against both in dev ([ADR-0007](./docs/adr/0007-wire-indistinguishable-codec-variants.md)).
 
 Encryption is AES-CBC with a zero IV. That's deliberately safe here because the plaintext already carries 80 bits of entropy per ID; see [ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md) for the full rationale.
+
+To store or transport key material outside the library, `encodeOpaqueKey` / `decodeOpaqueKey` round-trip raw bytes in `hex` or `base64url` — distinct from the Crockford base32 used in ID payloads. The CLI's `keygen` subcommand emits keys in this format (see [CLI](#cli)).
 
 ## What this is **not** for
 
 - **Internal surrogate primary keys.** If nobody outside your service ever sees the ID, the brand prefix and lenient parsing are dead weight. Use a `bigint` sequence.
 - **Wire-compatible ULIDs.** The byte layout is ULID-shaped but the encoding is lowercase and wrapped in a brand envelope. Stock ULID parsers will reject these.
 - **Distributed-trace / request-correlation IDs.** Use OpenTelemetry-format IDs.
-- **Hiding creation time with the default codec.** Anyone with one ID at a known creation time can compute the epoch offset. A custom epoch wouldn't help and isn't supported. To hide creation time per-ID, use the opaque codec (above).
+- **Hiding creation time with the Timestamp codec.** Anyone with one ID at a known creation time can compute the epoch offset. A custom epoch wouldn't help and isn't supported. To hide creation time per-ID, use the Opaque codec (above).
 
 ## API surface
 
@@ -209,8 +211,11 @@ import {
 import {
   createOpaqueId, // (brand: string, opts: { key, now?, rng?, allowDuplicateBrand? }) => OpaqueCodec<Brand>
   importOpaqueKey, // (bytes: Uint8Array) => Promise<CryptoKey>
+  encodeOpaqueKey, // (bytes: Uint8Array, format: OpaqueKeyFormat) => string
+  decodeOpaqueKey, // (encoded: string, format: OpaqueKeyFormat) => Uint8Array
   type OpaqueCodec, // returned by createOpaqueId
   type OpaqueOptions, // { key, now, rng, allowDuplicateBrand } injection points
+  type OpaqueKeyFormat, // "hex" | "base64url"
 } from "@smonn/ids/opaque";
 ```
 
@@ -230,7 +235,11 @@ import {
 
 ## CLI
 
-Two brand-agnostic subcommands, no install required:
+Brand-agnostic subcommands, no install required. Run `npx @smonn/ids --help` for the full flag list.
+
+### `inspect` (`i`)
+
+Decode an ID and print brand, timestamp, canonical form, and whether the input was already canonical.
 
 ```bash
 $ npx @smonn/ids inspect usr_01h7b3k9rqxn1cw3p9r8t2sgkz
@@ -238,14 +247,52 @@ brand:     usr
 timestamp: 1983-05-27T10:24:22.469Z (43 years ago)
 canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz
 input:     canonical
+```
 
+Accepts non-canonical input (uppercase, Crockford aliases). Assumes the **Timestamp codec** — if the brand uses the **Opaque codec**, pass `--opaque` and set `IDS_KEY` (below); otherwise the timestamp line is meaningless garbage.
+
+```bash
+IDS_KEY=<hex-or-base64url-key> npx @smonn/ids inspect inv_… --opaque
+```
+
+### `generate` (`g`)
+
+Mint one or more canonical IDs for a brand. Output is one ID per line (pipeable).
+
+```bash
 $ npx @smonn/ids generate usr --count 3
 usr_…
 usr_…
 usr_…
 ```
 
-`inspect` accepts non-canonical input (uppercase, Crockford aliases) and shows the canonical form. `generate` prints one ID per line so output is pipeable. Invalid input prints the parse error to stderr and exits non-zero.
+Flags: `--count` / `-c N` (default 1). Uses the Timestamp codec unless `--opaque` is set.
+
+```bash
+IDS_KEY=<hex-or-base64url-key> npx @smonn/ids generate inv --opaque --count 2
+```
+
+### `keygen` (`k`)
+
+Emit a random Opaque key to stdout (a secret — do not log or commit). Default: 256-bit hex.
+
+```bash
+$ npx @smonn/ids keygen
+a1b2c3…
+
+$ npx @smonn/ids keygen --bits 128 --key-format base64url
+AbCdEf…
+```
+
+Flags: `--bits 128|256` (default 256), `--key-format hex|base64url` (default `hex`). `IDS_KEY_FORMAT` does not affect `keygen` — only `--key-format` on the command line. Output round-trips through `decodeOpaqueKey` / `importOpaqueKey`.
+
+### Opaque mode (`--opaque`)
+
+`generate --opaque` and `inspect --opaque` read the AES key from the `IDS_KEY` environment variable — not from argv (argv leaks via `ps` and shell history). Missing or malformed `IDS_KEY` prints a clear stderr message and exits non-zero.
+
+Key format defaults to `hex`; override per-invocation with `--key-format` or set `IDS_KEY_FORMAT=hex|base64url` for a session default. `--key-format` on the command line wins over `IDS_KEY_FORMAT`.
+
+Invalid input prints the parse error to stderr and exits non-zero.
 
 ## Design
 
