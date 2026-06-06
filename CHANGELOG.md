@@ -1,5 +1,12 @@
 # @smonn/ids
 
+## 0.3.2
+
+### Patch Changes
+
+- 6a1153b: Add JSDoc to the public codec API. `Codec` and `OpaqueCodec` method tooltips now document the canonical-only `is()` vs lenient `safeParse()` split (ADR-0003), the `extractTimestamp` trust model (ADR-0002), and the opaque codec's async/sync method split.
+- 4b7ff3c: Add opaque key helpers and CLI support for operating the Opaque codec from the shell. `encodeOpaqueKey` / `decodeOpaqueKey` round-trip key material in hex or base64url. New `keygen` subcommand emits keys; `generate --opaque` and `inspect --opaque` read the key from `IDS_KEY`.
+
 ## 0.3.1
 
 ### Patch Changes
