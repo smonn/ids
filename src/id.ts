@@ -14,22 +14,56 @@ import {
 } from "./shared.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 
+/**
+ * Configuration options for a codec instance.
+ */
 export type Options = {
+  /** Returns the current timestamp in milliseconds. Defaults to `Date.now`. */
   now: () => number;
+  /** Writes random bytes into `target` for ID generation. Defaults to a `crypto.randomUUID` fast path. */
   rng: (target: Uint8Array) => void;
+  /** If true, silences the duplicate-brand warning in non-production environments. */
   allowDuplicateBrand?: boolean;
 };
 
+/**
+ * A brand-scoped codec for generating and validating public-facing IDs.
+ *
+ * Wire format: `{brand}_` plus 26 lowercase Crockford base32 characters encoding a
+ * 16-byte payload (6-byte ms timestamp + 10 random bytes). IDs sort by creation
+ * time in ascending order.
+ *
+ * For encrypted IDs, use `createOpaqueId` from `@smonn/ids/opaque`.
+ */
 export type Codec<Brand extends string> = {
+  /** Produces a new canonical ID using the codec's `now` and `rng`. */
   generate(): Id<Brand>;
+  /** Produces a new canonical ID with timestamp bytes from `date` and a fresh random tail. Throws on invalid dates. */
   generateAt(date: Date): Id<Brand>;
+  /**
+   * Strict type guard: `true` only for already-canonical strings for this brand.
+   * For untrusted input, use `safeParse()` or `parse()` instead. See ADR-0003.
+   */
   is(value: unknown): value is Id<Brand>;
+  /**
+   * Lenient parse: normalises case and Crockford aliases, returns canonical `Id<Brand>`, or throws.
+   */
   parse(value: unknown): Id<Brand>;
+  /**
+   * Lenient parse without throwing: normalises to canonical form, or returns `{ ok: false, error }`.
+   */
   safeParse(value: unknown): ParseResult<Brand>;
+  /**
+   * Decodes the creation `Date` from an `Id<Brand>`. Trusts the type — use `safeParse()` at boundaries first. See ADR-0002.
+   */
   extractTimestamp(id: Id<Brand>): Date;
+  /** Tight lower bound for any ID generated at `date` (random portion `0x00`). Throws on invalid dates. */
   minIdForTime(date: Date): Id<Brand>;
+  /** Tight upper bound for any ID generated at `date` (random portion `0xff`). Throws on invalid dates. */
   maxIdForTime(date: Date): Id<Brand>;
+  /** JSON Schema for the canonical wire form (`pattern` is canonical-only). */
   toJsonSchema(): JsonSchema;
+  /** Standard Schema validate entry point. */
   readonly "~standard": StandardSchemaProps<Brand>;
 };
 
@@ -76,6 +110,12 @@ const defaultOptions: Options = {
 const randomByteLength = payloadByteLength - timestampByteLength;
 const timestampBase32Length = Math.ceil((timestampByteLength * 8) / 5);
 
+/**
+ * Creates a codec for `brand` (three lowercase a–z characters).
+ *
+ * @param brand - Entity type brand validated once at construction.
+ * @param opts - Optional `now`, `rng`, and `allowDuplicateBrand` overrides.
+ */
 export function createId<Brand extends string>(
   brand: Brand,
   opts: Partial<Options> = {},
