@@ -1,0 +1,106 @@
+name: Bug report
+description: Report behavior that does not match the IDs contract.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping tighten `@smonn/ids`.
+
+        A maintainer applies triage labels after reading the report. Use the fields below to make it clear whether this is ready for an agent or still needs maintainer input.
+
+  - type: dropdown
+    id: codec-variant
+    attributes:
+      label: Relevant codec variant
+      description: Use the glossary terms from CONTEXT.md.
+      options:
+        - Timestamp codec
+        - Opaque codec
+        - Both codec variants
+        - Not sure / not relevant
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-surface
+    attributes:
+      label: Affected surface
+      multiple: true
+      options:
+        - Public API
+        - Wire format
+        - CLI behavior
+        - Documentation
+        - Internal implementation
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What should happen according to the public contract, README, CONTEXT.md, or ADRs?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include errors or surprising output when useful.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide the smallest code sample, command, or sequence of steps that reproduces the issue.
+      placeholder: |
+        1. Install ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Package version, runtime, package manager, operating system, or browser if relevant.
+      placeholder: |
+        @smonn/ids:
+        Node:
+        Package manager:
+        OS:
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Test evidence or logs
+      description: Failing tests, command output, stack traces, or notes that no local test was run.
+      render: shell
+
+  - type: textarea
+    id: design-impact
+    attributes:
+      label: API, wire, CLI, docs, or ADR impact
+      description: |
+        Note whether this appears to touch public API, wire format, CLI behavior, docs, domain vocabulary, or an ADR.
+
+        If it reopens brand format, payload byte layout, canonical `is()`, monotonicity, custom epoch, Opaque key behavior, or wire-indistinguishable codec variants, explain the new argument.
+
+  - type: checkboxes
+    id: agent-readiness
+    attributes:
+      label: Agent readiness self-check
+      description: Maintainers decide the actual triage label. Leave uncertain items unchecked.
+      options:
+        - label: Expected behavior is clear.
+        - label: Actual behavior is clear.
+        - label: Reproduction is specific enough for another person or agent to run.
+        - label: Relevant codec variant and affected surface are identified, or explicitly marked not sure.

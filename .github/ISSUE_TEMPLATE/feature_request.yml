@@ -1,0 +1,100 @@
+name: Feature or enhancement request
+description: Propose new behavior, API changes, docs improvements, or implementation enhancements.
+title: "enhancement: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing an improvement to `@smonn/ids`.
+
+        A maintainer applies triage labels after reading the request. Use the fields below to make it clear whether this is ready for an agent or still needs maintainer input.
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation or problem
+      description: What are you trying to do, and what is hard or impossible today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: desired-behavior
+    attributes:
+      label: Desired behavior
+      description: What should the library, CLI, or docs do differently?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: codec-variant
+    attributes:
+      label: Relevant codec variant
+      description: Use the glossary terms from CONTEXT.md.
+      options:
+        - Timestamp codec
+        - Opaque codec
+        - Both codec variants
+        - Not sure / not relevant
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-surface
+    attributes:
+      label: Affected surface
+      multiple: true
+      options:
+        - Public API
+        - Wire format
+        - CLI behavior
+        - Documentation
+        - Internal implementation
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-api
+    attributes:
+      label: Proposed API or user-facing shape
+      description: If you have a concrete API, command, option, or docs shape in mind, sketch it here.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you consider, and why are they less suitable?
+
+  - type: textarea
+    id: closed-decisions
+    attributes:
+      label: Closed design decisions
+      description: |
+        If this reopens brand format, payload byte layout, canonical `is()`, monotonicity, custom epoch, Opaque key behavior, or wire-indistinguishable codec variants, explain the new argument.
+
+        If it does not reopen a closed decision, write `None` or leave this blank.
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Test evidence, examples, or prior art
+      description: Include failing tests, example usage, package comparisons, links, or notes that no local test was run.
+
+  - type: textarea
+    id: docs-impact
+    attributes:
+      label: Docs, domain vocabulary, or ADR impact
+      description: Note whether README, CONTEXT.md, docs/adr, CLI help, or other docs would need to change.
+
+  - type: checkboxes
+    id: agent-readiness
+    attributes:
+      label: Agent readiness self-check
+      description: Maintainers decide the actual triage label. Leave uncertain items unchecked.
+      options:
+        - label: Motivation or problem is clear.
+        - label: Desired behavior is clear enough to implement or prototype.
+        - label: Relevant codec variant and affected surface are identified, or explicitly marked not sure.
+        - label: Public API, wire format, CLI, docs, and ADR impact are called out where relevant.
