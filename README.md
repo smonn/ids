@@ -255,6 +255,8 @@ Accepts non-canonical input (uppercase, Crockford aliases). Assumes the **Timest
 IDS_KEY=<hex-or-base64url-key> npx @smonn/ids inspect inv_… --opaque
 ```
 
+Prints the decrypted timestamp **assuming `IDS_KEY` matches the key used at generation** — a well-formed but wrong key yields a plausible but incorrect timestamp, not an error (see [CONTEXT.md](./CONTEXT.md)).
+
 ### `generate` (`g`)
 
 Mint one or more canonical IDs for a brand. Output is one ID per line (pipeable).
@@ -284,7 +286,7 @@ $ npx @smonn/ids keygen --bits 128 --key-format base64url
 AbCdEf…
 ```
 
-Flags: `--bits 128|256` (default 256), `--key-format hex|base64url` (default `hex`). `IDS_KEY_FORMAT` does not affect `keygen` — only `--key-format` on the command line. Output round-trips through `decodeOpaqueKey` / `importOpaqueKey`.
+Flags: `--bits 128|192|256` (default 256), `--key-format hex|base64url` (default `hex`). `IDS_KEY_FORMAT` does not affect `keygen` — only `--key-format` on the command line. Output round-trips through `decodeOpaqueKey` / `importOpaqueKey`.
 
 ### Opaque mode (`--opaque`)
 

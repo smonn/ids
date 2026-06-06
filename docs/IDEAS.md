@@ -70,12 +70,12 @@ optional peer deps on the third-party lib — not as sibling packages.
 
 ## Developer-facing documentation
 
-- **JSDoc on public codec methods.** `Codec` / `OpaqueCodec` method names are
+- ~~**JSDoc on public codec methods.** `Codec` / `OpaqueCodec` method names are
   self-describing once you've read the README, but consumer IDE tooltips
   currently surface nothing about the contracts. The two most consequential to
   document inline: `extractTimestamp` trusts the `Id<Brand>` type (ADR-0002)
   and the `is()` strict / `safeParse()` lenient split (ADR-0003). Probably one
-  pass across both codec types, linking to the relevant ADR per method.
+  pass across both codec types, linking to the relevant ADR per method.~~ — shipped in #41.
 
 ## Explicitly rejected
 

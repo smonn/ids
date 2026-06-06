@@ -22,6 +22,7 @@ export function encodeHex(bytes: Uint8Array): string {
 
 /** Decodes a hex string to raw bytes. Throws on non-hex input. */
 export function decodeHex(encoded: string): Uint8Array {
+  if (encoded.length % 2 !== 0) throw new Error("invalid hex");
   const out = new Uint8Array(encoded.length / 2);
   for (let i = 0; i < out.length; i++) {
     const hiCode = encoded.charCodeAt(i * 2);

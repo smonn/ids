@@ -38,11 +38,11 @@ function usage(): string {
     "Subcommands:",
     "  inspect, i <id> [--opaque] [--key-format hex|base64url]",
     "    Decode an ID and print brand, timestamp, and canonical form.",
-    "    --opaque reads the AES key from IDS_KEY (default format: hex).",
+    "    --opaque reads the AES key from IDS_KEY (hex by default; IDS_KEY_FORMAT or --key-format).",
     "  generate, g <brand> [--count, -c N] [--opaque] [--key-format hex|base64url]",
     "    Mint one or more canonical IDs for the given brand.",
-    "    --opaque reads the AES key from IDS_KEY (default format: hex).",
-    "  keygen, k [--bits 128|256] [--key-format hex|base64url]",
+    "    --opaque reads the AES key from IDS_KEY (hex by default; IDS_KEY_FORMAT or --key-format).",
+    "  keygen, k [--bits 128|192|256] [--key-format hex|base64url]",
     "    Emit a random AES key for importOpaqueKey (stdout only).",
     "",
   ].join("\n");
@@ -122,6 +122,9 @@ async function runOpaqueInspect(
   const nowMs = (opts.now ?? Date.now)();
   const relative = formatRelative(timestamp.getTime(), nowMs);
   const inputLine = describeInputForm(input, canonical);
+  opts.stderr(
+    "note: timestamp assumes IDS_KEY matches the key used at generation; a wrong key yields a plausible but incorrect timestamp\n",
+  );
   opts.stdout(
     [
       `brand:     ${brand}`,
@@ -268,8 +271,9 @@ function parseBits(values: Map<string, string>): number | string {
   if (raw === undefined) return 256;
   if (raw === "") return "--bits requires a value";
   if (raw === "128") return 128;
+  if (raw === "192") return 192;
   if (raw === "256") return 256;
-  return `--bits must be 128 or 256, got '${raw}'`;
+  return `--bits must be 128, 192, or 256, got '${raw}'`;
 }
 
 function isKeyFormatError(result: OpaqueKeyFormat | string): result is string {
@@ -290,7 +294,10 @@ function parseKeygenFormat(values: Map<string, string>): OpaqueKeyFormat | strin
   return fromFlag;
 }
 
-function parseOpaqueKeyFormat(values: Map<string, string>, opts: RunOpts): OpaqueKeyFormat | string {
+function parseOpaqueKeyFormat(
+  values: Map<string, string>,
+  opts: RunOpts,
+): OpaqueKeyFormat | string {
   const fromFlag = parseKeyFormatFlag(values);
   if (fromFlag !== undefined) return fromFlag;
   const env = opts.env ?? process.env;

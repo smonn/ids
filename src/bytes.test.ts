@@ -19,6 +19,10 @@ describe("bytes", () => {
     expect(() => decodeHex("gg")).toThrow(/invalid hex/);
   });
 
+  it("decodeHex throws on odd-length input", () => {
+    expect(() => decodeHex("abc")).toThrow(/invalid hex/);
+  });
+
   it("decodeHex throws when a character code is out of range", () => {
     expect(() => decodeHex("\u0080\u0080")).toThrow(/invalid hex/);
   });
