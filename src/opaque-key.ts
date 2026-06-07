@@ -12,6 +12,7 @@ const validAesKeyByteLengths = new Set([16, 24, 32]);
  * @param format - `hex` (lowercase) or `base64url`.
  */
 export function encodeOpaqueKey(bytes: Uint8Array, format: OpaqueKeyFormat): string {
+  assertOpaqueKeyFormat(format);
   assertValidAesKeyByteLength(bytes.length);
   if (format === "hex") return encodeHex(bytes);
   return encodeBase64Url(bytes);
@@ -24,6 +25,7 @@ export function encodeOpaqueKey(bytes: Uint8Array, format: OpaqueKeyFormat): str
  * @param format - Must match how the string was encoded.
  */
 export function decodeOpaqueKey(encoded: string, format: OpaqueKeyFormat): Uint8Array {
+  assertOpaqueKeyFormat(format);
   let bytes: Uint8Array;
   if (format === "hex") {
     if (encoded.length === 0 || encoded.length % 2 !== 0) {
@@ -47,5 +49,13 @@ export function decodeOpaqueKey(encoded: string, format: OpaqueKeyFormat): Uint8
 function assertValidAesKeyByteLength(byteLength: number): void {
   if (!validAesKeyByteLengths.has(byteLength)) {
     throw new Error(`invalid AES key length: expected 16, 24, or 32 bytes, got ${byteLength}`);
+  }
+}
+
+function assertOpaqueKeyFormat(format: unknown): asserts format is OpaqueKeyFormat {
+  if (format !== "hex" && format !== "base64url") {
+    throw new Error(
+      `invalid opaque key format: expected hex or base64url, got '${String(format)}'`,
+    );
   }
 }
