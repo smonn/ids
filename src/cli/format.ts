@@ -1,5 +1,25 @@
 import type { Id } from "../types.js";
 
+type InspectOutput = {
+  brand: string;
+  timestamp: Date;
+  canonical: Id<string>;
+  input: string;
+  nowMs: number;
+};
+
+export function formatInspectOutput(result: InspectOutput): string {
+  const relative = formatRelative(result.timestamp.getTime(), result.nowMs);
+  const inputLine = describeInputForm(result.input, result.canonical);
+  return [
+    `brand:     ${result.brand}`,
+    `timestamp: ${result.timestamp.toISOString()} (${relative})`,
+    `canonical: ${result.canonical}`,
+    `input:     ${inputLine}`,
+    "",
+  ].join("\n");
+}
+
 export function describeInputForm(input: string, canonical: Id<string>): string {
   if (input === canonical) return "canonical";
   const notes: string[] = [];

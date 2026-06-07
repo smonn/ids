@@ -1,7 +1,7 @@
 import { createId } from "../../id.js";
 import { createOpaqueId, type OpaqueKeyFormat } from "../../opaque.js";
 import { codecOpts } from "../codec-options.js";
-import { describeInputForm, formatRelative } from "../format.js";
+import { formatInspectOutput } from "../format.js";
 import { splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
 import type { RunOpts } from "../types.js";
@@ -61,16 +61,14 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
   const canonical = validation.value;
   const timestamp = codec.extractTimestamp(canonical);
   const nowMs = (opts.now ?? Date.now)();
-  const relative = formatRelative(timestamp.getTime(), nowMs);
-  const inputLine = describeInputForm(input, canonical);
   opts.stdout(
-    [
-      `brand:     ${brand}`,
-      `timestamp: ${timestamp.toISOString()} (${relative})`,
-      `canonical: ${canonical}`,
-      `input:     ${inputLine}`,
-      "",
-    ].join("\n"),
+    formatInspectOutput({
+      brand,
+      timestamp,
+      canonical,
+      input,
+      nowMs,
+    }),
   );
   return Promise.resolve(0);
 }
@@ -101,19 +99,17 @@ async function runOpaqueInspect(
   const canonical = validation.value;
   const timestamp = await codec.extractTimestamp(canonical);
   const nowMs = (opts.now ?? Date.now)();
-  const relative = formatRelative(timestamp.getTime(), nowMs);
-  const inputLine = describeInputForm(input, canonical);
   opts.stderr(
     "note: timestamp assumes IDS_KEY matches the key used at generation; a wrong key yields a plausible but incorrect timestamp\n",
   );
   opts.stdout(
-    [
-      `brand:     ${brand}`,
-      `timestamp: ${timestamp.toISOString()} (${relative})`,
-      `canonical: ${canonical}`,
-      `input:     ${inputLine}`,
-      "",
-    ].join("\n"),
+    formatInspectOutput({
+      brand,
+      timestamp,
+      canonical,
+      input,
+      nowMs,
+    }),
   );
   return 0;
 }
