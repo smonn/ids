@@ -5,19 +5,62 @@ shape, not a designed API.
 
 ## Codec variants (separate factories)
 
-If trust-mode variants ever ship, each gets its own factory (`createTimestampId` becoming
-the explicit name for the current one). They do not share a Codec contract — same wire
-skin, different invariants.
+If more variants ship before v1, each gets its own explicit factory. Timestamp-family
+variants carry `Timestamp` in the name (`createTimestampId` becoming the explicit name
+for the current main-entry codec). They do not share a Codec contract — same wire skin,
+different invariants.
 
-- ~~`createOpaqueId(brand, {key})`~~ — shipped. See [ADR-0004](./adr/0004-aes-cbc-strip-trick.md),
+- ~~`createOpaqueId(brand, {key})`~~ — shipped. If the pre-v1 naming pass happens, this
+  becomes `createOpaqueTimestampId`. See [ADR-0004](./adr/0004-aes-cbc-strip-trick.md),
   [ADR-0005](./adr/0005-codec-variant-subpath-exports.md), [ADR-0006](./adr/0006-async-keyed-codec-contract.md),
   [ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md).
-- **`createSignedId(brand, {key})`** — random tail becomes a truncated HMAC over
+- **`createSignedTimestampId(brand, {key})`** — random tail becomes a truncated HMAC over
   brand+timestamp. Tamper-evident share links verified without a DB lookup.
-- **`createDerivedId(brand, {ns, key})`** — drops timestamp and random; payload is
-  `HMAC(ns, key)`. Deterministic IDs for idempotency keys and content-addressed records.
-- **`createReverseId(brand)`** — bitwise-inverted timestamp bytes; lexicographic order
+- **`createDigestId(brand, {ns, key})`** — one-way deterministic digest of caller material.
+  Same material gives the same public ID; the material cannot be recovered from the ID.
+  For idempotency keys, content-addressed records, and stable public pseudonyms.
+- **`createReverseTimestampId(brand)`** — bitwise-inverted timestamp bytes; lexicographic order
   = newest first. For KV stores where descending range scans are awkward.
+- **`createWrappedKeyId(brand, {kind, keys})`** — reversible verified wrapping of a
+  storage lookup key. See the Wrapped key codec sketch below.
+
+## Wrapped key codec
+
+A reversible counterpart to `createDigestId`: the caller supplies a storage lookup key,
+the codec emits a public ID, and `unwrap` recovers the lookup key before the caller hits
+storage. This is still a codec variant sketch, so it keeps the current `<brand>_` +
+26-character suffix / 16-byte payload invariant. Consequence: UUID-sized lookup keys are
+out of scope for this same-size branch because a UUID plus verification tag does not fit.
+
+- **Factory and value surface.** `createWrappedKeyId(brand, {kind, keys})`, where `kind`
+  is one of `u32`, `i32`, `u64`, or `i64`. `wrap(value)` and `unwrap(id)` are the core
+  async methods. `u32`/`i32` use `number`; `u64`/`i64` use `bigint`. The usual wire
+  methods (`is`, `parse`, `safeParse`, `toJsonSchema`, `~standard`) stay structural and
+  sync. Cryptographic verification happens in `unwrap` / `safeUnwrap`, not in `parse`.
+- **Byte layout.** Decrypting the 16-byte payload yields an 8-byte integer lane followed
+  by an 8-byte verification tag. The lane is big-endian; signed kinds use two's-complement.
+  `u32` requires zero extension into the upper 32 bits, and `i32` requires sign extension.
+  The tag is a fixed 64-bit truncation of a domain-separated HMAC over the brand, integer
+  kind, and integer lane.
+- **Verification semantics.** This is verified compact wrapping, not AEAD. `unwrap`
+  rejects unless the recomputed tag matches before any storage lookup happens;
+  `safeUnwrap` returns a non-throwing result. Wrong-key or tamper false accepts are bounded
+  by roughly `keyring_size / 2^64` per unwrap attempt.
+- **Determinism.** The same lookup key under the same current wrapping key produces the
+  same public ID. There is no randomness, nonce, or IV in the 16-byte branch; equality of
+  repeated wrapped keys is intentionally leaked rather than taking bits from the 64-bit
+  verification tag.
+- **Key material and rotation.** Import one raw operator secret into derived AES and HMAC
+  subkeys. A keyring has one current entry for `wrap` and any number of accepted entries
+  for `unwrap`; removing an old entry revokes tokens wrapped with it. Because the tag
+  verifies the decrypted lane, trial across a keyring is correctness-grade rather than
+  Opaque's timestamp-plausibility guess. A future detailed unwrap can return the matched
+  key id for observability or rewrapping while the common `unwrap` path returns only the
+  recovered value.
+- **Documentation boundary.** Keep `CONTEXT.md` unchanged until this becomes current
+  project language. If the compact construction is accepted for implementation, write an
+  ADR then: it is hard to reverse, surprising without context, and the result of a real
+  16-byte-size-vs-authentication trade-off.
 
 ## Opaque key management
 
@@ -39,7 +82,7 @@ Three related threads around operating the Opaque codec's key. Sketches, not com
   - _Probabilistic trial-decrypt._ Try each key, accept the one whose decoded 48-bit
     timestamp lands in a plausible window. A stale key false-accepts at ≈ 10yr / 2⁴⁸ms ≈
     0.1% — dashboard-grade, never correctness-grade, and only if documented as such.
-  - _Transparent try-all-keys_ belongs to an authenticated variant (`createSignedId`'s
+  - _Transparent try-all-keys_ belongs to an authenticated variant (`createSignedTimestampId`'s
     truncated HMAC gives a tag to verify a decrypt against); an 80-bit tag makes a small
     ring effectively false-positive-free. Adding a key-id to Opaque itself is rejected
     for the same reasons GCM was in ADR-0004: it either eats the random budget or breaks
