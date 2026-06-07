@@ -32,6 +32,38 @@ describe("opaque-key", () => {
     expect(() => encodeOpaqueKey(new Uint8Array(8), "hex")).toThrow(/16, 24, or 32 bytes/);
   });
 
+  it("rejects invalid opaque key format when encoding", () => {
+    expect(() => encodeOpaqueKey(bytes16, "bogus" as never)).toThrow(
+      "invalid opaque key format: expected hex or base64url, got 'bogus'",
+    );
+  });
+
+  it("rejects invalid opaque key format when decoding", () => {
+    expect(() => decodeOpaqueKey("AAECAwQFBgcICQoLDA0ODw", "bogus" as never)).toThrow(
+      "invalid opaque key format: expected hex or base64url, got 'bogus'",
+    );
+  });
+
+  it("rejects non-string opaque key format values", () => {
+    expect(() => encodeOpaqueKey(bytes16, undefined as never)).toThrow(
+      "invalid opaque key format: expected hex or base64url, got 'undefined'",
+    );
+    expect(() => decodeOpaqueKey("AAECAwQFBgcICQoLDA0ODw", undefined as never)).toThrow(
+      "invalid opaque key format: expected hex or base64url, got 'undefined'",
+    );
+  });
+
+  it("rejects non-coercible opaque key format values with a clear error", () => {
+    const format = Object.create(null) as never;
+
+    expect(() => encodeOpaqueKey(bytes16, format)).toThrow(
+      "invalid opaque key format: expected hex or base64url, got '[unprintable]'",
+    );
+    expect(() => decodeOpaqueKey("AAECAwQFBgcICQoLDA0ODw", format)).toThrow(
+      "invalid opaque key format: expected hex or base64url, got '[unprintable]'",
+    );
+  });
+
   it("rejects invalid base64url key material", () => {
     expect(() => decodeOpaqueKey("!!!", "base64url")).toThrow(/invalid base64url key/);
   });
