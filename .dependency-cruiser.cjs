@@ -120,8 +120,9 @@ module.exports = {
     {
       name: "cli-no-internals",
       severity: "error",
-      from: { path: "^src/cli\\.ts$|^bin/cli\\.ts$" },
-      to: { path: "^src/(wire|layouts)" },
+      comment: "CLI uses public codec entrypoints and Opaque key helpers via id.ts/opaque.ts",
+      from: { path: "^(src/cli\\.ts|src/cli/|bin/cli\\.ts$)" },
+      to: { path: "^src/(wire|layouts|brand|registry|base32|bytes|opaque-key)" },
     },
     {
       name: "brand-only-from-codec-constructors",
