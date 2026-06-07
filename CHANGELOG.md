@@ -1,5 +1,12 @@
 # @smonn/ids
 
+## 0.3.5
+
+### Patch Changes
+
+- b190471: Bound `ids generate --count` to finite positive integers from 1 through 10000. Invalid, unsafe, or oversized counts now fail before the CLI emits any IDs.
+- 4cd13e7: Split the CLI into command modules and shared plumbing while preserving existing `ids generate`, `ids inspect`, and `ids keygen` behavior.
+
 ## 0.3.4
 
 ### Patch Changes
