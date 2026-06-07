@@ -120,7 +120,7 @@ module.exports = {
     {
       name: "cli-no-internals",
       severity: "error",
-      from: { path: "^src/cli\\.ts$|^bin/cli\\.ts$" },
+      from: { path: "^(src/cli\\.ts|src/cli/|bin/cli\\.ts$)" },
       to: { path: "^src/(wire|layouts)" },
     },
     {

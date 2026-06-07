@@ -1,6 +1,6 @@
-# Internal module layering for wire parsing and byte layouts
+# Internal module layering for wire parsing, byte layouts, and the CLI boundary
 
-Codec variants share wire parsing (`is`, `parse`, `safeParse`, `~standard`) but differ in byte layout and public capability surface. Internal modules are split into **`wire/`** (payload envelope, canonical parse, shared timestamp bytes, codec shell) and **`layouts/`** (per-variant 16-byte semantics). Codec constructors (`id.ts`, `opaque.ts`) are thin composition roots; `cli.ts` imports codec constructors only. Nothing in `wire/` or `layouts/` is exported from the package.
+Codec variants share wire parsing (`is`, `parse`, `safeParse`, `~standard`) but differ in byte layout and public capability surface. Internal modules are split into **`wire/`** (payload envelope, canonical parse, shared timestamp bytes, codec shell) and **`layouts/`** (per-variant 16-byte semantics). Codec constructors (`id.ts`, `opaque.ts`) are thin composition roots; the CLI layer (`cli.ts` plus `cli/`) owns argv/env/stdout and imports codec constructors only. Nothing in `wire/` or `layouts/` is exported from the package.
 
 ## Considered Options
 
@@ -11,7 +11,7 @@ Codec variants share wire parsing (`is`, `parse`, `safeParse`, `~standard`) but 
 ## Module rings
 
 ```text
-cli.ts                              ← argv, env, stdout
+cli.ts + cli/                       ← argv, env, stdout
   ↓
 createId / createOpaqueId           ← validateBrand, registerBrand, inject defaults
   ├→ wire/codec-shell.ts            ← wireMethods(prefix)
