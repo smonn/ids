@@ -9,7 +9,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { createId, type Options } from "./id.js";
+import { createId, type Options } from "./index.js";
 import type { Id, JsonSchema } from "./types.js";
 
 describe("id", () => {
@@ -519,6 +519,13 @@ describe("dev-mode duplicate-brand warning", () => {
 
   it("Options exposes allowDuplicateBrand as an optional boolean", () => {
     expectTypeOf<Options["allowDuplicateBrand"]>().toEqualTypeOf<boolean | undefined>();
+  });
+
+  it("Options accepts reusable objects that omit defaulted injection points", () => {
+    const options: Options = { allowDuplicateBrand: true };
+    const usr = createId("zag", options);
+
+    expect(usr.generate()).toMatch(/^zag_[0-9a-hjkmnp-tv-z]{26}$/);
   });
 
   it("warning message names the brand and the opt-out flag", () => {

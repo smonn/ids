@@ -13,9 +13,9 @@ export type OpaqueOptions = {
   /** AES-CBC key used for encryption and decryption. */
   key: CryptoKey;
   /** Returns the current timestamp in milliseconds. Defaults to `Date.now`. */
-  now: () => number;
+  now?: () => number;
   /** Writes random bytes into `target` for ID generation. Defaults to `crypto.getRandomValues`. */
-  rng: (target: Uint8Array) => void;
+  rng?: (target: Uint8Array) => void;
   /** If true, silences the duplicate-brand warning in non-production environments. */
   allowDuplicateBrand?: boolean;
 };
@@ -80,7 +80,7 @@ export function importOpaqueKey(bytes: Uint8Array): Promise<CryptoKey> {
  */
 export function createOpaqueId<Brand extends string>(
   brand: Brand,
-  opts: { key: CryptoKey } & Partial<Omit<OpaqueOptions, "key">>,
+  opts: OpaqueOptions,
 ): OpaqueCodec<Brand> {
   validateBrand(brand);
   registerBrand(brand, opts.allowDuplicateBrand);
