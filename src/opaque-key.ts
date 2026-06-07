@@ -55,7 +55,15 @@ function assertValidAesKeyByteLength(byteLength: number): void {
 function assertOpaqueKeyFormat(format: unknown): asserts format is OpaqueKeyFormat {
   if (format !== "hex" && format !== "base64url") {
     throw new Error(
-      `invalid opaque key format: expected hex or base64url, got '${String(format)}'`,
+      `invalid opaque key format: expected hex or base64url, got '${formatForError(format)}'`,
     );
+  }
+}
+
+function formatForError(value: unknown): string {
+  try {
+    return String(value);
+  } catch {
+    return "[unprintable]";
   }
 }

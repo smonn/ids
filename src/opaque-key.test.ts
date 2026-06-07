@@ -53,6 +53,17 @@ describe("opaque-key", () => {
     );
   });
 
+  it("rejects non-coercible opaque key format values with a clear error", () => {
+    const format = Object.create(null) as never;
+
+    expect(() => encodeOpaqueKey(bytes16, format)).toThrow(
+      "invalid opaque key format: expected hex or base64url, got '[unprintable]'",
+    );
+    expect(() => decodeOpaqueKey("AAECAwQFBgcICQoLDA0ODw", format)).toThrow(
+      "invalid opaque key format: expected hex or base64url, got '[unprintable]'",
+    );
+  });
+
   it("rejects invalid base64url key material", () => {
     expect(() => decodeOpaqueKey("!!!", "base64url")).toThrow(/invalid base64url key/);
   });
