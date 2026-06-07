@@ -111,8 +111,8 @@ export function createId<Brand extends string>(brand: Brand, opts: Options = {})
   registerBrand(brand, opts.allowDuplicateBrand);
 
   const options = {
-    ...defaultOptions,
-    ...opts,
+    now: opts.now ?? defaultOptions.now,
+    rng: opts.rng ?? defaultOptions.rng,
   } satisfies ResolvedOptions;
 
   const prefix: Prefix<Brand> = `${brand}_`;

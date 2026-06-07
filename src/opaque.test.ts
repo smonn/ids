@@ -111,6 +111,23 @@ describe("opaque", () => {
     expect(await usr.generate()).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
   });
 
+  it("falls back to default injections when Opaque options are explicitly undefined", async () => {
+    const key = await importOpaqueKey(new Uint8Array(16));
+    const before = Date.now();
+    const usr = createOpaqueId("usr", {
+      key,
+      now: undefined,
+      rng: undefined,
+    } as unknown as OpaqueOptions);
+    const id = await usr.generate();
+    const after = Date.now();
+
+    expect(usr.is(id)).toBe(true);
+    const timestamp = await usr.extractTimestamp(id);
+    expect(timestamp.getTime()).toBeGreaterThanOrEqual(before);
+    expect(timestamp.getTime()).toBeLessThanOrEqual(after);
+  });
+
   it("is/parse/safeParse run synchronously without the key", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const usr = createOpaqueId("usr", { key });
