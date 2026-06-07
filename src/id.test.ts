@@ -9,7 +9,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { createId, type Options } from "./id.js";
+import { createId, type Options } from "./index.js";
 import type { Id, JsonSchema } from "./types.js";
 
 describe("id", () => {
@@ -102,6 +102,29 @@ describe("id", () => {
     const id = usr.generate();
     expect(usr.is(id)).toBe(true);
     expect(usr.extractTimestamp(id)).toEqual(new Date(0));
+  });
+
+  it("falls back to the default rng when the option is explicitly undefined", () => {
+    const usr = createId("usr", { now: () => 0, rng: undefined } as unknown as Options);
+    const id = usr.generate();
+
+    expect(usr.is(id)).toBe(true);
+    expect(usr.extractTimestamp(id)).toEqual(new Date(0));
+  });
+
+  it("falls back to the default now when the option is explicitly undefined", () => {
+    const before = Date.now();
+    const usr = createId("usr", {
+      now: undefined,
+      rng: (target: Uint8Array) => target.fill(0x00),
+    } as unknown as Options);
+    const id = usr.generate();
+    const after = Date.now();
+
+    expect(usr.is(id)).toBe(true);
+    const timestamp = usr.extractTimestamp(id).getTime();
+    expect(timestamp).toBeGreaterThanOrEqual(before);
+    expect(timestamp).toBeLessThanOrEqual(after);
   });
 
   it("is() accepts only canonical form", () => {
@@ -519,6 +542,13 @@ describe("dev-mode duplicate-brand warning", () => {
 
   it("Options exposes allowDuplicateBrand as an optional boolean", () => {
     expectTypeOf<Options["allowDuplicateBrand"]>().toEqualTypeOf<boolean | undefined>();
+  });
+
+  it("Options accepts reusable objects that omit defaulted injection points", () => {
+    const options: Options = { allowDuplicateBrand: true };
+    const usr = createId("zag", options);
+
+    expect(usr.generate()).toMatch(/^zag_[0-9a-hjkmnp-tv-z]{26}$/);
   });
 
   it("warning message names the brand and the opt-out flag", () => {

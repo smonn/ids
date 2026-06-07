@@ -9,12 +9,15 @@ import { wireMethods } from "./wire/codec-shell.js";
  */
 export type Options = {
   /** Returns the current timestamp in milliseconds. Defaults to `Date.now`. */
-  now: () => number;
+  now?: () => number;
   /** Writes random bytes into `target` for ID generation. Defaults to a `crypto.randomUUID` fast path. */
-  rng: (target: Uint8Array) => void;
+  rng?: (target: Uint8Array) => void;
   /** If true, silences the duplicate-brand warning in non-production environments. */
   allowDuplicateBrand?: boolean;
 };
+
+type ResolvedOptions = Required<Pick<Options, "now" | "rng">> &
+  Pick<Options, "allowDuplicateBrand">;
 
 /**
  * A brand-scoped codec for generating and validating public-facing IDs.
@@ -63,7 +66,7 @@ const hexCharCodeToNibble = new Uint8Array(128);
 for (let i = 0; i < 10; i++) hexCharCodeToNibble[48 + i] = i;
 for (let i = 0; i < 6; i++) hexCharCodeToNibble[97 + i] = 10 + i;
 
-const defaultOptions: Options = {
+const defaultOptions: ResolvedOptions = {
   now: Date.now,
   // crypto.randomUUID is ~7× faster than crypto.getRandomValues in Node 24
   // (~84 ns vs ~610 ns for a 16-byte fill — likely because the UUID path has
@@ -103,17 +106,14 @@ const defaultOptions: Options = {
  * @param brand - Entity type brand validated once at construction.
  * @param opts - Optional `now`, `rng`, and `allowDuplicateBrand` overrides.
  */
-export function createId<Brand extends string>(
-  brand: Brand,
-  opts: Partial<Options> = {},
-): Codec<Brand> {
+export function createId<Brand extends string>(brand: Brand, opts: Options = {}): Codec<Brand> {
   validateBrand(brand);
   registerBrand(brand, opts.allowDuplicateBrand);
 
   const options = {
-    ...defaultOptions,
-    ...opts,
-  } satisfies Options;
+    now: opts.now ?? defaultOptions.now,
+    rng: opts.rng ?? defaultOptions.rng,
+  } satisfies ResolvedOptions;
 
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);

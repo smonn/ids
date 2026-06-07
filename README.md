@@ -113,7 +113,7 @@ const users = createId("usr", {
 users.generate(); // deterministic snapshot-friendly output
 ```
 
-Both `Options` fields are optional. Defaults are `Date.now` and an entropy harvester built on `crypto.randomUUID` (faster than `crypto.getRandomValues` for the 10-byte fills this library needs). `now` returns milliseconds since the Unix epoch. `rng` writes random bytes into the provided target (a 10-byte view into the codec's persistent buffer), so a custom RNG never has to allocate.
+Both injection fields (`now?` and `rng?`) are optional. Defaults are `Date.now` and an entropy harvester built on `crypto.randomUUID` (faster than `crypto.getRandomValues` for the 10-byte fills this library needs). `now` returns milliseconds since the Unix epoch. `rng` writes random bytes into the provided target (a 10-byte view into the codec's persistent buffer), so a custom RNG never has to allocate.
 
 ### "Catch a double-registered brand before it bites in production"
 
@@ -199,22 +199,22 @@ To store or transport key material outside the library, `encodeOpaqueKey` / `dec
 
 ```ts
 import {
-  createId, // (brand: string, opts?: Partial<Options>) => Codec<Brand>
+  createId, // (brand: string, opts?: Options) => Codec<Brand>
   type Id, // branded string type
   type Codec, // returned by createId
-  type Options, // { now, rng, allowDuplicateBrand } injection points
+  type Options, // { now?, rng?, allowDuplicateBrand? } constructor options
   type ParseError, // "not_string" | "invalid_prefix" | "invalid_base32"
   type ParseResult, // safeParse return type
   type JsonSchema, // toJsonSchema return type
 } from "@smonn/ids";
 
 import {
-  createOpaqueId, // (brand: string, opts: { key, now?, rng?, allowDuplicateBrand? }) => OpaqueCodec<Brand>
+  createOpaqueId, // (brand: string, opts: OpaqueOptions) => OpaqueCodec<Brand>
   importOpaqueKey, // (bytes: Uint8Array) => Promise<CryptoKey>
   encodeOpaqueKey, // (bytes: Uint8Array, format: OpaqueKeyFormat) => string
   decodeOpaqueKey, // (encoded: string, format: OpaqueKeyFormat) => Uint8Array
   type OpaqueCodec, // returned by createOpaqueId
-  type OpaqueOptions, // { key, now, rng, allowDuplicateBrand } injection points
+  type OpaqueOptions, // { key, now?, rng?, allowDuplicateBrand? } constructor options
   type OpaqueKeyFormat, // "hex" | "base64url"
 } from "@smonn/ids/opaque";
 ```
