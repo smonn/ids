@@ -53,7 +53,7 @@ out of scope for this same-size branch because a UUID plus verification tag does
   subkeys. A keyring has one current entry for `wrap` and any number of accepted entries
   for `unwrap`; removing an old entry revokes tokens wrapped with it. Because the tag
   verifies the decrypted lane, trial across a keyring is correctness-grade rather than
-  Opaque's timestamp-plausibility guess. A future detailed unwrap can return the matched
+  the Opaque Timestamp codec's timestamp-plausibility guess. A future detailed unwrap can return the matched
   key id for observability or rewrapping while the common `unwrap` path returns only the
   recovered value.
 - **Documentation boundary.** Keep `CONTEXT.md` unchanged until this becomes current
@@ -63,7 +63,7 @@ out of scope for this same-size branch because a UUID plus verification tag does
 
 ## Opaque key management
 
-Three related threads around operating the Opaque codec's key. Sketches, not commitments.
+Three related threads around operating the Opaque Timestamp codec's key. Sketches, not commitments.
 
 - **Key rotation is caller-driven, not transparent.** The blast radius of a rotation is
   narrower than it looks: the key only feeds `extractTimestamp`. `generate`, `parse`,
@@ -83,7 +83,7 @@ Three related threads around operating the Opaque codec's key. Sketches, not com
     0.1% — dashboard-grade, never correctness-grade, and only if documented as such.
   - _Transparent try-all-keys_ belongs to an authenticated variant (`createSignedTimestampId`'s
     truncated HMAC gives a tag to verify a decrypt against); an 80-bit tag makes a small
-    ring effectively false-positive-free. Adding a key-id to Opaque itself is rejected
+    ring effectively false-positive-free. Adding a key-id to the Opaque Timestamp codec itself is rejected
     for the same reasons GCM was in ADR-0004: it either eats the random budget or breaks
     the 16-byte / strip-trick invariant. Likely worth its own ADR.
 - ~~**`ids keygen [--bits 128|256] [--key-format hex|base64url]`** — emit a random AES key
@@ -95,7 +95,7 @@ Three related threads around operating the Opaque codec's key. Sketches, not com
   (and `inspect --opaque`) reading the key from `IDS_KEY`, decoded with the same format
   as `keygen`. Env over argv deliberately — argv leaks via `ps` and shell history. A
   missing or malformed `IDS_KEY` is a clear stderr error, exit 1. Consequence: the
-  opaque codec's `generate`/`extractTimestamp` are async, so `run()` would return a
+  Opaque Timestamp codec's `generate`/`extractTimestamp` are async, so `run()` would return a
   Promise and `bin/cli.ts` would await it — a contained change to the otherwise-sync CLI.~~
   — shipped.
 

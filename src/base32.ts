@@ -2,7 +2,7 @@
   This is based on Crockford's Base32 spec: https://www.crockford.com/base32.html
   One difference is that it uses lowercase instead of uppercase when encoding.
 
-  These functions are internal: callers (id.ts) guarantee that input is a
+  These functions are internal: codec constructors guarantee that input is a
   16-byte buffer for encode, or a string of characters drawn from the alphabet
   for decode. Invalid input produces silent garbage rather than a thrown error,
   consistent with the trust-the-type rule in ADR-0003.

@@ -17,23 +17,23 @@ The brand-scoped object that generates, parses, and validates IDs for one entity
 _Avoid_: factory, generator, encoder.
 
 **Codec variant**:
-A concrete codec algorithm sharing the same wire shape (`<brand>_` + 26 Crockford base32 chars) but differing in byte layout and capabilities. Shipped today: the **Timestamp codec** and the **Opaque codec**. Each variant is a separate subpath export — see [ADR-0005](./docs/adr/0005-codec-variant-subpath-exports.md).
+A concrete codec algorithm sharing the same wire shape (`<brand>_` + 26 Crockford base32 chars) but differing in byte layout and capabilities. Shipped today: the **Timestamp codec** and the **Opaque Timestamp codec**. Each variant is a separate subpath export — see [ADR-0005](./docs/adr/0005-codec-variant-subpath-exports.md).
 _Avoid_: default codec (use **Timestamp codec** for the dominant variant), trust mode, algorithm.
 
 **Timestamp-family codec**:
-A codec variant whose payload represents an ID creation timestamp, either readable directly or recoverable only under key. Current members are the **Timestamp codec** and **Opaque codec**; future members may include a **Signed Timestamp codec** or **Reverse Timestamp codec**.
+A codec variant whose payload represents an ID creation timestamp, either readable directly or recoverable only under key. Current members are the **Timestamp codec** and **Opaque Timestamp codec**; future members may include a **Signed Timestamp codec** or **Reverse Timestamp codec**.
 _Avoid_: timestamp layout (use **Timestamp byte layout** for the plaintext byte split), time codec, chronological codec.
 
 **Timestamp codec**:
 The dominant timestamp-family codec variant. Payload carries the **Timestamp byte layout** in plaintext — IDs sort by creation time and `extractTimestamp` works without a key. Constructed via `createTimestampId(brand)` on the main entry; fully synchronous.
 _Avoid_: default codec, standard codec, ULID codec, createId.
 
-**Opaque codec**:
+**Opaque Timestamp codec**:
 A timestamp-family codec variant that AES-encrypts the payload under caller-supplied **Opaque key** material. Same wire shape as the Timestamp codec, but the timestamp is not readable from the ID without the key. `generate` and `extractTimestamp` are key-dependent; parsing methods work on the wire form only — see [ADR-0006](./docs/adr/0006-async-keyed-codec-contract.md). No time-range bound methods (`minIdForTime` / `maxIdForTime`) — encrypted payloads do not sort by creation time. Constructed via `createOpaqueTimestampId(brand, { key })`.
-_Avoid_: encrypted codec, private codec, secure codec, createOpaqueId.
+_Avoid_: Opaque codec, encrypted codec, private codec, secure codec, createOpaqueId.
 
 **Opaque key**:
-The AES key (128, 192, or 256 bits of raw bytes) that gates encryption and decryption in the Opaque codec. Distinct from the ID **Payload** — an Opaque key is operator-supplied secret material, never embedded in an ID. `extractTimestamp` requires the same key that was used at generation time.
+The AES key (128, 192, or 256 bits of raw bytes) that gates encryption and decryption in the Opaque Timestamp codec. Distinct from the ID **Payload** — an Opaque key is operator-supplied secret material, never embedded in an ID. `extractTimestamp` requires the same key that was used at generation time.
 _Avoid_: secret, encryption key (too generic), master key.
 
 **Opaque key format**:
@@ -76,12 +76,12 @@ _Avoid_: layout (ambiguous with UI/visual), scheme (loses byte-level specificity
 >
 > **Dev:** Support pasted an invoice ID — can I get the creation time from it?
 >
-> **Domain expert:** Only if that brand uses the Opaque codec and you have the Opaque key. `extractTimestamp` decrypts under the key; without it, the timestamp isn't recoverable from the wire form. Same on the CLI: `inspect --opaque` with `IDS_KEY` set. Run `inspect` without `--opaque` on an Opaque-encoded ID and you'll get a timestamp line — but it's meaningless; the variants are wire-indistinguishable.
+> **Domain expert:** Only if that brand uses the Opaque Timestamp codec and you have the Opaque key. `extractTimestamp` decrypts under the key; without it, the timestamp isn't recoverable from the wire form. Same on the CLI: `inspect --opaque` with `IDS_KEY` set. Run `inspect` without `--opaque` on an Opaque Timestamp-encoded ID and you'll get a timestamp line — but it's meaningless; the variants are wire-indistinguishable.
 
 ## Flagged ambiguities / known gaps
 
 **Same-millisecond sort order is non-deterministic.** Two IDs generated in the same ms by the same process have independent random tails; they sort randomly relative to each other rather than by generation order. This is deliberate — see ADR-0002. Adding ULID-style monotonic increment would require a stateful generator and a breaking change to `TimestampOptions`, and is a separate design exercise if the need ever arises.
 
-**Wire-indistinguishable variants cannot be inferred from an ID alone.** An Opaque-encoded ID looks identical to a Timestamp-encoded ID on the wire. Any tool that decodes a timestamp without the correct Opaque key — including `inspect` run without `--opaque` — interprets encrypted payload bytes as plaintext Timestamp bytes and prints a meaningless timestamp. The operator must know which codec variant the brand uses; see [ADR-0007](./docs/adr/0007-wire-indistinguishable-codec-variants.md).
+**Wire-indistinguishable variants cannot be inferred from an ID alone.** An Opaque Timestamp-encoded ID looks identical to a Timestamp-encoded ID on the wire. Any tool that decodes a timestamp without the correct Opaque key — including `inspect` run without `--opaque` — interprets encrypted payload bytes as plaintext Timestamp bytes and prints a meaningless timestamp. The operator must know which codec variant the brand uses; see [ADR-0007](./docs/adr/0007-wire-indistinguishable-codec-variants.md).
 
 **Wrong Opaque key is indistinguishable from the right one at decrypt time.** Unauthenticated AES-CBC (ADR-0004) never throws on decrypt; a well-formed but incorrect key yields a plausible-looking timestamp, not an error. `extractTimestamp` — and CLI `inspect --opaque` — assume the operator supplied the same key used at generation. Missing or malformed key material is rejected; key mismatch is not detectable. See [docs/IDEAS.md](./docs/IDEAS.md) (key rotation) for rotation and plausibility-check options.

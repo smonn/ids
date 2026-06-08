@@ -34,7 +34,7 @@ body:
       description: Use the glossary terms from CONTEXT.md.
       options:
         - Timestamp codec
-        - Opaque codec
+        - Opaque Timestamp codec
         - Both codec variants
         - Not sure / not relevant
     validations:

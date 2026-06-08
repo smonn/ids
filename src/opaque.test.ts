@@ -111,7 +111,7 @@ describe("opaque", () => {
     expect(await usr.generate()).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
   });
 
-  it("falls back to default injections when Opaque options are explicitly undefined", async () => {
+  it("falls back to default injections when Opaque Timestamp options are explicitly undefined", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const before = Date.now();
     const usr = createOpaqueTimestampId("usr", {

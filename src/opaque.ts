@@ -7,7 +7,7 @@ import { wireMethods } from "./wire/codec-shell.js";
 export { decodeOpaqueKey, encodeOpaqueKey, type OpaqueKeyFormat } from "./opaque-key.js";
 
 /**
- * Configuration options for an Opaque codec instance.
+ * Configuration options for an Opaque Timestamp codec instance.
  */
 export type OpaqueTimestampOptions = {
   /** AES-CBC key used for encryption and decryption. */
@@ -21,7 +21,7 @@ export type OpaqueTimestampOptions = {
 };
 
 /**
- * A brand-scoped codec for generating and validating encrypted (opaque) IDs.
+ * A brand-scoped codec for generating and validating Opaque Timestamp IDs.
  *
  * Same wire shape as the Timestamp codec (`{brand}_` + 26 base32 chars) but the
  * payload is AES-CBC encrypted. `generate`, `generateAt`, and `extractTimestamp`
@@ -61,7 +61,7 @@ function defaultRng(target: Uint8Array): void {
 }
 
 /**
- * Imports a raw AES key for use with the Opaque codec.
+ * Imports a raw AES key for use with the Opaque Timestamp codec.
  *
  * @param bytes - Raw key bytes (16, 24, or 32 bytes for AES-128/192/256).
  */
@@ -73,7 +73,7 @@ export function importOpaqueKey(bytes: Uint8Array): Promise<CryptoKey> {
 }
 
 /**
- * Creates an Opaque codec for `brand` (three lowercase a–z characters).
+ * Creates an Opaque Timestamp codec for `brand` (three lowercase a–z characters).
  *
  * @param brand - Entity type brand validated once at construction.
  * @param opts - Required `key` plus optional `now`, `rng`, and `allowDuplicateBrand` overrides.

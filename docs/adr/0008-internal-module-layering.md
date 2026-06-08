@@ -33,7 +33,7 @@ The CLI layer stays on the public codec-facing surface: commands construct codec
 
 ### Layout ops binder (canonical composition pattern)
 
-Each `layouts/<variant>.ts` exports a single binder — `createTimestampLayoutOps`, `createOpaqueLayoutOps`, etc. — consumed by the matching codec constructor. The binder closes over variant inputs (`prefix`, `rng`, and for Opaque `key`), owns any per-codec scratch state, and returns the layout methods the public codec surface needs (`generateAt`, `extractTimestamp`, and variant-specific helpers such as `minIdForTime` / `exampleWireId`). Codec constructors bind `now()` and wire methods; they do not import layout helpers or wire internals directly.
+Each `layouts/<variant>.ts` exports a single binder — `createTimestampLayoutOps`, `createOpaqueLayoutOps`, etc. — consumed by the matching codec constructor. The binder closes over variant inputs (`prefix`, `rng`, and for Opaque Timestamp `key`), owns any per-codec scratch state, and returns the layout methods the public codec surface needs (`generateAt`, `extractTimestamp`, and variant-specific helpers such as `minIdForTime` / `exampleWireId`). Codec constructors bind `now()` and wire methods; they do not import layout helpers or wire internals directly.
 
 ### Responsibilities
 
@@ -50,7 +50,7 @@ Each `layouts/<variant>.ts` exports a single binder — `createTimestampLayoutOp
 ## Consequences
 
 - Adding a codec variant means `layouts/<variant>.ts` (export `create*LayoutOps`) + `<variant>.ts` codec constructor + subpath export ([ADR-0005](./0005-codec-variant-subpath-exports.md)) — no changes to parse or envelope.
-- `layouts/*` must not import sibling layouts; Opaque depends on `wire/timestamp-bytes`, not `layouts/timestamp`.
+- `layouts/*` must not import sibling layouts; the Opaque Timestamp layout depends on `wire/timestamp-bytes`, not `layouts/timestamp`.
 - Codec constructors must not import `base32` directly — envelope owns payload encoding. Codec constructors import `wire/codec-shell` only from `wire/`, and `create*LayoutOps` binders only from `layouts/`.
 - The CLI layer may import public codec entrypoints and Opaque key helpers from `timestamp.ts` / `opaque.ts`, but not their internal dependencies directly.
 - **dependency-cruiser** enforces the rings in CI; `.dependency-cruiser.cjs` is the source of truth.

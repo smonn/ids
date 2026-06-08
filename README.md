@@ -6,7 +6,7 @@ Public-facing branded IDs for TypeScript apps.
 pnpm add @smonn/ids
 ```
 
-Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkz`: a three-letter brand, an underscore, then 26 Crockford base32 characters of payload. The Timestamp codec encodes a 48-bit millisecond Unix timestamp followed by 80 random bits — same byte layout as a [ULID](https://github.com/ulid/spec); see [ADR-0002](./docs/adr/0002-payload-layout.md) for the deliberate divergences. The Opaque codec (`@smonn/ids/opaque`) keeps the same wire shape but encrypts the payload under a key, so the timestamp isn't readable from the ID.
+Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkz`: a three-letter brand, an underscore, then 26 Crockford base32 characters of payload. The Timestamp codec encodes a 48-bit millisecond Unix timestamp followed by 80 random bits — same byte layout as a [ULID](https://github.com/ulid/spec); see [ADR-0002](./docs/adr/0002-payload-layout.md) for the deliberate divergences. The Opaque Timestamp codec (`@smonn/ids/opaque`) keeps the same wire shape but encrypts the payload under a key, so the timestamp isn't readable from the ID.
 
 ## What this is for
 
@@ -166,7 +166,7 @@ The `pattern` describes the **canonical form only** — it matches `generate()` 
 
 ### "Don't leak creation time in IDs that customers can see"
 
-The Timestamp codec exposes the creation timestamp by design — that's what makes `ORDER BY id` work. If that's a leak you can't accept (invoice IDs revealing billing cadence, signup IDs revealing acquisition velocity), use the Opaque codec at `@smonn/ids/opaque`. Same `<brand>_<26 chars>` wire shape, but the payload is AES-encrypted under a key you supply.
+The Timestamp codec exposes the creation timestamp by design — that's what makes `ORDER BY id` work. If that's a leak you can't accept (invoice IDs revealing billing cadence, signup IDs revealing acquisition velocity), use the Opaque Timestamp codec at `@smonn/ids/opaque`. Same `<brand>_<26 chars>` wire shape, but the payload is AES-encrypted under a key you supply.
 
 ```ts
 import { createOpaqueTimestampId, importOpaqueKey } from "@smonn/ids/opaque";
@@ -181,7 +181,7 @@ await invoices.extractTimestamp(id); // Date — same codec, same key required
 Three differences from the Timestamp codec:
 
 - **Async key-dependent methods.** WebCrypto is async-only, so `generate`, `generateAt`, and `extractTimestamp` return `Promise`s. `is`, `parse`, `safeParse`, `toJsonSchema`, and the Standard Schema adapter stay sync — they work on the wire form only ([ADR-0006](./docs/adr/0006-async-keyed-codec-contract.md)).
-- **No `minIdForTime` / `maxIdForTime`.** Encrypted payloads don't sort by time. If you need time-range scans on Opaque-coded entities, store the timestamp in a separate column.
+- **No `minIdForTime` / `maxIdForTime`.** Encrypted payloads don't sort by time. If you need time-range scans on entities using the Opaque Timestamp codec, store the timestamp in a separate column.
 - **Wire-indistinguishable from the Timestamp codec.** Codec choice is a per-brand commitment; the brand registry warns if you register the same brand against both in dev ([ADR-0007](./docs/adr/0007-wire-indistinguishable-codec-variants.md)).
 
 Encryption is AES-CBC with a zero IV. That's deliberately safe here because the plaintext already carries 80 bits of entropy per ID; see [ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md) for the full rationale.
@@ -193,7 +193,7 @@ To store or transport key material outside the library, `encodeOpaqueKey` / `dec
 - **Internal surrogate primary keys.** If nobody outside your service ever sees the ID, the brand prefix and lenient parsing are dead weight. Use a `bigint` sequence.
 - **Wire-compatible ULIDs.** The byte layout is ULID-shaped but the encoding is lowercase and wrapped in a brand envelope. Stock ULID parsers will reject these.
 - **Distributed-trace / request-correlation IDs.** Use OpenTelemetry-format IDs.
-- **Hiding creation time with the Timestamp codec.** Anyone with one ID at a known creation time can compute the epoch offset. A custom epoch wouldn't help and isn't supported. To hide creation time per-ID, use the Opaque codec (above).
+- **Hiding creation time with the Timestamp codec.** Anyone with one ID at a known creation time can compute the epoch offset. A custom epoch wouldn't help and isn't supported. To hide creation time per-ID, use the Opaque Timestamp codec (above).
 
 ## API surface
 
@@ -249,7 +249,7 @@ canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz
 input:     canonical
 ```
 
-Accepts non-canonical input (uppercase, Crockford aliases). Assumes the **Timestamp codec** — if the brand uses the **Opaque codec**, pass `--opaque` and set `IDS_KEY` (below); otherwise the timestamp line is meaningless garbage.
+Accepts non-canonical input (uppercase, Crockford aliases). Assumes the **Timestamp codec** — if the brand uses the **Opaque Timestamp codec**, pass `--opaque` and set `IDS_KEY` (below); otherwise the timestamp line is meaningless garbage.
 
 ```bash
 IDS_KEY=<hex-or-base64url-key> npx @smonn/ids inspect inv_… --opaque
