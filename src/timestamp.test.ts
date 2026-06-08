@@ -9,7 +9,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { createId, type Options } from "./index.js";
+import { createTimestampId, type TimestampOptions } from "./index.js";
 import type { Id, JsonSchema } from "./types.js";
 
 describe("id", () => {
@@ -26,13 +26,13 @@ describe("id", () => {
 
   it("roundtrip", () => {
     const fixed = new Date("2026-05-28T12:00:00Z");
-    const usr = createId("usr", { now: () => fixed.getTime() });
+    const usr = createTimestampId("usr", { now: () => fixed.getTime() });
     const id = usr.generate();
     expect(usr.extractTimestamp(id)).toEqual(fixed);
   });
 
   it("deterministic snapshot", () => {
-    const usr = createId("usr", {
+    const usr = createTimestampId("usr", {
       now: () => 0,
       rng: () => {},
     });
@@ -43,7 +43,7 @@ describe("id", () => {
     // Buffer: timestamp 0x123456789abc, 9 zero random bytes, last byte 0xff.
     // Non-zero last byte exercises the tail-emit shift; non-symmetric timestamp
     // exercises the main loop across every 5-bit alignment.
-    const usr = createId("usr", {
+    const usr = createTimestampId("usr", {
       now: () => 0x123456789abc,
       rng: (target) => {
         target[9] = 0xff;
@@ -56,13 +56,13 @@ describe("id", () => {
     // Inverse: decode a hard-coded string and recover the exact ms.
     // Independent of the encoder so a decoder-only bug can't be masked by a
     // compensating encoder bug.
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     const id = "usr_28t5cy4tqg00000000000000zw" as Id<"usr">;
     expect(usr.extractTimestamp(id)).toEqual(new Date(0x123456789abc));
   });
 
   it("extracts ms=0 (epoch boundary)", () => {
-    const usr = createId("usr", {
+    const usr = createTimestampId("usr", {
       now: () => 0,
       rng: () => {},
     });
@@ -71,7 +71,7 @@ describe("id", () => {
 
   it("extracts ms at the 48-bit boundary", () => {
     const maxMs = 2 ** 48 - 1;
-    const usr = createId("usr", {
+    const usr = createTimestampId("usr", {
       now: () => maxMs,
       rng: () => {},
     });
@@ -79,7 +79,7 @@ describe("id", () => {
   });
 
   it("rejects timestamps that overflow 48 bits", () => {
-    const usr = createId("usr", {
+    const usr = createTimestampId("usr", {
       now: () => 2 ** 48,
       rng: () => {},
     });
@@ -87,7 +87,7 @@ describe("id", () => {
   });
 
   it("rejects pre-epoch timestamps", () => {
-    const usr = createId("usr", {
+    const usr = createTimestampId("usr", {
       now: () => -1,
       rng: () => {},
     });
@@ -95,7 +95,7 @@ describe("id", () => {
   });
 
   it("handles maximal random bytes", () => {
-    const usr = createId("usr", {
+    const usr = createTimestampId("usr", {
       now: () => 0,
       rng: (target) => target.fill(0xff),
     });
@@ -105,7 +105,10 @@ describe("id", () => {
   });
 
   it("falls back to the default rng when the option is explicitly undefined", () => {
-    const usr = createId("usr", { now: () => 0, rng: undefined } as unknown as Options);
+    const usr = createTimestampId("usr", {
+      now: () => 0,
+      rng: undefined,
+    } as unknown as TimestampOptions);
     const id = usr.generate();
 
     expect(usr.is(id)).toBe(true);
@@ -114,10 +117,10 @@ describe("id", () => {
 
   it("falls back to the default now when the option is explicitly undefined", () => {
     const before = Date.now();
-    const usr = createId("usr", {
+    const usr = createTimestampId("usr", {
       now: undefined,
       rng: (target: Uint8Array) => target.fill(0x00),
-    } as unknown as Options);
+    } as unknown as TimestampOptions);
     const id = usr.generate();
     const after = Date.now();
 
@@ -128,20 +131,20 @@ describe("id", () => {
   });
 
   it("is() accepts only canonical form", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(usr.is("usr_01h7b3k9rqxn1cw3p9r8t2sgkz")).toBe(true);
     expect(usr.is("USR_01H7B3K9RQXN1CW3P9R8T2SGKZ")).toBe(false); // uppercase
     expect(usr.is("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toBe(false); // contains o/i/l aliases
   });
 
   it("parse() normalises lenient input to canonical form", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(usr.parse("USR_01H7B3K9rqxn4cw3p9r8t2sgkz")).toEqual("usr_01h7b3k9rqxn4cw3p9r8t2sgkz");
     expect(usr.parse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual("usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
   });
 
   it("safeParse() returns canonical form on success", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(usr.safeParse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
       ok: true,
       id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
@@ -149,7 +152,7 @@ describe("id", () => {
   });
 
   it("safeParse() canonicalises an all-alias base32 portion", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(usr.safeParse("usr_" + "i".repeat(26))).toEqual({
       ok: true,
       id: "usr_" + "1".repeat(26),
@@ -157,7 +160,7 @@ describe("id", () => {
   });
 
   it("safeParse() fails on bad input", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(usr.safeParse(null)).toEqual({ ok: false, error: "not_string" });
     expect(usr.safeParse("org_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
       ok: false,
@@ -170,21 +173,21 @@ describe("id", () => {
   });
 
   it("cross-brand rejection", () => {
-    const org = createId("org");
-    const usr = createId("usr");
+    const org = createTimestampId("org");
+    const usr = createTimestampId("usr");
     const orgId = org.generate();
     expect(usr.is(orgId)).toBe(false);
     expect(() => usr.parse(orgId)).toThrow();
   });
 
   it("brands containing o/i/l", () => {
-    const log = createId("log");
+    const log = createTimestampId("log");
     const logId = log.generate();
     expect(log.is(logId)).toBe(true);
   });
 
   it("is() does not accept malformed inputs", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(usr.is(null)).toBe(false);
     expect(usr.is("usr_")).toBe(false);
     expect(usr.is("usr_!!!")).toBe(false);
@@ -192,19 +195,19 @@ describe("id", () => {
   });
 
   it("fails if brand is not exactly three a-z characters", () => {
-    expect(() => createId("a")).toThrow();
-    expect(() => createId("aaaa")).toThrow();
-    expect(() => createId("!@?")).toThrow();
+    expect(() => createTimestampId("a")).toThrow();
+    expect(() => createTimestampId("aaaa")).toThrow();
+    expect(() => createTimestampId("!@?")).toThrow();
   });
 
   it("generate() output matches expected format", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     const id = usr.generate();
     expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
   });
 
   it("generate() called many times will always generate distinct values", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     const ids = new Set<string>();
     for (let i = 0; i < 1000; i++) {
       const id = usr.generate();
@@ -216,7 +219,7 @@ describe("id", () => {
   it.each([0, 1, 2, 3, 4, 1719000000001, 2 ** 48 - 1])(
     "extractTimestamp() processes the correct bits %d",
     (time) => {
-      const usr = createId("usr", { now: () => time });
+      const usr = createTimestampId("usr", { now: () => time });
       expect(usr.extractTimestamp(usr.generate())).toEqual(new Date(time));
     },
   );
@@ -224,7 +227,7 @@ describe("id", () => {
   it.each([0, 1, 0x123456789abc, 2 ** 48 - 1])(
     "minIdForTime() round-trips through extractTimestamp at ms=%d",
     (ms) => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       const d = new Date(ms);
       expect(usr.extractTimestamp(usr.minIdForTime(d))).toEqual(d);
     },
@@ -233,7 +236,7 @@ describe("id", () => {
   it.each([0, 1, 0x123456789abc, 2 ** 48 - 1])(
     "maxIdForTime() round-trips through extractTimestamp at ms=%d",
     (ms) => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       const d = new Date(ms);
       expect(usr.extractTimestamp(usr.maxIdForTime(d))).toEqual(d);
     },
@@ -245,7 +248,7 @@ describe("id", () => {
     // known-answer test so the cross-boundary base32 char (bits 45–49, where
     // the last 3 timestamp bits meet the first 2 random bits) is exercised.
     const ms = 0x123456789abc;
-    const usr = createId("usr", {
+    const usr = createTimestampId("usr", {
       now: () => ms,
       rng: (target) => target.fill(0x00),
     });
@@ -254,7 +257,7 @@ describe("id", () => {
 
   it("maxIdForTime(d) equals an all-0xFF-RNG generate() at the same time (tight upper bound)", () => {
     const ms = 0x123456789abc;
-    const usr = createId("usr", {
+    const usr = createTimestampId("usr", {
       now: () => ms,
       rng: (target) => target.fill(0xff),
     });
@@ -263,7 +266,7 @@ describe("id", () => {
 
   it("minIdForTime(d) <= generate() <= maxIdForTime(d) for the default RNG", () => {
     const d = new Date("2026-05-28T12:00:00Z");
-    const usr = createId("usr", { now: () => d.getTime() });
+    const usr = createTimestampId("usr", { now: () => d.getTime() });
     const min = usr.minIdForTime(d);
     const max = usr.maxIdForTime(d);
     for (let i = 0; i < 100; i++) {
@@ -274,51 +277,51 @@ describe("id", () => {
   });
 
   it("minIdForTime() rejects pre-epoch dates with the same message as generate()", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(() => usr.minIdForTime(new Date(-1))).toThrow("timestamp is negative");
   });
 
   it("maxIdForTime() rejects pre-epoch dates with the same message as generate()", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(() => usr.maxIdForTime(new Date(-1))).toThrow("timestamp is negative");
   });
 
   it("minIdForTime() rejects dates that overflow 48 bits with the same message as generate()", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(() => usr.minIdForTime(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
   });
 
   it("maxIdForTime() rejects dates that overflow 48 bits with the same message as generate()", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(() => usr.maxIdForTime(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
   });
 
   it("minIdForTime() rejects an Invalid Date instead of producing an epoch-zero ID", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(() => usr.minIdForTime(new Date(NaN))).toThrow("timestamp is not a number");
   });
 
   it("maxIdForTime() rejects an Invalid Date instead of producing an epoch-zero ID", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(() => usr.maxIdForTime(new Date(NaN))).toThrow("timestamp is not a number");
   });
 
   it.each([0, 1, 0x123456789abc, 2 ** 48 - 1])(
     "generateAt() round-trips through extractTimestamp at ms=%d",
     (ms) => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       const d = new Date(ms);
       expect(usr.extractTimestamp(usr.generateAt(d))).toEqual(d);
     },
   );
 
   it("generateAt() return type is Id<Brand>", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expectTypeOf(usr.generateAt).returns.toEqualTypeOf<Id<"usr">>();
   });
 
   it("generateAt() produces canonical form (lowercase, no aliases)", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     const id = usr.generateAt(new Date("2024-03-15T12:00:00Z"));
     expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
     expect(usr.is(id)).toBe(true);
@@ -328,71 +331,71 @@ describe("id", () => {
     const date = new Date("2024-03-15T12:00:00Z");
     // A deterministic rng that fills the 10-byte tail with a fixed pattern means
     // generateAt(date) must equal the sentinel built from that same fill.
-    const min = createId("usr", { rng: (target) => target.fill(0x00) });
-    const max = createId("usr", { rng: (target) => target.fill(0xff) });
+    const min = createTimestampId("usr", { rng: (target) => target.fill(0x00) });
+    const max = createTimestampId("usr", { rng: (target) => target.fill(0xff) });
     expect(min.generateAt(date)).toBe(min.minIdForTime(date));
     expect(max.generateAt(date)).toBe(max.maxIdForTime(date));
   });
 
   it("generateAt() rejects pre-epoch dates with the same message as generate()", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(() => usr.generateAt(new Date(-1))).toThrow("timestamp is negative");
   });
 
   it("generateAt() rejects dates that overflow 48 bits with the same message as generate()", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(() => usr.generateAt(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
   });
 
   it("generateAt() rejects an Invalid Date (NaN timestamp)", () => {
-    const usr = createId("usr");
+    const usr = createTimestampId("usr");
     expect(() => usr.generateAt(new Date("not a date"))).toThrow("timestamp is not a number");
     expect(() => usr.generateAt(new Date(NaN))).toThrow("timestamp is not a number");
   });
 
   describe("standard schema adapter", () => {
     it("exposes ~standard with version 1 and vendor '@smonn/ids'", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       expect(usr["~standard"].version).toBe(1);
       expect(usr["~standard"].vendor).toBe("@smonn/ids");
     });
 
     it("validate() returns { value: canonical } on lenient success", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       expect(usr["~standard"].validate("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
         value: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
       });
     });
 
     it("validate() reports non-string input with 'expected string'", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       expect(usr["~standard"].validate(123)).toEqual({
         issues: [{ message: "expected string" }],
       });
     });
 
     it("validate() reports a wrong prefix with the expected brand prefix", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       expect(usr["~standard"].validate("org_01h7b3k9rqxn1cw3p9r8t2sgkz")).toEqual({
         issues: [{ message: "expected prefix 'usr_'" }],
       });
     });
 
     it("validate() reports a malformed payload with 'invalid base32 payload'", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       expect(usr["~standard"].validate("usr_01h7b3k9rqxn1cw3p9r8t2sgk!")).toEqual({
         issues: [{ message: "invalid base32 payload" }],
       });
     });
 
     it("~standard.types.output infers Id<Brand> (StandardSchemaV1.InferOutput contract)", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       type Output = NonNullable<(typeof usr)["~standard"]["types"]>["output"];
       expectTypeOf<Output>().toEqualTypeOf<Id<"usr">>();
     });
 
     // Hand-written mirror of the Standard Schema v1 interface (kept in the test
-    // file so a drift in our Codec types fails to assign to the spec shape).
+    // file so a drift in our TimestampCodec types fails to assign to the spec shape).
     interface StandardSchemaV1Mirror<Input = unknown, Output = Input> {
       readonly "~standard": {
         readonly version: 1;
@@ -421,14 +424,14 @@ describe("id", () => {
       };
     }
 
-    it("Codec<Brand> structurally satisfies StandardSchemaV1<unknown, Id<Brand>>", () => {
-      const usr = createId("usr");
+    it("TimestampCodec<Brand> structurally satisfies StandardSchemaV1<unknown, Id<Brand>>", () => {
+      const usr = createTimestampId("usr");
       const _typecheck: StandardSchemaV1Mirror<unknown, Id<"usr">> = usr;
       expect(_typecheck["~standard"].version).toBe(1);
     });
 
     it("the three ParseError variants produce three distinct messages", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       const messages = new Set(
         [123, "org_01h7b3k9rqxn1cw3p9r8t2sgkz", "usr_01h7b3k9rqxn1cw3p9r8t2sgk!"].map((input) => {
           const r = usr["~standard"].validate(input);
@@ -442,7 +445,7 @@ describe("id", () => {
 
   describe("toJsonSchema (JSON Schema / OpenAPI export)", () => {
     it("returns a string schema with pattern, description, and example", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       const schema = usr.toJsonSchema();
       expect(schema.type).toBe("string");
       expect(typeof schema.pattern).toBe("string");
@@ -451,17 +454,17 @@ describe("id", () => {
     });
 
     it("pattern is anchored at both ends and brand-specific", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       expect(usr.toJsonSchema().pattern).toBe("^usr_[0-9a-hjkmnp-tv-z]{26}$");
     });
 
     it("description names the brand", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       expect(usr.toJsonSchema().description).toBe("Branded ID for 'usr'");
     });
 
     it("every generate() output matches pattern (property test, many iterations)", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       const re = new RegExp(usr.toJsonSchema().pattern);
       for (let i = 0; i < 1000; i++) {
         expect(re.test(usr.generate())).toBe(true);
@@ -469,14 +472,14 @@ describe("id", () => {
     });
 
     it("example matches the returned pattern", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       const schema = usr.toJsonSchema();
       expect(new RegExp(schema.pattern).test(schema.example)).toBe(true);
       expect(usr.is(schema.example)).toBe(true);
     });
 
     it("pattern rejects uppercase and Crockford-alias variants (strict per ADR-0003)", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       const re = new RegExp(usr.toJsonSchema().pattern);
       expect(re.test("USR_01H7B3K9RQXN1CW3P9R8T2SGKZ")).toBe(false); // uppercase
       expect(re.test("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toBe(false); // o/i/l aliases
@@ -484,13 +487,13 @@ describe("id", () => {
     });
 
     it("different brands produce different patterns", () => {
-      expect(createId("usr").toJsonSchema().pattern).not.toBe(
-        createId("org").toJsonSchema().pattern,
+      expect(createTimestampId("usr").toJsonSchema().pattern).not.toBe(
+        createTimestampId("org").toJsonSchema().pattern,
       );
     });
 
     it("toJsonSchema() return type is the exported JsonSchema type", () => {
-      const usr = createId("usr");
+      const usr = createTimestampId("usr");
       expectTypeOf(usr.toJsonSchema()).toEqualTypeOf<JsonSchema>();
     });
   });
@@ -511,49 +514,49 @@ describe("dev-mode duplicate-brand warning", () => {
     vi.unstubAllEnvs();
   });
 
-  it("warns when createId is called a second time for the same brand", () => {
-    createId("zaa");
+  it("warns when createTimestampId is called a second time for the same brand", () => {
+    createTimestampId("zaa");
     expect(warnSpy).not.toHaveBeenCalled();
-    createId("zaa");
+    createTimestampId("zaa");
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
   it("does not warn again on a third call for the same brand", () => {
-    createId("zab");
-    createId("zab");
+    createTimestampId("zab");
+    createTimestampId("zab");
     expect(warnSpy).toHaveBeenCalledTimes(1);
-    createId("zab");
+    createTimestampId("zab");
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
   it("does not warn when allowDuplicateBrand is true, even on repeated calls", () => {
-    createId("zac", { allowDuplicateBrand: true });
-    createId("zac", { allowDuplicateBrand: true });
+    createTimestampId("zac", { allowDuplicateBrand: true });
+    createTimestampId("zac", { allowDuplicateBrand: true });
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it("allowDuplicateBrand: true does not poison the registry for later un-flagged calls", () => {
-    createId("zad", { allowDuplicateBrand: true });
-    createId("zad");
+    createTimestampId("zad", { allowDuplicateBrand: true });
+    createTimestampId("zad");
     expect(warnSpy).not.toHaveBeenCalled();
-    createId("zad");
+    createTimestampId("zad");
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("Options exposes allowDuplicateBrand as an optional boolean", () => {
-    expectTypeOf<Options["allowDuplicateBrand"]>().toEqualTypeOf<boolean | undefined>();
+  it("TimestampOptions exposes allowDuplicateBrand as an optional boolean", () => {
+    expectTypeOf<TimestampOptions["allowDuplicateBrand"]>().toEqualTypeOf<boolean | undefined>();
   });
 
-  it("Options accepts reusable objects that omit defaulted injection points", () => {
-    const options: Options = { allowDuplicateBrand: true };
-    const usr = createId("zag", options);
+  it("TimestampOptions accepts reusable objects that omit defaulted injection points", () => {
+    const options: TimestampOptions = { allowDuplicateBrand: true };
+    const usr = createTimestampId("zag", options);
 
     expect(usr.generate()).toMatch(/^zag_[0-9a-hjkmnp-tv-z]{26}$/);
   });
 
   it("warning message names the brand and the opt-out flag", () => {
-    createId("zaf");
-    createId("zaf");
+    createTimestampId("zaf");
+    createTimestampId("zaf");
     const message = warnSpy.mock.calls[0]?.[0];
     expect(message).toContain('"zaf"');
     expect(message).toContain("allowDuplicateBrand");
@@ -561,16 +564,16 @@ describe("dev-mode duplicate-brand warning", () => {
 
   it("in production: no warning is emitted and the registry is not touched", () => {
     vi.stubEnv("NODE_ENV", "production");
-    createId("zae");
-    createId("zae");
+    createTimestampId("zae");
+    createTimestampId("zae");
     expect(warnSpy).not.toHaveBeenCalled();
 
     // Lift production gate; the production calls above must not have
     // registered "zae", so the next call should be a fresh first registration.
     vi.unstubAllEnvs();
-    createId("zae");
+    createTimestampId("zae");
     expect(warnSpy).not.toHaveBeenCalled();
-    createId("zae");
+    createTimestampId("zae");
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 });

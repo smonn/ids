@@ -1,12 +1,12 @@
-# Opaque codec: AES-CBC with strip-and-reconstruct
+# Opaque Timestamp codec: AES-CBC with strip-and-reconstruct
 
-`createOpaqueId` needs a 128-bit permutation under a key, encoded into the same 16-byte payload as every other codec. WebCrypto exposes no raw single-block AES — every mode either pads (CBC: +16B), authenticates (GCM: +16B tag), wraps (KW: +8B), or streams in a way that's not a permutation (CTR). We use AES-CBC with a zero IV and exploit PKCS#7's full-padding-block property: encrypting a 16-byte plaintext produces a 32-byte ciphertext `C1 ‖ C2` where `C2 = AES_K(0x10×16 XOR C1)`. We keep only `C1` on the wire; to decrypt, we recompute `C2` via a second CBC encrypt of `0x10×16 XOR C1`, then run CBC decrypt on the reconstructed 32-byte ciphertext.
+`createOpaqueTimestampId` needs a 128-bit permutation under a key, encoded into the same 16-byte payload as every other codec. WebCrypto exposes no raw single-block AES — every mode either pads (CBC: +16B), authenticates (GCM: +16B tag), wraps (KW: +8B), or streams in a way that's not a permutation (CTR). We use AES-CBC with a zero IV and exploit PKCS#7's full-padding-block property: encrypting a 16-byte plaintext produces a 32-byte ciphertext `C1 ‖ C2` where `C2 = AES_K(0x10×16 XOR C1)`. We keep only `C1` on the wire; to decrypt, we recompute `C2` via a second CBC encrypt of `0x10×16 XOR C1`, then run CBC decrypt on the reconstructed 32-byte ciphertext.
 
 ## Considered Options
 
 - **AES-CTR with fixed counter** — rejected: degenerates to a one-time pad (same key, same mask, leaks plaintext structure across IDs).
 - **AES-CTR with per-ID nonce stored alongside** — rejected: expands wire format beyond 16 bytes; breaks the shared payload invariant.
-- **AES-GCM** — rejected: 16-byte authentication tag expands wire format. Integrity is `createSignedId`'s job (see [docs/IDEAS.md](../IDEAS.md)).
+- **AES-GCM** — rejected: 16-byte authentication tag expands wire format. Integrity is `createSignedTimestampId`'s job (see [docs/IDEAS.md](../IDEAS.md)).
 - **AES-KW** — rejected: adds an 8-byte integrity check; expands to 24 bytes.
 - **Pure-JS AES implementation** — rejected: bundle weight (~5–10KB), implementation review burden, no clear benefit over the strip-trick for a low-throughput async codec. Reconsider if a sync keyed contract is ever required.
 
@@ -34,4 +34,4 @@ Birthday bound on the 128-bit ciphertext space (~2⁶⁴ IDs before collisions b
 - `generate` / `generateAt` cost one SubtleCrypto encrypt call.
 - `extractTimestamp` costs two SubtleCrypto calls (compute `C2`, then decrypt). The constructed `C2` always produces valid PKCS#7 padding, so the decrypt never throws on a structurally-valid input.
 - The `CryptoKey` must be imported for `AES-CBC` with usages `["encrypt", "decrypt"]`. The `importOpaqueKey` helper handles this.
-- Tampered or wrong-key input decrypts to garbage bytes without error. `extractTimestamp` returns an arbitrary `Date`, consistent with the existing trust-the-type contract (see [ADR-0002](./0002-payload-layout.md)). Integrity belongs to a future signed codec, not here.
+- Tampered or wrong-key input decrypts to garbage bytes without error. `extractTimestamp` returns an arbitrary `Date`, consistent with the existing trust-the-type contract (see [ADR-0002](./0002-payload-layout.md)). Integrity belongs to a future Signed Timestamp codec, not here.

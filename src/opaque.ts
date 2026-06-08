@@ -7,9 +7,9 @@ import { wireMethods } from "./wire/codec-shell.js";
 export { decodeOpaqueKey, encodeOpaqueKey, type OpaqueKeyFormat } from "./opaque-key.js";
 
 /**
- * Configuration options for an Opaque codec instance.
+ * Configuration options for an Opaque Timestamp codec instance.
  */
-export type OpaqueOptions = {
+export type OpaqueTimestampOptions = {
   /** AES-CBC key used for encryption and decryption. */
   key: CryptoKey;
   /** Returns the current timestamp in milliseconds. Defaults to `Date.now`. */
@@ -21,14 +21,14 @@ export type OpaqueOptions = {
 };
 
 /**
- * A brand-scoped codec for generating and validating encrypted (opaque) IDs.
+ * A brand-scoped codec for generating and validating Opaque Timestamp IDs.
  *
  * Same wire shape as the Timestamp codec (`{brand}_` + 26 base32 chars) but the
  * payload is AES-CBC encrypted. `generate`, `generateAt`, and `extractTimestamp`
  * are async; parsing methods are sync. No `minIdForTime` / `maxIdForTime` —
  * encrypted payloads do not sort by creation time.
  */
-export type OpaqueCodec<Brand extends string> = {
+export type OpaqueTimestampCodec<Brand extends string> = {
   /** Produces a new canonical encrypted ID using the codec's `now` and `rng`. */
   generate(): Promise<Id<Brand>>;
   /** Produces a new canonical encrypted ID with timestamp bytes from `date`. Throws on invalid dates. */
@@ -61,7 +61,7 @@ function defaultRng(target: Uint8Array): void {
 }
 
 /**
- * Imports a raw AES key for use with the Opaque codec.
+ * Imports a raw AES key for use with the Opaque Timestamp codec.
  *
  * @param bytes - Raw key bytes (16, 24, or 32 bytes for AES-128/192/256).
  */
@@ -73,15 +73,15 @@ export function importOpaqueKey(bytes: Uint8Array): Promise<CryptoKey> {
 }
 
 /**
- * Creates an Opaque codec for `brand` (three lowercase a–z characters).
+ * Creates an Opaque Timestamp codec for `brand` (three lowercase a–z characters).
  *
  * @param brand - Entity type brand validated once at construction.
  * @param opts - Required `key` plus optional `now`, `rng`, and `allowDuplicateBrand` overrides.
  */
-export function createOpaqueId<Brand extends string>(
+export function createOpaqueTimestampId<Brand extends string>(
   brand: Brand,
-  opts: OpaqueOptions,
-): OpaqueCodec<Brand> {
+  opts: OpaqueTimestampOptions,
+): OpaqueTimestampCodec<Brand> {
   validateBrand(brand);
   registerBrand(brand, opts.allowDuplicateBrand);
 

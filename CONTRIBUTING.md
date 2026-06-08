@@ -27,7 +27,7 @@ These were considered and rejected for specific reasons. If you have a genuinely
 - **Brand width or charset.** Fixed at three lowercase a–z chars. Changing it invalidates every previously-issued ID. See [ADR-0001](./docs/adr/0001-brand-format.md).
 - **Payload byte split, byte order, precision, or epoch.** Fixed at 6 bytes big-endian ms Unix timestamp + 10 random bytes. Same wire-format constraint. See [ADR-0002](./docs/adr/0002-payload-layout.md).
 - **Lenient `is()`.** `is()` is canonical-only by design; the lenient path is `safeParse()`. Restoring lenient `is()` would re-open the footgun ADR-0003 closed. See [ADR-0003](./docs/adr/0003-canonical-strict-is.md).
-- **Monotonicity inside `generate()`.** A stable intra-ms sort would force a breaking change to `Options.rng`. If you need this, design it as a separate opt-in API (e.g. `createMonotonicId`) and propose it in an issue first.
+- **Monotonicity inside `generate()`.** A stable intra-ms sort would force a breaking change to `TimestampOptions.rng`. If you need this, design it as a separate opt-in API (e.g. `createMonotonicId`) and propose it in an issue first.
 - **Custom epoch.** 48 bits of ms gives ~8919 years of headroom from 1970; there's no bit-budget motivation to rebase. A custom epoch would turn time into a magic number every downstream consumer would have to remember. See [ADR-0002](./docs/adr/0002-payload-layout.md).
 
 ## Setup
@@ -55,7 +55,7 @@ Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, and `pnpm depc
 
 ## Style
 
-- **Don't mock the clock or RNG.** Inject them via `Options` (`now`, `rng`) — see the existing tests for how.
+- **Don't mock the clock or RNG.** Inject them via `TimestampOptions` (`now`, `rng`) — see the existing tests for how.
 - **New exports → update the API surface section in [`README.md`](./README.md).**
 - **New domain concept → add a glossary entry to [`CONTEXT.md`](./CONTEXT.md)**, including any synonyms you want future contributors to avoid.
 - **New design decision that's hard to reverse, surprising without context, and the result of a real trade-off → add a new ADR** under `docs/adr/`, numbered sequentially.
@@ -64,5 +64,5 @@ Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, and `pnpm depc
 ## Tests
 
 - Add a test for any new public behaviour.
-- Add boundary tests for any new numeric input (compare with `extracts ms at the 48-bit boundary` and friends in `id.test.ts`).
+- Add boundary tests for any new numeric input (compare with `extracts ms at the 48-bit boundary` and friends in `timestamp.test.ts`).
 - Use deterministic `rng` and `now` in tests that assert on the encoded form — never snapshot a fully-random ID.

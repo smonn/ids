@@ -8,11 +8,11 @@ Three deliberate divergences from the spec:
 
 - **Lowercase encoding.** The brand is lowercase a–z (see [ADR-0001](./0001-brand-format.md)) and lowercasing the payload keeps the whole ID visually uniform. Decoding remains case-insensitive.
 - **Brand envelope.** IDs are emitted with a `<brand>_` prefix rather than as bare 26-char strings. Off-the-shelf ULID parsers will not accept these and shouldn't be expected to.
-- **No monotonicity.** Two IDs generated in the same millisecond by the same process do not sort deterministically. The ULID spec's monotonic-increment recommendation would require a stateful generator and break the `Options.rng` shape. Sort stability within a single ms is a non-goal for public-facing entity IDs.
+- **No monotonicity.** Two IDs generated in the same millisecond by the same process do not sort deterministically. The ULID spec's monotonic-increment recommendation would require a stateful generator and break the `TimestampOptions.rng` shape. Sort stability within a single ms is a non-goal for public-facing entity IDs.
 
 ## Timestamp contract
 
-`Codec.extractTimestamp(id)` is a public, supported method — its existence makes the timestamp layout part of the stability contract, not an implementation detail. Specifically:
+`TimestampCodec.extractTimestamp(id)` is a public, supported method — its existence makes the timestamp layout part of the stability contract, not an implementation detail. Specifically:
 
 - **Position:** first 6 bytes of the payload (immediately after the prefix, before the random bytes)
 - **Encoding:** unsigned big-endian integer

@@ -1,10 +1,10 @@
 import { do_not_optimize, measure } from "mitata";
 import { decodeBase32, encodeBase32 } from "../src/base32.js";
-import { createId } from "../src/id.js";
-import { createOpaqueId, importOpaqueKey } from "../src/opaque.js";
+import { createTimestampId } from "../src/timestamp.js";
+import { createOpaqueTimestampId, importOpaqueKey } from "../src/opaque.js";
 import type { Id } from "../src/types.js";
 
-const usr = createId("usr");
+const usr = createTimestampId("usr");
 
 const canonicalId = usr.parse("usr_01h7b3k9rqxn1cw3p9r8t2sgkz") as Id<"usr">;
 const lenientInput = "USR_OIh7b3k9rqxnIcw3p9r8t2sgkz";
@@ -15,7 +15,7 @@ for (let i = 0; i < 16; i++) bytesPayload[i] = (i * 17) & 0xff;
 
 // Pre-import the AES key once; bench measures steady-state codec cost, not key import.
 const opaqueKey = await importOpaqueKey(new Uint8Array(16));
-const opa = createOpaqueId("opa", { key: opaqueKey });
+const opa = createOpaqueTimestampId("opa", { key: opaqueKey });
 const opaqueId = await opa.generate();
 
 type Case =

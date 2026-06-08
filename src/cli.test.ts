@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createOpaqueId, importOpaqueKey } from "./opaque.js";
+import { createOpaqueTimestampId, importOpaqueKey } from "./opaque.js";
 import { encodeOpaqueKey, decodeOpaqueKey } from "./opaque-key.js";
 import { run } from "./cli.js";
 
@@ -136,7 +136,7 @@ describe("cli", () => {
       expect(result.stderr).toBe("unexpected argument: extra\n");
     });
 
-    it("wrong-shape brand prints the createId error and exits 1", async () => {
+    it("wrong-shape brand prints the createTimestampId error and exits 1", async () => {
       const result = await runCapture(["inspect", "12X_01h7b3k9rqxn1cw3p9r8t2sgkz"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
@@ -295,7 +295,7 @@ describe("cli", () => {
 
     it("--opaque falls back to Date.now when not overridden", async () => {
       const key = await importOpaqueKey(testKeyBytes);
-      const id = await createOpaqueId("usr", {
+      const id = await createOpaqueTimestampId("usr", {
         key,
         now: () => new Date("2026-05-28T12:00:00Z").getTime(),
         rng: (target) => target.fill(0x42),
@@ -316,7 +316,7 @@ describe("cli", () => {
     it("--opaque decodes timestamp from an opaque ID", async () => {
       const key = await importOpaqueKey(testKeyBytes);
       const fixed = new Date("2026-05-28T12:00:00Z");
-      const usr = createOpaqueId("usr", {
+      const usr = createOpaqueTimestampId("usr", {
         key,
         now: () => fixed.getTime(),
         rng: (target) => target.fill(0x42),
@@ -335,7 +335,7 @@ describe("cli", () => {
     it("--opaque reads base64url IDS_KEY when IDS_KEY_FORMAT is set", async () => {
       const key = await importOpaqueKey(testKeyBytes);
       const fixed = new Date("2026-05-28T12:00:00Z");
-      const usr = createOpaqueId("usr", {
+      const usr = createOpaqueTimestampId("usr", {
         key,
         now: () => fixed.getTime(),
         rng: (target) => target.fill(0x42),
@@ -385,13 +385,13 @@ describe("cli", () => {
       expect(stdout).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}\n$/);
     });
 
-    it("missing brand arg surfaces the createId error and exits 1", async () => {
+    it("missing brand arg surfaces the createTimestampId error and exits 1", async () => {
       const result = await runCapture(["generate"]);
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
     });
 
-    it("invalid brand surfaces the createId error and exits 1", async () => {
+    it("invalid brand surfaces the createTimestampId error and exits 1", async () => {
       const result = await runCapture(["generate", "BAD"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
@@ -631,7 +631,7 @@ describe("cli", () => {
 
     it("--opaque mints deterministic IDs with fixed now/rng", async () => {
       const key = await importOpaqueKey(testKeyBytes);
-      const usr = createOpaqueId("usr", {
+      const usr = createOpaqueTimestampId("usr", {
         key,
         now: () => 0x123456789abc,
         rng: (target) => target.fill(0x00),
@@ -677,7 +677,7 @@ describe("cli", () => {
 
     it("--key-format on the command line wins over IDS_KEY_FORMAT", async () => {
       const key = await importOpaqueKey(testKeyBytes);
-      const expected = await createOpaqueId("usr", {
+      const expected = await createOpaqueTimestampId("usr", {
         key,
         now: () => 0x123456789abc,
         rng: (target) => target.fill(0x00),
@@ -833,7 +833,7 @@ describe("cli", () => {
     it("reads base64url IDS_KEY when IDS_KEY_FORMAT is set", async () => {
       const keyB64 = encodeOpaqueKey(testKeyBytes, "base64url");
       const key = await importOpaqueKey(testKeyBytes);
-      const expected = await createOpaqueId("usr", {
+      const expected = await createOpaqueTimestampId("usr", {
         key,
         now: () => 0x123456789abc,
         rng: (target) => target.fill(0x00),

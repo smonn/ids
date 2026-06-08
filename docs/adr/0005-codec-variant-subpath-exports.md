@@ -1,6 +1,6 @@
 # Codec variants ship as subpath exports
 
-Codec variants beyond the Timestamp codec (Opaque, and future Signed / Derived / Reverse) introduce algorithm code, key types, or async APIs that the dominant codec doesn't need. Each variant ships as a subpath export (`@smonn/ids/opaque`, `@smonn/ids/signed`, etc.) rather than being re-exported from the main entry. The main entry remains sync-only and free of variant-specific types and algorithm code, preserving the package's "small, fast, sync" identity for the common case.
+Codec variants beyond the Timestamp codec (Opaque Timestamp, and future Signed Timestamp / Digest / Reverse Timestamp) introduce algorithm code, key types, or async APIs that the dominant codec doesn't need. Each variant ships as a subpath export (`@smonn/ids/opaque`, `@smonn/ids/signed`, etc.) rather than being re-exported from the main entry. The main entry remains sync-only and free of variant-specific types and algorithm code, preserving the package's "small, fast, sync" identity for the common case.
 
 ## Considered Options
 
@@ -12,5 +12,5 @@ Codec variants beyond the Timestamp codec (Opaque, and future Signed / Derived /
 
 - Shared types (`Id<Brand>`, parse types, the brand registry) stay in the main entry and are imported by each variant subpath.
 - Adding a new codec variant means a new entry in `package.json#exports`, `tsdown.config.ts`, and a new `src/<variant>.ts` — no churn to existing variants.
-- Discoverability cost: `createOpaqueId` is not surfaced by autocomplete on `@smonn/ids`. README and JSDoc on `createId` cover the pointer.
+- Discoverability cost: `createOpaqueTimestampId` is not surfaced by autocomplete on `@smonn/ids`. README and JSDoc on `createTimestampId` cover the pointer.
 - Establishes the precedent for adapter integrations too (see [docs/IDEAS.md](../IDEAS.md)).

@@ -76,7 +76,7 @@ function schemaExample<Brand extends string>(prefix: Prefix<Brand>): string {
   return prefix + "0".repeat(payloadBase32Length);
 }
 
-/** Layout ops binder for the Opaque variant. `extractTimestampFromId` is module-private; the binder exposes `extractTimestamp` for the codec constructor. */
+/** Layout ops binder for the Opaque Timestamp variant. `extractTimestampFromId` is module-private; the binder exposes `extractTimestamp` for the codec constructor. */
 export function createOpaqueLayoutOps<Brand extends string>(
   prefix: Prefix<Brand>,
   key: CryptoKey,

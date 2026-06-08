@@ -22,7 +22,7 @@ export type JsonSchema = {
   readonly example: string;
 };
 
-/** Standard Schema validate entry point exposed on `Codec["~standard"]`. */
+/** Standard Schema validate entry point exposed on a codec's `~standard` property. */
 export type StandardSchemaProps<Brand extends string> = {
   readonly version: 1;
   readonly vendor: "@smonn/ids";
