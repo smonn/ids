@@ -1,5 +1,5 @@
-import { createId } from "../../id.js";
-import { createOpaqueId, type OpaqueKeyFormat } from "../../opaque.js";
+import { createTimestampId } from "../../timestamp.js";
+import { createOpaqueTimestampId, type OpaqueKeyFormat } from "../../opaque.js";
 import { codecOpts } from "../codec-options.js";
 import { formatInspectOutput } from "../format.js";
 import { splitFlags, unsupportedFlagForCommand } from "../flags.js";
@@ -48,7 +48,7 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
   }
   let codec;
   try {
-    codec = createId(brand, codecOpts(opts));
+    codec = createTimestampId(brand, codecOpts(opts));
   } catch (err) {
     opts.stderr((err as Error).message + "\n");
     return Promise.resolve(1);
@@ -86,7 +86,7 @@ async function runOpaqueInspect(
   }
   let codec;
   try {
-    codec = createOpaqueId(brand, { key: keyResult, ...codecOpts(opts) });
+    codec = createOpaqueTimestampId(brand, { key: keyResult, ...codecOpts(opts) });
   } catch (err) {
     opts.stderr((err as Error).message + "\n");
     return 1;

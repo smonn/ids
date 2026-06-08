@@ -9,7 +9,7 @@ export { decodeOpaqueKey, encodeOpaqueKey, type OpaqueKeyFormat } from "./opaque
 /**
  * Configuration options for an Opaque codec instance.
  */
-export type OpaqueOptions = {
+export type OpaqueTimestampOptions = {
   /** AES-CBC key used for encryption and decryption. */
   key: CryptoKey;
   /** Returns the current timestamp in milliseconds. Defaults to `Date.now`. */
@@ -28,7 +28,7 @@ export type OpaqueOptions = {
  * are async; parsing methods are sync. No `minIdForTime` / `maxIdForTime` —
  * encrypted payloads do not sort by creation time.
  */
-export type OpaqueCodec<Brand extends string> = {
+export type OpaqueTimestampCodec<Brand extends string> = {
   /** Produces a new canonical encrypted ID using the codec's `now` and `rng`. */
   generate(): Promise<Id<Brand>>;
   /** Produces a new canonical encrypted ID with timestamp bytes from `date`. Throws on invalid dates. */
@@ -78,10 +78,10 @@ export function importOpaqueKey(bytes: Uint8Array): Promise<CryptoKey> {
  * @param brand - Entity type brand validated once at construction.
  * @param opts - Required `key` plus optional `now`, `rng`, and `allowDuplicateBrand` overrides.
  */
-export function createOpaqueId<Brand extends string>(
+export function createOpaqueTimestampId<Brand extends string>(
   brand: Brand,
-  opts: OpaqueOptions,
-): OpaqueCodec<Brand> {
+  opts: OpaqueTimestampOptions,
+): OpaqueTimestampCodec<Brand> {
   validateBrand(brand);
   registerBrand(brand, opts.allowDuplicateBrand);
 

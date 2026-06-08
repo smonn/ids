@@ -9,8 +9,8 @@ import {
   it,
   vi,
 } from "vitest";
-import { createId } from "./id.js";
-import { createOpaqueId, importOpaqueKey, type OpaqueOptions } from "./opaque.js";
+import { createTimestampId } from "./timestamp.js";
+import { createOpaqueTimestampId, importOpaqueKey, type OpaqueTimestampOptions } from "./opaque.js";
 import type { Id, JsonSchema, ParseResult } from "./types.js";
 
 describe("opaque", () => {
@@ -28,7 +28,7 @@ describe("opaque", () => {
   it("round-trips a generated id through extractTimestamp", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const fixed = new Date("2026-05-28T12:00:00Z");
-    const usr = createOpaqueId("usr", { key, now: () => fixed.getTime() });
+    const usr = createOpaqueTimestampId("usr", { key, now: () => fixed.getTime() });
     const id = await usr.generate();
     await expect(usr.extractTimestamp(id)).resolves.toEqual(fixed);
   });
@@ -40,22 +40,22 @@ describe("opaque", () => {
     const rng = (target: Uint8Array): void => {
       target.fill(0x42);
     };
-    const a = createOpaqueId("usr", { key: keyA, now, rng });
-    const b = createOpaqueId("usr", { key: keyB, now, rng });
+    const a = createOpaqueTimestampId("usr", { key: keyA, now, rng });
+    const b = createOpaqueTimestampId("usr", { key: keyB, now, rng });
     expect(await a.generate()).not.toBe(await b.generate());
   });
 
   it("different rng produces different ids under the same key and timestamp", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const now = () => 0x123456789abc;
-    const a = createOpaqueId("usr", {
+    const a = createOpaqueTimestampId("usr", {
       key,
       now,
       rng: (t) => {
         t.fill(0x00);
       },
     });
-    const b = createOpaqueId("usr", {
+    const b = createOpaqueTimestampId("usr", {
       key,
       now,
       rng: (t) => {
@@ -71,8 +71,8 @@ describe("opaque", () => {
     const rng = (target: Uint8Array): void => {
       target.fill(0x42);
     };
-    const opaqueUsr = createOpaqueId("usr", { key, now, rng });
-    const plainUsr = createId("usr", { now, rng });
+    const opaqueUsr = createOpaqueTimestampId("usr", { key, now, rng });
+    const plainUsr = createTimestampId("usr", { now, rng });
     expect(await opaqueUsr.generate()).not.toBe(plainUsr.generate());
   });
 
@@ -80,7 +80,7 @@ describe("opaque", () => {
     "generateAt() round-trips through extractTimestamp at ms=%d",
     async (ms) => {
       const key = await importOpaqueKey(new Uint8Array(16));
-      const usr = createOpaqueId("usr", { key });
+      const usr = createOpaqueTimestampId("usr", { key });
       const d = new Date(ms);
       await expect(usr.extractTimestamp(await usr.generateAt(d))).resolves.toEqual(d);
     },
@@ -89,8 +89,8 @@ describe("opaque", () => {
   it("extractTimestamp with the wrong key returns a Date without throwing (garbage in, garbage out)", async () => {
     const keyA = await importOpaqueKey(new Uint8Array(16).fill(0xaa));
     const keyB = await importOpaqueKey(new Uint8Array(16).fill(0xbb));
-    const a = createOpaqueId("usr", { key: keyA });
-    const b = createOpaqueId("usr", { key: keyB });
+    const a = createOpaqueTimestampId("usr", { key: keyA });
+    const b = createOpaqueTimestampId("usr", { key: keyB });
     const id = await a.generate();
     const recovered = await b.extractTimestamp(id);
     expect(recovered).toBeInstanceOf(Date);
@@ -99,14 +99,14 @@ describe("opaque", () => {
 
   it("generate() output matches the canonical wire pattern", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     expect(await usr.generate()).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
   });
 
-  it("OpaqueOptions accepts reusable objects that omit defaulted injection points", async () => {
+  it("OpaqueTimestampOptions accepts reusable objects that omit defaulted injection points", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const options: OpaqueOptions = { key };
-    const usr = createOpaqueId("usr", options);
+    const options: OpaqueTimestampOptions = { key };
+    const usr = createOpaqueTimestampId("usr", options);
 
     expect(await usr.generate()).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
   });
@@ -114,11 +114,11 @@ describe("opaque", () => {
   it("falls back to default injections when Opaque options are explicitly undefined", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const before = Date.now();
-    const usr = createOpaqueId("usr", {
+    const usr = createOpaqueTimestampId("usr", {
       key,
       now: undefined,
       rng: undefined,
-    } as unknown as OpaqueOptions);
+    } as unknown as OpaqueTimestampOptions);
     const id = await usr.generate();
     const after = Date.now();
 
@@ -130,7 +130,7 @@ describe("opaque", () => {
 
   it("is/parse/safeParse run synchronously without the key", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     const synthetic = "usr_" + "0".repeat(26);
     expect(usr.is(synthetic)).toBe(true);
     expect(usr.parse(synthetic)).toBe(synthetic);
@@ -139,7 +139,7 @@ describe("opaque", () => {
 
   it("safeParse() of a foreign prefix fails with invalid_prefix", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     expect(usr.safeParse("org_01h7b3k9rqxn1cw3p9r8t2sgkz")).toEqual({
       ok: false,
       error: "invalid_prefix",
@@ -148,7 +148,7 @@ describe("opaque", () => {
 
   it("safeParse() normalises lenient input to canonical form", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     expect(usr.safeParse("USR_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
       ok: true,
       id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
@@ -157,14 +157,14 @@ describe("opaque", () => {
 
   it("toJsonSchema() pattern matches the canonical wire form (same as timestamp codec)", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usrOpaque = createOpaqueId("usr", { key });
-    const usrPlain = createId("usr");
+    const usrOpaque = createOpaqueTimestampId("usr", { key });
+    const usrPlain = createTimestampId("usr");
     expect(usrOpaque.toJsonSchema().pattern).toBe(usrPlain.toJsonSchema().pattern);
   });
 
   it("toJsonSchema() example matches its own pattern", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     const schema = usr.toJsonSchema();
     expect(new RegExp(schema.pattern).test(schema.example)).toBe(true);
     expect(usr.is(schema.example)).toBe(true);
@@ -172,7 +172,7 @@ describe("opaque", () => {
 
   it("~standard.validate returns canonical Id on success", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     expect(usr["~standard"].validate("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
       value: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
     });
@@ -180,21 +180,21 @@ describe("opaque", () => {
 
   it("~standard exposes version 1 and vendor '@smonn/ids'", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     expect(usr["~standard"].version).toBe(1);
     expect(usr["~standard"].vendor).toBe("@smonn/ids");
   });
 
-  it("OpaqueCodec has no min/maxIdForTime (encrypted timestamps don't sort by time)", async () => {
+  it("OpaqueTimestampCodec has no min/maxIdForTime (encrypted timestamps don't sort by time)", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     expectTypeOf(usr).not.toHaveProperty("minIdForTime");
     expectTypeOf(usr).not.toHaveProperty("maxIdForTime");
   });
 
   it("key-dependent methods are async; key-free methods are sync", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     expectTypeOf(usr.generate).returns.toEqualTypeOf<Promise<Id<"usr">>>();
     expectTypeOf(usr.generateAt).returns.toEqualTypeOf<Promise<Id<"usr">>>();
     expectTypeOf(usr.extractTimestamp).returns.toEqualTypeOf<Promise<Date>>();
@@ -206,20 +206,20 @@ describe("opaque", () => {
 
   it("rejects brands that are not exactly three a-z characters", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    expect(() => createOpaqueId("a", { key })).toThrow();
-    expect(() => createOpaqueId("aaaa", { key })).toThrow();
-    expect(() => createOpaqueId("!@?", { key })).toThrow();
+    expect(() => createOpaqueTimestampId("a", { key })).toThrow();
+    expect(() => createOpaqueTimestampId("aaaa", { key })).toThrow();
+    expect(() => createOpaqueTimestampId("!@?", { key })).toThrow();
   });
 
   it("generateAt() rejects pre-epoch dates with the same message as the timestamp codec", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     await expect(usr.generateAt(new Date(-1))).rejects.toThrow("timestamp is negative");
   });
 
   it("generateAt() rejects dates that overflow 48 bits with the same message as the timestamp codec", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     await expect(usr.generateAt(new Date(2 ** 48))).rejects.toThrow(
       "timestamp exceeds 48-bit range",
     );
@@ -227,7 +227,7 @@ describe("opaque", () => {
 
   it("generateAt() rejects an Invalid Date (NaN timestamp)", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
-    const usr = createOpaqueId("usr", { key });
+    const usr = createOpaqueTimestampId("usr", { key });
     await expect(usr.generateAt(new Date(NaN))).rejects.toThrow("timestamp is not a number");
   });
 });
@@ -235,7 +235,7 @@ describe("opaque", () => {
 describe("cross-codec brand registry", () => {
   // Each test uses a unique brand to avoid module-level registry contamination
   // across tests in the same process. Distinct from the zaa-zaf range used by
-  // id.test.ts.
+  // timestamp.test.ts.
   let warnSpy: ReturnType<typeof vi.spyOn>;
   let key: CryptoKey;
 
@@ -252,43 +252,43 @@ describe("cross-codec brand registry", () => {
     vi.unstubAllEnvs();
   });
 
-  it("warns when a brand registered by createId is then passed to createOpaqueId", () => {
-    createId("zba");
+  it("warns when a brand registered by createTimestampId is then passed to createOpaqueTimestampId", () => {
+    createTimestampId("zba");
     expect(warnSpy).not.toHaveBeenCalled();
-    createOpaqueId("zba", { key });
+    createOpaqueTimestampId("zba", { key });
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("warns when a brand registered by createOpaqueId is then passed to createId", () => {
-    createOpaqueId("zbb", { key });
+  it("warns when a brand registered by createOpaqueTimestampId is then passed to createTimestampId", () => {
+    createOpaqueTimestampId("zbb", { key });
     expect(warnSpy).not.toHaveBeenCalled();
-    createId("zbb");
+    createTimestampId("zbb");
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("allowDuplicateBrand on createOpaqueId suppresses the cross-codec warning", () => {
-    createId("zbc");
-    createOpaqueId("zbc", { key, allowDuplicateBrand: true });
+  it("allowDuplicateBrand on createOpaqueTimestampId suppresses the cross-codec warning", () => {
+    createTimestampId("zbc");
+    createOpaqueTimestampId("zbc", { key, allowDuplicateBrand: true });
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
-  it("allowDuplicateBrand on createId suppresses the cross-codec warning", () => {
-    createOpaqueId("zbd", { key });
-    createId("zbd", { allowDuplicateBrand: true });
+  it("allowDuplicateBrand on createTimestampId suppresses the cross-codec warning", () => {
+    createOpaqueTimestampId("zbd", { key });
+    createTimestampId("zbd", { allowDuplicateBrand: true });
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it("in production: no warning and the brand is not registered across codecs", () => {
     vi.stubEnv("NODE_ENV", "production");
-    createId("zbe");
-    createOpaqueId("zbe", { key });
+    createTimestampId("zbe");
+    createOpaqueTimestampId("zbe", { key });
     expect(warnSpy).not.toHaveBeenCalled();
 
     // Lift production gate; production calls must not have populated the registry.
     vi.unstubAllEnvs();
-    createId("zbe");
+    createTimestampId("zbe");
     expect(warnSpy).not.toHaveBeenCalled();
-    createOpaqueId("zbe", { key });
+    createOpaqueTimestampId("zbe", { key });
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 });

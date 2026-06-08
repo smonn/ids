@@ -1,11 +1,11 @@
 # Internal module layering for wire parsing, byte layouts, and the CLI boundary
 
-Codec variants share wire parsing (`is`, `parse`, `safeParse`, `~standard`) but differ in byte layout and public capability surface. Internal modules are split into **`wire/`** (payload envelope, canonical parse, shared timestamp bytes, codec shell) and **`layouts/`** (per-variant 16-byte semantics). Codec constructors (`id.ts`, `opaque.ts`) are thin composition roots; the CLI layer (`cli.ts` plus `cli/`) owns argv/env/stdout, creates codecs only through `createId` / `createOpaqueId`, and may use public Opaque key helpers for key loading and keygen. Nothing in `wire/` or `layouts/` is exported from the package.
+Codec variants share wire parsing (`is`, `parse`, `safeParse`, `~standard`) but differ in byte layout and public capability surface. Internal modules are split into **`wire/`** (payload envelope, canonical parse, shared timestamp bytes, codec shell) and **`layouts/`** (per-variant 16-byte semantics). Codec constructors (`timestamp.ts`, `opaque.ts`) are thin composition roots; the CLI layer (`cli.ts` plus `cli/`) owns argv/env/stdout, creates codecs only through `createTimestampId` / `createOpaqueTimestampId`, and may use public Opaque key helpers for key loading and keygen. Nothing in `wire/` or `layouts/` is exported from the package.
 
 ## Considered Options
 
 - **`wireMethods` in a fat `shared.ts`** — rejected: deduplicates assembly but leaves codec constructors importing `base32` directly and mixing layout logic with envelope assembly; dependency direction stays muddy.
-- **Uniform internal `VariantMethods` interface** — rejected: public codec types already diverge per [ADR-0006](./0006-async-keyed-codec-contract.md); Derived may omit `extractTimestamp` entirely; forcing one interface creates no-ops or lies.
+- **Uniform internal `VariantMethods` interface** — rejected: public codec types already diverge per [ADR-0006](./0006-async-keyed-codec-contract.md); Digest may omit `extractTimestamp` entirely; forcing one interface creates no-ops or lies.
 - **Public `@smonn/ids/wire` subpath** — rejected for now: adapters use `codec["~standard"]`; parse-without-codec can ship later if a concrete adapter need appears.
 
 ## Module rings
@@ -13,7 +13,7 @@ Codec variants share wire parsing (`is`, `parse`, `safeParse`, `~standard`) but 
 ```text
 cli.ts + cli/                       ← argv, env, stdout, Opaque key I/O
   ↓
-id.ts / opaque.ts                   ← validateBrand, registerBrand, inject defaults, Opaque key helpers
+timestamp.ts / opaque.ts            ← validateBrand, registerBrand, inject defaults, Opaque key helpers
   ├→ wire/codec-shell.ts            ← wireMethods(prefix)
   └→ layouts/<variant>.ts           ← create*LayoutOps(prefix, …)
         ↓
@@ -29,7 +29,7 @@ Codec constructors import **`wire/codec-shell`** separately from **`layouts/<var
 
 Within **`wire/`**, `invariants` and `timestamp-bytes` are leaves; `parse` imports `invariants`, `base32`, and `types`; `envelope` imports `base32` and `types` only; `codec-shell` composes `parse` + `invariants`. Codec constructors import **`wire/codec-shell` only** from `wire/`.
 
-The CLI layer stays on the public codec-facing surface: commands construct codecs through **`createId`** / **`createOpaqueId`** and route Opaque key material through public Opaque key helpers re-exported by **`opaque.ts`**. It must not import **`wire/`**, **`layouts/`**, or lower-level helpers such as `brand`, `registry`, `base32`, `bytes`, or `opaque-key` directly.
+The CLI layer stays on the public codec-facing surface: commands construct codecs through **`createTimestampId`** / **`createOpaqueTimestampId`** and route Opaque key material through public Opaque key helpers re-exported by **`opaque.ts`**. It must not import **`wire/`**, **`layouts/`**, or lower-level helpers such as `brand`, `registry`, `base32`, `bytes`, or `opaque-key` directly.
 
 ### Layout ops binder (canonical composition pattern)
 
@@ -52,6 +52,6 @@ Each `layouts/<variant>.ts` exports a single binder — `createTimestampLayoutOp
 - Adding a codec variant means `layouts/<variant>.ts` (export `create*LayoutOps`) + `<variant>.ts` codec constructor + subpath export ([ADR-0005](./0005-codec-variant-subpath-exports.md)) — no changes to parse or envelope.
 - `layouts/*` must not import sibling layouts; Opaque depends on `wire/timestamp-bytes`, not `layouts/timestamp`.
 - Codec constructors must not import `base32` directly — envelope owns payload encoding. Codec constructors import `wire/codec-shell` only from `wire/`, and `create*LayoutOps` binders only from `layouts/`.
-- The CLI layer may import public codec entrypoints and Opaque key helpers from `id.ts` / `opaque.ts`, but not their internal dependencies directly.
+- The CLI layer may import public codec entrypoints and Opaque key helpers from `timestamp.ts` / `opaque.ts`, but not their internal dependencies directly.
 - **dependency-cruiser** enforces the rings in CI; `.dependency-cruiser.cjs` is the source of truth.
 - `CONTEXT.md` unchanged — Payload, Byte layout, Prefix already cover the domain; wire/layouts are implementation.

@@ -7,11 +7,10 @@ shape, not a designed API.
 
 If more variants ship before v1, each gets its own explicit factory. Timestamp-family
 variants carry `Timestamp` in the name (`createTimestampId` becoming the explicit name
-for the current main-entry codec). They do not share a Codec contract — same wire skin,
+for the current main-entry codec). They do not share a `TimestampCodec` contract — same wire skin,
 different invariants.
 
-- ~~`createOpaqueId(brand, {key})`~~ — shipped. If the pre-v1 naming pass happens, this
-  becomes `createOpaqueTimestampId`. See [ADR-0004](./adr/0004-aes-cbc-strip-trick.md),
+- ~~`createOpaqueTimestampId(brand, {key})`~~ — shipped. See [ADR-0004](./adr/0004-aes-cbc-strip-trick.md),
   [ADR-0005](./adr/0005-codec-variant-subpath-exports.md), [ADR-0006](./adr/0006-async-keyed-codec-contract.md),
   [ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md).
 - **`createSignedTimestampId(brand, {key})`** — random tail becomes a truncated HMAC over
@@ -113,7 +112,7 @@ optional peer deps on the third-party lib — not as sibling packages.
 
 ## Developer-facing documentation
 
-- ~~**JSDoc on public codec methods.** `Codec` / `OpaqueCodec` method names are
+- ~~**JSDoc on public codec methods.** `TimestampCodec` / `OpaqueTimestampCodec` method names are
   self-describing once you've read the README, but consumer IDE tooltips
   currently surface nothing about the contracts. The two most consequential to
   document inline: `extractTimestamp` trusts the `Id<Brand>` type (ADR-0002)

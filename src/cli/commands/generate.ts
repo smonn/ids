@@ -1,5 +1,5 @@
-import { createId } from "../../id.js";
-import { createOpaqueId, type OpaqueKeyFormat } from "../../opaque.js";
+import { createTimestampId } from "../../timestamp.js";
+import { createOpaqueTimestampId, type OpaqueKeyFormat } from "../../opaque.js";
 import { codecOpts } from "../codec-options.js";
 import { parseCount, splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
@@ -46,7 +46,7 @@ export function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise
   }
   let codec;
   try {
-    codec = createId(brand ?? "", codecOpts(opts));
+    codec = createTimestampId(brand ?? "", codecOpts(opts));
   } catch (err) {
     opts.stderr((err as Error).message + "\n");
     return Promise.resolve(1);
@@ -68,7 +68,7 @@ async function runOpaqueGenerate(
   }
   let codec;
   try {
-    codec = createOpaqueId(brand, { key: keyResult, ...codecOpts(opts) });
+    codec = createOpaqueTimestampId(brand, { key: keyResult, ...codecOpts(opts) });
   } catch (err) {
     opts.stderr((err as Error).message + "\n");
     return 1;

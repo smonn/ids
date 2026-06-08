@@ -7,7 +7,7 @@ import { wireMethods } from "./wire/codec-shell.js";
 /**
  * Configuration options for a codec instance.
  */
-export type Options = {
+export type TimestampOptions = {
   /** Returns the current timestamp in milliseconds. Defaults to `Date.now`. */
   now?: () => number;
   /** Writes random bytes into `target` for ID generation. Defaults to a `crypto.randomUUID` fast path. */
@@ -16,8 +16,8 @@ export type Options = {
   allowDuplicateBrand?: boolean;
 };
 
-type ResolvedOptions = Required<Pick<Options, "now" | "rng">> &
-  Pick<Options, "allowDuplicateBrand">;
+type ResolvedTimestampOptions = Required<Pick<TimestampOptions, "now" | "rng">> &
+  Pick<TimestampOptions, "allowDuplicateBrand">;
 
 /**
  * A brand-scoped codec for generating and validating public-facing IDs.
@@ -26,9 +26,9 @@ type ResolvedOptions = Required<Pick<Options, "now" | "rng">> &
  * 16-byte payload (6-byte ms timestamp + 10 random bytes). IDs sort by creation
  * time in ascending order.
  *
- * For encrypted IDs, use `createOpaqueId` from `@smonn/ids/opaque`.
+ * For encrypted IDs, use `createOpaqueTimestampId` from `@smonn/ids/opaque`.
  */
-export type Codec<Brand extends string> = {
+export type TimestampCodec<Brand extends string> = {
   /** Produces a new canonical ID using the codec's `now` and `rng`. */
   generate(): Id<Brand>;
   /** Produces a new canonical ID with timestamp bytes from `date` and a fresh random tail. Throws on invalid dates. */
@@ -66,7 +66,7 @@ const hexCharCodeToNibble = new Uint8Array(128);
 for (let i = 0; i < 10; i++) hexCharCodeToNibble[48 + i] = i;
 for (let i = 0; i < 6; i++) hexCharCodeToNibble[97 + i] = 10 + i;
 
-const defaultOptions: ResolvedOptions = {
+const defaultTimestampOptions: ResolvedTimestampOptions = {
   now: Date.now,
   // crypto.randomUUID is ~7× faster than crypto.getRandomValues in Node 24
   // (~84 ns vs ~610 ns for a 16-byte fill — likely because the UUID path has
@@ -106,14 +106,17 @@ const defaultOptions: ResolvedOptions = {
  * @param brand - Entity type brand validated once at construction.
  * @param opts - Optional `now`, `rng`, and `allowDuplicateBrand` overrides.
  */
-export function createId<Brand extends string>(brand: Brand, opts: Options = {}): Codec<Brand> {
+export function createTimestampId<Brand extends string>(
+  brand: Brand,
+  opts: TimestampOptions = {},
+): TimestampCodec<Brand> {
   validateBrand(brand);
   registerBrand(brand, opts.allowDuplicateBrand);
 
   const options = {
-    now: opts.now ?? defaultOptions.now,
-    rng: opts.rng ?? defaultOptions.rng,
-  } satisfies ResolvedOptions;
+    now: opts.now ?? defaultTimestampOptions.now,
+    rng: opts.rng ?? defaultTimestampOptions.rng,
+  } satisfies ResolvedTimestampOptions;
 
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);
