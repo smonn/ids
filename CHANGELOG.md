@@ -1,5 +1,15 @@
 # @smonn/ids
 
+## 0.4.0
+
+### Minor Changes
+
+- 98ddeac: Rename timestamp-family codec APIs before v1. The main-entry factory is now `createTimestampId` with `TimestampCodec` / `TimestampOptions`, and the opaque subpath factory is now `createOpaqueTimestampId` with `OpaqueTimestampCodec` / `OpaqueTimestampOptions`.
+
+### Patch Changes
+
+- 2bb41d6: Align exported option types with constructor defaults so reusable Timestamp and Opaque Timestamp option objects can omit defaulted injections.
+
 ## 0.3.5
 
 ### Patch Changes
