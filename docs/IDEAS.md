@@ -26,11 +26,11 @@ different invariants.
 
 ## Wrapped key codec
 
-_Accepted — see [ADR-0009](./adr/0009-wrapped-key-compact-construction.md) and [CONTEXT.md](../CONTEXT.md). Implementation not yet shipped._
+_Accepted and shipped — see [ADR-0009](./adr/0009-wrapped-key-compact-construction.md) and [CONTEXT.md](../CONTEXT.md)._
 
 A reversible counterpart to `createDigestId`: the caller supplies a storage lookup key,
 the codec emits a public ID, and `unwrap` recovers the lookup key before the caller hits
-storage. This is still a codec variant sketch, so it keeps the current `<brand>_` +
+storage. It keeps the shared `<brand>_` +
 26-character suffix / 16-byte payload invariant. Consequence: UUID-sized lookup keys are
 out of scope for this same-size branch because a UUID plus verification tag does not fit.
 

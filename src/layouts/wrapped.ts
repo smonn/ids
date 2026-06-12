@@ -13,6 +13,7 @@ type LayoutWrappingKey = {
 };
 
 export type WrappedKind = "u32" | "i32" | "u64" | "i64";
+export type WrappedLookupKey<K extends WrappedKind> = K extends "u32" | "i32" ? number : bigint;
 
 function writeU32Lane(value: number, lane: Uint8Array): void {
   lane[0] = 0;
@@ -30,6 +31,62 @@ function readU32Lane(lane: Uint8Array): number | null {
     if (lane[i] !== 0) return null;
   }
   return ((lane[4]! << 24) | (lane[5]! << 16) | (lane[6]! << 8) | lane[7]!) >>> 0;
+}
+
+function writeI32Lane(value: number, lane: Uint8Array): void {
+  lane.fill(value < 0 ? 0xff : 0x00, 0, 4);
+  new DataView(lane.buffer, lane.byteOffset, lane.byteLength).setInt32(4, value, false);
+}
+
+function readI32Lane(lane: Uint8Array): number | null {
+  const signExtension = (lane[4]! & 0x80) === 0 ? 0x00 : 0xff;
+  for (let i = 0; i < 4; i++) {
+    if (lane[i] !== signExtension) return null;
+  }
+  return new DataView(lane.buffer, lane.byteOffset, lane.byteLength).getInt32(4, false);
+}
+
+function writeU64Lane(value: bigint, lane: Uint8Array): void {
+  new DataView(lane.buffer, lane.byteOffset, lane.byteLength).setBigUint64(0, value, false);
+}
+
+function readU64Lane(lane: Uint8Array): bigint {
+  return new DataView(lane.buffer, lane.byteOffset, lane.byteLength).getBigUint64(0, false);
+}
+
+function writeI64Lane(value: bigint, lane: Uint8Array): void {
+  new DataView(lane.buffer, lane.byteOffset, lane.byteLength).setBigInt64(0, value, false);
+}
+
+function readI64Lane(lane: Uint8Array): bigint {
+  return new DataView(lane.buffer, lane.byteOffset, lane.byteLength).getBigInt64(0, false);
+}
+
+function writeLane<K extends WrappedKind>(
+  kind: K,
+  value: WrappedLookupKey<K>,
+  lane: Uint8Array,
+): void {
+  if (kind === "i32") {
+    writeI32Lane(value as number, lane);
+    return;
+  }
+  if (kind === "u64") {
+    writeU64Lane(value as bigint, lane);
+    return;
+  }
+  if (kind === "i64") {
+    writeI64Lane(value as bigint, lane);
+    return;
+  }
+  writeU32Lane(value as number, lane);
+}
+
+function readLane<K extends WrappedKind>(kind: K, lane: Uint8Array): WrappedLookupKey<K> | null {
+  if (kind === "u64") return readU64Lane(lane) as WrappedLookupKey<K>;
+  if (kind === "i64") return readI64Lane(lane) as WrappedLookupKey<K>;
+  const value = kind === "i32" ? readI32Lane(lane) : readU32Lane(lane);
+  return value as WrappedLookupKey<K> | null;
 }
 
 function hmacMessage(brand: string, kind: WrappedKind, lane: Uint8Array): Uint8Array {
@@ -102,55 +159,59 @@ function buildPlaintext(lane: Uint8Array, tag: Uint8Array): Uint8Array {
   return plaintext;
 }
 
-async function wrapU32<Brand extends string>(
+async function wrapLookupKey<Brand extends string, Kind extends WrappedKind>(
   prefix: Prefix<Brand>,
   brand: string,
   key: LayoutWrappingKey,
-  lookupKey: number,
+  kind: Kind,
+  lookupKey: WrappedLookupKey<Kind>,
 ): Promise<Id<Brand>> {
   const lane = new Uint8Array(laneByteLength);
-  writeU32Lane(lookupKey, lane);
-  const tag = await computeTag(key, brand, "u32", lane);
+  writeLane(kind, lookupKey, lane);
+  const tag = await computeTag(key, brand, kind, lane);
   const encrypted = await encryptPayload(key, buildPlaintext(lane, tag));
   return toWireId(prefix, encrypted);
 }
 
-async function tryUnwrapU32<Brand extends string>(
+async function tryUnwrapLookupKey<Brand extends string, Kind extends WrappedKind>(
   prefix: Prefix<Brand>,
   brand: string,
   key: LayoutWrappingKey,
+  kind: Kind,
   id: Id<Brand>,
-): Promise<number | null> {
+): Promise<WrappedLookupKey<Kind> | null> {
   const plaintext = await decryptPayload(key, payloadBytesFromId(prefix, id));
   const lane = plaintext.subarray(0, laneByteLength);
   const tag = plaintext.subarray(laneByteLength, payloadByteLength);
-  const expected = await computeTag(key, brand, "u32", lane);
+  const expected = await computeTag(key, brand, kind, lane);
   if (!tagsEqual(tag, expected)) return null;
-  return readU32Lane(lane);
+  return readLane(kind, lane);
 }
 
 function schemaExample<Brand extends string>(prefix: Prefix<Brand>): string {
   return prefix + "0".repeat(payloadBase32Length);
 }
 
-export function createWrappedLayoutOps<Brand extends string>(
+export function createWrappedLayoutOps<Brand extends string, Kind extends WrappedKind>(
   prefix: Prefix<Brand>,
   brand: Brand,
+  kind: Kind,
   keys: readonly LayoutWrappingKey[],
 ) {
   const wrapKey = keys[0]!;
   return {
-    wrap: (lookupKey: number): Promise<Id<Brand>> => wrapU32(prefix, brand, wrapKey, lookupKey),
-    unwrap: async (id: Id<Brand>): Promise<number> => {
+    wrap: (lookupKey: WrappedLookupKey<Kind>): Promise<Id<Brand>> =>
+      wrapLookupKey(prefix, brand, wrapKey, kind, lookupKey),
+    unwrap: async (id: Id<Brand>): Promise<WrappedLookupKey<Kind>> => {
       for (const key of keys) {
-        const lookupKey = await tryUnwrapU32(prefix, brand, key, id);
+        const lookupKey = await tryUnwrapLookupKey(prefix, brand, key, kind, id);
         if (lookupKey !== null) return lookupKey;
       }
       throw new Error("verification failed");
     },
-    tryUnwrap: async (id: Id<Brand>): Promise<number | null> => {
+    tryUnwrap: async (id: Id<Brand>): Promise<WrappedLookupKey<Kind> | null> => {
       for (const key of keys) {
-        const lookupKey = await tryUnwrapU32(prefix, brand, key, id);
+        const lookupKey = await tryUnwrapLookupKey(prefix, brand, key, kind, id);
         if (lookupKey !== null) return lookupKey;
       }
       return null;

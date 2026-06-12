@@ -59,10 +59,41 @@ describe("wrapped", () => {
     });
   });
 
+  it("safeUnwrap rejects tokens wrapped for a different integer kind", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0xaa));
+    const u32 = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    const i32 = createWrappedKeyId("inv", { kind: "i32", keys: [key], allowDuplicateBrand: true });
+    const u64 = createWrappedKeyId("inv", { kind: "u64", keys: [key], allowDuplicateBrand: true });
+    const i64 = createWrappedKeyId("inv", { kind: "i64", keys: [key], allowDuplicateBrand: true });
+
+    await expect(i32.safeUnwrap(await u32.wrap(42))).resolves.toEqual({
+      ok: false,
+      error: "verification_failed",
+    });
+    await expect(i64.safeUnwrap(await u64.wrap(42n))).resolves.toEqual({
+      ok: false,
+      error: "verification_failed",
+    });
+    await expect(u32.safeUnwrap(await i32.wrap(-1))).resolves.toEqual({
+      ok: false,
+      error: "verification_failed",
+    });
+  });
+
   it("rejects a verified u32 payload with a non-canonical lane", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0xaa));
     const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
     const id = await nonCanonicalU32Id("inv_", "inv", key);
+    await expect(inv.safeUnwrap(id)).resolves.toEqual({
+      ok: false,
+      error: "verification_failed",
+    });
+  });
+
+  it("rejects a verified i32 payload with a non-canonical lane", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0xaa));
+    const inv = createWrappedKeyId("inv", { kind: "i32", keys: [key], allowDuplicateBrand: true });
+    const id = await nonCanonicalI32Id("inv_", "inv", key);
     await expect(inv.safeUnwrap(id)).resolves.toEqual({
       ok: false,
       error: "verification_failed",
@@ -129,11 +160,11 @@ describe("wrapped", () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
     expect(() =>
       createWrappedKeyId("inv", {
-        kind: "i32" as never,
+        kind: "u128" as never,
         keys: [key],
         allowDuplicateBrand: true,
       }),
-    ).toThrow("unsupported wrapped key kind: expected u32");
+    ).toThrow("invalid wrapped key kind");
   });
 
   it("wrap rejects out-of-range u32 lookup keys", async () => {
@@ -142,6 +173,34 @@ describe("wrapped", () => {
     await expect(inv.wrap(-1)).rejects.toThrow("invalid u32 lookup key");
     await expect(inv.wrap(0x1_0000_0000)).rejects.toThrow("invalid u32 lookup key");
     await expect(inv.wrap(1.5)).rejects.toThrow("invalid u32 lookup key");
+    await expect(inv.wrap(-0)).rejects.toThrow("invalid u32 lookup key");
+    await expect(inv.wrap(42n as never)).rejects.toThrow("invalid u32 lookup key");
+  });
+
+  it("wrap rejects out-of-range i32 lookup keys", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    const inv = createWrappedKeyId("inv", { kind: "i32", keys: [key], allowDuplicateBrand: true });
+    await expect(inv.wrap(-0x8000_0001)).rejects.toThrow("invalid i32 lookup key");
+    await expect(inv.wrap(0x8000_0000)).rejects.toThrow("invalid i32 lookup key");
+    await expect(inv.wrap(1.5)).rejects.toThrow("invalid i32 lookup key");
+    await expect(inv.wrap(-0)).rejects.toThrow("invalid i32 lookup key");
+    await expect(inv.wrap(42n as never)).rejects.toThrow("invalid i32 lookup key");
+  });
+
+  it("wrap rejects out-of-range u64 lookup keys", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    const inv = createWrappedKeyId("inv", { kind: "u64", keys: [key], allowDuplicateBrand: true });
+    await expect(inv.wrap(-1n)).rejects.toThrow("invalid u64 lookup key");
+    await expect(inv.wrap(0x1_0000_0000_0000_0000n)).rejects.toThrow("invalid u64 lookup key");
+    await expect(inv.wrap(42 as never)).rejects.toThrow("invalid u64 lookup key");
+  });
+
+  it("wrap rejects out-of-range i64 lookup keys", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    const inv = createWrappedKeyId("inv", { kind: "i64", keys: [key], allowDuplicateBrand: true });
+    await expect(inv.wrap(-(1n << 63n) - 1n)).rejects.toThrow("invalid i64 lookup key");
+    await expect(inv.wrap(1n << 63n)).rejects.toThrow("invalid i64 lookup key");
+    await expect(inv.wrap(42 as never)).rejects.toThrow("invalid i64 lookup key");
   });
 
   it("parse and is validate wire form without operator key material", async () => {
@@ -165,6 +224,48 @@ describe("wrapped", () => {
     const id = await inv.wrap(lookupKey);
     await expect(inv.unwrap(id)).resolves.toBe(lookupKey);
   });
+
+  it.each([-0x8000_0000, 0x7fff_ffff])(
+    "wrap and unwrap i32 boundary lookupKey=%i",
+    async (lookupKey) => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "i32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const id = await inv.wrap(lookupKey);
+      await expect(inv.unwrap(id)).resolves.toBe(lookupKey);
+    },
+  );
+
+  it.each([0n, 0xffff_ffff_ffff_ffffn])(
+    "wrap and unwrap u64 boundary lookupKey=%s",
+    async (lookupKey) => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u64",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const id = await inv.wrap(lookupKey);
+      await expect(inv.unwrap(id)).resolves.toBe(lookupKey);
+    },
+  );
+
+  it.each([-(1n << 63n), (1n << 63n) - 1n])(
+    "wrap and unwrap i64 boundary lookupKey=%s",
+    async (lookupKey) => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "i64",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const id = await inv.wrap(lookupKey);
+      await expect(inv.unwrap(id)).resolves.toBe(lookupKey);
+    },
+  );
 
   it("encodeWrappingKey and decodeWrappingKey round-trip raw operator bytes", () => {
     const bytes = new Uint8Array(32).fill(0xab);
@@ -225,6 +326,21 @@ describe("wrapped", () => {
       unwrap: (id: Id<"inv">) => Promise<number>;
       safeUnwrap: (input: unknown) => Promise<UnwrapResult<"inv", "u32">>;
     }>();
+    expectTypeOf({} as WrappedKeyCodec<"inv", "i32">).toMatchTypeOf<{
+      wrap: (lookupKey: number) => Promise<Id<"inv">>;
+      unwrap: (id: Id<"inv">) => Promise<number>;
+      safeUnwrap: (input: unknown) => Promise<UnwrapResult<"inv", "i32">>;
+    }>();
+    expectTypeOf({} as WrappedKeyCodec<"inv", "u64">).toMatchTypeOf<{
+      wrap: (lookupKey: bigint) => Promise<Id<"inv">>;
+      unwrap: (id: Id<"inv">) => Promise<bigint>;
+      safeUnwrap: (input: unknown) => Promise<UnwrapResult<"inv", "u64">>;
+    }>();
+    expectTypeOf({} as WrappedKeyCodec<"inv", "i64">).toMatchTypeOf<{
+      wrap: (lookupKey: bigint) => Promise<Id<"inv">>;
+      unwrap: (id: Id<"inv">) => Promise<bigint>;
+      safeUnwrap: (input: unknown) => Promise<UnwrapResult<"inv", "i64">>;
+    }>();
   });
 });
 
@@ -237,7 +353,7 @@ async function nonCanonicalU32Id(
   const lane = new Uint8Array(tagByteLength);
   lane[0] = 1;
   lane[7] = 42;
-  const tag = await hmacTag(material.hmacKey, brand, lane);
+  const tag = await hmacTag(material.hmacKey, brand, "u32", lane);
   const plaintext = new Uint8Array(payloadByteLength);
   plaintext.set(lane, 0);
   plaintext.set(tag, tagByteLength);
@@ -251,8 +367,35 @@ async function nonCanonicalU32Id(
   return toWireId(prefix, encrypted.subarray(0, payloadByteLength));
 }
 
-async function hmacTag(hmacKey: CryptoKey, brand: "inv", lane: Uint8Array): Promise<Uint8Array> {
-  const label = new TextEncoder().encode(`${brand}:u32:`);
+async function nonCanonicalI32Id(
+  prefix: "inv_",
+  brand: "inv",
+  key: WrappingKey,
+): Promise<Id<"inv">> {
+  const material = getWrappingKeyMaterial(key);
+  const lane = new Uint8Array(tagByteLength);
+  lane.fill(0xff, 4);
+  const tag = await hmacTag(material.hmacKey, brand, "i32", lane);
+  const plaintext = new Uint8Array(payloadByteLength);
+  plaintext.set(lane, 0);
+  plaintext.set(tag, tagByteLength);
+  const encrypted = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: "AES-CBC", iv: zeroIv },
+      material.aesKey,
+      plaintext as Uint8Array<ArrayBuffer>,
+    ),
+  );
+  return toWireId(prefix, encrypted.subarray(0, payloadByteLength));
+}
+
+async function hmacTag(
+  hmacKey: CryptoKey,
+  brand: "inv",
+  kind: "u32" | "i32",
+  lane: Uint8Array,
+): Promise<Uint8Array> {
+  const label = new TextEncoder().encode(`${brand}:${kind}:`);
   const message = new Uint8Array(label.length + lane.length);
   message.set(label, 0);
   message.set(lane, label.length);

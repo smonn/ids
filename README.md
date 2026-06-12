@@ -219,7 +219,7 @@ import {
 } from "@smonn/ids/opaque";
 
 import {
-  createWrappedKeyId, // (brand: string, opts: { kind: "u32", keys }) => WrappedKeyCodec<Brand, "u32">
+  createWrappedKeyId, // (brand: string, opts: { kind: "u32" | "i32" | "u64" | "i64", keys }) => WrappedKeyCodec<Brand, Kind>
   importWrappingKey, // (bytes: Uint8Array) => Promise<WrappingKey>
   encodeWrappingKey, // (bytes: Uint8Array, format: WrappingKeyFormat) => string
   decodeWrappingKey, // (encoded: string, format: WrappingKeyFormat) => Uint8Array
@@ -229,7 +229,15 @@ import {
 } from "@smonn/ids/wrapped";
 ```
 
-`@smonn/ids/wrapped` currently ships the u32 Wrapped key tracer: `wrap(lookupKey)` emits a public ID, `unwrap(id)` verifies and recovers the lookup key, and `safeUnwrap(input)` structurally parses then reports parse or verification failure without throwing. Broader integer-kind docs are tracked separately.
+`@smonn/ids/wrapped` ships the Wrapped key codec for `u32`, `i32`, `u64`, and `i64` lookup keys. `wrap(lookupKey)` emits a public ID, `unwrap(id)` verifies and recovers the lookup key, and `safeUnwrap(input)` structurally parses then reports parse or verification failure without throwing. The 32-bit kinds use `number`; the 64-bit kinds use `bigint`.
+
+```ts
+const key = await importWrappingKey(new Uint8Array(32));
+const invoices = createWrappedKeyId("inv", { kind: "u64", keys: [key] });
+
+const id = await invoices.wrap(42n); // "inv_..."
+const lookupKey = await invoices.unwrap(id); // 42n
+```
 
 ### Codec methods
 
