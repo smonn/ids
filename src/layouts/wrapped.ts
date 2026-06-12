@@ -29,9 +29,7 @@ function readU32Lane(lane: Uint8Array): number | null {
   for (let i = 0; i < 4; i++) {
     if (lane[i] !== 0) return null;
   }
-  return (
-    ((lane[4]! << 24) | (lane[5]! << 16) | (lane[6]! << 8) | lane[7]!) >>> 0
-  );
+  return ((lane[4]! << 24) | (lane[5]! << 16) | (lane[6]! << 8) | lane[7]!) >>> 0;
 }
 
 function hmacMessage(brand: string, kind: WrappedKind, lane: Uint8Array): Uint8Array {

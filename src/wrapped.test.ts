@@ -39,7 +39,11 @@ describe("wrapped", () => {
     const keyB = await importWrappingKey(new Uint8Array(32).fill(0xbb));
     const inv = createWrappedKeyId("inv", { kind: "u32", keys: [keyA] });
     const id = await inv.wrap(1);
-    const other = createWrappedKeyId("inv", { kind: "u32", keys: [keyB], allowDuplicateBrand: true });
+    const other = createWrappedKeyId("inv", {
+      kind: "u32",
+      keys: [keyB],
+      allowDuplicateBrand: true,
+    });
     await expect(other.unwrap(id)).rejects.toThrow("verification failed");
     await expect(inv.safeUnwrap(id)).resolves.toEqual({ ok: true, id, lookupKey: 1 });
     const tampered = (id.slice(0, -1) + (id.endsWith("0") ? "1" : "0")) as typeof id;
@@ -52,7 +56,11 @@ describe("wrapped", () => {
   it("unwrap tries every keyring entry until verification succeeds", async () => {
     const oldKey = await importWrappingKey(new Uint8Array(32).fill(0x01));
     const newKey = await importWrappingKey(new Uint8Array(32).fill(0x02));
-    const legacy = createWrappedKeyId("inv", { kind: "u32", keys: [oldKey], allowDuplicateBrand: true });
+    const legacy = createWrappedKeyId("inv", {
+      kind: "u32",
+      keys: [oldKey],
+      allowDuplicateBrand: true,
+    });
     const id = await legacy.wrap(7);
     const rotated = createWrappedKeyId("inv", {
       kind: "u32",

@@ -109,9 +109,13 @@ function getWrappingKeyInternals(key: WrappingKey): WrappingKeyInternals {
 }
 
 async function deriveAesKey(bytes: Uint8Array): Promise<CryptoKey> {
-  const base = await crypto.subtle.importKey("raw", bytes as Uint8Array<ArrayBuffer>, "HKDF", false, [
-    "deriveKey",
-  ]);
+  const base = await crypto.subtle.importKey(
+    "raw",
+    bytes as Uint8Array<ArrayBuffer>,
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
   return crypto.subtle.deriveKey(
     { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(), info: aesInfo },
     base,
@@ -122,9 +126,13 @@ async function deriveAesKey(bytes: Uint8Array): Promise<CryptoKey> {
 }
 
 async function deriveHmacKey(bytes: Uint8Array): Promise<CryptoKey> {
-  const base = await crypto.subtle.importKey("raw", bytes as Uint8Array<ArrayBuffer>, "HKDF", false, [
-    "deriveKey",
-  ]);
+  const base = await crypto.subtle.importKey(
+    "raw",
+    bytes as Uint8Array<ArrayBuffer>,
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
   return crypto.subtle.deriveKey(
     { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(), info: hmacInfo },
     base,

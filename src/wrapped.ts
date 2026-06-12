@@ -1,7 +1,14 @@
 import { validateBrand } from "./brand.js";
 import { createWrappedLayoutOps, type WrappedKind } from "./layouts/wrapped.js";
 import { registerBrand } from "./registry.js";
-import type { Id, JsonSchema, ParseError, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
+import type {
+  Id,
+  JsonSchema,
+  ParseError,
+  ParseResult,
+  Prefix,
+  StandardSchemaProps,
+} from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
 import {
   decodeWrappingKey,
