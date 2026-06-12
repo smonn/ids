@@ -8,12 +8,25 @@ const validKeyByteLengths = new Set([16, 24, 32]);
 const aesInfo = new TextEncoder().encode("@smonn/ids/wrapped/aes/v1");
 const hmacInfo = new TextEncoder().encode("@smonn/ids/wrapped/hmac/v1");
 
+declare const wrappingKeyBrand: unique symbol;
+
 /** Opaque imported handle for one operator wrapping secret (derived AES + HMAC subkeys). */
 export type WrappingKey = {
-  readonly rawBytes: Uint8Array;
-  readonly aesKey: CryptoKey;
-  readonly hmacKey: CryptoKey;
+  readonly [wrappingKeyBrand]: "WrappingKey";
 };
+
+type WrappingKeyInternals = {
+  rawBytes: Uint8Array;
+  aesKey: CryptoKey;
+  hmacKey: CryptoKey;
+};
+
+export type WrappingKeyMaterial = {
+  aesKey: CryptoKey;
+  hmacKey: CryptoKey;
+};
+
+const internals = new WeakMap<WrappingKey, WrappingKeyInternals>();
 
 /**
  * Imports raw operator secret bytes into a {@link WrappingKey} handle.
@@ -24,11 +37,13 @@ export async function importWrappingKey(bytes: Uint8Array): Promise<WrappingKey>
   assertValidKeyByteLength(bytes.length);
   const aesKey = await deriveAesKey(bytes);
   const hmacKey = await deriveHmacKey(bytes);
-  return {
+  const key = Object.freeze({}) as WrappingKey;
+  internals.set(key, {
     rawBytes: bytes.slice(),
     aesKey,
     hmacKey,
-  };
+  });
+  return key;
 }
 
 /**
@@ -68,11 +83,29 @@ export function decodeWrappingKey(encoded: string, format: WrappingKeyFormat): U
 
 /** Returns true when two handles were imported from the same raw operator secret. */
 export function wrappingKeysEqual(a: WrappingKey, b: WrappingKey): boolean {
-  if (a.rawBytes.length !== b.rawBytes.length) return false;
-  for (let i = 0; i < a.rawBytes.length; i++) {
-    if (a.rawBytes[i] !== b.rawBytes[i]) return false;
+  const aInternals = getWrappingKeyInternals(a);
+  const bInternals = getWrappingKeyInternals(b);
+  if (aInternals.rawBytes.length !== bInternals.rawBytes.length) return false;
+  for (let i = 0; i < aInternals.rawBytes.length; i++) {
+    if (aInternals.rawBytes[i] !== bInternals.rawBytes[i]) return false;
   }
   return true;
+}
+
+export function getWrappingKeyMaterial(key: WrappingKey): WrappingKeyMaterial {
+  const keyInternals = getWrappingKeyInternals(key);
+  return {
+    aesKey: keyInternals.aesKey,
+    hmacKey: keyInternals.hmacKey,
+  };
+}
+
+function getWrappingKeyInternals(key: WrappingKey): WrappingKeyInternals {
+  const keyInternals = internals.get(key);
+  if (keyInternals === undefined) {
+    throw new Error("invalid wrapping key");
+  }
+  return keyInternals;
 }
 
 async function deriveAesKey(bytes: Uint8Array): Promise<CryptoKey> {

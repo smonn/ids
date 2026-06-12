@@ -70,6 +70,27 @@ describe("wrapped", () => {
     );
   });
 
+  it("rejects an empty keyring at construction", () => {
+    expect(() =>
+      createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [] as never,
+        allowDuplicateBrand: true,
+      }),
+    ).toThrow("wrapped keyring must contain at least one key");
+  });
+
+  it("rejects unsupported wrapped key kinds at construction", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    expect(() =>
+      createWrappedKeyId("inv", {
+        kind: "i32" as never,
+        keys: [key],
+        allowDuplicateBrand: true,
+      }),
+    ).toThrow("unsupported wrapped key kind: expected u32");
+  });
+
   it("wrap rejects out-of-range u32 lookup keys", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
     const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
@@ -104,6 +125,18 @@ describe("wrapped", () => {
     const bytes = new Uint8Array(32).fill(0xab);
     expect(decodeWrappingKey(encodeWrappingKey(bytes, "hex"), "hex")).toEqual(bytes);
     expect(decodeWrappingKey(encodeWrappingKey(bytes, "base64url"), "base64url")).toEqual(bytes);
+  });
+
+  it("uses opaque wrapping key handles from importWrappingKey", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    expect(Object.keys(key)).toEqual([]);
+    expect(() =>
+      createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [{} as never],
+        allowDuplicateBrand: true,
+      }),
+    ).toThrow("invalid wrapping key");
   });
 
   it("toJsonSchema describes the canonical wire pattern", async () => {

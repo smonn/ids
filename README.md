@@ -217,7 +217,19 @@ import {
   type OpaqueTimestampOptions, // { key, now?, rng?, allowDuplicateBrand? } constructor options
   type OpaqueKeyFormat, // "hex" | "base64url"
 } from "@smonn/ids/opaque";
+
+import {
+  createWrappedKeyId, // (brand: string, opts: { kind: "u32", keys }) => WrappedKeyCodec<Brand, "u32">
+  importWrappingKey, // (bytes: Uint8Array) => Promise<WrappingKey>
+  encodeWrappingKey, // (bytes: Uint8Array, format: WrappingKeyFormat) => string
+  decodeWrappingKey, // (encoded: string, format: WrappingKeyFormat) => Uint8Array
+  type WrappedKeyCodec, // returned by createWrappedKeyId
+  type WrappingKey, // opaque imported handle for wrapping key material
+  type WrappingKeyFormat, // "hex" | "base64url"
+} from "@smonn/ids/wrapped";
 ```
+
+`@smonn/ids/wrapped` currently ships the u32 Wrapped key tracer: `wrap(lookupKey)` emits a public ID, `unwrap(id)` verifies and recovers the lookup key, and `safeUnwrap(input)` structurally parses then reports parse or verification failure without throwing. Broader integer-kind docs are tracked separately.
 
 ### Codec methods
 

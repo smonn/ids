@@ -123,7 +123,7 @@ module.exports = {
       comment:
         "CLI uses public codec entrypoints and Opaque key helpers via timestamp.ts/opaque.ts",
       from: { path: "^(src/cli\\.ts|src/cli/|bin/cli\\.ts$)" },
-      to: { path: "^src/(wire|layouts|brand|registry|base32|bytes|opaque-key)" },
+      to: { path: "^src/(wire|layouts|brand|registry|base32|bytes|opaque-key|wrapping-key)" },
     },
     {
       name: "brand-only-from-codec-constructors",

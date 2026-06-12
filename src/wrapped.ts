@@ -6,6 +6,7 @@ import { wireMethods } from "./wire/codec-shell.js";
 import {
   decodeWrappingKey,
   encodeWrappingKey,
+  getWrappingKeyMaterial,
   importWrappingKey,
   type WrappingKey,
   type WrappingKeyFormat,
@@ -45,6 +46,18 @@ export type WrappedKeyOptions<K extends WrappedKind> = {
 
 const u32Max = 0xffff_ffff;
 
+function assertSupportedKind(kind: WrappedKind): asserts kind is "u32" {
+  if (kind !== "u32") {
+    throw new Error("unsupported wrapped key kind: expected u32");
+  }
+}
+
+function assertNonEmptyKeyring(keys: readonly WrappingKey[]): void {
+  if (keys.length === 0) {
+    throw new Error("wrapped keyring must contain at least one key");
+  }
+}
+
 function assertNonDuplicateKeys(keys: readonly WrappingKey[]): void {
   for (let i = 0; i < keys.length; i++) {
     for (let j = i + 1; j < keys.length; j++) {
@@ -67,15 +80,14 @@ export function createWrappedKeyId<Brand extends string>(
 ): WrappedKeyCodec<Brand, "u32"> {
   validateBrand(brand);
   registerBrand(brand, opts.allowDuplicateBrand);
+  assertSupportedKind(opts.kind);
+  assertNonEmptyKeyring(opts.keys);
+  const layoutKeys = opts.keys.map(getWrappingKeyMaterial);
   assertNonDuplicateKeys(opts.keys);
 
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);
-  const layout = createWrappedLayoutOps(
-    prefix,
-    brand,
-    opts.keys.map((key) => ({ aesKey: key.aesKey, hmacKey: key.hmacKey })),
-  );
+  const layout = createWrappedLayoutOps(prefix, brand, layoutKeys);
 
   return {
     wrap: async (lookupKey) => {
