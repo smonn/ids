@@ -17,7 +17,7 @@ The brand-scoped object that generates, parses, and validates IDs for one entity
 _Avoid_: factory, generator, encoder.
 
 **Codec variant**:
-A concrete codec algorithm sharing the same wire shape (`<brand>_` + 26 Crockford base32 chars) but differing in byte layout and capabilities. Shipped today: the **Timestamp codec** and the **Opaque Timestamp codec**. Accepted, not yet shipped: the **Wrapped key codec** — see [ADR-0009](./docs/adr/0009-wrapped-key-compact-construction.md). Each variant is a separate subpath export — see [ADR-0005](./docs/adr/0005-codec-variant-subpath-exports.md).
+A concrete codec algorithm sharing the same wire shape (`<brand>_` + 26 Crockford base32 chars) but differing in byte layout and capabilities. Shipped today: the **Timestamp codec**, **Opaque Timestamp codec**, and **Wrapped key codec** — see [ADR-0009](./docs/adr/0009-wrapped-key-compact-construction.md). Each variant is a separate subpath export — see [ADR-0005](./docs/adr/0005-codec-variant-subpath-exports.md).
 _Avoid_: default codec (use **Timestamp codec** for the dominant variant), trust mode, algorithm.
 
 **Timestamp-family codec**:
@@ -41,7 +41,7 @@ How raw Opaque key bytes are encoded for storage or transport outside the librar
 _Avoid_: key encoding (ambiguous with payload encoding), format (use **Opaque key format** or **Byte layout** depending on context).
 
 **Lookup key**:
-Caller-supplied opaque integer handle that the **Wrapped key codec** wraps into a public ID and recovers on unwrap. Interpretation is caller-owned — it may be a storage primary key, a packed composite, or any application-internal integer lane; the codec only enforces width and signedness via **kind** (`u32`, `i32`, `u64`, `i64`), fixed when the codec is constructed. For `u32`, values must be safe integers in `[0, 2³²−1]` at `wrap` — no silent truncation. Not a UUID or string; UUID-sized values are out of scope for the compact 16-byte branch.
+Caller-supplied opaque integer handle that the **Wrapped key codec** wraps into a public ID and recovers on unwrap. Interpretation is caller-owned — it may be a storage primary key, a packed composite, or any application-internal integer lane; the codec only enforces width and signedness via **kind** (`u32`, `i32`, `u64`, `i64`), fixed when the codec is constructed. `u32` and `i32` use safe JavaScript numbers in their fixed-width ranges and reject negative zero; `u64` and `i64` use `bigint` even when the magnitude would fit in a JavaScript number — no silent truncation or sign erasure. Not a UUID or string; UUID-sized values are out of scope for the compact 16-byte branch.
 _Avoid_: primary key (too SQL-specific), integer identifier (collides with public **Id** vocabulary), storage key (ambiguous with **Opaque key**).
 
 **Wrapped key codec**:
