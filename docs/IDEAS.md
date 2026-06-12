@@ -21,9 +21,12 @@ different invariants.
 - **`createReverseTimestampId(brand)`** — bitwise-inverted timestamp bytes; lexicographic order
   = newest first. For KV stores where descending range scans are awkward.
 - **`createWrappedKeyId(brand, {kind, keys})`** — reversible verified wrapping of a
-  storage lookup key. See the Wrapped key codec sketch below.
+  storage lookup key. Accepted design: see [ADR-0009](./adr/0009-wrapped-key-compact-construction.md).
+  Glossary: **Wrapped key codec**, **Lookup key**, **Wrapping key** in [CONTEXT.md](../CONTEXT.md).
 
 ## Wrapped key codec
+
+_Accepted — see [ADR-0009](./adr/0009-wrapped-key-compact-construction.md) and [CONTEXT.md](../CONTEXT.md). Implementation not yet shipped._
 
 A reversible counterpart to `createDigestId`: the caller supplies a storage lookup key,
 the codec emits a public ID, and `unwrap` recovers the lookup key before the caller hits
@@ -56,10 +59,10 @@ out of scope for this same-size branch because a UUID plus verification tag does
   the Opaque Timestamp codec's timestamp-plausibility guess. A future detailed unwrap can return the matched
   key id for observability or rewrapping while the common `unwrap` path returns only the
   recovered value.
-- **Documentation boundary.** Keep `CONTEXT.md` unchanged until this becomes current
+- ~~**Documentation boundary.** Keep `CONTEXT.md` unchanged until this becomes current
   project language. If the compact construction is accepted for implementation, write an
   ADR then: it is hard to reverse, surprising without context, and the result of a real
-  16-byte-size-vs-authentication trade-off.
+  16-byte-size-vs-authentication trade-off.~~ — accepted in [ADR-0009](./adr/0009-wrapped-key-compact-construction.md); glossary updated.
 
 ## Opaque key management
 
