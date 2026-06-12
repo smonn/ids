@@ -1,9 +1,5 @@
 import { validateBrand } from "./brand.js";
-import {
-  createWrappedLayoutOps,
-  type WrappedKind,
-  type WrappedLookupKey,
-} from "./layouts/wrapped.js";
+import { createWrappedLayoutOps } from "./layouts/wrapped.js";
 import { registerBrand } from "./registry.js";
 import type {
   Id,
@@ -32,13 +28,17 @@ export {
   type WrappingKeyFormat,
 };
 
+export type WrappedKind = "u32" | "i32" | "u64" | "i64";
+
+type LookupKeyForKind<K extends WrappedKind> = K extends "u32" | "i32" ? number : bigint;
+
 export type UnwrapResult<Brand extends string, Kind extends WrappedKind> =
-  | { ok: true; id: Id<Brand>; lookupKey: WrappedLookupKey<Kind> }
+  | { ok: true; id: Id<Brand>; lookupKey: LookupKeyForKind<Kind> }
   | { ok: false; error: ParseError | "verification_failed" };
 
 export type WrappedKeyCodec<Brand extends string, Kind extends WrappedKind> = {
-  wrap(lookupKey: WrappedLookupKey<Kind>): Promise<Id<Brand>>;
-  unwrap(id: Id<Brand>): Promise<WrappedLookupKey<Kind>>;
+  wrap(lookupKey: LookupKeyForKind<Kind>): Promise<Id<Brand>>;
+  unwrap(id: Id<Brand>): Promise<LookupKeyForKind<Kind>>;
   safeUnwrap(input: unknown): Promise<UnwrapResult<Brand, Kind>>;
   is(value: unknown): value is Id<Brand>;
   parse(value: unknown): Id<Brand>;
@@ -125,7 +125,7 @@ function assertI64LookupKey(lookupKey: unknown): asserts lookupKey is bigint {
 function assertLookupKey<Kind extends WrappedKind>(
   kind: Kind,
   lookupKey: unknown,
-): asserts lookupKey is WrappedLookupKey<Kind> {
+): asserts lookupKey is LookupKeyForKind<Kind> {
   if (kind === "i32") {
     assertI32LookupKey(lookupKey);
     return;

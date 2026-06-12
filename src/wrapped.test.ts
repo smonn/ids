@@ -65,15 +65,25 @@ describe("wrapped", () => {
     const i32 = createWrappedKeyId("inv", { kind: "i32", keys: [key], allowDuplicateBrand: true });
     const u64 = createWrappedKeyId("inv", { kind: "u64", keys: [key], allowDuplicateBrand: true });
     const i64 = createWrappedKeyId("inv", { kind: "i64", keys: [key], allowDuplicateBrand: true });
+    const codecs = { u32, i32, u64, i64 };
+    const sources = [
+      { kind: "u32" as const, wrap: () => u32.wrap(42) },
+      { kind: "i32" as const, wrap: () => i32.wrap(42) },
+      { kind: "u64" as const, wrap: () => u64.wrap(42n) },
+      { kind: "i64" as const, wrap: () => i64.wrap(42n) },
+    ];
 
-    await expect(i32.safeUnwrap(await u32.wrap(42))).resolves.toEqual({
-      ok: false,
-      error: "verification_failed",
-    });
-    await expect(i64.safeUnwrap(await u64.wrap(42n))).resolves.toEqual({
-      ok: false,
-      error: "verification_failed",
-    });
+    for (const source of sources) {
+      const id = await source.wrap();
+      for (const target of sources) {
+        if (source.kind === target.kind) continue;
+        await expect(codecs[target.kind].safeUnwrap(id)).resolves.toEqual({
+          ok: false,
+          error: "verification_failed",
+        });
+      }
+    }
+
     await expect(u32.safeUnwrap(await i32.wrap(-1))).resolves.toEqual({
       ok: false,
       error: "verification_failed",

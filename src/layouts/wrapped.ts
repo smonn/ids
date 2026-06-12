@@ -12,8 +12,8 @@ type LayoutWrappingKey = {
   hmacKey: CryptoKey;
 };
 
-export type WrappedKind = "u32" | "i32" | "u64" | "i64";
-export type WrappedLookupKey<K extends WrappedKind> = K extends "u32" | "i32" ? number : bigint;
+type LayoutWrappedKind = "u32" | "i32" | "u64" | "i64";
+type LayoutLookupKey<K extends LayoutWrappedKind> = K extends "u32" | "i32" ? number : bigint;
 
 function writeU32Lane(value: number, lane: Uint8Array): void {
   lane[0] = 0;
@@ -62,9 +62,9 @@ function readI64Lane(lane: Uint8Array): bigint {
   return new DataView(lane.buffer, lane.byteOffset, lane.byteLength).getBigInt64(0, false);
 }
 
-function writeLane<K extends WrappedKind>(
+function writeLane<K extends LayoutWrappedKind>(
   kind: K,
-  value: WrappedLookupKey<K>,
+  value: LayoutLookupKey<K>,
   lane: Uint8Array,
 ): void {
   if (kind === "i32") {
@@ -82,14 +82,17 @@ function writeLane<K extends WrappedKind>(
   writeU32Lane(value as number, lane);
 }
 
-function readLane<K extends WrappedKind>(kind: K, lane: Uint8Array): WrappedLookupKey<K> | null {
-  if (kind === "u64") return readU64Lane(lane) as WrappedLookupKey<K>;
-  if (kind === "i64") return readI64Lane(lane) as WrappedLookupKey<K>;
+function readLane<K extends LayoutWrappedKind>(
+  kind: K,
+  lane: Uint8Array,
+): LayoutLookupKey<K> | null {
+  if (kind === "u64") return readU64Lane(lane) as LayoutLookupKey<K>;
+  if (kind === "i64") return readI64Lane(lane) as LayoutLookupKey<K>;
   const value = kind === "i32" ? readI32Lane(lane) : readU32Lane(lane);
-  return value as WrappedLookupKey<K> | null;
+  return value as LayoutLookupKey<K> | null;
 }
 
-function hmacMessage(brand: string, kind: WrappedKind, lane: Uint8Array): Uint8Array {
+function hmacMessage(brand: string, kind: LayoutWrappedKind, lane: Uint8Array): Uint8Array {
   const prefix = new TextEncoder().encode(`${brand}:${kind}:`);
   const message = new Uint8Array(prefix.length + lane.length);
   message.set(prefix, 0);
@@ -100,7 +103,7 @@ function hmacMessage(brand: string, kind: WrappedKind, lane: Uint8Array): Uint8A
 async function computeTag(
   key: LayoutWrappingKey,
   brand: string,
-  kind: WrappedKind,
+  kind: LayoutWrappedKind,
   lane: Uint8Array,
 ): Promise<Uint8Array> {
   const signature = new Uint8Array(
@@ -159,12 +162,12 @@ function buildPlaintext(lane: Uint8Array, tag: Uint8Array): Uint8Array {
   return plaintext;
 }
 
-async function wrapLookupKey<Brand extends string, Kind extends WrappedKind>(
+async function wrapLookupKey<Brand extends string, Kind extends LayoutWrappedKind>(
   prefix: Prefix<Brand>,
   brand: string,
   key: LayoutWrappingKey,
   kind: Kind,
-  lookupKey: WrappedLookupKey<Kind>,
+  lookupKey: LayoutLookupKey<Kind>,
 ): Promise<Id<Brand>> {
   const lane = new Uint8Array(laneByteLength);
   writeLane(kind, lookupKey, lane);
@@ -173,13 +176,13 @@ async function wrapLookupKey<Brand extends string, Kind extends WrappedKind>(
   return toWireId(prefix, encrypted);
 }
 
-async function tryUnwrapLookupKey<Brand extends string, Kind extends WrappedKind>(
+async function tryUnwrapLookupKey<Brand extends string, Kind extends LayoutWrappedKind>(
   prefix: Prefix<Brand>,
   brand: string,
   key: LayoutWrappingKey,
   kind: Kind,
   id: Id<Brand>,
-): Promise<WrappedLookupKey<Kind> | null> {
+): Promise<LayoutLookupKey<Kind> | null> {
   const plaintext = await decryptPayload(key, payloadBytesFromId(prefix, id));
   const lane = plaintext.subarray(0, laneByteLength);
   const tag = plaintext.subarray(laneByteLength, payloadByteLength);
@@ -192,7 +195,7 @@ function schemaExample<Brand extends string>(prefix: Prefix<Brand>): string {
   return prefix + "0".repeat(payloadBase32Length);
 }
 
-export function createWrappedLayoutOps<Brand extends string, Kind extends WrappedKind>(
+export function createWrappedLayoutOps<Brand extends string, Kind extends LayoutWrappedKind>(
   prefix: Prefix<Brand>,
   brand: Brand,
   kind: Kind,
@@ -200,16 +203,16 @@ export function createWrappedLayoutOps<Brand extends string, Kind extends Wrappe
 ) {
   const wrapKey = keys[0]!;
   return {
-    wrap: (lookupKey: WrappedLookupKey<Kind>): Promise<Id<Brand>> =>
+    wrap: (lookupKey: LayoutLookupKey<Kind>): Promise<Id<Brand>> =>
       wrapLookupKey(prefix, brand, wrapKey, kind, lookupKey),
-    unwrap: async (id: Id<Brand>): Promise<WrappedLookupKey<Kind>> => {
+    unwrap: async (id: Id<Brand>): Promise<LayoutLookupKey<Kind>> => {
       for (const key of keys) {
         const lookupKey = await tryUnwrapLookupKey(prefix, brand, key, kind, id);
         if (lookupKey !== null) return lookupKey;
       }
       throw new Error("verification failed");
     },
-    tryUnwrap: async (id: Id<Brand>): Promise<WrappedLookupKey<Kind> | null> => {
+    tryUnwrap: async (id: Id<Brand>): Promise<LayoutLookupKey<Kind> | null> => {
       for (const key of keys) {
         const lookupKey = await tryUnwrapLookupKey(prefix, brand, key, kind, id);
         if (lookupKey !== null) return lookupKey;
