@@ -40,7 +40,7 @@
     "@changesets/cli": "2.31.0",
     "@types/node": "25.9.1",
     "@vitest/coverage-v8": "4.1.8",
-    "dependency-cruiser": "16.10.4",
+    "dependency-cruiser": "17.4.3",
     "knip": "6.15.0",
     "mitata": "1.0.34",
     "oxfmt": "0.53.0",
