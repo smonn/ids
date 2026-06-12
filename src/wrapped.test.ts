@@ -7,7 +7,13 @@ import {
   type UnwrapResult,
   type WrappedKeyCodec,
 } from "./wrapped.js";
+import { getWrappingKeyMaterial, type WrappingKey } from "./wrapping-key.js";
 import type { Id } from "./types.js";
+import { toWireId } from "./wire/envelope.js";
+
+const payloadByteLength = 16;
+const tagByteLength = 8;
+const zeroIv = new Uint8Array(payloadByteLength);
 
 describe("wrapped", () => {
   let warnSilencer: ReturnType<typeof vi.spyOn>;
@@ -53,6 +59,25 @@ describe("wrapped", () => {
     });
   });
 
+  it("rejects a verified u32 payload with a non-canonical lane", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0xaa));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    const id = await nonCanonicalU32Id("inv_", "inv", key);
+    await expect(inv.safeUnwrap(id)).resolves.toEqual({
+      ok: false,
+      error: "verification_failed",
+    });
+  });
+
+  it("safeUnwrap reports structural parse failure without verifying", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0xaa));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    await expect(inv.safeUnwrap("bad")).resolves.toEqual({
+      ok: false,
+      error: "invalid_prefix",
+    });
+  });
+
   it("unwrap tries every keyring entry until verification succeeds", async () => {
     const oldKey = await importWrappingKey(new Uint8Array(32).fill(0x01));
     const newKey = await importWrappingKey(new Uint8Array(32).fill(0x02));
@@ -76,6 +101,18 @@ describe("wrapped", () => {
     expect(() => createWrappedKeyId("inv", { kind: "u32", keys: [key, key] })).toThrow(
       "duplicate wrapping key in keyring",
     );
+  });
+
+  it("accepts distinct wrapping keys with different byte lengths", async () => {
+    const key128 = await importWrappingKey(new Uint8Array(16).fill(0x42));
+    const key256 = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    expect(() =>
+      createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key128, key256],
+        allowDuplicateBrand: true,
+      }),
+    ).not.toThrow();
   });
 
   it("rejects an empty keyring at construction", () => {
@@ -135,6 +172,28 @@ describe("wrapped", () => {
     expect(decodeWrappingKey(encodeWrappingKey(bytes, "base64url"), "base64url")).toEqual(bytes);
   });
 
+  it("wrapping key helpers reject invalid formats and key material", async () => {
+    const unprintableFormat = {
+      toString: () => {
+        throw new Error("boom");
+      },
+    };
+    expect(() => encodeWrappingKey(new Uint8Array(32), "pem" as never)).toThrow(
+      "invalid wrapping key format",
+    );
+    expect(() => encodeWrappingKey(new Uint8Array(32), unprintableFormat as never)).toThrow(
+      "invalid wrapping key format: expected hex or base64url, got '[unprintable]'",
+    );
+    expect(() => decodeWrappingKey("", "hex")).toThrow("invalid hex key");
+    expect(() => decodeWrappingKey("abc", "hex")).toThrow("invalid hex key");
+    expect(() => decodeWrappingKey("zz", "hex")).toThrow("invalid hex key");
+    expect(() => decodeWrappingKey("?", "base64url")).toThrow("invalid base64url key");
+    expect(() => decodeWrappingKey("aa", "base64url")).toThrow("invalid wrapping key length");
+    await expect(importWrappingKey(new Uint8Array(15))).rejects.toThrow(
+      "invalid wrapping key length",
+    );
+  });
+
   it("uses opaque wrapping key handles from importWrappingKey", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
     expect(Object.keys(key)).toEqual([]);
@@ -168,3 +227,37 @@ describe("wrapped", () => {
     }>();
   });
 });
+
+async function nonCanonicalU32Id(
+  prefix: "inv_",
+  brand: "inv",
+  key: WrappingKey,
+): Promise<Id<"inv">> {
+  const material = getWrappingKeyMaterial(key);
+  const lane = new Uint8Array(tagByteLength);
+  lane[0] = 1;
+  lane[7] = 42;
+  const tag = await hmacTag(material.hmacKey, brand, lane);
+  const plaintext = new Uint8Array(payloadByteLength);
+  plaintext.set(lane, 0);
+  plaintext.set(tag, tagByteLength);
+  const encrypted = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: "AES-CBC", iv: zeroIv },
+      material.aesKey,
+      plaintext as Uint8Array<ArrayBuffer>,
+    ),
+  );
+  return toWireId(prefix, encrypted.subarray(0, payloadByteLength));
+}
+
+async function hmacTag(hmacKey: CryptoKey, brand: "inv", lane: Uint8Array): Promise<Uint8Array> {
+  const label = new TextEncoder().encode(`${brand}:u32:`);
+  const message = new Uint8Array(label.length + lane.length);
+  message.set(label, 0);
+  message.set(lane, label.length);
+  const signature = new Uint8Array(
+    await crypto.subtle.sign("HMAC", hmacKey, message as Uint8Array<ArrayBuffer>),
+  );
+  return signature.subarray(0, tagByteLength);
+}
