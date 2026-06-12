@@ -12,7 +12,7 @@ module.exports = {
       name: "wire-no-shell",
       severity: "error",
       from: { path: "^src/wire" },
-      to: { path: "^src/(timestamp|opaque|cli|registry)\\.ts$" },
+      to: { path: "^src/(timestamp|opaque|wrapped|cli|registry)\\.ts$" },
     },
     {
       name: "wire-middle-no-siblings",
@@ -70,21 +70,21 @@ module.exports = {
     {
       name: "codec-constructors-wire-codec-shell-only",
       severity: "error",
-      from: { path: "^src/(timestamp|opaque)\\.ts$" },
+      from: { path: "^src/(timestamp|opaque|wrapped)\\.ts$" },
       to: { path: "^src/wire", pathNot: "^src/wire/codec-shell" },
     },
     {
       name: "codec-constructors-layouts-only",
       severity: "error",
       comment: "only codec constructors may import layouts",
-      from: { path: "^src", pathNot: "^src/(timestamp|opaque)\\.ts$" },
+      from: { path: "^src", pathNot: "^src/(timestamp|opaque|wrapped)\\.ts$" },
       to: { path: "^src/layouts" },
     },
     {
       name: "layouts-no-shell",
       severity: "error",
       from: { path: "^src/layouts" },
-      to: { path: "^src/(timestamp|opaque|cli|registry)\\.ts$" },
+      to: { path: "^src/(timestamp|opaque|wrapped|cli|registry)\\.ts$" },
     },
     {
       name: "layouts-no-sibling-layouts",
@@ -114,7 +114,7 @@ module.exports = {
     {
       name: "codec-constructors-no-base32",
       severity: "error",
-      from: { path: "^src/(timestamp|opaque)\\.ts$" },
+      from: { path: "^src/(timestamp|opaque|wrapped)\\.ts$" },
       to: { path: "^src/base32" },
     },
     {
@@ -123,19 +123,19 @@ module.exports = {
       comment:
         "CLI uses public codec entrypoints and Opaque key helpers via timestamp.ts/opaque.ts",
       from: { path: "^(src/cli\\.ts|src/cli/|bin/cli\\.ts$)" },
-      to: { path: "^src/(wire|layouts|brand|registry|base32|bytes|opaque-key)" },
+      to: { path: "^src/(wire|layouts|brand|registry|base32|bytes|opaque-key|wrapping-key)" },
     },
     {
       name: "brand-only-from-codec-constructors",
       severity: "error",
       comment: "only codec constructors may import brand",
-      from: { path: "^src", pathNot: "^src/(timestamp|opaque)\\.ts$" },
+      from: { path: "^src", pathNot: "^src/(timestamp|opaque|wrapped)\\.ts$" },
       to: { path: "^src/brand" },
     },
     {
       name: "registry-only-from-codec-constructors",
       severity: "error",
-      from: { path: "^src", pathNot: "^src/(timestamp|opaque)\\.ts$" },
+      from: { path: "^src", pathNot: "^src/(timestamp|opaque|wrapped)\\.ts$" },
       to: { path: "^src/registry" },
     },
     {

@@ -9,7 +9,7 @@ Construction:
 3. **Plaintext.** `lane ‖ tag` (16 bytes).
 4. **Wire.** AES-CBC strip-and-reconstruct encrypt of the plaintext under the wrapping AES subkey; keep `C1` as the 16-byte payload.
 
-`unwrap` decrypts, recomputes the tag, and rejects unless it matches before returning the lane as the lookup key. `wrap` uses the **current** entry in the **Wrapping keyring**; `unwrap` trials all accepted entries until a tag matches.
+`unwrap` decrypts, recomputes the tag, and rejects unless it matches before returning the lane as the lookup key. `wrap` uses the first entry in the **Wrapping keyring**; `unwrap` trials every entry in order until a tag matches.
 
 Operator secret import, subkey derivation, and keyring configuration are implementation details; the **Wrapping key** is a separate secret domain from the **Opaque key** — same `hex` / `base64url` encoded-format conventions, distinct KDF labels so one raw secret cannot silently serve both codecs.
 
@@ -60,12 +60,15 @@ Wrong-key and tamper attempts false-accept at roughly **`keyring_size / 2^64`** 
 
 ### Keyring semantics
 
-The keyring has exactly one **current** entry for `wrap` and any number of accepted entries for `unwrap`. Removing an entry revokes IDs wrapped under it. The same lookup key wrapped under different entries yields different public IDs. No key id is embedded in the wire payload; `unwrap` tries each accepted entry until the recomputed tag matches.
+The **Wrapping keyring** is a non-empty ordered list of **Wrapping key** entries passed at codec construction. The first entry is **current** — used exclusively by `wrap`. `unwrap` tries every entry in order until the recomputed tag matches. Duplicate operator secrets in the list are rejected at construction. Removing an entry revokes IDs wrapped under it. The same lookup key wrapped under different entries yields different public IDs. No key id is embedded in the wire payload.
 
 ## Consequences
 
-- Factory: `createWrappedKeyId(brand, { kind, keys })` on `@smonn/ids/wrapped` per [ADR-0005](./0005-codec-variant-subpath-exports.md). `wrap` / `unwrap` are async per [ADR-0006](./0006-async-keyed-codec-contract.md); `u32` / `i32` use `number`, `u64` / `i64` use `bigint`.
-- `wrap` costs one HMAC + one SubtleCrypto encrypt (strip-trick). `unwrap` costs one decrypt + one HMAC per keyring entry tried (early exit on match).
-- Helpers parallel Opaque: `encodeWrappingKey` / `decodeWrappingKey` / `importWrappingKey` on the same subpath.
+- Factory: `createWrappedKeyId(brand, { kind, keys })` on `@smonn/ids/wrapped` per [ADR-0005](./0005-codec-variant-subpath-exports.md). Returns `WrappedKeyCodec<Brand, Kind>` — `kind` is a construction-time literal that drives value types per [ADR-0006](./0006-async-keyed-codec-contract.md) (`u32` / `i32` → `number`; `u64` / `i64` → `bigint`).
+- **Keyring shape.** `keys` is `[WrappingKey, ...WrappingKey[]]` (non-empty). First entry is current for `wrap`; all entries are tried on `unwrap`. Duplicate operator secrets throw at construction.
+- **Key import.** `importWrappingKey(bytes)` returns `WrappingKey` — an opaque handle holding derived AES and HMAC subkeys, not a bare `CryptoKey`. Helpers parallel Opaque: `encodeWrappingKey` / `decodeWrappingKey` / `importWrappingKey` on the same subpath. Same raw byte lengths as **Opaque key** (16 / 24 / 32).
+- **Wrap / unwrap surface.** `wrap(lookupKey)` and `unwrap(id)` are async. `wrap` validates kind width at the boundary (`u32`: safe integers in `[0, 2³²−1]`; no silent truncation). `unwrap(id: Id<Brand>)` trusts the type and throws on verification failure. `safeUnwrap(input: unknown)` structurally parses first, then verifies: success is `{ ok: true, id, lookupKey }`; failure is `{ ok: false, error: ParseError | "verification_failed" }` — tamper, wrong ring, and revoked-key cases are not distinguished.
+- **Costs.** `wrap` costs one HMAC + one SubtleCrypto encrypt (strip-trick). `unwrap` costs one decrypt + one HMAC per keyring entry tried (early exit on match).
+- **CLI.** Library-first; terminal support (`keygen --wrapped`, `inspect --wrapped`) is a separate follow-up, not the u32 tracer.
 - A future **randomized wrapped key** variant could spend payload bits on nonces at the cost of tag strength and determinism; it requires its own ADR and tag-budget analysis.
 - **Digest codec** implementation can reuse wrapping-key import patterns but needs a separate ADR for material input shape and length limits.
