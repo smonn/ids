@@ -229,29 +229,109 @@ import {
 } from "@smonn/ids/wrapped";
 ```
 
-`@smonn/ids/wrapped` ships the Wrapped key codec for `u32`, `i32`, `u64`, and `i64` lookup keys. `wrap(lookupKey)` emits a public ID, `unwrap(id)` verifies and recovers the lookup key, and `safeUnwrap(input)` structurally parses then reports parse or verification failure without throwing. The 32-bit kinds use `number`; the 64-bit kinds use `bigint`.
+`@smonn/ids/wrapped` ships the Wrapped key codec for `u32`, `i32`, `u64`, and `i64` lookup keys. `wrap(lookupKey)` returns a public ID; `unwrap(id)` verifies the payload and returns the lookup key; `safeUnwrap(input)` is the non-throwing path for untrusted input.
+
+**Integer kinds and value types.** The 32-bit kinds (`u32`, `i32`) use safe JavaScript `number` values in their fixed-width ranges. The 64-bit kinds (`u64`, `i64`) always use `bigint` — even when the magnitude would fit in a `number` — to prevent silent truncation or sign erasure.
 
 ```ts
-const key = await importWrappingKey(new Uint8Array(32));
-const invoices = createWrappedKeyId("inv", { kind: "u64", keys: [key] });
+import { createWrappedKeyId, importWrappingKey } from "@smonn/ids/wrapped";
 
-const id = await invoices.wrap(42n); // "inv_..."
-const lookupKey = await invoices.unwrap(id); // 42n
+const key = await importWrappingKey(new Uint8Array(32));
+
+// u32: number, range [0, 4294967295]
+const u32Ids = createWrappedKeyId("inv", { kind: "u32", keys: [key] });
+const u32Id = await u32Ids.wrap(42); // number → Id<"inv">
+const u32Key = await u32Ids.unwrap(u32Id); // → 42 (number)
+
+// i32: number, range [-2147483648, 2147483647]
+const i32Ids = createWrappedKeyId("rec", { kind: "i32", keys: [key] });
+const i32Id = await i32Ids.wrap(-7); // number → Id<"rec">
+const i32Key = await i32Ids.unwrap(i32Id); // → -7 (number)
+
+// u64: bigint, range [0n, 18446744073709551615n]
+const u64Ids = createWrappedKeyId("ord", { kind: "u64", keys: [key] });
+const u64Id = await u64Ids.wrap(42n); // bigint → Id<"ord">
+const u64Key = await u64Ids.unwrap(u64Id); // → 42n (bigint)
+
+// i64: bigint, range [-9223372036854775808n, 9223372036854775807n]
+const i64Ids = createWrappedKeyId("evt", { kind: "i64", keys: [key] });
+const i64Id = await i64Ids.wrap(-1n); // bigint → Id<"evt">
+const i64Key = await i64Ids.unwrap(i64Id); // → -1n (bigint)
+```
+
+**Keyring rotation.** Pass a non-empty ordered list of wrapping keys at construction. The first entry is the _current_ key — the only one `wrap` uses. `unwrap` trials every entry in order until the verification tag matches, so IDs wrapped under any listed key are still unwrappable. Removing an entry from the list revokes all IDs wrapped under it.
+
+```ts
+const oldKey = await importWrappingKey(rawOldSecret);
+const newKey = await importWrappingKey(rawNewSecret);
+
+// Before rotation: only oldKey in the ring
+const legacy = createWrappedKeyId("inv", { kind: "u32", keys: [oldKey] });
+const id = await legacy.wrap(7);
+
+// After rotation: newKey is current; oldKey is still accepted on unwrap
+const rotated = createWrappedKeyId("inv", { kind: "u32", keys: [newKey, oldKey] });
+await rotated.unwrap(id); // succeeds — tried oldKey and matched
+await rotated.wrap(7); // uses newKey → different public ID
+```
+
+**Equality leakage.** The Wrapped key codec is deterministic: the same lookup key wrapped under the same wrapping key always yields the same public ID. An observer without operator material can tell that two identical public IDs wrap the same lookup key, but cannot recover the lookup key or wrapping key from the ID alone. This is an accepted trade-off for fitting an 8-byte integer lane and an 8-byte verification tag into the 16-byte payload. UUID-sized values (128 bits) are out of scope for this compact branch — there is no room for them alongside the verification tag.
+
+**Fail-closed verification.** `is`, `parse`, and `safeParse` are structural — they check only the prefix and base32 payload shape, with no key material required. Cryptographic verification only happens in `unwrap` and `safeUnwrap`.
+
+- `unwrap(id)` takes a trusted `Id<Brand>` and **throws** if payload verification fails. Use it when the ID is already known to be structurally valid (e.g. freshly loaded from your database).
+- `safeUnwrap(input)` accepts untrusted input, structurally parses first, then verifies — without throwing. It returns one of:
+
+```ts
+// Success
+{
+  ok: true;
+  id: Id<Brand>;
+  lookupKey: number | bigint;
+}
+
+// Structural parse failure (wrong brand, invalid base32, etc.)
+{
+  ok: false;
+  error: "not_string" | "invalid_prefix" | "invalid_base32";
+}
+
+// Payload verified but tag mismatch (tampered, wrong keyring, or revoked key)
+{
+  ok: false;
+  error: "verification_failed";
+}
+```
+
+Use `safeUnwrap` at API boundaries where the input is untrusted:
+
+```ts
+const result = await invoices.safeUnwrap(req.body.invoiceId);
+
+if (!result.ok) {
+  if (result.error === "verification_failed") return 403; // tampered or wrong key
+  return 400; // malformed ID
+}
+
+const { id, lookupKey } = result; // Id<"inv">, number
 ```
 
 ### Codec methods
 
-| Method                 | `TimestampCodec<Brand>` | `OpaqueTimestampCodec<Brand>` | Description                                                                   |
-| ---------------------- | ----------------------- | ----------------------------- | ----------------------------------------------------------------------------- |
-| `generate()`           | sync                    | async                         | Produce a fresh ID                                                            |
-| `generateAt(date)`     | sync                    | async                         | Produce a fresh ID with timestamp bytes from `date` (for backfills)           |
-| `is(value)`            | sync                    | sync                          | Strict type guard: `true` only for already-canonical strings                  |
-| `parse(value)`         | sync                    | sync                          | Lenient: normalise to canonical, or throw                                     |
-| `safeParse(value)`     | sync                    | sync                          | Lenient: normalise to canonical, or return `{ ok: false, error }`             |
-| `extractTimestamp(id)` | sync                    | async                         | Decode the creation `Date` from an `Id<Brand>` (trusts the type)              |
-| `minIdForTime(date)`   | sync                    | —                             | Tight lower bound for any ID generated at `date` (for range queries)          |
-| `maxIdForTime(date)`   | sync                    | —                             | Tight upper bound for any ID generated at `date` (for range queries)          |
-| `toJsonSchema()`       | sync                    | sync                          | JSON Schema (`type`/`pattern`/`description`/`example`) for the canonical form |
+| Method                 | `TimestampCodec<Brand>` | `OpaqueTimestampCodec<Brand>` | `WrappedKeyCodec<Brand, Kind>` | Description                                                                   |
+| ---------------------- | ----------------------- | ----------------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
+| `generate()`           | sync                    | async                         | —                              | Produce a fresh ID                                                            |
+| `generateAt(date)`     | sync                    | async                         | —                              | Produce a fresh ID with timestamp bytes from `date` (for backfills)           |
+| `wrap(lookupKey)`      | —                       | —                             | async                          | Wrap a lookup key into a public ID using the current wrapping key             |
+| `unwrap(id)`           | —                       | —                             | async                          | Verify and recover the lookup key; throws on verification failure             |
+| `safeUnwrap(input)`    | —                       | —                             | async                          | Non-throwing: structurally parse then verify; returns parse or verify error   |
+| `is(value)`            | sync                    | sync                          | sync                           | Strict type guard: `true` only for already-canonical strings                  |
+| `parse(value)`         | sync                    | sync                          | sync                           | Lenient: normalise to canonical, or throw                                     |
+| `safeParse(value)`     | sync                    | sync                          | sync                           | Lenient: normalise to canonical, or return `{ ok: false, error }`             |
+| `extractTimestamp(id)` | sync                    | async                         | —                              | Decode the creation `Date` from an `Id<Brand>` (trusts the type)              |
+| `minIdForTime(date)`   | sync                    | —                             | —                              | Tight lower bound for any ID generated at `date` (for range queries)          |
+| `maxIdForTime(date)`   | sync                    | —                             | —                              | Tight upper bound for any ID generated at `date` (for range queries)          |
+| `toJsonSchema()`       | sync                    | sync                          | sync                           | JSON Schema (`type`/`pattern`/`description`/`example`) for the canonical form |
 
 ## CLI
 

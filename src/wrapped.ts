@@ -32,16 +32,61 @@ export type WrappedKind = "u32" | "i32" | "u64" | "i64";
 
 type LookupKeyForKind<K extends WrappedKind> = K extends "u32" | "i32" ? number : bigint;
 
+/**
+ * Result returned by {@link WrappedKeyCodec.safeUnwrap}.
+ *
+ * On success, `id` is the canonical {@link Id} and `lookupKey` is the recovered
+ * integer (`number` for 32-bit kinds, `bigint` for 64-bit kinds).
+ * On failure, `error` is a {@link ParseError} for structural problems or
+ * `"verification_failed"` when the payload is structurally valid but the
+ * verification tag does not match any entry in the wrapping keyring.
+ */
 export type UnwrapResult<Brand extends string, Kind extends WrappedKind> =
   | { ok: true; id: Id<Brand>; lookupKey: LookupKeyForKind<Kind> }
   | { ok: false; error: ParseError | "verification_failed" };
 
+/**
+ * Codec returned by {@link createWrappedKeyId}.
+ *
+ * Wraps a caller-owned integer **lookup key** into a public {@link Id} and
+ * recovers it on unwrap. The codec is deterministic under fixed key material:
+ * the same lookup key always yields the same public ID (**equality leakage**).
+ *
+ * - `wrap` / `unwrap` / `safeUnwrap` are async (WebCrypto).
+ * - `is`, `parse`, `safeParse`, and `toJsonSchema` are synchronous and require
+ *   no key material — they validate prefix and base32 shape only.
+ * - The `Kind` type parameter drives value types at the TypeScript boundary:
+ *   `u32` / `i32` → `number`; `u64` / `i64` → `bigint`.
+ */
 export type WrappedKeyCodec<Brand extends string, Kind extends WrappedKind> = {
+  /**
+   * Wrap `lookupKey` into a public ID using the current (first) wrapping key.
+   *
+   * Throws if `lookupKey` is out of range or the wrong JS type for `Kind`.
+   */
   wrap(lookupKey: LookupKeyForKind<Kind>): Promise<Id<Brand>>;
+  /**
+   * Verify the payload of a trusted `Id<Brand>` and return the lookup key.
+   *
+   * Throws `"verification failed"` if no entry in the wrapping keyring matches
+   * the payload tag. Use {@link safeUnwrap} for untrusted input.
+   */
   unwrap(id: Id<Brand>): Promise<LookupKeyForKind<Kind>>;
+  /**
+   * Non-throwing path for untrusted input.
+   *
+   * Structurally parses `input` first (same rules as {@link safeParse}), then
+   * verifies the payload. Returns `{ ok: false, error }` on any failure —
+   * `ParseError` for structural problems or `"verification_failed"` for tag
+   * mismatch — without throwing. Tamper, wrong keyring, and revoked-key cases
+   * all surface as `"verification_failed"`.
+   */
   safeUnwrap(input: unknown): Promise<UnwrapResult<Brand, Kind>>;
+  /** Strict type guard: `true` only for already-canonical `Id<Brand>` strings. */
   is(value: unknown): value is Id<Brand>;
+  /** Normalise to canonical form, or throw on parse failure. */
   parse(value: unknown): Id<Brand>;
+  /** Normalise to canonical form, or return `{ ok: false, error }`. */
   safeParse(value: unknown): ParseResult<Brand>;
   toJsonSchema(): JsonSchema;
   readonly "~standard": StandardSchemaProps<Brand>;
@@ -141,6 +186,23 @@ function assertLookupKey<Kind extends WrappedKind>(
   assertU32LookupKey(lookupKey);
 }
 
+/**
+ * Construct a {@link WrappedKeyCodec} for `brand` and the given `kind`.
+ *
+ * `opts.kind` fixes the integer type at construction time — one brand, one
+ * kind. `opts.keys` is a non-empty ordered wrapping keyring: the first entry
+ * is current (used by `wrap`); all entries are tried on `unwrap`; duplicate
+ * operator secrets are rejected at construction.
+ *
+ * @example
+ * ```ts
+ * const key = await importWrappingKey(new Uint8Array(32));
+ * const invoices = createWrappedKeyId("inv", { kind: "u32", keys: [key] });
+ *
+ * const id = await invoices.wrap(42);      // Id<"inv">
+ * await invoices.unwrap(id);               // 42
+ * ```
+ */
 export function createWrappedKeyId<Brand extends string, Kind extends WrappedKind>(
   brand: Brand,
   opts: WrappedKeyOptions<Kind>,

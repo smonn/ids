@@ -56,6 +56,10 @@ _Avoid_: encryption key (too generic), master key, Opaque key (different codec).
 The non-empty ordered list of **Wrapping key** entries passed at codec construction. The first entry is **current** — the only one `wrap` uses. `unwrap` tries every entry in order until the verification tag matches; removing an entry revokes IDs wrapped under it. Duplicate entries for the same operator secret are rejected at construction. No key id on the wire — trial is correctness-grade (tag verification), not plausibility guessing. The same **Lookup key** wrapped under different entries yields different public IDs.
 _Avoid_: key rotation (describe caller-driven ring semantics instead), epoch (unless defined precisely), current/accepted split (the ring is one ordered list; position defines current).
 
+**Equality leakage**:
+The observable property of the **Wrapped key codec** that the same **Lookup key** wrapped under the same **Wrapping key** always yields the same public ID — there is no randomness or nonce in the compact 16-byte branch. An observer without operator material can determine that two identical public IDs encode the same lookup key, but cannot recover the lookup key or the wrapping key material from the wire form alone. This is an accepted trade-off for fitting an 8-byte integer lane and an 8-byte verification tag into the shared 16-byte payload — see [ADR-0009](./docs/adr/0009-wrapped-key-compact-construction.md). UUID-sized values (128 bits) are out of scope for this branch; a future randomized variant could add a nonce at the cost of tag strength.
+_Avoid_: correlation leak (prefer **equality leakage** for precision), determinism leak.
+
 **Digest codec**:
 A one-way codec variant: caller material is digested into a stable public ID under operator key material; the material cannot be recovered from the ID. Deterministic like the **Wrapped key codec**, but irreversible. For idempotency keys, content-addressed records, and stable public pseudonyms.
 _Avoid_: Hash codec (too generic), Derived ID codec.
