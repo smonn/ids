@@ -336,6 +336,9 @@ No key material is required. The inversion is a deterministic byte transform; `g
 
 ```ts
 import {
+  IdsError, // class — thrown by caller-reachable failures; carries a stable `code`
+  isIdsError, // (value: unknown) => value is IdsError — brand check, survives dual-package
+  type IdsErrorCode, // "invalid_brand" | "invalid_key_format" | ... (10 members)
   createTimestampId, // (brand: string, opts?: TimestampOptions) => TimestampCodec<Brand>
   type Id, // branded string type
   type TimestampCodec, // returned by createTimestampId
