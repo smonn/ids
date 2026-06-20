@@ -1,0 +1,68 @@
+name: Unblock issues
+
+# When an issue closes, any issue parked as `blocked` that depended on it may now
+# be free. This sweeps open `blocked` issues, re-checks their declared blockers
+# ("Blocked by #N" / "Depends on #N" / "Requires #N"), and once every blocker is
+# closed, flips the issue back to `needs-triage` — which re-fires the triage
+# workflow to re-scope it against the now-complete dependency.
+
+on:
+  issues:
+    types: [closed]
+  workflow_dispatch:
+
+concurrency:
+  group: unblock
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+
+jobs:
+  unblock:
+    runs-on: ubuntu-latest
+    environment: automation
+    timeout-minutes: 10
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Unblock issues whose blockers are all closed
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          blocked=$(gh issue list --state open --label blocked --json number --jq '.[].number')
+          if [ -z "$blocked" ]; then
+            echo "No open blocked issues."
+            exit 0
+          fi
+          for n in $blocked; do
+            text=$(gh issue view "$n" --json body,comments \
+              --jq '.body + "\n" + ([.comments[].body] | join("\n"))')
+            # Extract blocker issue numbers from the declared dependency phrases.
+            deps=$(printf '%s' "$text" \
+              | grep -oiE '(blocked by|depends on|requires)[[:space:]]*:?[[:space:]]*#[0-9]+' \
+              | grep -oE '[0-9]+' | sort -u)
+            if [ -z "$deps" ]; then
+              echo "#$n: blocked but no parseable blocker reference; leaving for a human."
+              continue
+            fi
+            all_closed=true
+            for d in $deps; do
+              state=$(gh issue view "$d" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
+              echo "#$n blocker #$d: $state"
+              [ "$state" = "CLOSED" ] || all_closed=false
+            done
+            if [ "$all_closed" = true ]; then
+              echo "#$n: all blockers closed — unblocking and re-triaging."
+              gh issue edit "$n" --add-label needs-triage --remove-label blocked
+              gh issue comment "$n" --body "All declared blockers ($(echo "$deps" | sed 's/^/#/' | paste -sd ', ' -)) are now closed; re-triaging."
+            else
+              echo "#$n: still has open blockers; leaving blocked."
+            fi
+          done
