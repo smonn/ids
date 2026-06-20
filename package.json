@@ -19,6 +19,7 @@
     "./opaque": "./dist/opaque.mjs",
     "./reverse": "./dist/reverse.mjs",
     "./wrapped": "./dist/wrapped.mjs",
+    "./drizzle": "./dist/drizzle.mjs",
     "./hono": "./dist/hono.mjs",
     "./package.json": "./package.json"
   },
@@ -44,6 +45,7 @@
     "@types/node": "25.9.3",
     "@vitest/coverage-v8": "4.1.8",
     "dependency-cruiser": "17.4.3",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.12.26",
     "knip": "6.16.1",
     "mitata": "1.0.34",
@@ -54,9 +56,13 @@
     "vitest": "4.1.8"
   },
   "peerDependencies": {
+    "drizzle-orm": ">=0.30.0",
     "hono": ">=4.0.0"
   },
   "peerDependenciesMeta": {
+    "drizzle-orm": {
+      "optional": true
+    },
     "hono": {
       "optional": true
     }

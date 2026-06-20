@@ -6,6 +6,7 @@ export default defineConfig({
     opaque: "src/opaque.ts",
     reverse: "src/reverse.ts",
     wrapped: "src/wrapped.ts",
+    drizzle: "src/drizzle.ts",
     hono: "src/hono.ts",
     cli: "bin/cli.ts",
   },
