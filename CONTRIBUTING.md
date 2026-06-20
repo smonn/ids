@@ -62,7 +62,8 @@ Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, and `pnpm depc
 - **Document only shipped behavior.** A PR's `README` / `CONTEXT.md` / ADR edits describe behavior implemented in that same PR — never pre-document a sibling issue's work or an unmerged design. Adding a new export to the API-surface list is in scope; documenting how it _behaves_ waits for the PR that ships that behavior.
 - **New domain concept → add a glossary entry to [`CONTEXT.md`](./CONTEXT.md)**, including any synonyms you want future contributors to avoid.
 - **New design decision that's hard to reverse, surprising without context, and the result of a real trade-off → add a new ADR** under `docs/adr/`, numbered sequentially.
-- **Commit subjects:** `<scope>: <what changed>` (e.g. `id: tighten is() to canonical-only`).
+- **PR titles follow [Conventional Commits](https://www.conventionalcommits.org/) and are CI-enforced:** `<type>(<optional scope>): <what changed>` (e.g. `feat(id): tighten is() to canonical-only`). Allowed types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`; the optional scope names a code area (`id`, `kysely`, `bench`, …). PRs are squash-merged, so the **PR title — not your individual commits — becomes the commit subject on `main`.** Aim for ≤ 72 characters; GitHub appends ` (#123)` on merge.
+- **Commit subjects** should use the same Conventional Commits format as a courtesy to reviewers reading the commit-by-commit view, but they are **not enforced** — squash-merge discards them, so don't rewrite already-pushed history just to reformat a subject.
 
 ## Tests
 
