@@ -21,13 +21,12 @@ import {
   wrappingKeysEqual,
 } from "./wrapping-key.js";
 
+/** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
+export { IdsError, isIdsError, type IdsErrorCode };
 export {
   decodeWrappingKey,
   encodeWrappingKey,
   importWrappingKey,
-  IdsError,
-  isIdsError,
-  type IdsErrorCode,
   type WrappingKey,
   type WrappingKeyFormat,
 };

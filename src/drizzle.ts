@@ -6,6 +6,7 @@ import {
 import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 import type { Id, ParseResult } from "./types.js";
 
+/** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };
 
 /**

@@ -4,6 +4,7 @@ import type { IdColumnCodec } from "./drizzle.js";
 import type { Id } from "./types.js";
 
 export type { IdColumnCodec } from "./drizzle.js";
+/** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };
 
 /**
