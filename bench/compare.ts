@@ -19,11 +19,16 @@ type Report = {
 
 // Two tiers. WARN is cosmetic — it labels rows in the PR comment. FAIL is what
 // actually blocks the check (exit 1) and is therefore autofix-eligible, so it sits
-// above the noise floor that doubling the sample count leaves on the µs-scale
-// opaque.* ops. Raise the sample count (index.ts) before loosening FAIL.
+// above the noise floor. The µs-scale opaque.* ops stay jittery (~±40% p50 run to
+// run on shared CI runners) even at 2000 samples, so they get a deliberately high
+// blocking bar until that variance is addressed — see issue #93.
 const WARN_THRESHOLD = 0.15;
 const FAIL_THRESHOLD = 0.3;
+const FAIL_THRESHOLD_NOISY = 0.5;
 
+const isNoisy = (name: string): boolean => name.startsWith("opaque.");
+const failThreshold = (name: string): number =>
+  isNoisy(name) ? FAIL_THRESHOLD_NOISY : FAIL_THRESHOLD;
 const pct = (v: number): string => `${(v * 100).toFixed(0)}%`;
 
 function usage(): never {
@@ -96,7 +101,7 @@ if (base === null) {
   lines.push("## Benchmarks");
   lines.push("");
   lines.push(
-    `Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}, blocking +${pct(FAIL_THRESHOLD)}. Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
+    `Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}, blocking +${pct(FAIL_THRESHOLD)} (+${pct(FAIL_THRESHOLD_NOISY)} for \`opaque.*\`). Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
   );
   lines.push("");
   lines.push("| Bench | Base p50 | PR p50 | Δ p50 | PR throughput | Notes |");
@@ -114,7 +119,7 @@ if (base === null) {
     let note = "";
     if (delta > WARN_THRESHOLD) {
       regressions++;
-      if (delta > FAIL_THRESHOLD) {
+      if (delta > failThreshold(cur.name)) {
         note = "**regression (blocking)**";
         blocking++;
       } else {
@@ -138,7 +143,7 @@ if (base === null) {
   lines.push("");
   if (blocking > 0) {
     lines.push(
-      `**${blocking} blocking regression${blocking === 1 ? "" : "s"}** above the fail threshold (+${pct(FAIL_THRESHOLD)}).` +
+      `**${blocking} blocking regression${blocking === 1 ? "" : "s"}** above the fail threshold (+${pct(FAIL_THRESHOLD)}, +${pct(FAIL_THRESHOLD_NOISY)} for \`opaque.*\`).` +
         (regressions > blocking
           ? ` ${regressions - blocking} more above warn (±${pct(WARN_THRESHOLD)}).`
           : ""),
