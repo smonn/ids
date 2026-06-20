@@ -171,7 +171,7 @@ The Timestamp codec exposes the creation timestamp by design — that's what mak
 ```ts
 import { createOpaqueTimestampId, importOpaqueKey } from "@smonn/ids/opaque";
 
-const key = await importOpaqueKey(new Uint8Array(16)); // 128- or 256-bit raw key
+const key = await importOpaqueKey(new Uint8Array(16)); // returns an OpaqueKey handle
 const invoices = createOpaqueTimestampId("inv", { key });
 
 const id = await invoices.generate(); // "inv_…", timestamp not extractable without the key
@@ -210,11 +210,12 @@ import {
 
 import {
   createOpaqueTimestampId, // (brand: string, opts: OpaqueTimestampOptions) => OpaqueTimestampCodec<Brand>
-  importOpaqueKey, // (bytes: Uint8Array) => Promise<CryptoKey>
+  importOpaqueKey, // (bytes: Uint8Array) => Promise<OpaqueKey>
   encodeOpaqueKey, // (bytes: Uint8Array, format: OpaqueKeyFormat) => string
   decodeOpaqueKey, // (encoded: string, format: OpaqueKeyFormat) => Uint8Array
   type OpaqueTimestampCodec, // returned by createOpaqueTimestampId
-  type OpaqueTimestampOptions, // { key, now?, rng?, allowDuplicateBrand? } constructor options
+  type OpaqueTimestampOptions, // { key: OpaqueKey, now?, rng?, allowDuplicateBrand? } constructor options
+  type OpaqueKey, // opaque imported handle for AES key material
   type OpaqueKeyFormat, // "hex" | "base64url"
 } from "@smonn/ids/opaque";
 

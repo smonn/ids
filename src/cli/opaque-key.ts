@@ -1,4 +1,9 @@
-import { decodeOpaqueKey, importOpaqueKey, type OpaqueKeyFormat } from "../opaque.js";
+import {
+  decodeOpaqueKey,
+  importOpaqueKey,
+  type OpaqueKey,
+  type OpaqueKeyFormat,
+} from "../opaque.js";
 import type { RunOpts } from "./types.js";
 
 export function isKeyFormatError(result: OpaqueKeyFormat | string): result is string {
@@ -35,7 +40,7 @@ export function parseOpaqueKeyFormat(
 export async function loadOpaqueKey(
   opts: RunOpts,
   format: OpaqueKeyFormat,
-): Promise<CryptoKey | string> {
+): Promise<OpaqueKey | string> {
   const env = opts.env ?? process.env;
   const raw = env.IDS_KEY;
   if (raw === undefined || raw === "") return "missing IDS_KEY environment variable";

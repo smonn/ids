@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { decodeOpaqueKey, encodeOpaqueKey } from "./opaque-key.js";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import {
+  decodeOpaqueKey,
+  encodeOpaqueKey,
+  getOpaqueKeyCryptoKey,
+  importOpaqueKey,
+  type OpaqueKey,
+} from "./opaque-key.js";
 
 describe("opaque-key", () => {
   const bytes16 = new Uint8Array(16).map((_, i) => i);
@@ -66,5 +72,34 @@ describe("opaque-key", () => {
 
   it("rejects invalid base64url key material", () => {
     expect(() => decodeOpaqueKey("!!!", "base64url")).toThrow(/invalid base64url key/);
+  });
+});
+
+describe("importOpaqueKey", () => {
+  it("is exported from opaque-key module", () => {
+    expect(typeof importOpaqueKey).toBe("function");
+  });
+
+  it("returns an OpaqueKey handle, not a raw CryptoKey", async () => {
+    const key = await importOpaqueKey(new Uint8Array(16));
+    // A raw CryptoKey exposes .type, .algorithm, .extractable, .usages
+    expect(key).not.toHaveProperty("type");
+    expect(key).not.toHaveProperty("algorithm");
+    expect(key).not.toHaveProperty("extractable");
+    expect(key).not.toHaveProperty("usages");
+  });
+
+  it("importOpaqueKey return type is Promise<OpaqueKey>", () => {
+    expectTypeOf(importOpaqueKey).returns.toEqualTypeOf<Promise<OpaqueKey>>();
+  });
+
+  it("rejects invalid key byte lengths", async () => {
+    await expect(importOpaqueKey(new Uint8Array(8))).rejects.toThrow(/16, 24, or 32 bytes/);
+    await expect(importOpaqueKey(new Uint8Array(31))).rejects.toThrow(/16, 24, or 32 bytes/);
+  });
+
+  it("getOpaqueKeyCryptoKey throws on an unregistered handle", () => {
+    const fake = Object.freeze({}) as OpaqueKey;
+    expect(() => getOpaqueKeyCryptoKey(fake)).toThrow("invalid opaque key");
   });
 });
