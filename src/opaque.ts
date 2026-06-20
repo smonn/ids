@@ -5,6 +5,7 @@ import { registerBrand } from "./registry.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
 
+export { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 export {
   decodeOpaqueKey,
   encodeOpaqueKey,

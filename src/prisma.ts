@@ -1,4 +1,7 @@
+import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 import type { Id, ParseResult } from "./types.js";
+
+export { IdsError, isIdsError, type IdsErrorCode };
 
 /**
  * Minimum codec interface required by the Prisma adapter.
@@ -84,7 +87,9 @@ export function idField<Brand extends string>(codec: IdColumnCodec<Brand>): IdTr
     read(value: unknown): Id<Brand> {
       const result = codec.safeParse(value);
       if (!result.ok) {
-        throw new Error(`[ids] invalid ID from database: ${result.error}`);
+        throw new IdsError("invalid_id", `invalid ID from database: ${result.error}`, {
+          cause: result.error,
+        });
       }
       return result.id;
     },

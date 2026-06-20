@@ -3,7 +3,10 @@ import {
   type ConvertCustomConfig,
   type PgCustomColumnBuilder,
 } from "drizzle-orm/pg-core";
+import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 import type { Id, ParseResult } from "./types.js";
+
+export { IdsError, isIdsError, type IdsErrorCode };
 
 /**
  * Minimum codec interface required by the Drizzle adapter.
@@ -52,7 +55,9 @@ export function idColumn<Brand extends string>(
     fromDriver(value: string): Id<Brand> {
       const result = codec.safeParse(value);
       if (!result.ok) {
-        throw new Error(`[ids] invalid ID from database: ${result.error}`);
+        throw new IdsError("invalid_id", `invalid ID from database: ${result.error}`, {
+          cause: result.error,
+        });
       }
       return result.id;
     },

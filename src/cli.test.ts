@@ -147,7 +147,7 @@ describe("cli", () => {
       const result = await runCapture(["inspect", "12X_01h7b3k9rqxn1cw3p9r8t2sgkz"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+      expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
     });
 
     it("non-canonical (uppercase only) reports 'was uppercase' and shows canonical form", async () => {
@@ -281,7 +281,7 @@ describe("cli", () => {
         env: { IDS_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+      expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
     });
 
     it("--opaque rejects invalid base32 payload", async () => {
@@ -395,14 +395,14 @@ describe("cli", () => {
     it("missing brand arg surfaces the createTimestampId error and exits 1", async () => {
       const result = await runCapture(["generate"]);
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+      expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
     });
 
     it("invalid brand surfaces the createTimestampId error and exits 1", async () => {
       const result = await runCapture(["generate", "BAD"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+      expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
     });
 
     it("rejects flags that belong to another command", async () => {
@@ -594,13 +594,13 @@ describe("cli", () => {
         env: { IDS_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+      expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
     });
 
     it("--opaque rejects a missing brand", async () => {
       const result = await runCapture(["generate", "--opaque"], { env: { IDS_KEY: testKeyHex } });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+      expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
     });
 
     it("--opaque rejects malformed IDS_KEY", async () => {
@@ -1147,7 +1147,7 @@ describe("cli inspect --wrapped", () => {
     );
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+    expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
   });
 
   it("rejects a missing --key-format value with --wrapped", async () => {
@@ -1263,14 +1263,14 @@ describe("cli generate --reverse", () => {
     const result = await runCapture(["generate", "BAD", "--reverse"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+    expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
   });
 
   it("--reverse rejects a missing brand", async () => {
     const result = await runCapture(["generate", "--reverse"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+    expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
   });
 
   it("--reverse with --opaque emits a conflict error and exits 1", async () => {
@@ -1333,7 +1333,7 @@ describe("cli inspect --reverse", () => {
     const result = await runCapture(["inspect", "12X_00000000000000000000000000", "--reverse"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+    expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
   });
 
   it("--reverse rejects invalid base32 payload", async () => {

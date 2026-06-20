@@ -1,8 +1,10 @@
 import type { ColumnType } from "kysely";
+import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 import type { IdColumnCodec } from "./drizzle.js";
 import type { Id } from "./types.js";
 
 export type { IdColumnCodec } from "./drizzle.js";
+export { IdsError, isIdsError, type IdsErrorCode };
 
 /**
  * Kysely column type mapping for `Id<Brand>`.
@@ -61,7 +63,9 @@ export function idColumn<Brand extends string>(
     fromDriver(value: string): Id<Brand> {
       const result = codec.safeParse(value);
       if (!result.ok) {
-        throw new Error(`[ids] invalid ID from database: ${result.error}`);
+        throw new IdsError("invalid_id", `invalid ID from database: ${result.error}`, {
+          cause: result.error,
+        });
       }
       return result.id;
     },

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { pgTable } from "drizzle-orm/pg-core";
 import { createTimestampId } from "./timestamp.js";
-import { idColumn, type IdColumnCodec } from "./drizzle.js";
+import { idColumn, IdsError, isIdsError, type IdColumnCodec } from "./drizzle.js";
 import type { Id } from "./types.js";
 
 describe("drizzle", () => {
@@ -45,15 +45,28 @@ describe("drizzle", () => {
 
   it("rejects a wrong-brand value from DB", () => {
     const orgId = org.generate();
-    expect(() => users.id.mapFromDriverValue(orgId as unknown as string)).toThrow(
-      "[ids] invalid ID from database: invalid_prefix",
-    );
+    let err: unknown;
+    try {
+      users.id.mapFromDriverValue(orgId as unknown as string);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("invalid_prefix");
   });
 
   it("rejects a malformed value from DB", () => {
-    expect(() => users.id.mapFromDriverValue("not-a-valid-id")).toThrow(
-      "[ids] invalid ID from database:",
-    );
+    let err: unknown;
+    try {
+      // valid prefix, invalid base32 payload
+      users.id.mapFromDriverValue("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("invalid_base32");
   });
 
   it("IdColumnCodec accepts any codec variant with safeParse", () => {

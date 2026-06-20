@@ -1,8 +1,11 @@
 import { validateBrand } from "./brand.js";
+import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 import { createReverseTimestampLayoutOps } from "./layouts/reverse-timestamp.js";
 import { registerBrand } from "./registry.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
+
+export { IdsError, isIdsError, type IdsErrorCode };
 
 /**
  * Configuration options for a Reverse Timestamp codec instance.

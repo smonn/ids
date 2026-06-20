@@ -1,6 +1,7 @@
+import { IdsError } from "../error.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../types.js";
 import { base32CharClass, payloadBase32Length } from "./invariants.js";
-import { is, parse, safeParse, standardValidate } from "./parse.js";
+import { is, safeParse, standardValidate } from "./parse.js";
 
 type WireMethods<Brand extends string> = {
   is: (value: unknown) => value is Id<Brand>;
@@ -19,7 +20,11 @@ export function wireMethods<Brand extends string>(prefix: Prefix<Brand>): WireMe
   };
   return {
     is: (value: unknown): value is Id<Brand> => is(prefix, value),
-    parse: (value: unknown): Id<Brand> => parse(prefix, value),
+    parse: (value: unknown): Id<Brand> => {
+      const result = safeParse(prefix, value);
+      if (result.ok) return result.id;
+      throw new IdsError("invalid_id", `invalid ID: ${result.error}`, { cause: result.error });
+    },
     safeParse: (value: unknown): ParseResult<Brand> => safeParse(prefix, value),
     toJsonSchema: (brand: Brand, example: string): JsonSchema => ({
       type: "string",

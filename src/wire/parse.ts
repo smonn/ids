@@ -26,12 +26,6 @@ export function safeParse<Brand extends string>(
   return { ok: true, id };
 }
 
-export function parse<Brand extends string>(prefix: Prefix<Brand>, value: unknown): Id<Brand> {
-  const result = safeParse(prefix, value);
-  if (result.ok) return result.id;
-  throw new Error(`Invalid ID: ${result.error}`);
-}
-
 export function is<Brand extends string>(
   prefix: Prefix<Brand>,
   value: unknown,

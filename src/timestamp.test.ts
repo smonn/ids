@@ -9,7 +9,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { createTimestampId, type TimestampOptions } from "./index.js";
+import { createTimestampId, IdsError, isIdsError, type TimestampOptions } from "./index.js";
 import type { Id, JsonSchema } from "./types.js";
 
 describe("id", () => {
@@ -198,6 +198,30 @@ describe("id", () => {
     expect(() => createTimestampId("a")).toThrow();
     expect(() => createTimestampId("aaaa")).toThrow();
     expect(() => createTimestampId("!@?")).toThrow();
+  });
+
+  it("throws IdsError with code invalid_brand for a bad brand", () => {
+    let err: unknown;
+    try {
+      createTimestampId("!@?");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_brand");
+  });
+
+  it("parse throws IdsError with code invalid_id and ParseError on cause", () => {
+    const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+    let err: unknown;
+    try {
+      usr.parse("not-a-usr-id");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("invalid_prefix");
   });
 
   it("generate() output matches expected format", () => {

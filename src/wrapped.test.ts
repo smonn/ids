@@ -3,7 +3,9 @@ import {
   createWrappedKeyId,
   decodeWrappingKey,
   encodeWrappingKey,
+  IdsError,
   importWrappingKey,
+  isIdsError,
   type UnwrapResult,
   type WrappedKeyCodec,
 } from "./wrapped.js";
@@ -50,7 +52,7 @@ describe("wrapped", () => {
       keys: [keyB],
       allowDuplicateBrand: true,
     });
-    await expect(other.unwrap(id)).rejects.toThrow("verification failed");
+    await expect(other.unwrap(id)).rejects.toMatchObject({ code: "verification_failed" });
     await expect(inv.safeUnwrap(id)).resolves.toEqual({ ok: true, id, lookupKey: 1 });
     const tampered = (id.slice(0, -1) + (id.endsWith("0") ? "1" : "0")) as typeof id;
     await expect(inv.safeUnwrap(tampered)).resolves.toEqual({
@@ -139,9 +141,14 @@ describe("wrapped", () => {
 
   it("rejects duplicate wrapping keys in the keyring at construction", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-    expect(() => createWrappedKeyId("inv", { kind: "u32", keys: [key, key] })).toThrow(
-      "duplicate wrapping key in keyring",
-    );
+    let err: unknown;
+    try {
+      createWrappedKeyId("inv", { kind: "u32", keys: [key, key] });
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("duplicate_keyring_entry");
   });
 
   it("accepts distinct wrapping keys with different byte lengths", async () => {
@@ -157,60 +164,64 @@ describe("wrapped", () => {
   });
 
   it("rejects an empty keyring at construction", () => {
-    expect(() =>
-      createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [] as never,
-        allowDuplicateBrand: true,
-      }),
-    ).toThrow("wrapped keyring must contain at least one key");
+    let err: unknown;
+    try {
+      createWrappedKeyId("inv", { kind: "u32", keys: [] as never, allowDuplicateBrand: true });
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("empty_keyring");
   });
 
   it("rejects unsupported wrapped key kinds at construction", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-    expect(() =>
-      createWrappedKeyId("inv", {
-        kind: "u128" as never,
-        keys: [key],
-        allowDuplicateBrand: true,
-      }),
-    ).toThrow("invalid wrapped key kind");
+    let err: unknown;
+    try {
+      createWrappedKeyId("inv", { kind: "u128" as never, keys: [key], allowDuplicateBrand: true });
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_kind");
   });
 
   it("wrap rejects out-of-range u32 lookup keys", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
     const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
-    await expect(inv.wrap(-1)).rejects.toThrow("invalid u32 lookup key");
-    await expect(inv.wrap(0x1_0000_0000)).rejects.toThrow("invalid u32 lookup key");
-    await expect(inv.wrap(1.5)).rejects.toThrow("invalid u32 lookup key");
-    await expect(inv.wrap(-0)).rejects.toThrow("invalid u32 lookup key");
-    await expect(inv.wrap(42n as never)).rejects.toThrow("invalid u32 lookup key");
+    await expect(inv.wrap(-1)).rejects.toMatchObject({ code: "invalid_lookup_key" });
+    await expect(inv.wrap(0x1_0000_0000)).rejects.toMatchObject({ code: "invalid_lookup_key" });
+    await expect(inv.wrap(1.5)).rejects.toMatchObject({ code: "invalid_lookup_key" });
+    await expect(inv.wrap(-0)).rejects.toMatchObject({ code: "invalid_lookup_key" });
+    await expect(inv.wrap(42n as never)).rejects.toMatchObject({ code: "invalid_lookup_key" });
   });
 
   it("wrap rejects out-of-range i32 lookup keys", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
     const inv = createWrappedKeyId("inv", { kind: "i32", keys: [key], allowDuplicateBrand: true });
-    await expect(inv.wrap(-0x8000_0001)).rejects.toThrow("invalid i32 lookup key");
-    await expect(inv.wrap(0x8000_0000)).rejects.toThrow("invalid i32 lookup key");
-    await expect(inv.wrap(1.5)).rejects.toThrow("invalid i32 lookup key");
-    await expect(inv.wrap(-0)).rejects.toThrow("invalid i32 lookup key");
-    await expect(inv.wrap(42n as never)).rejects.toThrow("invalid i32 lookup key");
+    await expect(inv.wrap(-0x8000_0001)).rejects.toMatchObject({ code: "invalid_lookup_key" });
+    await expect(inv.wrap(0x8000_0000)).rejects.toMatchObject({ code: "invalid_lookup_key" });
+    await expect(inv.wrap(1.5)).rejects.toMatchObject({ code: "invalid_lookup_key" });
+    await expect(inv.wrap(-0)).rejects.toMatchObject({ code: "invalid_lookup_key" });
+    await expect(inv.wrap(42n as never)).rejects.toMatchObject({ code: "invalid_lookup_key" });
   });
 
   it("wrap rejects out-of-range u64 lookup keys", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
     const inv = createWrappedKeyId("inv", { kind: "u64", keys: [key], allowDuplicateBrand: true });
-    await expect(inv.wrap(-1n)).rejects.toThrow("invalid u64 lookup key");
-    await expect(inv.wrap(0x1_0000_0000_0000_0000n)).rejects.toThrow("invalid u64 lookup key");
-    await expect(inv.wrap(42 as never)).rejects.toThrow("invalid u64 lookup key");
+    await expect(inv.wrap(-1n)).rejects.toMatchObject({ code: "invalid_lookup_key" });
+    await expect(inv.wrap(0x1_0000_0000_0000_0000n)).rejects.toMatchObject({
+      code: "invalid_lookup_key",
+    });
+    await expect(inv.wrap(42 as never)).rejects.toMatchObject({ code: "invalid_lookup_key" });
   });
 
   it("wrap rejects out-of-range i64 lookup keys", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
     const inv = createWrappedKeyId("inv", { kind: "i64", keys: [key], allowDuplicateBrand: true });
-    await expect(inv.wrap(-(1n << 63n) - 1n)).rejects.toThrow("invalid i64 lookup key");
-    await expect(inv.wrap(1n << 63n)).rejects.toThrow("invalid i64 lookup key");
-    await expect(inv.wrap(42 as never)).rejects.toThrow("invalid i64 lookup key");
+    await expect(inv.wrap(-(1n << 63n) - 1n)).rejects.toMatchObject({ code: "invalid_lookup_key" });
+    await expect(inv.wrap(1n << 63n)).rejects.toMatchObject({ code: "invalid_lookup_key" });
+    await expect(inv.wrap(42 as never)).rejects.toMatchObject({ code: "invalid_lookup_key" });
   });
 
   it("parse and is validate wire form without operator key material", async () => {
@@ -289,32 +300,116 @@ describe("wrapped", () => {
         throw new Error("boom");
       },
     };
-    expect(() => encodeWrappingKey(new Uint8Array(32), "pem" as never)).toThrow(
-      "invalid wrapping key format",
-    );
-    expect(() => encodeWrappingKey(new Uint8Array(32), unprintableFormat as never)).toThrow(
-      "invalid wrapping key format: expected hex or base64url, got '[unprintable]'",
-    );
-    expect(() => decodeWrappingKey("", "hex")).toThrow("invalid hex key");
-    expect(() => decodeWrappingKey("abc", "hex")).toThrow("invalid hex key");
-    expect(() => decodeWrappingKey("zz", "hex")).toThrow("invalid hex key");
-    expect(() => decodeWrappingKey("?", "base64url")).toThrow("invalid base64url key");
-    expect(() => decodeWrappingKey("aa", "base64url")).toThrow("invalid wrapping key length");
-    await expect(importWrappingKey(new Uint8Array(15))).rejects.toThrow(
-      "invalid wrapping key length",
-    );
+    let err: unknown;
+    try {
+      encodeWrappingKey(new Uint8Array(32), "pem" as never);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_format");
+
+    err = undefined;
+    try {
+      encodeWrappingKey(new Uint8Array(32), unprintableFormat as never);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_format");
+
+    err = undefined;
+    try {
+      decodeWrappingKey("", "hex");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_format");
+
+    err = undefined;
+    try {
+      decodeWrappingKey("abc", "hex");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_format");
+
+    err = undefined;
+    try {
+      decodeWrappingKey("zz", "hex");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_encoding");
+
+    err = undefined;
+    try {
+      decodeWrappingKey("?", "base64url");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_encoding");
+
+    err = undefined;
+    try {
+      decodeWrappingKey("aa", "base64url");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_length");
+
+    await expect(importWrappingKey(new Uint8Array(15))).rejects.toMatchObject({
+      code: "invalid_key_length",
+    });
   });
 
   it("uses opaque wrapping key handles from importWrappingKey", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
     expect(Object.keys(key)).toEqual([]);
-    expect(() =>
-      createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [{} as never],
-        allowDuplicateBrand: true,
-      }),
-    ).toThrow("invalid wrapping key");
+    let err: unknown;
+    try {
+      createWrappedKeyId("inv", { kind: "u32", keys: [{} as never], allowDuplicateBrand: true });
+    } catch (e) {
+      err = e;
+    }
+    // WeakMap handle-not-found is an internal invariant guard — stays plain Error
+    expect(err instanceof Error).toBe(true);
+    expect(isIdsError(err)).toBe(false);
+    expect((err as Error).message).toMatch("invalid wrapping key");
+  });
+
+  it("unwrap throws IdsError with code verification_failed on tag mismatch", async () => {
+    const keyA = await importWrappingKey(new Uint8Array(32).fill(0xaa));
+    const keyB = await importWrappingKey(new Uint8Array(32).fill(0xbb));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [keyA], allowDuplicateBrand: true });
+    const other = createWrappedKeyId("inv", {
+      kind: "u32",
+      keys: [keyB],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(1);
+    await expect(other.unwrap(id)).rejects.toMatchObject({ code: "verification_failed" });
+    const err = await other.unwrap(id).catch((e) => e);
+    expect(isIdsError(err)).toBe(true);
+  });
+
+  it("parse throws IdsError with code invalid_id and ParseError on cause", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    let err: unknown;
+    try {
+      inv.parse("bad-input");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("invalid_prefix");
   });
 
   it("toJsonSchema describes the canonical wire pattern", async () => {

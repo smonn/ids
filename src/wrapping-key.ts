@@ -1,4 +1,5 @@
 import { decodeBase64Url, decodeHex, encodeBase64Url, encodeHex } from "./bytes.js";
+import { IdsError } from "./error.js";
 
 /** Wire encoding for wrapping operator secret bytes (not Crockford base32). */
 export type WrappingKeyFormat = "hex" | "base64url";
@@ -83,17 +84,20 @@ export function decodeWrappingKey(encoded: string, format: WrappingKeyFormat): U
   let bytes: Uint8Array;
   if (format === "hex") {
     if (encoded.length === 0 || encoded.length % 2 !== 0) {
-      throw new Error("invalid hex key: length must be a positive even number of characters");
+      throw new IdsError(
+        "invalid_key_format",
+        "invalid hex key: length must be a positive even number of characters",
+      );
     }
     if (!/^[0-9a-fA-F]+$/.test(encoded)) {
-      throw new Error("invalid hex key: expected [0-9a-fA-F] only");
+      throw new IdsError("invalid_key_encoding", "invalid hex key: expected [0-9a-fA-F] only");
     }
     bytes = decodeHex(encoded);
   } else {
     try {
       bytes = decodeBase64Url(encoded);
     } catch {
-      throw new Error("invalid base64url key");
+      throw new IdsError("invalid_key_encoding", "invalid base64url key");
     }
   }
   assertValidKeyByteLength(bytes.length);
@@ -163,13 +167,17 @@ async function deriveHmacKey(bytes: Uint8Array): Promise<CryptoKey> {
 
 function assertValidKeyByteLength(byteLength: number): void {
   if (!validKeyByteLengths.has(byteLength)) {
-    throw new Error(`invalid wrapping key length: expected 16, 24, or 32 bytes, got ${byteLength}`);
+    throw new IdsError(
+      "invalid_key_length",
+      `invalid wrapping key length: expected 16, 24, or 32 bytes, got ${byteLength}`,
+    );
   }
 }
 
 function assertWrappingKeyFormat(format: unknown): asserts format is WrappingKeyFormat {
   if (format !== "hex" && format !== "base64url") {
-    throw new Error(
+    throw new IdsError(
+      "invalid_key_format",
       `invalid wrapping key format: expected hex or base64url, got '${formatForError(format)}'`,
     );
   }
