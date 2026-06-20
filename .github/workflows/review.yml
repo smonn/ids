@@ -99,6 +99,13 @@ jobs:
             Review the code itself: correctness and logic, design, architecture, API
             surface, naming, and adherence to CONTEXT.md and docs/adr/. CI already runs
             tests, typecheck, lint, depcruise, and build — do NOT run or re-verify those.
+
+            Anchor every change request to a file. Post each finding as an inline review
+            comment on a specific file and line, not as a top-level summary comment.
+            GitHub only allows inline comments on lines inside this PR's diff: if a finding
+            concerns a file or line NOT in the diff, attach the comment to the first
+            changed file in the PR and open it with an explicit pointer to the real
+            location, e.g. "⚠️ Re `CONTEXT.md:19` (not the file this comment is on): …".
           # Read-only inspection plus gh/git for reading the diff and posting comments.
           # Bash is scoped to gh and git so the reviewer cannot run the static-analysis
           # gate (pnpm test/lint/typecheck/build) — CI owns that; reviews stay fast and
