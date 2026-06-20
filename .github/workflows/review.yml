@@ -3,7 +3,12 @@ name: Review agent PRs
 # Posts an automated code review (a two-axis Standards + Spec report, never an
 # approval) on each agent PR when it opens. Scoped to agent/issue-* so it doesn't
 # review human PRs, and runs once on open — not on every push — to bound cost.
-# Re-review on demand via the `needs-review` label or workflow_dispatch.
+#
+# Each review comment is tagged with the reviewed commit SHA. Automatic triggers
+# (opened/reopened) dedup on that tag — a commit already reviewed is skipped, so
+# reopens and redeliveries don't repost. Explicit re-review (the `needs-review`
+# label or workflow_dispatch) forces a fresh pass, replacing only that same
+# commit's review; reviews of earlier commits are left in place as history.
 
 on:
   pull_request:
@@ -35,6 +40,9 @@ jobs:
     timeout-minutes: 20
     env:
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+      # Explicit re-review (manual dispatch or the needs-review label) forces a
+      # fresh pass; automatic open/reopen events dedup on the reviewed commit.
+      FORCED: ${{ github.event_name == 'workflow_dispatch' || github.event.action == 'labeled' }}
     steps:
       - name: Generate GitHub App token
         id: app-token
@@ -43,19 +51,19 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Clear prior review comment (re-reviews only)
-        if: github.event_name == 'workflow_dispatch' || github.event.action == 'labeled'
+      - name: Resolve PR head SHA
+        id: sha
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
+          EVENT_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          # For an explicit re-review, delete the prior "## Code review" comment so the
-          # new one replaces it rather than stacking.
-          gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
-            --jq '.[] | select(.user.login == "smonn[bot]" and (.body | startswith("## Code review"))) | .id' \
-          | while read -r id; do
-              [ -n "$id" ] && gh api -X DELETE "repos/$GH_REPO/issues/comments/$id" && echo "deleted prior review comment $id"
-            done
+          # pull_request events carry the head SHA; workflow_dispatch must look it up.
+          sha="$EVENT_SHA"
+          [ -n "$sha" ] || sha=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short=${sha:0:7}" >> "$GITHUB_OUTPUT"
+          echo "Head SHA for #$PR_NUMBER: $sha"
 
       - name: Remove the needs-review label (so it can be re-applied)
         if: github.event.action == 'labeled'
@@ -64,7 +72,34 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: gh pr edit "$PR_NUMBER" --remove-label needs-review || true
 
+      - name: Dedup on reviewed commit
+        id: gate
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          # Each review comment carries a hidden marker for the commit it reviewed.
+          # HEAD_SHA is a hex object id, so it's safe to splice into the jq filter.
+          marker="<!-- code-review:${HEAD_SHA} -->"
+          existing=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq ".[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$marker\"))) | .id")
+          if [ "$FORCED" = "true" ]; then
+            # Explicit re-review: drop only this commit's prior review so the fresh
+            # one replaces it (other commits' reviews are left as history), then run.
+            for id in $existing; do
+              gh api -X DELETE "repos/$GH_REPO/issues/comments/$id" && echo "deleted prior review $id for $HEAD_SHA"
+            done
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          elif [ -n "$existing" ]; then
+            echo "Commit $HEAD_SHA already reviewed; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout PR head
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: refs/pull/${{ env.PR_NUMBER }}/head
@@ -72,11 +107,13 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Fetch main as the review diff base
+        if: steps.gate.outputs.skip != 'true'
         # The review skill diffs HEAD against a fixed point; make `origin/main`
         # resolvable (checkout only fetched the PR head ref).
         run: git fetch --no-tags origin main:refs/remotes/origin/main
 
       - name: Review the PR
+        if: steps.gate.outputs.skip != 'true'
         uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1.0.152
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -106,14 +143,18 @@ jobs:
             You are headless: do NOT pause for input. When the skill produces its
             aggregated report, post it as ONE PR comment — the ONLY deliverable — via
             `gh pr comment ${{ env.PR_NUMBER }} --body-file <file>` (use a file/heredoc
-            for the multi-line body). The comment MUST begin with this exact line so
-            re-reviews can find and replace it:
+            for the multi-line body). The comment body MUST be EXACTLY this, in order:
 
-                ## Code review
+                ## Code review (commit `${{ steps.sha.outputs.short }}`)
+                <!-- code-review:${{ steps.sha.outputs.sha }} -->
 
-            Immediately under that heading add `> *This was generated by AI during
-            review.*`, then the skill's `## Standards` and `## Spec` sections verbatim.
-            This is a review only: never approve, request changes, merge, or edit code.
+                > *This was generated by AI during review.*
+
+            followed by the skill's `## Standards` and `## Spec` sections verbatim. The
+            heading line and the `<!-- code-review:... -->` marker (the full SHA, kept
+            verbatim) are how re-reviews dedup on the reviewed commit — do not alter or
+            omit them. This is a review only: never approve, request changes, merge, or
+            edit code.
           # Read-only inspection plus gh/git for reading the diff and posting the
           # report, and Task so the skill can spawn its two parallel sub-agents. No
           # Edit/Write; the reviewer never changes code, and Bash is scoped to gh/git
@@ -124,17 +165,20 @@ jobs:
             --allowedTools "Read,Grep,Glob,TodoWrite,Task,Bash(gh:*),Bash(git:*)"
 
       # Catch the "hollow success" case: the agent can exit 0 without posting. Require
-      # the "## Code review" comment to be present so a silent failure fails loudly.
+      # a review comment tagged with THIS commit's marker so a silent failure fails loudly.
       - name: Verify the review comment was posted
+        if: steps.gate.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ steps.sha.outputs.sha }}
         run: |
+          marker="<!-- code-review:${HEAD_SHA} -->"
           found=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
-            --jq '[.[] | select(.user.login == "smonn[bot]" and (.body | startswith("## Code review")))] | length')
+            --jq "[.[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$marker\")))] | length")
           if [ "${found:-0}" -gt 0 ]; then
-            echo "✓ Review comment posted on PR #$PR_NUMBER."
+            echo "✓ Review comment for $HEAD_SHA posted on PR #$PR_NUMBER."
           else
-            echo "::error::No '## Code review' comment on PR #$PR_NUMBER — the review did not post (check the run log)."
+            echo "::error::No review comment tagged $HEAD_SHA on PR #$PR_NUMBER — the review did not post (check the run log)."
             exit 1
           fi
