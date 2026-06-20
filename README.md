@@ -400,42 +400,6 @@ import {
 } from "@smonn/ids/express";
 ```
 
-### Error codes
-
-`IdsError` carries a stable `readonly code: IdsErrorCode` (a string-literal union of exactly 10 members). Branch on `code` — never on `message`, which is non-contractual.
-
-| `code`                    | meaning                                                                              | thrown by                                        | caller remedy                                   |
-| ------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------- |
-| `invalid_brand`           | brand isn't three lowercase `a–z` characters                                         | `create*Id(brand)` construction                  | fix the brand literal                           |
-| `invalid_key_format`      | declared key format isn't `hex` / `base64url`                                        | `decodeOpaqueKey`, `decodeWrappingKey`           | pass a supported format                         |
-| `invalid_key_encoding`    | encoded key string is malformed for its format (odd-length / non-hex, bad base64url) | `decodeOpaqueKey`, `decodeWrappingKey`           | fix the encoded key string                      |
-| `invalid_key_length`      | raw key isn't 16 / 24 / 32 bytes                                                     | `importOpaqueKey`, `importWrappingKey`, decoders | supply 128 / 192 / 256-bit material             |
-| `invalid_kind`            | wrapped `kind` isn't `u32` / `i32` / `u64` / `i64`                                   | `createWrappedKeyId({ kind })`                   | pass a supported kind                           |
-| `empty_keyring`           | wrapping keyring has no entries                                                      | `createWrappedKeyId({ keys })`                   | supply at least one key                         |
-| `duplicate_keyring_entry` | two keyring entries share raw secret material                                        | `createWrappedKeyId({ keys })`                   | de-duplicate the ring                           |
-| `invalid_lookup_key`      | lookup key out of range / wrong type for the kind                                    | `wrap(lookupKey)`                                | pass an in-range value of the kind's JS type    |
-| `verification_failed`     | no keyring entry verifies the payload tag                                            | `unwrap(id)`                                     | wrong/revoked key, or a tampered ID             |
-| `invalid_id`              | string isn't a valid ID for the brand (carries the `ParseError` on `cause`)          | `parse()`, prisma/drizzle/kysely read hooks      | use `safeParse`/`safeUnwrap`, or fix the source |
-
-```ts
-import { isIdsError } from "@smonn/ids";
-
-try {
-  usr.parse(rawInput);
-} catch (err) {
-  if (isIdsError(err)) {
-    switch (err.code) {
-      case "invalid_id":
-        // use safeParse for untrusted input
-        break;
-      case "verification_failed":
-        // wrong or revoked key, or tampered ID
-        break;
-    }
-  }
-}
-```
-
 `@smonn/ids/wrapped` ships the Wrapped key codec for `u32`, `i32`, `u64`, and `i64` lookup keys. `wrap(lookupKey)` returns a public ID; `unwrap(id)` verifies the payload and returns the lookup key; `safeUnwrap(input)` is the non-throwing path for untrusted input.
 
 **Integer kinds and value types.** The 32-bit kinds (`u32`, `i32`) use safe JavaScript `number` values in their fixed-width ranges. The 64-bit kinds (`u64`, `i64`) always use `bigint` — even when the magnitude would fit in a `number` — to prevent silent truncation or sign erasure.
