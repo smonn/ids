@@ -2,6 +2,7 @@ import { do_not_optimize, measure } from "mitata";
 import { decodeBase32, encodeBase32 } from "../src/base32.js";
 import { createTimestampId } from "../src/timestamp.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../src/opaque.js";
+import { createWrappedKeyId, importWrappingKey } from "../src/wrapped.js";
 import type { Id } from "../src/types.js";
 
 const usr = createTimestampId("usr");
@@ -18,6 +19,12 @@ const opaqueKey = await importOpaqueKey(new Uint8Array(16));
 const opa = createOpaqueTimestampId("opa", { key: opaqueKey });
 const opaqueId = await opa.generate();
 
+// Pre-import the wrapping key once; bench measures steady-state codec cost (AES + HMAC), not key import.
+// u32 is the representative kind; u64/bigint is a separate integer lane but the crypto path is identical.
+const wrappingKey = await importWrappingKey(new Uint8Array(32));
+const wrp = createWrappedKeyId("wrp", { kind: "u32", keys: [wrappingKey] });
+const wrappedId = await wrp.wrap(42);
+
 type Case =
   | { name: string; fn: () => unknown; async?: false }
   | { name: string; fn: () => Promise<unknown>; async: true };
@@ -33,6 +40,9 @@ const cases: Case[] = [
   { name: "decodeBase32", fn: () => decodeBase32(base32Payload) },
   { name: "opaque.generate", fn: () => opa.generate(), async: true },
   { name: "opaque.extractTimestamp", fn: () => opa.extractTimestamp(opaqueId), async: true },
+  // wrapped.* use AES-block + HMAC on the hot path; same async-crypto variance handling as opaque.*
+  { name: "wrapped.wrap", fn: () => wrp.wrap(42), async: true },
+  { name: "wrapped.unwrap", fn: () => wrp.unwrap(wrappedId), async: true },
 ];
 
 type Bench = {
