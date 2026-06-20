@@ -24,9 +24,9 @@ jobs:
     # Loop guard: never triage issues the bot app itself opened (process 4, later).
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.issue.user.type != 'Bot' }}
     runs-on: ubuntu-latest
-    # The GitHub App secrets (APP_ID / APP_PRIVATE_KEY) live in the `npm`
-    # environment, so the job must opt into it to read them.
-    environment: npm
+    # Agent secrets (APP_ID / APP_PRIVATE_KEY / CLAUDE_CODE_OAUTH_TOKEN) live in
+    # the `automation` environment, kept separate from the `npm` publish env.
+    environment: automation
     timeout-minutes: 20
     steps:
       - name: Generate GitHub App token
