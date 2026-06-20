@@ -191,6 +191,28 @@ app.get("/users/:id", idParam("id", usr), (c) => {
 
 `idParam` calls `safeParse` at the boundary (lenient: accepts mixed case and Crockford aliases), so the handler always receives a canonical, normalized `Id<Brand>` — never the raw URL string. Works with any codec variant's structural `safeParse`.
 
+### "Validate a route param in Express"
+
+`@smonn/ids/express` provides the same `idParam` factory for Express. Express is an **optional peer dependency**; install it separately alongside `@smonn/ids`.
+
+```bash
+pnpm add express
+```
+
+```ts
+import { idParam } from "@smonn/ids/express";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+app.get("/users/:id", idParam("id", usr), (req, res) => {
+  const id = res.locals.id; // Id<"usr">, canonical
+  // …
+});
+```
+
+The 400 vs 404 contract is identical to the Hono adapter: brand mismatch → 404, malformed or missing → 400. The canonical `Id<Brand>` is stored in `res.locals` under `paramName` and available to downstream handlers.
+
 ### "Don't leak creation time in IDs that customers can see"
 
 The Timestamp codec exposes the creation timestamp by design — that's what makes `ORDER BY id` work. If that's a leak you can't accept (invoice IDs revealing billing cadence, signup IDs revealing acquisition velocity), use the Opaque Timestamp codec at `@smonn/ids/opaque`. Same `<brand>_<26 chars>` wire shape, but the payload is AES-encrypted under a key you supply.
@@ -259,6 +281,10 @@ import {
 import {
   idParam, // (paramName: string, codec) => Hono MiddlewareHandler — validates route param, 404 on brand mismatch, 400 on malformed
 } from "@smonn/ids/hono";
+
+import {
+  idParam, // (paramName: string, codec) => Express middleware — validates route param, 404 on brand mismatch, 400 on malformed; attaches canonical Id<Brand> to res.locals
+} from "@smonn/ids/express";
 ```
 
 `@smonn/ids/wrapped` ships the Wrapped key codec for `u32`, `i32`, `u64`, and `i64` lookup keys. `wrap(lookupKey)` returns a public ID; `unwrap(id)` verifies the payload and returns the lookup key; `safeUnwrap(input)` is the non-throwing path for untrusted input.

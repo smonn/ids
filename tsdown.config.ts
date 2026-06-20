@@ -6,6 +6,7 @@ export default defineConfig({
     opaque: "src/opaque.ts",
     wrapped: "src/wrapped.ts",
     hono: "src/hono.ts",
+    express: "src/express.ts",
     cli: "bin/cli.ts",
   },
   dts: {
