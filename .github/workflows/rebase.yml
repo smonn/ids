@@ -1,0 +1,178 @@
+name: Auto-rebase agent PRs
+
+# When main advances, open agent PRs can go stale. GitHub's merge queue handles
+# the "behind but clean" case at merge time; this workflow handles TRUE conflicts
+# by having Claude merge main into the PR branch and resolve them. Behind-but-clean
+# PRs are intentionally left alone.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Single PR number to rebase (optional; default sweeps all agent PRs)
+        required: false
+        type: string
+
+concurrency:
+  group: auto-rebase
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    environment: automation
+    outputs:
+      prs: ${{ steps.find.outputs.prs }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Find conflicting agent PRs
+        id: find
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          ONLY_PR: ${{ github.event.inputs.pr_number }}
+        run: |
+          # Candidate agent PRs (optionally narrowed to a single one for manual runs).
+          candidates=$(gh pr list --state open --base main \
+            --json number,headRefName \
+            --jq '[.[] | select(.headRefName | startswith("agent/issue-"))]')
+          if [ -n "$ONLY_PR" ]; then
+            candidates=$(echo "$candidates" | jq -c --argjson n "$ONLY_PR" '[.[] | select(.number == $n)]')
+          fi
+
+          git fetch -q origin main
+          conflicting='[]'
+          for row in $(echo "$candidates" | jq -r '.[] | @base64'); do
+            n=$(echo "$row" | base64 -d | jq -r .number)
+            h=$(echo "$row" | base64 -d | jq -r .headRefName)
+            git fetch -q origin "$h" || continue
+            # merge-tree exits non-zero only when the merge would conflict.
+            if git merge-tree --write-tree origin/main "origin/$h" >/dev/null 2>&1; then
+              echo "PR #$n ($h): clean/behind — leaving for the merge queue."
+            else
+              echo "PR #$n ($h): CONFLICTING — queueing a Claude rebase."
+              conflicting=$(echo "$conflicting" | jq -c --argjson n "$n" --arg h "$h" '. + [{number: $n, head: $h}]')
+            fi
+          done
+          echo "prs=$conflicting" >> "$GITHUB_OUTPUT"
+
+  resolve:
+    needs: detect
+    if: needs.detect.outputs.prs != '[]' && needs.detect.outputs.prs != ''
+    strategy:
+      # Serialize: each resolve rebases against the same main, and keeping them
+      # one-at-a-time bounds concurrent subscription usage.
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJson(needs.detect.outputs.prs) }}
+    runs-on: ubuntu-latest
+    environment: automation
+    timeout-minutes: 30
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout the PR branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ matrix.pr.head }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "smonn[bot]"
+          git config user.email "110314539+smonn[bot]@users.noreply.github.com"
+
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Resolve conflicts with Claude
+        uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1.0.152
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.app-token.outputs.token }}
+          # Triggered by push to main (often a bot merge) — allow our App only.
+          allowed_bots: "smonn[bot]"
+          claude_args: |
+            --max-turns 60
+            --model claude-sonnet-4-6
+            --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
+          prompt: |
+            You are resolving a merge conflict on PR #${{ matrix.pr.number }} of
+            ${{ github.repository }}. The PR branch `${{ matrix.pr.head }}` is checked
+            out; an authenticated `gh` CLI and a push-capable git remote are available.
+
+            Goal: bring this branch up to date with `main` so it merges cleanly,
+            WITHOUT losing either the PR's intended change or the upstream changes.
+
+            1. Read the PR to understand its intent:
+               `gh pr view ${{ matrix.pr.number }} --json title,body`.
+            2. `git fetch origin main`, then `git merge origin/main`.
+            3. Resolve every conflict faithfully: keep the PR's contribution AND
+               integrate the upstream changes — never discard one side wholesale, and
+               never weaken or delete tests to make it merge.
+            4. Make the FULL CI gate pass exactly as ci.yml runs it (use `pnpm lint:fix`
+               / `pnpm fmt` to auto-resolve): `pnpm lint` && `pnpm depcruise` &&
+               `pnpm fmt:check` && `pnpm typecheck` && `pnpm test:coverage` &&
+               `pnpm build`. All must pass.
+            5. Commit the merge (keep the merge commit; do not force-push or rebase
+               history) and push to `${{ matrix.pr.head }}`.
+            6. If the conflict cannot be resolved safely — e.g. main has changed the
+               feature out from under this PR, or resolving would require reopening a
+               CLOSED design decision — STOP: do NOT push, post a PR comment explaining
+               the situation, and add the `needs-human` label with
+               `gh pr edit ${{ matrix.pr.number }} --add-label needs-human`.
+
+            Do NOT modify any branch other than `${{ matrix.pr.head }}`, and do NOT
+            push to main.
+
+      - name: Verify the branch is no longer conflicting
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          labels=$(gh pr view "${{ matrix.pr.number }}" --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -qx 'needs-human'; then
+            echo "✓ PR #${{ matrix.pr.number }} escalated to a human; no automated resolution expected."
+            exit 0
+          fi
+          git fetch -q origin main "${{ matrix.pr.head }}"
+          if git merge-tree --write-tree origin/main "origin/${{ matrix.pr.head }}" >/dev/null 2>&1; then
+            echo "✓ PR #${{ matrix.pr.number }} now merges cleanly with main."
+          else
+            echo "::error::PR #${{ matrix.pr.number }} still conflicts after the rebase attempt — check the run log."
+            exit 1
+          fi
