@@ -139,21 +139,29 @@ jobs:
             1. Read all the feedback: the PR's reviews and review threads
                (`gh pr view ${{ env.PR_NUMBER }} --json reviews,comments,title,body`,
                and `gh api repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/comments`
-               for inline review comments). Focus on the most recent human review.
-            2. Address each actionable point by editing code on this branch. Make the
-               changes faithfully. NEVER weaken, skip, or delete tests to satisfy a
-               comment, and NEVER touch a CLOSED design decision (CONTEXT.md, docs/adr/).
-               If a request is unsafe, out of scope, or you disagree, do NOT implement
-               it — reply on the thread explaining why instead.
-            3. Re-run the full CI gate exactly as ci.yml does: `pnpm lint`,
-               `pnpm depcruise`, `pnpm fmt:check`, `pnpm typecheck`, `pnpm test:coverage`,
-               `pnpm build`. Everything must pass.
-            4. Commit with a clear message and push to `${{ steps.gate.outputs.branch }}`
-               with a plain `git push` — NEVER force-push. If the push is rejected
-               because the branch advanced past the reviewed commit, stop and post a
-               comment saying the branch moved and the request needs a re-run, rather
-               than forcing.
-            5. Post ONE concise PR comment summarizing what you changed (and what you
-               deliberately did not change, with reasons).
+               for inline review comments — record each comment's `id`, `path`, and
+               `line`). Focus on the most recent human review.
+            2. Address each actionable point as ITS OWN commit: make the change, then
+               `git commit` it alone with a clear, scoped message (one fix per commit, so
+               each maps to a single hash). Make the changes faithfully. NEVER weaken,
+               skip, or delete tests to satisfy a comment, and NEVER touch a CLOSED design
+               decision (CONTEXT.md, docs/adr/). If a point is unsafe, out of scope, or
+               you disagree, do NOT implement it — leave it for a thread reply in step 5.
+               Keep a map of {review comment id → commit sha, or "declined: reason"}.
+            3. With every fix committed, re-run the full CI gate exactly as ci.yml does:
+               `pnpm lint`, `pnpm depcruise`, `pnpm fmt:check`, `pnpm typecheck`,
+               `pnpm test:coverage`, `pnpm build`. Everything must pass — add follow-up
+               commits until it does.
+            4. Push to `${{ steps.gate.outputs.branch }}` with a plain `git push` — NEVER
+               force-push. If the push is rejected because the branch advanced past the
+               reviewed commit, stop and post a comment saying the branch moved and the
+               request needs a re-run, rather than forcing.
+            5. Reply to the feedback IN-THREAD — do NOT post one big catch-all summary
+               comment. For each inline review comment you acted on, reply on its own
+               thread citing the commit that addressed it (use the pushed short SHA):
+               `gh api -X POST repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/comments/<id>/replies -f body='Fixed in <sha>: <one line on what changed>.'`
+               For a point you declined, reply on its thread explaining why (no commit).
+               For feedback NOT anchored to an inline comment (a review summary or a plain
+               PR comment), post a single concise top-level reply instead.
 
             Do NOT approve or merge the PR, and do NOT push to main. A human re-reviews.
