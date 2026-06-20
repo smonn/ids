@@ -43,17 +43,6 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Ensure state labels exist
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          ensure() { gh label create "$1" --color "$2" --description "$3" --force >/dev/null 2>&1 || true; }
-          ensure ready-for-agent 0E8A16 "Fully specified, ready for an AFK agent"
-          ensure in-progress     5319E7 "An agent is implementing this issue"
-          ensure ready-for-human 1D76DB "Requires human implementation"
-          ensure needs-info      D93F0B "Waiting on reporter for more information"
-
       - name: Check if implementation already started
         id: gate
         env:

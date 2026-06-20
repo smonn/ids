@@ -3,7 +3,7 @@ name: Review agent PRs
 # Posts an automated code review (inline comments, never an approval) on each agent
 # PR when it opens. Scoped to agent/issue-* so it doesn't review human PRs, and runs
 # once on open — not on every push — to bound cost. Re-review on demand via the
-# `re-review` label or workflow_dispatch.
+# `needs-review` label or workflow_dispatch.
 
 on:
   pull_request:
@@ -27,7 +27,7 @@ jobs:
   review:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      ((github.event.action != 'labeled' || github.event.label.name == 're-review') &&
+      ((github.event.action != 'labeled' || github.event.label.name == 'needs-review') &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        startsWith(github.event.pull_request.head.ref, 'agent/issue-'))
     runs-on: ubuntu-latest
@@ -43,19 +43,6 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Ensure the agent-PR action labels exist
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          # Provision the on-demand action labels for agent PRs so a maintainer can
-          # apply them. re-review re-runs this review; needs-rebase (rebase.yml) merges
-          # latest main into the branch and resolves conflicts.
-          gh label create re-review --color 006B75 \
-            --description "Re-run the agent code review on this PR" --force >/dev/null 2>&1 || true
-          gh label create needs-rebase --color FBCA04 \
-            --description "Merge latest main into this agent PR and resolve conflicts" --force >/dev/null 2>&1 || true
-
       - name: Clear prior review comment (re-reviews only)
         if: github.event_name == 'workflow_dispatch' || github.event.action == 'labeled'
         env:
@@ -70,12 +57,12 @@ jobs:
               [ -n "$id" ] && gh api -X DELETE "repos/$GH_REPO/issues/comments/$id" && echo "deleted prior review comment $id"
             done
 
-      - name: Remove the re-review label (so it can be re-applied)
+      - name: Remove the needs-review label (so it can be re-applied)
         if: github.event.action == 'labeled'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh pr edit "$PR_NUMBER" --remove-label re-review || true
+        run: gh pr edit "$PR_NUMBER" --remove-label needs-review || true
 
       - name: Checkout PR head
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
