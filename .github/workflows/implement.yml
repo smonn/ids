@@ -104,6 +104,11 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
+          # This workflow is triggered by the App applying `ready-for-agent`, so the
+          # actor is a bot. claude-code-action blocks bot actors by default; allow
+          # only our own App (never '*' — on a public repo that lets external Apps
+          # invoke Claude with prompts they control).
+          allowed_bots: "smonn[bot]"
           # Implementation is turn-heavy (TDD + full CI gate). Sonnet keeps
           # subscription usage in check; bump to opus if quality needs it.
           claude_args: |
