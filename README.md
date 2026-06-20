@@ -541,10 +541,10 @@ import {
 
 ### Prisma (`@smonn/ids/prisma`)
 
-`@smonn/ids/prisma` is a subpath export that provides a read/write transform pair for integrating `Id<Brand>` with Prisma's `$extends` extension model. It requires `prisma` as a peer dependency — installing `@smonn/ids` alone does not require Prisma.
+`@smonn/ids/prisma` is a subpath export that provides a read/write transform pair for integrating `Id<Brand>` with Prisma's `$extends` extension model. It requires `@prisma/client` as a peer dependency — installing `@smonn/ids` alone does not require Prisma.
 
 ```bash
-pnpm add prisma
+pnpm add @prisma/client
 ```
 
 ```ts
