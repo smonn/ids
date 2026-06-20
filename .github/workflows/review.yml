@@ -43,6 +43,28 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
+      - name: Ensure the re-review label exists
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh label create re-review --color 006B75 \
+            --description "Re-run the agent code review on this PR" --force >/dev/null 2>&1 || true
+
+      - name: Clear prior review comment (re-reviews only)
+        if: github.event_name == 'workflow_dispatch' || github.event.action == 'labeled'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # The code-review plugin skips a PR it has already reviewed. For an explicit
+          # re-review, delete its prior "## Code review" comment so it runs fresh.
+          gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq '.[] | select(.user.login == "smonn[bot]" and (.body | startswith("## Code review"))) | .id' \
+          | while read -r id; do
+              [ -n "$id" ] && gh api -X DELETE "repos/$GH_REPO/issues/comments/$id" && echo "deleted prior review comment $id"
+            done
+
       - name: Checkout PR head
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -58,6 +80,10 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
+          # TEMP (diagnostic): stream the full tool sequence so we can see why the
+          # review pass is slow (which tools/turns it spends time on). Remove once
+          # the runtime is understood.
+          show_full_output: true
           # The PR was opened by the App, so the pull_request actor is a bot.
           allowed_bots: "smonn[bot]"
           # The code-review plugin posts inline findings (--comment). It reviews, it
