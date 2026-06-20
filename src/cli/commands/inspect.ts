@@ -1,5 +1,6 @@
 import { createTimestampId } from "../../timestamp.js";
 import { createOpaqueTimestampId, type OpaqueKeyFormat } from "../../opaque.js";
+import { createReverseTimestampId } from "../../reverse.js";
 import { createWrappedKeyId, type WrappingKey } from "../../wrapped.js";
 import { codecOpts } from "../codec-options.js";
 import { formatInspectOutput, formatWrappedInspectOutput } from "../format.js";
@@ -20,7 +21,7 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
   const unsupported = unsupportedFlagForCommand(
     "inspect",
     flags,
-    new Set(["--opaque", "--wrapped", "--kind", "--key-format"]),
+    new Set(["--opaque", "--wrapped", "--reverse", "--kind", "--key-format"]),
   );
   if (unsupported !== undefined) {
     opts.stderr(unsupported + "\n");
@@ -42,8 +43,17 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
   }
   const opaque = flags.has("--opaque");
   const wrapped = flags.has("--wrapped");
+  const reverse = flags.has("--reverse");
   if (opaque && wrapped) {
     opts.stderr("cannot use --wrapped and --opaque together\n");
+    return Promise.resolve(1);
+  }
+  if (reverse && opaque) {
+    opts.stderr("cannot use --reverse and --opaque together\n");
+    return Promise.resolve(1);
+  }
+  if (reverse && wrapped) {
+    opts.stderr("cannot use --reverse and --wrapped together\n");
     return Promise.resolve(1);
   }
   if (!opaque && !wrapped && flags.has("--key-format")) {
@@ -75,6 +85,33 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
       return Promise.resolve(1);
     }
     return runOpaqueInspect(brand, input, format, opts);
+  }
+  if (reverse) {
+    let reverseCodec;
+    try {
+      reverseCodec = createReverseTimestampId(brand, codecOpts(opts));
+    } catch (err) {
+      opts.stderr((err as Error).message + "\n");
+      return Promise.resolve(1);
+    }
+    const reverseValidation = reverseCodec["~standard"].validate(input);
+    if (reverseValidation.issues) {
+      opts.stderr(reverseValidation.issues[0]!.message + "\n");
+      return Promise.resolve(1);
+    }
+    const reverseCanonical = reverseValidation.value;
+    const reverseTimestamp = reverseCodec.extractTimestamp(reverseCanonical);
+    const reverseNowMs = (opts.now ?? Date.now)();
+    opts.stdout(
+      formatInspectOutput({
+        brand,
+        timestamp: reverseTimestamp,
+        canonical: reverseCanonical,
+        input,
+        nowMs: reverseNowMs,
+      }),
+    );
+    return Promise.resolve(0);
   }
   let codec;
   try {

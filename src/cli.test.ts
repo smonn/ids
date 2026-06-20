@@ -7,6 +7,7 @@ import {
   encodeWrappingKey,
   decodeWrappingKey,
 } from "./wrapped.js";
+import { createReverseTimestampId } from "./reverse.js";
 import { run } from "./cli.js";
 
 type Capture = {
@@ -1224,5 +1225,141 @@ describe("cli inspect --wrapped", () => {
       if (previousFmt === undefined) delete process.env.IDS_WRAPPING_KEY_FORMAT;
       else process.env.IDS_WRAPPING_KEY_FORMAT = previousFmt;
     }
+  });
+});
+
+describe("cli generate --reverse", () => {
+  it("mints a Reverse Timestamp ID and exits 0", async () => {
+    const expected = createReverseTimestampId("usr", {
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x00),
+      allowDuplicateBrand: true,
+    }).generate();
+    const result = await runCapture(["generate", "usr", "--reverse"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(`${expected}\n`);
+  });
+
+  it("--reverse --count N mints N Reverse Timestamp IDs", async () => {
+    let counter = 0;
+    const result = await runCapture(["generate", "usr", "--reverse", "--count", "3"], {
+      rng: (target) => {
+        target.fill(0);
+        target[9] = counter++;
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const lines = result.stdout.split("\n");
+    expect(lines.at(-1)).toBe("");
+    const ids = lines.slice(0, -1);
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(3);
+    for (const id of ids) expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
+  });
+
+  it("--reverse rejects an invalid brand", async () => {
+    const result = await runCapture(["generate", "BAD", "--reverse"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+  });
+
+  it("--reverse rejects a missing brand", async () => {
+    const result = await runCapture(["generate", "--reverse"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+  });
+
+  it("--reverse with --opaque emits a conflict error and exits 1", async () => {
+    const result = await runCapture(["generate", "usr", "--reverse", "--opaque"], {
+      env: { IDS_KEY: testKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("cannot use --reverse and --opaque together\n");
+  });
+
+  it("usage documents --reverse for generate", async () => {
+    const result = await runCapture(["--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--reverse");
+  });
+});
+
+describe("cli inspect --reverse", () => {
+  it("decodes a Reverse Timestamp ID and exits 0", async () => {
+    const nowMs = new Date("2026-05-27T10:24:22.469Z").getTime();
+    const codec = createReverseTimestampId("usr", {
+      now: () => nowMs,
+      rng: (target) => target.fill(0x00),
+      allowDuplicateBrand: true,
+    });
+    const id = codec.generate();
+    const expectedTimestamp = codec.extractTimestamp(id).toISOString();
+    const result = await runCapture(["inspect", id, "--reverse"], {
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("brand:     usr");
+    expect(result.stdout).toContain(`timestamp: ${expectedTimestamp}`);
+    expect(result.stdout).toContain(`canonical: ${id}`);
+    expect(result.stdout).toContain("input:     canonical");
+  });
+
+  it("--reverse falls back to Date.now when not overridden", async () => {
+    const codec = createReverseTimestampId("usr", {
+      now: () => new Date("2026-05-28T12:00:00Z").getTime(),
+      rng: (target) => target.fill(0x42),
+      allowDuplicateBrand: true,
+    });
+    const id = codec.generate();
+    let stdout = "";
+    const exitCode = await run({
+      argv: ["inspect", id, "--reverse"],
+      stdout: (s) => {
+        stdout += s;
+      },
+      stderr: () => {},
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("timestamp: 2026-05-28T12:00:00.000Z");
+  });
+
+  it("--reverse rejects an invalid brand", async () => {
+    const result = await runCapture(["inspect", "12X_00000000000000000000000000", "--reverse"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+  });
+
+  it("--reverse rejects invalid base32 payload", async () => {
+    const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgk!", "--reverse"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("invalid base32 payload\n");
+  });
+
+  it("--reverse with --opaque emits a conflict error and exits 1", async () => {
+    const result = await runCapture(
+      ["inspect", "usr_00000000000000000000000000", "--reverse", "--opaque"],
+      { env: { IDS_KEY: testKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("cannot use --reverse and --opaque together\n");
+  });
+
+  it("--reverse with --wrapped emits a conflict error and exits 1", async () => {
+    const result = await runCapture(
+      ["inspect", "usr_00000000000000000000000000", "--reverse", "--wrapped", "--kind", "u32"],
+      { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("cannot use --reverse and --wrapped together\n");
   });
 });

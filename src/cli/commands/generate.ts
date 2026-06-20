@@ -1,5 +1,6 @@
 import { createTimestampId } from "../../timestamp.js";
 import { createOpaqueTimestampId, type OpaqueKeyFormat } from "../../opaque.js";
+import { createReverseTimestampId } from "../../reverse.js";
 import { codecOpts } from "../codec-options.js";
 import { parseCount, splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
@@ -10,7 +11,7 @@ export function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise
   const unsupported = unsupportedFlagForCommand(
     "generate",
     flags,
-    new Set(["--count", "-c", "--opaque", "--key-format"]),
+    new Set(["--count", "-c", "--opaque", "--reverse", "--key-format"]),
   );
   if (unsupported !== undefined) {
     opts.stderr(unsupported + "\n");
@@ -32,6 +33,11 @@ export function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise
     return Promise.resolve(1);
   }
   const opaque = flags.has("--opaque");
+  const reverse = flags.has("--reverse");
+  if (reverse && opaque) {
+    opts.stderr("cannot use --reverse and --opaque together\n");
+    return Promise.resolve(1);
+  }
   if (!opaque && flags.has("--key-format")) {
     opts.stderr("--key-format requires --opaque\n");
     return Promise.resolve(1);
@@ -43,6 +49,17 @@ export function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise
       return Promise.resolve(1);
     }
     return runOpaqueGenerate(brand ?? "", count, format, opts);
+  }
+  if (reverse) {
+    let codec;
+    try {
+      codec = createReverseTimestampId(brand ?? "", codecOpts(opts));
+    } catch (err) {
+      opts.stderr((err as Error).message + "\n");
+      return Promise.resolve(1);
+    }
+    for (let i = 0; i < count; i++) opts.stdout(codec.generate() + "\n");
+    return Promise.resolve(0);
   }
   let codec;
   try {
