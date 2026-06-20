@@ -1,9 +1,9 @@
 name: Review agent PRs
 
-# Posts an automated code review (inline comments, never an approval) on each agent
-# PR when it opens. Scoped to agent/issue-* so it doesn't review human PRs, and runs
-# once on open — not on every push — to bound cost. Re-review on demand via the
-# `needs-review` label or workflow_dispatch.
+# Posts an automated code review (a two-axis Standards + Spec report, never an
+# approval) on each agent PR when it opens. Scoped to agent/issue-* so it doesn't
+# review human PRs, and runs once on open — not on every push — to bound cost.
+# Re-review on demand via the `needs-review` label or workflow_dispatch.
 
 on:
   pull_request:
@@ -49,8 +49,8 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          # The code-review plugin skips a PR it has already reviewed. For an explicit
-          # re-review, delete its prior "## Code review" comment so it runs fresh.
+          # For an explicit re-review, delete the prior "## Code review" comment so the
+          # new one replaces it rather than stacking.
           gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
             --jq '.[] | select(.user.login == "smonn[bot]" and (.body | startswith("## Code review"))) | .id' \
           | while read -r id; do
@@ -71,6 +71,11 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
+      - name: Fetch main as the review diff base
+        # The review skill diffs HEAD against a fixed point; make `origin/main`
+        # resolvable (checkout only fetched the PR head ref).
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+
       - name: Review the PR
         uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1.0.152
         env:
@@ -81,28 +86,55 @@ jobs:
           github_token: ${{ steps.app-token.outputs.token }}
           # The PR was opened by the App, so the pull_request actor is a bot.
           allowed_bots: "smonn[bot]"
-          # The code-review plugin posts inline findings (--comment). It reviews, it
-          # does not approve/merge — and GitHub blocks self-approval anyway.
-          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
-          plugins: "code-review@claude-code-plugins"
           prompt: |
-            /code-review:code-review ${{ github.repository }}/pull/${{ env.PR_NUMBER }} --comment
+            /review origin/main
 
-            Review the code itself: correctness and logic, design, architecture, API
-            surface, naming, and adherence to CONTEXT.md and docs/adr/. CI already runs
-            tests, typecheck, lint, depcruise, and build — do NOT run or re-verify those.
+            Review PR #${{ env.PR_NUMBER }} of ${{ github.repository }} (`@smonn/ids`,
+            a TypeScript library for sortable IDs) using the repo's `review` skill,
+            invoked above with `origin/main` as the fixed point. The skill runs two
+            parallel sub-agents and aggregates their findings:
+            - Standards — conformance to this repo's documented standards: CONTRIBUTING.md,
+              AGENTS.md, CONTEXT.md (domain glossary + CLOSED decisions), and docs/adr/.
+            - Spec — faithfulness to the originating issue. Find it from `Closes #N` in
+              the PR body (`gh pr view ${{ env.PR_NUMBER }} --json title,body`) and fetch
+              it per docs/agents/issue-tracker.md.
 
-            Anchor every change request to a file. Post each finding as an inline review
-            comment on a specific file and line, not as a top-level summary comment.
-            GitHub only allows inline comments on lines inside this PR's diff: if a finding
-            concerns a file or line NOT in the diff, attach the comment to the first
-            changed file in the PR and open it with an explicit pointer to the real
-            location, e.g. "⚠️ Re `CONTEXT.md:19` (not the file this comment is on): …".
-          # Read-only inspection plus gh/git for reading the diff and posting comments.
-          # Bash is scoped to gh and git so the reviewer cannot run the static-analysis
-          # gate (pnpm test/lint/typecheck/build) — CI owns that; reviews stay fast and
-          # focused on code/design. No Edit/Write; the reviewer never changes code.
+            CI already runs tests, typecheck, lint, depcruise, and build — the review is
+            about correctness, design, architecture, API surface, and naming; do NOT run
+            or re-verify the static-analysis gate.
+
+            You are headless: do NOT pause for input. When the skill produces its
+            aggregated report, post it as ONE PR comment — the ONLY deliverable — via
+            `gh pr comment ${{ env.PR_NUMBER }} --body-file <file>` (use a file/heredoc
+            for the multi-line body). The comment MUST begin with this exact line so
+            re-reviews can find and replace it:
+
+                ## Code review
+
+            Immediately under that heading add `> *This was generated by AI during
+            review.*`, then the skill's `## Standards` and `## Spec` sections verbatim.
+            This is a review only: never approve, request changes, merge, or edit code.
+          # Read-only inspection plus gh/git for reading the diff and posting the
+          # report, and Task so the skill can spawn its two parallel sub-agents. No
+          # Edit/Write; the reviewer never changes code, and Bash is scoped to gh/git
+          # so it cannot run the static-analysis gate (CI owns that).
           claude_args: |
             --max-turns 40
             --model claude-sonnet-4-6
-            --allowedTools "Read,Grep,Glob,TodoWrite,Bash(gh:*),Bash(git:*)"
+            --allowedTools "Read,Grep,Glob,TodoWrite,Task,Bash(gh:*),Bash(git:*)"
+
+      # Catch the "hollow success" case: the agent can exit 0 without posting. Require
+      # the "## Code review" comment to be present so a silent failure fails loudly.
+      - name: Verify the review comment was posted
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          found=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq '[.[] | select(.user.login == "smonn[bot]" and (.body | startswith("## Code review")))] | length')
+          if [ "${found:-0}" -gt 0 ]; then
+            echo "✓ Review comment posted on PR #$PR_NUMBER."
+          else
+            echo "::error::No '## Code review' comment on PR #$PR_NUMBER — the review did not post (check the run log)."
+            exit 1
+          fi
