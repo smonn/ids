@@ -43,6 +43,8 @@ jobs:
     timeout-minutes: 30
     env:
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+      # The reviewed commit, carried by review events (empty for issue_comment).
+      EVENT_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Generate GitHub App token
         id: app-token
@@ -57,11 +59,15 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          info=$(gh pr view "$PR_NUMBER" --json headRefName,state,headRepository,headRepositoryOwner)
+          info=$(gh pr view "$PR_NUMBER" --json headRefName,headRefOid,state,headRepository,headRepositoryOwner)
           branch=$(printf '%s' "$info" | jq -r '.headRefName')
           state=$(printf '%s' "$info" | jq -r '.state')
           headrepo=$(printf '%s' "$info" | jq -r '.headRepositoryOwner.login + "/" + .headRepository.name')
-          echo "PR #$PR_NUMBER: state=$state head=$headrepo:$branch base=$GH_REPO"
+          # Pin the checkout to an immutable SHA, not the moving branch ref, to close
+          # the TOCTOU window. Prefer the SHA from the triggering review event; fall
+          # back to the current head for issue_comment (which carries no SHA).
+          sha="${EVENT_SHA:-$(printf '%s' "$info" | jq -r '.headRefOid')}"
+          echo "PR #$PR_NUMBER: state=$state head=$headrepo:$branch @ $sha base=$GH_REPO"
           if [ "$state" != "OPEN" ]; then
             echo "PR is not open; skipping."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
@@ -72,24 +78,27 @@ jobs:
           elif printf '%s' "$branch" | grep -q '^agent/issue-'; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
             echo "branch=$branch" >> "$GITHUB_OUTPUT"
+            echo "sha=$sha" >> "$GITHUB_OUTPUT"
           else
             echo "Not an agent branch; skipping."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Checkout the PR branch
+      - name: Checkout the reviewed commit (pinned SHA, not the branch ref)
         if: steps.gate.outputs.proceed == 'true'
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ steps.gate.outputs.branch }}
+          ref: ${{ steps.gate.outputs.sha }}
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Configure git identity
+      - name: Configure git identity and working branch
         if: steps.gate.outputs.proceed == 'true'
         run: |
           git config user.name "smonn[bot]"
           git config user.email "110314539+smonn[bot]@users.noreply.github.com"
+          # We checked out a detached SHA; recreate the branch at it so we can push.
+          git checkout -B "${{ steps.gate.outputs.branch }}"
 
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
         if: steps.gate.outputs.proceed == 'true'
@@ -133,7 +142,11 @@ jobs:
             3. Re-run the full CI gate exactly as ci.yml does: `pnpm lint`,
                `pnpm depcruise`, `pnpm fmt:check`, `pnpm typecheck`, `pnpm test:coverage`,
                `pnpm build`. Everything must pass.
-            4. Commit with a clear message and push to `${{ steps.gate.outputs.branch }}`.
+            4. Commit with a clear message and push to `${{ steps.gate.outputs.branch }}`
+               with a plain `git push` — NEVER force-push. If the push is rejected
+               because the branch advanced past the reviewed commit, stop and post a
+               comment saying the branch moved and the request needs a re-run, rather
+               than forcing.
             5. Post ONE concise PR comment summarizing what you changed (and what you
                deliberately did not change, with reasons).
 
