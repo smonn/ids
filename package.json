@@ -75,11 +75,5 @@
   "engines": {
     "node": ">=24.0.0"
   },
-  "packageManager": "pnpm@11.4.0",
-  "pnpm": {
-    "ignoredBuiltDependencies": [
-      "@prisma/engines",
-      "prisma"
-    ]
-  }
+  "packageManager": "pnpm@11.4.0"
 }
