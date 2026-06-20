@@ -44,7 +44,7 @@
     "dependency-cruiser": "17.4.3",
     "knip": "6.16.1",
     "mitata": "1.0.34",
-    "oxfmt": "0.53.0",
+    "oxfmt": "0.55.0",
     "oxlint": "1.69.0",
     "tsdown": "0.22.2",
     "typescript": "6.0.3",
