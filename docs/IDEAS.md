@@ -13,8 +13,10 @@ different invariants.
 - ~~`createOpaqueTimestampId(brand, {key})`~~ — shipped. See [ADR-0004](./adr/0004-aes-cbc-strip-trick.md),
   [ADR-0005](./adr/0005-codec-variant-subpath-exports.md), [ADR-0006](./adr/0006-async-keyed-codec-contract.md),
   [ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md).
-- **`createSignedTimestampId(brand, {key})`** — random tail becomes a truncated HMAC over
-  brand+timestamp. Tamper-evident share links verified without a DB lookup.
+- **`createSignedTimestampId(brand, {keys})`** — half the random tail becomes a truncated
+  HMAC over brand+timestamp+random. Tamper-evident share links verified without a DB lookup.
+  Accepted design: see [ADR-0012](./adr/0012-signed-timestamp-construction.md).
+  Glossary: **Signed Timestamp codec**, **Signing key**, **Signing keyring** in [CONTEXT.md](../CONTEXT.md).
 - **`createDigestId(brand, {ns, key})`** — one-way deterministic digest of caller material.
   Same material gives the same public ID; the material cannot be recovered from the ID.
   For idempotency keys, content-addressed records, and stable public pseudonyms.
@@ -85,8 +87,9 @@ Three related threads around operating the Opaque Timestamp codec's key. Sketche
     timestamp lands in a plausible window. A stale key false-accepts at ≈ 10yr / 2⁴⁸ms ≈
     0.1% — dashboard-grade, never correctness-grade, and only if documented as such.
   - _Transparent try-all-keys_ belongs to an authenticated variant (`createSignedTimestampId`'s
-    truncated HMAC gives a tag to verify a decrypt against); an 80-bit tag makes a small
-    ring effectively false-positive-free. Adding a key-id to the Opaque Timestamp codec itself is rejected
+    truncated HMAC gives a tag to verify against — accepted in
+    [ADR-0012](./adr/0012-signed-timestamp-construction.md), with a **Signing keyring** whose
+    `verify` trials the ring by tag match). Adding a key-id to the Opaque Timestamp codec itself is rejected
     for the same reasons GCM was in ADR-0004: it either eats the random budget or breaks
     the 16-byte / strip-trick invariant. Likely worth its own ADR.
 - ~~**`ids keygen [--bits 128|256] [--key-format hex|base64url]`** — emit a random AES key
