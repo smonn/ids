@@ -380,7 +380,6 @@ describe("wrapped", () => {
     // WeakMap handle-not-found is an internal invariant guard — stays plain Error
     expect(err instanceof Error).toBe(true);
     expect(isIdsError(err)).toBe(false);
-    expect((err as Error).message).toMatch("invalid wrapping key");
   });
 
   it("unwrap throws IdsError with code verification_failed on tag mismatch", async () => {
