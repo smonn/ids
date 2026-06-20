@@ -68,9 +68,13 @@ jobs:
           # where the action has no issue/PR context of its own.
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
+        id: claude
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
+          # TEMP (debugging): stream the full SDK output into the job log so we can see
+          # what gh calls Claude makes and any auth errors. Remove before merge.
+          show_full_output: true
           # Sonnet keeps subscription usage modest; bump to opus if triage quality needs it.
           # allowedTools must cover everything the prompt asks for (repro test +
           # pnpm test + labeling), or the run burns turns on permission denials.
@@ -135,3 +139,15 @@ jobs:
             - Verify with `gh issue view <n> --json labels,comments` that the comment and
               label actually posted before finishing.
             - Do NOT modify code, open pull requests, or push. This is triage only.
+
+      # TEMP (debugging): keep the raw execution log regardless of outcome.
+      - name: Upload Claude execution output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: claude-execution-output
+          path: |
+            /home/runner/work/_temp/claude-execution-output.json
+            /home/runner/work/_temp/claude-prompts/claude-prompt.txt
+          if-no-files-found: warn
+          retention-days: 7
