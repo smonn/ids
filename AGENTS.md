@@ -19,6 +19,8 @@ Issues live in GitHub Issues on `smonn/ids`, accessed via the `gh` CLI. See `doc
 
 Default canonical vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
 
+**Agents must not set or remove pipeline/triage lifecycle labels** (`blocked`, `needs-triage`, `ready-for-agent`, `ready-for-human`, `in-progress`, `needs-info`, `wontfix`, `needs-human`, `needs-review`, `needs-rebase`, `address-feedback`). Those transitions are owned exclusively by the `.github/workflows/` App automations — e.g. when a blocker closes, `unblock.yml` flips `blocked → needs-triage` and triage re-evaluates; it never jumps straight to `ready-for-agent`. Setting them by hand races the bot. A `PreToolUse` hook in `.claude/settings.json` denies `mcp__github__issue_write` calls that include these labels. Set issue body/title/state freely; leave the lifecycle labels to the App.
+
 ### Domain docs
 
 Single-context repo: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
