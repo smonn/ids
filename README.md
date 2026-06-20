@@ -215,6 +215,47 @@ Encryption is AES-CBC with a zero IV. That's deliberately safe here because the 
 
 To store or transport key material outside the library, `encodeOpaqueKey` / `decodeOpaqueKey` round-trip raw bytes in `hex` or `base64url` — distinct from the Crockford base32 used in ID payloads. The CLI's `keygen` subcommand emits keys in this format (see [CLI](#cli)).
 
+### "Newest-first IDs for descending range scans"
+
+Most KV stores (DynamoDB, Cloud Datastore, range-scan KV) only support forward lexicographic scans natively — reading the most recent entries first would otherwise require a full reverse scan or a separate sort step. The Reverse Timestamp codec solves this by bitwise-inverting the 48-bit timestamp field before encoding, so newer IDs sort lexicographically before older ones.
+
+```ts
+import { createReverseTimestampId } from "@smonn/ids/reverse";
+
+const events = createReverseTimestampId("evt");
+
+const id = events.generate(); // "evt_…", sorts newest-first
+events.extractTimestamp(id); // Date — inversion is reversed to recover the original ms
+```
+
+**Range-bound direction is flipped.** Because a newer timestamp maps to a lexicographically smaller ID, a time-range scan over [t_old, t_new] passes the newer timestamp as the lower bound and the older timestamp as the upper bound:
+
+```ts
+const start = new Date("2026-01-01T00:00:00Z"); // older
+const end = new Date("2026-02-01T00:00:00Z"); // newer
+
+// Reverse Timestamp: lower bound = newer time, upper bound = older time
+sql`SELECT * FROM events WHERE id BETWEEN ${events.minIdForTime(end)} AND ${events.maxIdForTime(start)}`;
+
+// compare: Timestamp codec (ascending) passes start/end in the natural forward direction
+// sql`... WHERE id BETWEEN ${plainEvents.minIdForTime(start)} AND ${plainEvents.maxIdForTime(end)}`
+```
+
+`minIdForTime(t)` is always the lexicographically smallest ID at millisecond `t` (random portion all `0x00`) and `maxIdForTime(t)` is the largest (random portion all `0xff`). Under reversal, a newer `t` produces a smaller `minIdForTime` result, so the bounds are swapped relative to the Timestamp codec — see [ADR-0010](./docs/adr/0010-reverse-timestamp-inversion.md) for the detailed rationale.
+
+**Same-millisecond order remains non-deterministic.** The random 10-byte tail is not affected by the timestamp inversion. Two IDs generated in the same millisecond have independent random tails and do not sort deterministically relative to each other — the same caveat as the Timestamp codec (ADR-0002).
+
+No key material is required. The inversion is a deterministic byte transform; `generate`, `generateAt`, and `extractTimestamp` are fully synchronous.
+
+## Choosing a codec variant
+
+| Codec             | Import               | Sort direction            | Key required       | Timestamp extractable      | Range query support                                            |
+| ----------------- | -------------------- | ------------------------- | ------------------ | -------------------------- | -------------------------------------------------------------- |
+| Timestamp         | `@smonn/ids`         | Ascending (oldest-first)  | No                 | Always                     | `minIdForTime(t_old)` → `maxIdForTime(t_new)`                  |
+| Reverse Timestamp | `@smonn/ids/reverse` | Descending (newest-first) | No                 | Always                     | `minIdForTime(t_new)` → `maxIdForTime(t_old)` (bounds flipped) |
+| Opaque Timestamp  | `@smonn/ids/opaque`  | None (encrypted)          | Yes (AES key)      | With key only              | None — encrypted payloads do not sort by time                  |
+| Wrapped key       | `@smonn/ids/wrapped` | None                      | Yes (wrapping key) | N/A — not timestamp-family | None                                                           |
+
 ## What this is **not** for
 
 - **Internal surrogate primary keys.** If nobody outside your service ever sees the ID, the brand prefix and lenient parsing are dead weight. Use a `bigint` sequence.
@@ -245,6 +286,12 @@ import {
   type OpaqueKey, // opaque imported handle for AES key material
   type OpaqueKeyFormat, // "hex" | "base64url"
 } from "@smonn/ids/opaque";
+
+import {
+  createReverseTimestampId, // (brand: string, opts?: ReverseTimestampOptions) => ReverseTimestampCodec<Brand>
+  type ReverseTimestampCodec, // returned by createReverseTimestampId
+  type ReverseTimestampOptions, // { now?, rng?, allowDuplicateBrand? } constructor options
+} from "@smonn/ids/reverse";
 
 import {
   createWrappedKeyId, // (brand: string, opts: { kind: "u32" | "i32" | "u64" | "i64", keys }) => WrappedKeyCodec<Brand, Kind>
@@ -355,20 +402,22 @@ const { id, lookupKey } = result; // Id<"inv">, number
 
 ### Codec methods
 
-| Method                 | `TimestampCodec<Brand>` | `OpaqueTimestampCodec<Brand>` | `WrappedKeyCodec<Brand, Kind>` | Description                                                                   |
-| ---------------------- | ----------------------- | ----------------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
-| `generate()`           | sync                    | async                         | —                              | Produce a fresh ID                                                            |
-| `generateAt(date)`     | sync                    | async                         | —                              | Produce a fresh ID with timestamp bytes from `date` (for backfills)           |
-| `wrap(lookupKey)`      | —                       | —                             | async                          | Wrap a lookup key into a public ID using the current wrapping key             |
-| `unwrap(id)`           | —                       | —                             | async                          | Verify and recover the lookup key; throws on verification failure             |
-| `safeUnwrap(input)`    | —                       | —                             | async                          | Non-throwing: structurally parse then verify; returns parse or verify error   |
-| `is(value)`            | sync                    | sync                          | sync                           | Strict type guard: `true` only for already-canonical strings                  |
-| `parse(value)`         | sync                    | sync                          | sync                           | Lenient: normalise to canonical, or throw                                     |
-| `safeParse(value)`     | sync                    | sync                          | sync                           | Lenient: normalise to canonical, or return `{ ok: false, error }`             |
-| `extractTimestamp(id)` | sync                    | async                         | —                              | Decode the creation `Date` from an `Id<Brand>` (trusts the type)              |
-| `minIdForTime(date)`   | sync                    | —                             | —                              | Tight lower bound for any ID generated at `date` (for range queries)          |
-| `maxIdForTime(date)`   | sync                    | —                             | —                              | Tight upper bound for any ID generated at `date` (for range queries)          |
-| `toJsonSchema()`       | sync                    | sync                          | sync                           | JSON Schema (`type`/`pattern`/`description`/`example`) for the canonical form |
+| Method                 | `TimestampCodec<Brand>` | `ReverseTimestampCodec<Brand>` | `OpaqueTimestampCodec<Brand>` | `WrappedKeyCodec<Brand, Kind>` | Description                                                                   |
+| ---------------------- | ----------------------- | ------------------------------ | ----------------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
+| `generate()`           | sync                    | sync                           | async                         | —                              | Produce a fresh ID                                                            |
+| `generateAt(date)`     | sync                    | sync                           | async                         | —                              | Produce a fresh ID with timestamp bytes from `date` (for backfills)           |
+| `wrap(lookupKey)`      | —                       | —                              | —                             | async                          | Wrap a lookup key into a public ID using the current wrapping key             |
+| `unwrap(id)`           | —                       | —                              | —                             | async                          | Verify and recover the lookup key; throws on verification failure             |
+| `safeUnwrap(input)`    | —                       | —                              | —                             | async                          | Non-throwing: structurally parse then verify; returns parse or verify error   |
+| `is(value)`            | sync                    | sync                           | sync                          | sync                           | Strict type guard: `true` only for already-canonical strings                  |
+| `parse(value)`         | sync                    | sync                           | sync                          | sync                           | Lenient: normalise to canonical, or throw                                     |
+| `safeParse(value)`     | sync                    | sync                           | sync                          | sync                           | Lenient: normalise to canonical, or return `{ ok: false, error }`             |
+| `extractTimestamp(id)` | sync                    | sync                           | async                         | —                              | Decode the creation `Date` from an `Id<Brand>` (trusts the type)              |
+| `minIdForTime(date)`   | sync                    | sync †                         | —                             | —                              | Tight lower bound for any ID generated at `date` (for range queries)          |
+| `maxIdForTime(date)`   | sync                    | sync †                         | —                             | —                              | Tight upper bound for any ID generated at `date` (for range queries)          |
+| `toJsonSchema()`       | sync                    | sync                           | sync                          | sync                           | JSON Schema (`type`/`pattern`/`description`/`example`) for the canonical form |
+
+† Under the Reverse Timestamp codec, a newer timestamp maps to a lexicographically smaller ID — pass `minIdForTime(t_new)` as the lower bound and `maxIdForTime(t_old)` as the upper bound for a [t_old, t_new] scan.
 
 ## ORM adapters
 
