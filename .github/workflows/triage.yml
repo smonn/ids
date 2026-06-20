@@ -24,11 +24,14 @@ jobs:
     # Loop guard: never triage issues the bot app itself opened (process 4, later).
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.issue.user.type != 'Bot' }}
     runs-on: ubuntu-latest
+    # Agent secrets (APP_ID / APP_PRIVATE_KEY / CLAUDE_CODE_OAUTH_TOKEN) live in
+    # the `automation` environment, kept separate from the `npm` publish env.
+    environment: automation
     timeout-minutes: 20
     steps:
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -46,11 +49,11 @@ jobs:
           ensure wontfix         FFFFFF "Will not be actioned"
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 24
           cache: pnpm
@@ -58,17 +61,32 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Triage the issue
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1.0.152
+        env:
+          # Fallback path for Claude's Bash; the App's built-in GitHub tools (via
+          # github_token) are the primary way it comments and labels.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
           # Sonnet keeps subscription usage modest; bump to opus if triage quality needs it.
-          claude_args: --max-turns 30 --model claude-sonnet-4-6
+          # allowedTools must cover everything the prompt asks for (repro test +
+          # pnpm test + labeling), or the run burns turns on permission denials.
+          claude_args: |
+            --max-turns 40
+            --model claude-sonnet-4-6
+            --allowedTools "Bash,Edit,Write,Read,Grep,Glob,TodoWrite"
           prompt: |
             You are the issue triage agent for `@smonn/ids`, a TypeScript library for
             encoding and decoding sortable IDs. Triage issue
             #${{ github.event.issue.number || github.event.inputs.issue_number }}
             in ${{ github.repository }}.
+
+            You interact with the issue using the `gh` CLI, which is already
+            authenticated (GH_TOKEN / GH_REPO are set). Read it with
+            `gh issue view <n> --json title,body,labels,comments`. Do NOT rely on any
+            other comment mechanism — `gh` is the only supported path here.
 
             Ground your judgment in the repo before deciding:
             - CONTEXT.md — domain glossary, codec variants, and CLOSED design decisions.
@@ -76,9 +94,9 @@ jobs:
             - docs/agents/triage-labels.md — the canonical triage label vocabulary.
             - The issue title, body, and any existing comments.
 
-            IDEMPOTENCY — check this first: if the issue already carries any of
-            `ready-for-agent`, `ready-for-human`, `wontfix`, or `needs-info`, it has
-            already been triaged. Do nothing and stop.
+            IDEMPOTENCY — check this first via `gh issue view`: if the issue already
+            carries any of `ready-for-agent`, `ready-for-human`, `wontfix`, or
+            `needs-info`, it has already been triaged. Do nothing and stop.
 
             Otherwise, triage it:
             1. Classify it as a bug or an enhancement (the templates apply `bug` /
@@ -105,9 +123,34 @@ jobs:
                                      implementable by an autonomous agent (typically internal
                                      implementation or clearly-bounded API/docs work).
 
-            Finally:
-            - Post ONE issue comment containing: the reproduction result, the acceptance
+            Finally, using `gh` (this is the actual deliverable — the job is not done
+            until these land on the issue):
+            - Post ONE issue comment with the reproduction result, the acceptance
               criteria, the scope/impact summary, and the chosen label with a one-line
-              rationale.
-            - Apply the chosen label and remove `needs-triage` if it is present.
+              rationale:
+              `gh issue comment <n> --body "..."` (use a heredoc for the multi-line body).
+            - Apply the chosen label and remove `needs-triage` if present:
+              `gh issue edit <n> --add-label "<label>" --remove-label "needs-triage"`.
+            - Verify with `gh issue view <n> --json labels,comments` that the comment and
+              label actually posted before finishing.
             - Do NOT modify code, open pull requests, or push. This is triage only.
+
+      # Catch the "hollow success" case: the agent step can exit 0 without actually
+      # writing to the issue (e.g. a 403 on the comment/label). Assert the decision
+      # label is present so such runs fail loudly instead of passing silently. The
+      # invariant also holds for already-triaged issues (the label persists).
+      - name: Verify triage landed on the issue
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+        run: |
+          labels=$(gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name')
+          echo "Labels on #$ISSUE_NUMBER:"
+          echo "$labels"
+          if echo "$labels" | grep -qxE 'ready-for-agent|ready-for-human|needs-info|wontfix'; then
+            echo "✓ Triage decision label present."
+          else
+            echo "::error::Triage produced no decision label on #$ISSUE_NUMBER (agent likely failed to write — check App permissions and the run log)."
+            exit 1
+          fi
