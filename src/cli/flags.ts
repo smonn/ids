@@ -19,7 +19,7 @@ export function splitFlags(args: ReadonlyArray<string>): ParsedFlags {
   const positionals: string[] = [];
   const errors: string[] = [];
   const seenFlags = new Set<string>();
-  const valueFlags = new Set(["--count", "-c", "--bits", "--key-format"]);
+  const valueFlags = new Set(["--count", "-c", "--bits", "--key-format", "--kind"]);
   const addFlag = (flag: string) => {
     const canonical = canonicalFlag(flag);
     if (seenFlags.has(canonical)) errors.push(`duplicate flag: ${canonical}`);
@@ -29,9 +29,9 @@ export function splitFlags(args: ReadonlyArray<string>): ParsedFlags {
   for (let i = 0; i < args.length; i++) {
     const raw = args[i]!;
     const { flag, inlineValue } = splitFlagToken(raw);
-    if (flag === "--opaque") {
+    if (flag === "--opaque" || flag === "--wrapped") {
       addFlag(flag);
-      if (inlineValue !== undefined) errors.push("flag does not take a value: --opaque");
+      if (inlineValue !== undefined) errors.push(`flag does not take a value: ${flag}`);
       continue;
     }
     if (valueFlags.has(flag)) {
@@ -65,7 +65,15 @@ function canonicalFlag(flag: string): string {
   return flag;
 }
 
-const knownFlags = new Set(["--opaque", "--key-format", "--count", "-c", "--bits"]);
+const knownFlags = new Set([
+  "--opaque",
+  "--wrapped",
+  "--kind",
+  "--key-format",
+  "--count",
+  "-c",
+  "--bits",
+]);
 
 export function unsupportedFlagForCommand(
   command: string,
@@ -102,4 +110,18 @@ export function parseBits(values: Map<string, string>): number | string {
   if (raw === "192") return 192;
   if (raw === "256") return 256;
   return `--bits must be 128, 192, or 256, got '${raw}'`;
+}
+
+export type WrappedKindValue = "u32" | "i32" | "u64" | "i64";
+
+export function parseKind(values: Map<string, string>): WrappedKindValue | string | undefined {
+  const raw = values.get("--kind");
+  if (raw === undefined) return undefined;
+  if (raw === "") return "--kind requires a value";
+  if (raw === "u32" || raw === "i32" || raw === "u64" || raw === "i64") return raw;
+  return `--kind must be u32, i32, u64, or i64, got '${raw}'`;
+}
+
+export function isKindError(result: WrappedKindValue | string): result is string {
+  return result !== "u32" && result !== "i32" && result !== "u64" && result !== "i64";
 }
