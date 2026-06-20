@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__github__issue_write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-pipeline-labels.mjs\"",
+            "statusMessage": "Checking issue labels for pipeline/triage labels"
+          }
+        ]
+      }
+    ]
+  }
+}
