@@ -145,9 +145,17 @@ jobs:
                `git commit` it alone with a clear, scoped message (one fix per commit, so
                each maps to a single hash). Make the changes faithfully. NEVER weaken,
                skip, or delete tests to satisfy a comment, and NEVER touch a CLOSED design
-               decision (CONTEXT.md, docs/adr/). If a point is unsafe, out of scope, or
-               you disagree, do NOT implement it — leave it for a thread reply in step 5.
-               Keep a map of {review comment id → commit sha, or "declined: reason"}.
+               decision (CONTEXT.md, docs/adr/). You do not have to implement every
+               point — for each one you don't, pick the honest resolution:
+                 - DISAGREE / unsafe / conflicts with a CLOSED decision: don't implement;
+                   you'll explain your reasoning on the thread in step 5.
+                 - OUT OF SCOPE but a legitimate improvement: file a follow-up issue with
+                   `gh issue create` (clear title + body linking this PR
+                   #${{ env.PR_NUMBER }} and the review thread, labelled `needs-triage`)
+                   and capture its number. Don't file for points you merely disagree with,
+                   or that are already covered by an existing issue.
+               Keep a map of {review comment id → commit sha | "declined: reason" |
+               "follow-up: #N"}.
             3. With every fix committed, re-run the full CI gate exactly as ci.yml does:
                `pnpm lint`, `pnpm depcruise`, `pnpm fmt:check`, `pnpm typecheck`,
                `pnpm test:coverage`, `pnpm build`. Everything must pass — add follow-up
@@ -161,7 +169,9 @@ jobs:
                thread citing the commit that addressed it (use the pushed short SHA):
                `gh api -X POST repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/comments/<id>/replies -f body='Fixed in <sha>: <one line on what changed>.'`
                For a point you declined, reply on its thread explaining why (no commit).
-               For feedback NOT anchored to an inline comment (a review summary or a plain
-               PR comment), post a single concise top-level reply instead.
+               For one you deferred, reply linking the follow-up issue, e.g. "Out of scope
+               for this PR — filed #N to track." For feedback NOT anchored to an inline
+               comment (a review summary or a plain PR comment), post a single concise
+               top-level reply instead.
 
             Do NOT approve or merge the PR, and do NOT push to main. A human re-reviews.
