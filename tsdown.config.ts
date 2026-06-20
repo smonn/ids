@@ -8,6 +8,7 @@ export default defineConfig({
     wrapped: "src/wrapped.ts",
     drizzle: "src/drizzle.ts",
     hono: "src/hono.ts",
+    kysely: "src/kysely.ts",
     cli: "bin/cli.ts",
   },
   dts: {

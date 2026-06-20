@@ -12,7 +12,7 @@ module.exports = {
       name: "wire-no-shell",
       severity: "error",
       from: { path: "^src/wire" },
-      to: { path: "^src/(timestamp|opaque|reverse|wrapped|drizzle|cli|registry)\\.ts$" },
+      to: { path: "^src/(timestamp|opaque|reverse|wrapped|drizzle|kysely|cli|registry)\\.ts$" },
     },
     {
       name: "drizzle-adapter-no-internals",
@@ -22,6 +22,17 @@ module.exports = {
       to: {
         path: "^src",
         pathNot: "^src/types\\.ts$",
+      },
+    },
+    {
+      name: "kysely-adapter-no-internals",
+      severity: "error",
+      comment:
+        "kysely adapter may import only types from @smonn/ids internals and the drizzle adapter",
+      from: { path: "^src/kysely\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/(types|drizzle)\\.ts$",
       },
     },
     {

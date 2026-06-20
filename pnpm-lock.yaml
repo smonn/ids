@@ -22,13 +22,16 @@ importers:
         version: 17.4.3
       drizzle-orm:
         specifier: ^0.45.2
-        version: 0.45.2
+        version: 0.45.2(kysely@0.29.2)
       hono:
         specifier: ^4.12.26
         version: 4.12.26
       knip:
         specifier: 6.16.1
         version: 6.16.1
+      kysely:
+        specifier: ^0.29.2
+        version: 0.29.2
       mitata:
         specifier: 1.0.34
         version: 1.0.34
@@ -1409,6 +1412,10 @@ packages:
     resolution: {integrity: sha512-TKMn1rxgH6h9vXR9Y0B+Cq7AdPTr9EI02IwoT65NzqYUkvoDQAaJ/aPybiFpAhZ1px6cNYYwXf86iHkBgzCo9w==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
+
+  kysely@0.29.2:
+    resolution: {integrity: sha512-s6WVJyEZrbm6jhBpiKHsGHyePMrVQKJ85wZCFCr9W4QHv6WTjWIrdvTmO9hDEA3bNK0xkrE2DqrHsXMLWuZpQg==}
+    engines: {node: '>=22.0.0'}
 
   lightningcss-android-arm64@1.32.0:
     resolution: {integrity: sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg==}
@@ -2805,7 +2812,9 @@ snapshots:
     dependencies:
       path-type: 4.0.0
 
-  drizzle-orm@0.45.2: {}
+  drizzle-orm@0.45.2(kysely@0.29.2):
+    optionalDependencies:
+      kysely: 0.29.2
 
   dts-resolver@3.0.0(oxc-resolver@11.20.0):
     optionalDependencies:
@@ -3020,6 +3029,8 @@ snapshots:
       unbash: 3.0.0
       yaml: 2.9.0
       zod: 4.4.3
+
+  kysely@0.29.2: {}
 
   lightningcss-android-arm64@1.32.0:
     optional: true

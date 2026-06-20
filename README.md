@@ -406,6 +406,46 @@ import {
 } from "@smonn/ids/drizzle";
 ```
 
+### Kysely (`@smonn/ids/kysely`)
+
+`@smonn/ids/kysely` is a subpath export that provides a Kysely column adapter bound to a codec. It requires `kysely` as a peer dependency — installing `@smonn/ids` alone does not require Kysely.
+
+```bash
+pnpm add kysely
+```
+
+```ts
+import { idColumn, type IdColumnType } from "@smonn/ids/kysely";
+import { createTimestampId } from "@smonn/ids";
+import type { Generated } from "kysely";
+
+const usr = createTimestampId("usr");
+const usrCol = idColumn(usr);
+
+// Use IdColumnType in your Database interface:
+interface Database {
+  users: { id: IdColumnType<"usr"> };
+}
+
+// Apply runtime transformation in query handlers:
+const row = await db.selectFrom("users").selectAll().executeTakeFirstOrThrow();
+const id = usrCol.fromDriver(row.id as unknown as string);
+```
+
+`idColumn(codec)` works with any codec variant — `TimestampCodec`, `OpaqueTimestampCodec`, and `WrappedKeyCodec` all satisfy the required interface.
+
+**Write path:** `Id<Brand>` is already canonical, so `toDriver` passes it to the driver unchanged.
+
+**Read path:** `fromDriver` normalises the raw DB string via `codec.safeParse()`. An unrecognised value throws at read time so corrupt data surfaces immediately rather than silently.
+
+```ts
+import {
+  idColumn, // (codec: IdColumnCodec<Brand>) => { toDriver, fromDriver }
+  type IdColumnCodec, // { safeParse(value: unknown): ParseResult<Brand> }
+  type IdColumnType, // ColumnType<Id<Brand>, Id<Brand>, Id<Brand>>
+} from "@smonn/ids/kysely";
+```
+
 ## CLI
 
 Brand-agnostic subcommands, no install required. Run `npx @smonn/ids --help` for the full flag list.
