@@ -27,6 +27,15 @@ body:
     validations:
       required: true
 
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Out of scope / non-goals
+      description: |
+        What this issue deliberately does NOT cover — especially work owned by a sibling or follow-up issue. If this is part of a split, name the issue that owns each deferred part (e.g. "the error-code table ships with #149"), so an implementer doesn't pull a follow-up's work forward.
+
+        Write `None` if the whole change lives in this one issue.
+
   - type: dropdown
     id: codec-variant
     attributes:

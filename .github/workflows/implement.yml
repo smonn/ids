@@ -136,6 +136,14 @@ jobs:
                approval steps — proceed on the acceptance criteria as the agreed spec.
                Run the suite with `pnpm test`. Hard rules that override anything:
                - NEVER weaken, delete, or skip tests just to get green.
+               - Limit doc edits (README / CONTEXT.md / ADR) to what the acceptance
+                 criteria require AND to behavior THIS PR actually implements. Do NOT
+                 copy tables, examples, or sections out of an ADR or CONTEXT.md that
+                 describe behavior a sibling/blocked issue will ship — pre-documenting
+                 unshipped behavior is a scope violation. Adding a new export to the
+                 README API-surface list is fine; documenting how it behaves is not,
+                 until the PR that ships that behavior. Respect any `Out of scope`
+                 fence in the issue.
                - NEVER touch a CLOSED design decision (brand format, payload byte
                  layout, canonical `is()`, monotonicity, custom epoch, Opaque key
                  behavior, or wire-indistinguishable codec variants). If the task
