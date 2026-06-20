@@ -1,8 +1,8 @@
 name: Sync labels
 
 # Single source of truth for the repository's pipeline labels. The triage,
-# implement, review, rebase, autofix, and unblock workflows assume these labels
-# already exist rather than each re-creating them. This runs on demand, whenever
+# implement, review, rebase, address-review, autofix, and unblock workflows assume
+# these labels already exist rather than each re-creating them. This runs on demand, whenever
 # this file changes (so edits here are applied on merge), and weekly to self-heal
 # if a label is deleted or hand-edited.
 
@@ -52,8 +52,9 @@ jobs:
           ensure wontfix         FFFFFF "Will not be actioned"
 
           # Maintainer-applied PR action labels
-          ensure needs-review    006B75 "Re-run the agent code review on this PR"
-          ensure needs-rebase    FBCA04 "Merge latest main into this agent PR and resolve conflicts"
+          ensure needs-review     006B75 "Re-run the agent code review on this PR"
+          ensure needs-rebase     FBCA04 "Merge latest main into this agent PR and resolve conflicts"
+          ensure address-feedback 5319E7 "Have the agent address the review feedback on this PR"
 
           # Escalation
           ensure needs-human     B60205 "Automated handling gave up; needs a human"

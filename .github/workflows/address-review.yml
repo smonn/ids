@@ -1,22 +1,23 @@
 name: Address PR review feedback
 
-# When a human asks for changes on an agent PR, have the agent address them.
-# Triggers on a "Changes requested" review, or an @ids-agent mention in a PR comment
-# or review comment. Only fires on HUMAN input (never the bot's own reviews/
-# comments) so it can't loop with the reviewer, and only on agent/issue-* branches.
-# The mention phrase is a project-specific, collision-proof string (not @claude) so
-# it can't accidentally ping unrelated GitHub Apps that answer to @claude.
+# Apply the `address-feedback` label to an agent PR and the agent reads the human
+# review feedback (reviews + inline review threads) and addresses it. Triggering on
+# a label — like rebase.yml and review.yml — means a maintainer reviews in the normal
+# way (inline comments, a summary review) and then applies one label to say "go act
+# on this", with no special @-mention comment required. The label is removed at the
+# start of the run so it can be re-applied to trigger again.
+#
+# Labels can only be applied by users with write access, so the trigger is implicitly
+# maintainer-gated. The job still checks out and executes the PR branch's code, so it
+# is restricted to same-repo agent/issue-* branches — a forked PR can never run
+# attacker-controlled code with our secrets.
 
 on:
-  pull_request_review:
-    types: [submitted]
-  pull_request_review_comment:
-    types: [created]
-  issue_comment:
-    types: [created]
+  pull_request:
+    types: [labeled]
 
 concurrency:
-  group: address-${{ github.event.pull_request.number || github.event.issue.number }}
+  group: address-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 permissions:
@@ -26,26 +27,23 @@ permissions:
 
 jobs:
   address:
-    # Human actor only (no bot loops), and either a changes-requested review or an
-    # explicit @ids-agent mention. The agent-branch check happens in the gate step,
-    # since issue_comment payloads don't carry the head ref.
-    # Security: this trigger is privileged (secrets + write token), and the job
-    # checks out and executes the PR branch's code. Restrict to trusted humans
-    # (author_association) here, and to same-repo agent branches in the gate step,
-    # so a forked PR cannot run attacker-controlled code with our secrets.
+    # Only the `address-feedback` label, on an OPEN same-repo agent branch.
     if: >-
-      github.actor != 'smonn[bot]' && github.event.sender.type != 'Bot' &&
-      contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association || github.event.comment.author_association) && (
-        (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested') ||
-        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@ids-agent')) ||
-        (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(github.event.comment.body, '@ids-agent'))
-      )
+      github.event.label.name == 'address-feedback' &&
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'agent/issue-')
     runs-on: ubuntu-latest
     environment: automation
     timeout-minutes: 30
     env:
-      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
-      # The reviewed commit, carried by review events (empty for issue_comment).
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      # head.ref is PR-author-controlled; only ever used through this env var in
+      # run: steps (never interpolated into a shell) so a crafted branch name can't
+      # inject. The startsWith gate above also constrains it to agent/issue-*.
+      BRANCH: ${{ github.event.pull_request.head.ref }}
+      # Pin the checkout to the commit that carried the label, not the moving branch
+      # ref, to close the TOCTOU window.
       EVENT_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Generate GitHub App token
@@ -55,51 +53,20 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Resolve PR and confirm it is an agent branch
-        id: gate
+      - name: Remove the address-feedback label (so it can be re-applied)
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-        run: |
-          info=$(gh pr view "$PR_NUMBER" --json headRefName,headRefOid,state,headRepository,headRepositoryOwner)
-          branch=$(printf '%s' "$info" | jq -r '.headRefName')
-          state=$(printf '%s' "$info" | jq -r '.state')
-          headrepo=$(printf '%s' "$info" | jq -r '.headRepositoryOwner.login + "/" + .headRepository.name')
-          # Pin the checkout to an immutable SHA, not the moving branch ref, to close
-          # the TOCTOU window. Prefer the SHA from the triggering review event; fall
-          # back to the current head for issue_comment (which carries no SHA).
-          sha="${EVENT_SHA:-$(printf '%s' "$info" | jq -r '.headRefOid')}"
-          echo "PR #$PR_NUMBER: state=$state head=$headrepo:$branch @ $sha base=$GH_REPO"
-          if [ "$state" != "OPEN" ]; then
-            echo "PR is not open; skipping."
-            echo "proceed=false" >> "$GITHUB_OUTPUT"
-          elif [ "$headrepo" != "$GH_REPO" ]; then
-            # Never check out / execute code from a fork in this privileged workflow.
-            echo "::warning::PR head is a fork ($headrepo); refusing to run on untrusted code."
-            echo "proceed=false" >> "$GITHUB_OUTPUT"
-          elif printf '%s' "$branch" | grep -q '^agent/issue-'; then
-            echo "proceed=true" >> "$GITHUB_OUTPUT"
-            echo "branch=$branch" >> "$GITHUB_OUTPUT"
-            echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          else
-            echo "Not an agent branch; skipping."
-            echo "proceed=false" >> "$GITHUB_OUTPUT"
-          fi
+        run: gh pr edit "$PR_NUMBER" --remove-label address-feedback || true
 
-      - name: Checkout the reviewed commit (pinned SHA, not the branch ref)
-        if: steps.gate.outputs.proceed == 'true'
+      - name: Checkout the labelled commit (pinned SHA, not the branch ref)
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ steps.gate.outputs.sha }}
+          ref: ${{ env.EVENT_SHA }}
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git identity and working branch
-        if: steps.gate.outputs.proceed == 'true'
-        env:
-          # Via env, not ${{ }} interpolation, so a crafted branch name can't inject
-          # shell. (headRefName is PR-author-controlled.)
-          BRANCH: ${{ steps.gate.outputs.branch }}
         run: |
           git config user.name "smonn[bot]"
           git config user.email "110314539+smonn[bot]@users.noreply.github.com"
@@ -107,19 +74,15 @@ jobs:
           git checkout -B "$BRANCH"
 
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-        if: steps.gate.outputs.proceed == 'true'
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        if: steps.gate.outputs.proceed == 'true'
         with:
           node-version: 24
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-        if: steps.gate.outputs.proceed == 'true'
 
       - name: Address the feedback
-        if: steps.gate.outputs.proceed == 'true'
         uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1.0.152
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -127,14 +90,17 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
+          # The label may be applied by a maintainer (human) or our App.
+          allowed_bots: "smonn[bot]"
           claude_args: |
             --max-turns 60
             --model claude-sonnet-4-6
             --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
           prompt: |
-            A human left review feedback on pull request #${{ env.PR_NUMBER }}
-            (branch `${{ steps.gate.outputs.branch }}`) of ${{ github.repository }}.
-            The branch is checked out, `gh` is authenticated, and git can push.
+            A human applied the `address-feedback` label to pull request
+            #${{ env.PR_NUMBER }} (branch `${{ env.BRANCH }}`) of ${{ github.repository }}
+            to ask you to address their review feedback. The branch is checked out, `gh`
+            is authenticated, and git can push.
 
             1. Read all the feedback: the PR's reviews and review threads
                (`gh pr view ${{ env.PR_NUMBER }} --json reviews,comments,title,body`,
@@ -160,10 +126,10 @@ jobs:
                `pnpm lint`, `pnpm depcruise`, `pnpm fmt:check`, `pnpm typecheck`,
                `pnpm test:coverage`, `pnpm build`. Everything must pass — add follow-up
                commits until it does.
-            4. Push to `${{ steps.gate.outputs.branch }}` with a plain `git push` — NEVER
-               force-push. If the push is rejected because the branch advanced past the
-               reviewed commit, stop and post a comment saying the branch moved and the
-               request needs a re-run, rather than forcing.
+            4. Push to `${{ env.BRANCH }}` with a plain `git push` — NEVER force-push. If
+               the push is rejected because the branch advanced past the labelled commit,
+               stop and post a comment saying the branch moved and the request needs a
+               re-run (re-apply the label), rather than forcing.
             5. Reply to the feedback IN-THREAD — do NOT post one big catch-all summary
                comment. For each inline review comment you acted on, reply on its own
                thread citing the commit that addressed it (use the pushed short SHA):

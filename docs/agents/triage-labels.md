@@ -25,6 +25,7 @@ The autonomous workflows in `.github/workflows/` use additional labels to track 
 | `needs-human`  | `rebase.yml`              | A PR's merge conflict could not be resolved automatically and needs manual attention.                                                                                                                               |
 | `needs-review` | maintainer → `review.yml` | Apply to an agent PR to re-run the automated code review. Removed automatically when the run starts.                                                                                                                |
 | `needs-rebase` | maintainer → `rebase.yml` | Apply to an agent PR to merge the latest `main` into its branch and resolve conflicts with Claude. Rebase is opt-in — there is no automatic rebase on every `main` push. Removed automatically when the run starts. |
+| `address-feedback` | maintainer → `address-review.yml` | Apply to an agent PR after leaving review feedback to have the agent read the reviews/inline threads and address them (one commit per fix), replying in-thread. Removed automatically when the run starts.            |
 
 ### Issue state machine
 

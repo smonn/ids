@@ -4,11 +4,15 @@ name: Review agent PRs
 # approval) on each agent PR when it opens. Scoped to agent/issue-* so it doesn't
 # review human PRs, and runs once on open — not on every push — to bound cost.
 #
-# Each review comment is tagged with the reviewed commit SHA. Automatic triggers
-# (opened/reopened) dedup on that tag — a commit already reviewed is skipped, so
-# reopens and redeliveries don't repost. Explicit re-review (the `needs-review`
-# label or workflow_dispatch) forces a fresh pass, replacing only that same
-# commit's review; reviews of earlier commits are left in place as history.
+# Findings that anchor to a changed line are posted as INLINE review comments on the
+# diff; the top-level summary comment carries the overview plus any findings that
+# don't map to a specific line. Both the summary comment and every inline comment are
+# tagged with the reviewed commit SHA (`<!-- code-review:SHA -->`). Automatic triggers
+# (opened/reopened) dedup on the summary comment's tag — a commit already reviewed is
+# skipped, so reopens and redeliveries don't repost. Explicit re-review (the
+# `needs-review` label or workflow_dispatch) forces a fresh pass, deleting only that
+# same commit's prior summary AND inline comments so the new pass replaces them;
+# comments on earlier commits are left in place as history.
 
 on:
   pull_request:
@@ -79,16 +83,24 @@ jobs:
           GH_REPO: ${{ github.repository }}
           HEAD_SHA: ${{ steps.sha.outputs.sha }}
         run: |
-          # Each review comment carries a hidden marker for the commit it reviewed.
-          # HEAD_SHA is a hex object id, so it's safe to splice into the jq filter.
+          # The summary comment and every inline comment carry a hidden marker for the
+          # commit reviewed. HEAD_SHA is a hex object id, so it's safe to splice into jq.
+          # Dedup keys on the top-level summary comment (issues/comments); the inline
+          # comments (pulls/comments) are only swept on a forced re-review.
           marker="<!-- code-review:${HEAD_SHA} -->"
           existing=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
             --jq ".[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$marker\"))) | .id")
           if [ "$FORCED" = "true" ]; then
-            # Explicit re-review: drop only this commit's prior review so the fresh
-            # one replaces it (other commits' reviews are left as history), then run.
+            # Explicit re-review: drop only this commit's prior summary AND inline
+            # comments so the fresh pass replaces them (other commits' comments are
+            # left as history), then run.
             for id in $existing; do
-              gh api -X DELETE "repos/$GH_REPO/issues/comments/$id" && echo "deleted prior review $id for $HEAD_SHA"
+              gh api -X DELETE "repos/$GH_REPO/issues/comments/$id" && echo "deleted prior summary $id for $HEAD_SHA"
+            done
+            inline=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER/comments" --paginate \
+              --jq ".[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$marker\"))) | .id")
+            for id in $inline; do
+              gh api -X DELETE "repos/$GH_REPO/pulls/comments/$id" && echo "deleted prior inline comment $id for $HEAD_SHA"
             done
             echo "skip=false" >> "$GITHUB_OUTPUT"
           elif [ -n "$existing" ]; then
@@ -140,24 +152,46 @@ jobs:
             about correctness, design, architecture, API surface, and naming; do NOT run
             or re-verify the static-analysis gate.
 
-            You are headless: do NOT pause for input. When the skill produces its
-            aggregated report, post it as ONE PR comment — the ONLY deliverable — via
+            You are headless: do NOT pause for input. Surface the findings in TWO
+            places — inline on the diff where a finding maps to a changed line, and a
+            single top-level summary comment for everything else.
+
+            FIRST, post inline review comments for every finding that anchors to a
+            specific changed line. Use the GitHub pulls-comments API (one call per
+            finding), pinning each to the reviewed commit:
+
+                gh api -X POST repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/comments \
+                  -f commit_id=${{ steps.sha.outputs.sha }} \
+                  -f path=<file> -F line=<line-in-the-new-file> -f side=RIGHT \
+                  -f body=$'**[Standards|Spec]** <the finding>\n\n<!-- code-review:${{ steps.sha.outputs.sha }} -->'
+
+            Only anchor to lines that are part of THIS PR's diff against origin/main — a
+            line GitHub won't accept (not in the diff) returns 422; if a finding has no
+            such line, leave it for the summary instead. End every inline body with the
+            hidden `<!-- code-review:${{ steps.sha.outputs.sha }} -->` marker (verbatim,
+            full SHA) so forced re-reviews can clean it up.
+
+            THEN post the summary as ONE top-level comment via
             `gh pr comment ${{ env.PR_NUMBER }} --body-file <file>` (use a file/heredoc
-            for the multi-line body). The comment body MUST be EXACTLY this, in order:
+            for the multi-line body). It MUST begin EXACTLY with, in order:
 
                 ## Code review (commit `${{ steps.sha.outputs.short }}`)
                 <!-- code-review:${{ steps.sha.outputs.sha }} -->
 
                 > *This was generated by AI during review.*
 
-            followed by the skill's `## Standards` and `## Spec` sections verbatim. The
-            heading line and the `<!-- code-review:... -->` marker (the full SHA, kept
-            verbatim) are how re-reviews dedup on the reviewed commit — do not alter or
-            omit them. This is a review only: never approve, request changes, merge, or
-            edit code.
+            followed by the skill's `## Standards` and `## Spec` sections — but for any
+            point you already posted inline, replace its full text with a one-line
+            pointer (e.g. "See inline comment on `src/foo.ts`") so the detail lives with
+            the code and isn't duplicated. Keep findings with no line anchor in full.
+            The heading line and the `<!-- code-review:... -->` marker (the full SHA,
+            kept verbatim) are the summary comment's dedup key — never alter or omit
+            them; the post-run verify step fails the job if the summary is missing.
+
+            This is a review only: never approve, request changes, merge, or edit code.
           # Read-only inspection plus gh/git for reading the diff and posting the
-          # report, and Task so the skill can spawn its two parallel sub-agents. No
-          # Edit/Write; the reviewer never changes code, and Bash is scoped to gh/git
+          # inline comments + summary, and Task so the skill can spawn its two parallel
+          # sub-agents. No Edit/Write; the reviewer never changes code, and Bash is scoped to gh/git
           # so it cannot run the static-analysis gate (CI owns that).
           claude_args: |
             --max-turns 40
