@@ -33,8 +33,8 @@ A timestamp-family codec variant that AES-encrypts the payload under caller-supp
 _Avoid_: Opaque codec, encrypted codec, private codec, secure codec, createOpaqueId.
 
 **Opaque key**:
-The AES key (128, 192, or 256 bits of raw bytes) that gates encryption and decryption in the Opaque Timestamp codec. Distinct from the ID **Payload** — an Opaque key is operator-supplied secret material, never embedded in an ID. `extractTimestamp` requires the same key that was used at generation time.
-_Avoid_: secret, encryption key (too generic), master key.
+An imported handle (`OpaqueKey`) that gates encryption and decryption in the Opaque Timestamp codec. Obtained via `importOpaqueKey(bytes)` from raw AES material (128, 192, or 256 bits); the underlying `CryptoKey` is held internally and never exposed. Distinct from the ID **Payload** — an Opaque key is operator-supplied secret material, never embedded in an ID. `extractTimestamp` requires the same key that was used at generation time. Parallels the **Wrapping key** handle pattern; one raw secret must not serve both codecs without an explicit import.
+_Avoid_: secret, encryption key (too generic), master key, bare `CryptoKey` (use the `OpaqueKey` handle).
 
 **Opaque key format**:
 How raw Opaque key bytes are encoded for storage or transport outside the library — `hex` (lowercase) or `base64url`. Not Crockford base32; that alphabet is reserved for ID payloads. The CLI's `keygen` emits keys in this format; `encodeOpaqueKey` / `decodeOpaqueKey` round-trip between encoded strings and raw bytes.

@@ -10,7 +10,12 @@ import {
   vi,
 } from "vitest";
 import { createTimestampId } from "./timestamp.js";
-import { createOpaqueTimestampId, importOpaqueKey, type OpaqueTimestampOptions } from "./opaque.js";
+import {
+  createOpaqueTimestampId,
+  importOpaqueKey,
+  type OpaqueKey,
+  type OpaqueTimestampOptions,
+} from "./opaque.js";
 import type { Id, JsonSchema, ParseResult } from "./types.js";
 
 describe("opaque", () => {
@@ -192,6 +197,10 @@ describe("opaque", () => {
     expectTypeOf(usr).not.toHaveProperty("maxIdForTime");
   });
 
+  it("OpaqueTimestampOptions.key is typed as OpaqueKey", () => {
+    expectTypeOf<OpaqueTimestampOptions["key"]>().toEqualTypeOf<OpaqueKey>();
+  });
+
   it("key-dependent methods are async; key-free methods are sync", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const usr = createOpaqueTimestampId("usr", { key });
@@ -237,7 +246,7 @@ describe("cross-codec brand registry", () => {
   // across tests in the same process. Distinct from the zaa-zaf range used by
   // timestamp.test.ts.
   let warnSpy: ReturnType<typeof vi.spyOn>;
-  let key: CryptoKey;
+  let key: OpaqueKey;
 
   beforeAll(async () => {
     key = await importOpaqueKey(new Uint8Array(16));

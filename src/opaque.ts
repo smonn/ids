@@ -1,17 +1,27 @@
 import { validateBrand } from "./brand.js";
 import { createOpaqueLayoutOps } from "./layouts/opaque.js";
+import { getOpaqueKeyCryptoKey, type OpaqueKey } from "./opaque-key.js";
 import { registerBrand } from "./registry.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
 
-export { decodeOpaqueKey, encodeOpaqueKey, type OpaqueKeyFormat } from "./opaque-key.js";
+export {
+  decodeOpaqueKey,
+  encodeOpaqueKey,
+  importOpaqueKey,
+  type OpaqueKey,
+  type OpaqueKeyFormat,
+} from "./opaque-key.js";
 
 /**
  * Configuration options for an Opaque Timestamp codec instance.
  */
 export type OpaqueTimestampOptions = {
-  /** AES-CBC key used for encryption and decryption. */
-  key: CryptoKey;
+  /**
+   * {@link OpaqueKey} handle for AES-CBC encryption and decryption.
+   * Obtain via {@link importOpaqueKey}.
+   */
+  key: OpaqueKey;
   /** Returns the current timestamp in milliseconds. Defaults to `Date.now`. */
   now?: () => number;
   /** Writes random bytes into `target` for ID generation. Defaults to `crypto.getRandomValues`. */
@@ -61,22 +71,11 @@ function defaultRng(target: Uint8Array): void {
 }
 
 /**
- * Imports a raw AES key for use with the Opaque Timestamp codec.
- *
- * @param bytes - Raw key bytes (16, 24, or 32 bytes for AES-128/192/256).
- */
-export function importOpaqueKey(bytes: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", bytes as Uint8Array<ArrayBuffer>, "AES-CBC", false, [
-    "encrypt",
-    "decrypt",
-  ]);
-}
-
-/**
  * Creates an Opaque Timestamp codec for `brand` (three lowercase a–z characters).
  *
  * @param brand - Entity type brand validated once at construction.
- * @param opts - Required `key` plus optional `now`, `rng`, and `allowDuplicateBrand` overrides.
+ * @param opts - Required `key` (an {@link OpaqueKey} from {@link importOpaqueKey}) plus
+ *   optional `now`, `rng`, and `allowDuplicateBrand` overrides.
  */
 export function createOpaqueTimestampId<Brand extends string>(
   brand: Brand,
@@ -85,12 +84,12 @@ export function createOpaqueTimestampId<Brand extends string>(
   validateBrand(brand);
   registerBrand(brand, opts.allowDuplicateBrand);
 
-  const key = opts.key;
+  const cryptoKey = getOpaqueKeyCryptoKey(opts.key);
   const now = opts.now ?? Date.now;
   const rng = opts.rng ?? defaultRng;
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);
-  const layout = createOpaqueLayoutOps(prefix, key, rng);
+  const layout = createOpaqueLayoutOps(prefix, cryptoKey, rng);
 
   return {
     generate: () => layout.generateAt(now()),
