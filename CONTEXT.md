@@ -17,11 +17,11 @@ The brand-scoped object that generates, parses, and validates IDs for one entity
 _Avoid_: factory, generator, encoder.
 
 **Codec variant**:
-A concrete codec algorithm sharing the same wire shape (`<brand>_` + 26 Crockford base32 chars) but differing in byte layout and capabilities. Shipped today: the **Timestamp codec**, **Opaque Timestamp codec**, and **Wrapped key codec** — see [ADR-0009](./docs/adr/0009-wrapped-key-compact-construction.md). Each variant is a separate subpath export — see [ADR-0005](./docs/adr/0005-codec-variant-subpath-exports.md).
+A concrete codec algorithm sharing the same wire shape (`<brand>_` + 26 Crockford base32 chars) but differing in byte layout and capabilities. Shipped today: the **Timestamp codec**, **Opaque Timestamp codec**, **Reverse Timestamp codec**, and **Wrapped key codec** — see [ADR-0009](./docs/adr/0009-wrapped-key-compact-construction.md). Each variant is a separate subpath export — see [ADR-0005](./docs/adr/0005-codec-variant-subpath-exports.md).
 _Avoid_: default codec (use **Timestamp codec** for the dominant variant), trust mode, algorithm.
 
 **Timestamp-family codec**:
-A codec variant whose payload represents an ID creation timestamp, either readable directly or recoverable only under key. Current members are the **Timestamp codec** and **Opaque Timestamp codec**; future members may include a **Signed Timestamp codec** or **Reverse Timestamp codec**.
+A codec variant whose payload represents an ID creation timestamp, either readable directly or recoverable only under key. Current members are the **Timestamp codec**, **Opaque Timestamp codec**, and **Reverse Timestamp codec**; future members may include a **Signed Timestamp codec**.
 _Avoid_: timestamp layout (use **Timestamp byte layout** for the plaintext byte split), time codec, chronological codec.
 
 **Timestamp codec**:
@@ -31,6 +31,10 @@ _Avoid_: default codec, standard codec, ULID codec, createId.
 **Opaque Timestamp codec**:
 A timestamp-family codec variant that AES-encrypts the payload under caller-supplied **Opaque key** material. Same wire shape as the Timestamp codec, but the timestamp is not readable from the ID without the key. `generate` and `extractTimestamp` are key-dependent; parsing methods work on the wire form only — see [ADR-0006](./docs/adr/0006-async-keyed-codec-contract.md). No time-range bound methods (`minIdForTime` / `maxIdForTime`) — encrypted payloads do not sort by creation time. Constructed via `createOpaqueTimestampId(brand, { key })`.
 _Avoid_: Opaque codec, encrypted codec, private codec, secure codec, createOpaqueId.
+
+**Reverse Timestamp codec**:
+A timestamp-family codec variant whose 48-bit timestamp field is bitwise-inverted before encoding (`~ts & 0xFFFFFFFFFFFF`), so IDs sort in **descending** (newest-first) lexicographic order. `extractTimestamp` inverts the timestamp bytes back to recover the original millisecond. No key material required — the inversion is a deterministic byte transform; `generate` and `extractTimestamp` are fully synchronous. Provides `minIdForTime` / `maxIdForTime` with reversed bound semantics: a newer timestamp maps to a smaller ID, so a time-range scan over [t_old, t_new] uses `minIdForTime(t_new)` as the lower bound and `maxIdForTime(t_old)` as the upper bound. Constructed via `createReverseTimestampId(brand)` from `@smonn/ids/reverse`. See [ADR-0010](./docs/adr/0010-reverse-timestamp-inversion.md).
+_Avoid_: descending codec, inverted codec, reverse-sort codec, createDescendingId.
 
 **Opaque key**:
 An imported handle (`OpaqueKey`) that gates encryption and decryption in the Opaque Timestamp codec. Obtained via `importOpaqueKey(bytes)` from raw AES material (128, 192, or 256 bits); the underlying `CryptoKey` is held internally and never exposed. Distinct from the ID **Payload** — an Opaque key is operator-supplied secret material, never embedded in an ID. `extractTimestamp` requires the same key that was used at generation time. Parallels the **Wrapping key** handle pattern; one raw secret must not serve both codecs without an explicit import.

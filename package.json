@@ -17,6 +17,7 @@
   "exports": {
     ".": "./dist/index.mjs",
     "./opaque": "./dist/opaque.mjs",
+    "./reverse": "./dist/reverse.mjs",
     "./wrapped": "./dist/wrapped.mjs",
     "./hono": "./dist/hono.mjs",
     "./package.json": "./package.json"
