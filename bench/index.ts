@@ -48,11 +48,12 @@ type Bench = {
 const results: Bench[] = [];
 
 // Pin sample counts. Mitata batches ops under ~65µs (every op here), so each
-// "sample" is the mean of 4096 individual calls — 1000 batch-means already
-// gives very stable percentiles for compare.ts's 15% regression threshold.
-// Going higher hits a wall: 10k × 4096 × ~30µs = ~20 min for the slow async
-// ops. Raise only if comparison shows false-positive noise above the threshold.
-const measureOpts = { min_samples: 1000, max_samples: 1000 } as const;
+// "sample" is the mean of 4096 individual calls. 2000 batch-means tightens the
+// percentile noise on the jittery µs-scale opaque.* ops (which dominate variance)
+// without the wall higher counts hit: 10k × 4096 × ~30µs ≈ 20 min for the slow
+// async ops. Pair this with compare.ts's tiered thresholds; raise further only if
+// the opaque.* noise floor still trips the blocking threshold.
+const measureOpts = { min_samples: 2000, max_samples: 2000 } as const;
 
 for (const c of cases) {
   const stats = await measure(function* () {
