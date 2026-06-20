@@ -1,0 +1,59 @@
+name: Sync labels
+
+# Single source of truth for the repository's pipeline labels. The triage,
+# implement, review, rebase, autofix, and unblock workflows assume these labels
+# already exist rather than each re-creating them. This runs on demand, whenever
+# this file changes (so edits here are applied on merge), and weekly to self-heal
+# if a label is deleted or hand-edited.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/labels.yml
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+
+concurrency:
+  group: sync-labels
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    environment: automation
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Ensure all pipeline labels exist
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # --force creates the label or updates its color/description in place.
+          ensure() { gh label create "$1" --color "$2" --description "$3" --force >/dev/null 2>&1 || true; }
+
+          # Issue state (triage → implementation)
+          ensure needs-triage    FBCA04 "Maintainer needs to evaluate this issue"
+          ensure needs-info      D93F0B "Waiting on reporter for more information"
+          ensure ready-for-agent 0E8A16 "Fully specified, ready for an AFK agent"
+          ensure ready-for-human 1D76DB "Requires human implementation"
+          ensure in-progress     5319E7 "An agent is implementing this issue"
+          ensure blocked         B60205 "Waiting on another issue to close first"
+          ensure wontfix         FFFFFF "Will not be actioned"
+
+          # Maintainer-applied PR action labels
+          ensure needs-review    006B75 "Re-run the agent code review on this PR"
+          ensure needs-rebase    FBCA04 "Merge latest main into this agent PR and resolve conflicts"
+
+          # Escalation
+          ensure needs-human     B60205 "Automated handling gave up; needs a human"

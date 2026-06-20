@@ -45,12 +45,6 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Ensure needs-human label exists
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-        run: gh label create needs-human --color B60205 --description "Automated handling gave up; needs a human" --force >/dev/null 2>&1 || true
-
       - name: Checkout the agent branch
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
