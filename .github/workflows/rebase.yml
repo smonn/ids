@@ -87,39 +87,40 @@ jobs:
           github_token: ${{ steps.app-token.outputs.token }}
           # The label may be applied by a maintainer (human) or our App.
           allowed_bots: "smonn[bot]"
+          # The conflict-resolution methodology lives in the project
+          # `resolving-merge-conflicts` skill (.claude/skills/resolving-merge-conflicts),
+          # invoked via `/resolving-merge-conflicts`; this prompt supplies only the
+          # merge command, the repo's exact CI gate, and the escalation guardrails.
           claude_args: |
             --max-turns 60
             --model claude-sonnet-4-6
             --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
           prompt: |
+            /resolving-merge-conflicts
+
             You are bringing PR #${{ env.PR_NUMBER }} of ${{ github.repository }} up to
             date with `main`. The PR branch `${{ env.BRANCH }}` is checked out; an
-            authenticated `gh` CLI and a push-capable git remote are available.
+            authenticated `gh` CLI and a push-capable git remote are available. Use the
+            `resolving-merge-conflicts` skill (invoked above) for the methodology —
+            preserve both intents faithfully, never `--abort`, never weaken or delete
+            tests — with these repo specifics:
 
-            Goal: merge the latest `main` into this branch so it merges cleanly, WITHOUT
-            losing either the PR's intended change or the upstream changes.
-
-            1. Read the PR to understand its intent:
-               `gh pr view ${{ env.PR_NUMBER }} --json title,body`.
-            2. `git fetch origin main`, then `git merge origin/main`. If `main` is
-               already an ancestor (nothing to merge), there is nothing to do — say so
-               and stop without pushing.
-            3. Resolve every conflict faithfully: keep the PR's contribution AND
-               integrate the upstream changes — never discard one side wholesale, and
-               never weaken or delete tests to make it merge.
-            4. Make the FULL CI gate pass exactly as ci.yml runs it (use `pnpm lint:fix`
-               / `pnpm fmt` to auto-resolve): `pnpm lint` && `pnpm depcruise` &&
-               `pnpm fmt:check` && `pnpm typecheck` && `pnpm test:coverage` &&
-               `pnpm build`. All must pass.
-            5. Commit the merge (keep the merge commit; do not force-push or rebase
-               history) and push to `${{ env.BRANCH }}`.
-            6. If the conflict cannot be resolved safely — e.g. main has changed the
-               feature out from under this PR, or resolving would require reopening a
-               CLOSED design decision — STOP: do NOT push, post a PR comment explaining
-               the situation, and add the `needs-human` label with
-               `gh pr edit ${{ env.PR_NUMBER }} --add-label needs-human`.
-
-            Do NOT modify any branch other than `${{ env.BRANCH }}`, and do NOT push to main.
+            - START the merge: read the PR intent (`gh pr view ${{ env.PR_NUMBER }}
+              --json title,body`), then `git fetch origin main` and `git merge
+              origin/main`. If `main` is already an ancestor (nothing to merge), there
+              is nothing to do — say so and STOP without pushing.
+            - The skill's "automated checks" step IS the full CI gate, run exactly as
+              ci.yml does (use `pnpm lint:fix` / `pnpm fmt` to auto-resolve): `pnpm
+              lint` && `pnpm depcruise` && `pnpm fmt:check` && `pnpm typecheck` &&
+              `pnpm test:coverage` && `pnpm build`. All must pass.
+            - FINISH by committing the merge (keep the merge commit; do NOT force-push
+              or rebase history) and pushing to `${{ env.BRANCH }}`. Do NOT modify any
+              other branch, and do NOT push to main.
+            - ESCALATE instead of forcing it: if the conflict cannot be resolved safely
+              — main changed the feature out from under this PR, or resolving would
+              require reopening a CLOSED design decision — do NOT push; post a PR
+              comment explaining the situation and run `gh pr edit
+              ${{ env.PR_NUMBER }} --add-label needs-human`.
 
       - name: Verify the branch is no longer conflicting
         env:

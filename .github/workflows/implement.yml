@@ -98,17 +98,22 @@ jobs:
           # only our own App (never '*' — on a public repo that lets external Apps
           # invoke Claude with prompts they control).
           allowed_bots: "smonn[bot]"
-          # Implementation is turn-heavy (TDD + full CI gate). Sonnet keeps
-          # subscription usage in check; bump to opus if quality needs it.
+          # The red/green methodology lives in the project `tdd` skill
+          # (.claude/skills/tdd), invoked via `/tdd` in the prompt; `Skill` is in
+          # allowedTools so it can chain to `/codebase-design`. This prompt keeps only
+          # the repo-specific scaffolding the skill doesn't carry (branch naming, the
+          # full CI gate, changesets, PR creation, issue-state transition, escalation).
+          # Implementation is turn-heavy; Sonnet keeps subscription usage in check,
+          # bump to opus if quality needs it.
           claude_args: |
             --max-turns 80
             --model claude-sonnet-4-6
-            --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
+            --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
           prompt: |
             You are the implementation agent for `@smonn/ids`, a TypeScript library
-            for encoding and decoding sortable IDs. Implement the work specified by
-            issue #${{ env.ISSUE_NUMBER }} in ${{ github.repository }}, which has been
-            triaged `ready-for-agent`.
+            for encoding and decoding sortable IDs, running headless in CI. Implement
+            the work specified by issue #${{ env.ISSUE_NUMBER }} in
+            ${{ github.repository }}, which has been triaged `ready-for-agent`.
 
             An authenticated `gh` CLI is available (GH_TOKEN / GH_REPO are set), and
             git is authenticated to push to this repository. The default branch `main`
@@ -122,18 +127,19 @@ jobs:
                CONTRIBUTING.md, and the relevant files under src/.
             3. Create a branch named EXACTLY `agent/issue-${{ env.ISSUE_NUMBER }}` off
                the current main.
-            4. Implement using red/green TDD:
-               - First write failing test(s) in the appropriate `*.test.ts` that
-                 encode the acceptance criteria. Run `pnpm test` and confirm they fail
-                 (red).
-               - Then make the minimal change to pass them. Run `pnpm test` (green).
-               - NEVER weaken, delete, or skip tests just to get green. NEVER touch a
-                 CLOSED design decision (brand format, payload byte layout, canonical
-                 `is()`, monotonicity, custom epoch, Opaque key behavior, or
-                 wire-indistinguishable codec variants). If the task genuinely requires
-                 reopening one, STOP: comment on the issue explaining why, run
-                 `gh issue edit ${{ env.ISSUE_NUMBER }} --add-label ready-for-human
-                 --remove-label ready-for-agent`, and do NOT open a PR.
+            4. Implement the acceptance criteria using the repo's `tdd` skill — invoke
+               it with `/tdd`. It owns the red→green→refactor loop (vertical slices,
+               one failing test → minimal code → repeat) and the testing standards.
+               Because you are headless, do NOT pause for the skill's interactive
+               approval steps — proceed on the acceptance criteria as the agreed spec.
+               Run the suite with `pnpm test`. Hard rules that override anything:
+               - NEVER weaken, delete, or skip tests just to get green.
+               - NEVER touch a CLOSED design decision (brand format, payload byte
+                 layout, canonical `is()`, monotonicity, custom epoch, Opaque key
+                 behavior, or wire-indistinguishable codec variants). If the task
+                 genuinely requires reopening one, STOP: comment on the issue
+                 explaining why, run `gh issue edit ${{ env.ISSUE_NUMBER }} --add-label
+                 ready-for-human --remove-label ready-for-agent`, and do NOT open a PR.
             5. Make the FULL CI gate pass locally before opening a PR, exactly as
                ci.yml runs it (use `pnpm lint:fix` / `pnpm fmt` to auto-resolve):
                `pnpm lint` && `pnpm depcruise` && `pnpm fmt:check` && `pnpm typecheck`

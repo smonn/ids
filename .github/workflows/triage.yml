@@ -67,81 +67,55 @@ jobs:
           # Triage can be re-dispatched by the App when an issue becomes unblocked,
           # making the actor a bot. Allow only our own App (never '*').
           allowed_bots: "smonn[bot]"
-          # Sonnet keeps subscription usage modest; bump to opus if triage quality needs it.
-          # allowedTools must cover everything the prompt asks for (repro test +
-          # pnpm test + labeling), or the run burns turns on permission denials.
+          # The methodology lives in the project `triage` skill (.claude/skills/triage),
+          # invoked via the `/triage` slash command below; this prompt only supplies
+          # repo identity, the CI (non-interactive) overrides, and the repo-specific
+          # guardrails the skill doesn't carry. Sonnet keeps subscription usage modest;
+          # bump to opus if triage quality needs it. allowedTools must cover the skill's
+          # repro test + pnpm test + gh labeling.
           claude_args: |
             --max-turns 40
             --model claude-sonnet-4-6
             --allowedTools "Bash,Edit,Write,Read,Grep,Glob,TodoWrite"
           prompt: |
-            You are the issue triage agent for `@smonn/ids`, a TypeScript library for
-            encoding and decoding sortable IDs. Triage issue
-            #${{ github.event.issue.number || github.event.inputs.issue_number }}
-            in ${{ github.repository }}.
+            /triage #${{ github.event.issue.number || github.event.inputs.issue_number }}
 
-            You interact with the issue using the `gh` CLI, which is already
-            authenticated (GH_TOKEN / GH_REPO are set). Read it with
-            `gh issue view <n> --json title,body,labels,comments`. Do NOT rely on any
-            other comment mechanism — `gh` is the only supported path here.
+            Run the repo's `triage` skill (invoked above) to triage this issue in
+            ${{ github.repository }} — `@smonn/ids`, a TypeScript library for encoding
+            and decoding sortable IDs. The skill owns the methodology: classification,
+            reproduction, acceptance criteria, scoping, and the label/state model (the
+            label vocabulary is in docs/agents/triage-labels.md). Apply these repo and
+            CI overrides on top of it:
 
-            Ground your judgment in the repo before deciding:
-            - CONTEXT.md — domain glossary, codec variants, and CLOSED design decisions.
-            - docs/adr/ — architecture decision records; some decisions are CLOSED.
-            - docs/agents/triage-labels.md — the canonical triage label vocabulary.
-            - The issue title, body, and any existing comments.
+            - NON-INTERACTIVE: you are running headless in CI — there is NO maintainer
+              to converse with. Skip the skill's interactive steps (recommend-and-wait,
+              the `/grilling` and `/domain-modeling` sessions). Make the call yourself
+              and apply exactly ONE state label. `gh` is the ONLY way you read or write
+              the issue (GH_TOKEN / GH_REPO are set, already authenticated); read with
+              `gh issue view <n> --json title,body,labels,comments`.
+            - GROUND your judgment first in: CONTEXT.md (domain glossary + CLOSED design
+              decisions), docs/adr/, docs/agents/triage-labels.md, and the issue itself.
+            - IDEMPOTENCY (check FIRST): if the issue already carries any of
+              `ready-for-agent`, `ready-for-human`, `wontfix`, `needs-info`, or
+              `blocked`, it has already been triaged — do nothing and stop.
+            - BLOCKERS (check NEXT): scan the body and comments for `Blocked by #N`,
+              `Depends on #N`, or `Requires #N`. For each, `gh issue view <N> --json
+              state,title`. If ANY is still OPEN, post ONE comment listing the open
+              blockers, run `gh issue edit <n> --add-label blocked --remove-label
+              needs-triage`, and STOP. (unblock.yml re-triages when the blocker closes.)
+            - CLOSED DECISIONS: if the request reopens a CLOSED decision (brand format,
+              payload byte layout, canonical `is()`, monotonicity, custom epoch, Opaque
+              key behavior, or wire-indistinguishable codec variants) with no compelling
+              new argument → `wontfix`; if it has genuine merit → `ready-for-human`.
+            - For bugs, reproduce with a minimal failing test and `pnpm test`, then
+              DELETE the temp test — commit nothing, leave no repro files. Triage ONLY:
+              do not modify code, open PRs, or push.
 
-            IDEMPOTENCY — check this first via `gh issue view`: if the issue already
-            carries any of `ready-for-agent`, `ready-for-human`, `wontfix`,
-            `needs-info`, or `blocked`, it has already been triaged. Do nothing and stop.
-
-            BLOCKERS — check this next: scan the issue body and comments for
-            dependency references like `Blocked by #N`, `Depends on #N`, or
-            `Requires #N`. For each referenced issue, check its state with
-            `gh issue view <N> --json state,title`. If ANY referenced blocker is still
-            OPEN, this issue is blocked: post ONE comment listing the open blockers,
-            apply the `blocked` label and remove `needs-triage`
-            (`gh issue edit <n> --add-label blocked --remove-label needs-triage`), and
-            STOP. Do not assign any other label. (When the blocker closes, the unblock
-            workflow re-triages this issue automatically.) Only continue below when
-            every referenced blocker is already closed, or there are none.
-
-            Otherwise, triage it:
-            1. Classify it as a bug or an enhancement (the templates apply `bug` /
-               `enhancement` labels as a hint).
-            2. For bugs, attempt to REPRODUCE: write a minimal failing test (e.g.
-               `src/<area>.repro.test.ts`), run `pnpm test`, and confirm whether it
-               fails as reported. Then delete the temp test — do NOT commit anything or
-               leave repro files behind. Report clearly whether reproduction succeeded.
-            3. Define ACCEPTANCE CRITERIA: a concrete, testable checklist of what "done"
-               means.
-            4. Scope it: list the files/areas likely affected and the API / wire format /
-               CLI / docs / ADR impact. Explicitly flag if it touches a CLOSED decision
-               (brand format, payload byte layout, canonical `is()`, monotonicity, custom
-               epoch, Opaque key behavior, or wire-indistinguishable codec variants).
-            5. Choose exactly ONE triage label:
-               - `needs-info`      — underspecified; you cannot reproduce or scope it.
-                                     List precisely what information is missing.
-               - `wontfix`         — reopens a closed decision without a compelling new
-                                     argument, or is clearly out of scope.
-               - `ready-for-human` — needs human judgment: design/architecture calls,
-                                     reopening a closed decision that has merit, or any
-                                     wire-format / ADR / breaking change a maintainer must own.
-               - `ready-for-agent` — fully specified, reproducible (if a bug), and safely
-                                     implementable by an autonomous agent (typically internal
-                                     implementation or clearly-bounded API/docs work).
-
-            Finally, using `gh` (this is the actual deliverable — the job is not done
-            until these land on the issue):
-            - Post ONE issue comment with the reproduction result, the acceptance
-              criteria, the scope/impact summary, and the chosen label with a one-line
-              rationale:
-              `gh issue comment <n> --body "..."` (use a heredoc for the multi-line body).
-            - Apply the chosen label and remove `needs-triage` if present:
-              `gh issue edit <n> --add-label "<label>" --remove-label "needs-triage"`.
-            - Verify with `gh issue view <n> --json labels,comments` that the comment and
-              label actually posted before finishing.
-            - Do NOT modify code, open pull requests, or push. This is triage only.
+            DELIVERABLE — the job is not done until these land on the issue (verify with
+            `gh issue view <n> --json labels,comments`):
+            - ONE issue comment (heredoc body) with the reproduction result, acceptance
+              criteria, scope/impact summary, and the chosen label + one-line rationale.
+            - `gh issue edit <n> --add-label "<label>" --remove-label "needs-triage"`.
 
       # Catch the "hollow success" case: the agent step can exit 0 without actually
       # writing to the issue (e.g. a 403 on the comment/label). Assert the decision
