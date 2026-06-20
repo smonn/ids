@@ -178,18 +178,87 @@ import { createTimestampId } from "@smonn/ids";
 
 const usr = createTimestampId("usr");
 
+// Default: throws HTTPException → app.onError handles rendering (HTML, JSON, problem+json, …)
 app.get("/users/:id", idParam("id", usr), (c) => {
   const id = c.get("id"); // Id<"usr">, canonical
   // …
 });
+
+// Override: consumer fully owns the error response
+app.get(
+  "/orgs/:id",
+  idParam("id", org, {
+    onError: (failure, c) => c.json({ error: failure.reason }, failure.status),
+  }),
+  handler,
+);
+
+// Or a lightweight status remap without a full handler
+app.get("/things/:id", idParam("id", thing, { status: { brand_mismatch: 400 } }), handler);
 ```
 
-**400 vs 404 contract:**
+**Default error-channel behavior:** on failure the adapter throws `HTTPException(status)` — it does **not** write a response body itself. This lets the app's existing `app.onError` handler control content negotiation (HTML, JSON, problem+json, redirect, etc.) exactly as it would for any other error.
 
-- **Brand mismatch (`invalid_prefix`) → 404.** The resource cannot exist under this route — a `usr_` ID makes no sense on `/orders/:id`. Use 404, not 400, to communicate that the combination of route and ID kind is meaningless.
-- **Malformed or missing ID (`invalid_base32` or `not_string`) → 400.** The ID is absent or unreadable — a bad request, not a missing resource.
+**`options.onError`:** when provided, the hook owns the response entirely — the adapter neither throws nor writes anything.
+
+**`options.status`:** remaps the default HTTP status for a failure reason without requiring a full handler.
+
+**400 vs 404 defaults:**
+
+- **Brand mismatch (`invalid_prefix`) → `reason: "brand_mismatch"`, status 404.** The resource cannot exist under this route — a `usr_` ID makes no sense on `/orders/:id`.
+- **Malformed or missing ID (`invalid_base32` or `not_string`) → `reason: "malformed"`, status 400.** The ID is absent or unreadable — a bad request, not a missing resource.
 
 `idParam` calls `safeParse` at the boundary (lenient: accepts mixed case and Crockford aliases), so the handler always receives a canonical, normalized `Id<Brand>` — never the raw URL string. Works with any codec variant's structural `safeParse`.
+
+### "Validate a route param in Express"
+
+`@smonn/ids/express` provides the same `idParam` factory for Express. Express is an **optional peer dependency**; install it separately alongside `@smonn/ids`.
+
+```bash
+pnpm add express
+```
+
+```ts
+import { idParam, IdParamError } from "@smonn/ids/express";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+// Default: calls next(err) with an IdParamError → app error-handling middleware renders it
+app.get("/users/:id", idParam("id", usr), (req, res) => {
+  const id = res.locals.id; // Id<"usr">, canonical
+  // …
+});
+
+// Error-handling middleware receives the typed error
+app.use((err, req, res, next) => {
+  if (err instanceof IdParamError) {
+    res.status(err.status).json({ error: err.reason });
+    return;
+  }
+  next(err);
+});
+
+// Override: consumer fully owns the error response
+app.get(
+  "/orgs/:id",
+  idParam("id", org, {
+    onError: (failure, req, res) => res.status(failure.status).json({ error: failure.reason }),
+  }),
+  handler,
+);
+
+// Or a lightweight status remap without a full handler
+app.get("/things/:id", idParam("id", thing, { status: { brand_mismatch: 400 } }), handler);
+```
+
+**Default error-channel behavior:** on failure the adapter calls `next(err)` with an `IdParamError` carrying `status` and `reason` — it does **not** write a response body itself. This lets the app's existing error-handling middleware control rendering exactly as it would for any other error.
+
+**`options.onError`:** when provided, the hook owns the response entirely — the adapter does not call `next(err)`.
+
+**`options.status`:** remaps the default HTTP status for a failure reason without requiring a full handler.
+
+The 400 vs 404 defaults are identical to the Hono adapter: `reason: "brand_mismatch"` → 404, `reason: "malformed"` → 400. The canonical `Id<Brand>` is stored in `res.locals` under `paramName` and available to downstream handlers.
 
 ### "Don't leak creation time in IDs that customers can see"
 
@@ -262,8 +331,17 @@ import {
 } from "@smonn/ids/drizzle";
 
 import {
-  idParam, // (paramName: string, codec) => Hono MiddlewareHandler — validates route param, 404 on brand mismatch, 400 on malformed
+  idParam, // (paramName: string, codec, options?) => Hono MiddlewareHandler — throws HTTPException by default; onError/status options override
+  type IdParamFailure, // { reason: "brand_mismatch" | "malformed"; status: number }
+  type IdParamOptions, // { onError?, status? }
 } from "@smonn/ids/hono";
+
+import {
+  idParam, // (paramName: string, codec, options?) => Express middleware — calls next(err) with IdParamError by default; onError/status options override
+  IdParamError, // Error subclass with .reason and .status — forwarded via next(err) by default
+  type IdParamFailure, // { reason: "brand_mismatch" | "malformed"; status: number }
+  type IdParamOptions, // { onError?, status? }
+} from "@smonn/ids/express";
 ```
 
 `@smonn/ids/wrapped` ships the Wrapped key codec for `u32`, `i32`, `u64`, and `i64` lookup keys. `wrap(lookupKey)` returns a public ID; `unwrap(id)` verifies the payload and returns the lookup key; `safeUnwrap(input)` is the non-throwing path for untrusted input.
