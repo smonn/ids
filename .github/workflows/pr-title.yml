@@ -2,7 +2,10 @@ name: PR title
 
 on:
   pull_request:
-    types: [opened, edited, reopened]
+    # `synchronize` re-runs the check on every pushed commit so the result is
+    # present on the head SHA — required for this to work as a branch-protection
+    # required check.
+    types: [opened, edited, reopened, synchronize]
 
 permissions:
   contents: read
