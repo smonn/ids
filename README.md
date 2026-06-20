@@ -550,7 +550,6 @@ pnpm add kysely
 ```ts
 import { idColumn, type IdColumnType } from "@smonn/ids/kysely";
 import { createTimestampId } from "@smonn/ids";
-import type { Generated } from "kysely";
 
 const usr = createTimestampId("usr");
 const usrCol = idColumn(usr);
