@@ -1,4 +1,5 @@
 import { encodeOpaqueKey } from "../../opaque.js";
+import { encodeWrappingKey } from "../../wrapped.js";
 import { parseBits, splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, parseKeygenFormat } from "../opaque-key.js";
 import type { RunOpts } from "../types.js";
@@ -8,7 +9,7 @@ export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<n
   const unsupported = unsupportedFlagForCommand(
     "keygen",
     flags,
-    new Set(["--bits", "--key-format"]),
+    new Set(["--wrapped", "--bits", "--key-format"]),
   );
   if (unsupported !== undefined) {
     opts.stderr(unsupported + "\n");
@@ -35,6 +36,7 @@ export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<n
   }
   const bytes = new Uint8Array(bits / 8);
   crypto.getRandomValues(bytes);
-  opts.stdout(encodeOpaqueKey(bytes, format) + "\n");
+  const wrapped = flags.has("--wrapped");
+  opts.stdout((wrapped ? encodeWrappingKey(bytes, format) : encodeOpaqueKey(bytes, format)) + "\n");
   return Promise.resolve(0);
 }
