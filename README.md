@@ -378,6 +378,12 @@ import {
 } from "@smonn/ids/drizzle";
 
 import {
+  idField, // (codec: IdColumnCodec<Brand>) => IdTransform<Brand> — read/write transforms for Prisma $extends
+  type IdColumnCodec, // { safeParse(value: unknown): ParseResult<Brand> }
+  type IdTransform, // { read(value: unknown): Id<Brand>; write(value: Id<Brand>): string }
+} from "@smonn/ids/prisma";
+
+import {
   idParam, // (paramName: string, codec, options?) => Hono MiddlewareHandler — throws HTTPException by default; onError/status options override
   type IdParamFailure, // { reason: "brand_mismatch" | "malformed"; status: number }
   type IdParamOptions, // { onError?, status? }
@@ -571,6 +577,59 @@ import {
   type IdColumnCodec, // { safeParse(value: unknown): ParseResult<Brand> }
   type IdColumnType, // ColumnType<Id<Brand>, Id<Brand>, Id<Brand>>
 } from "@smonn/ids/kysely";
+```
+
+### Prisma (`@smonn/ids/prisma`)
+
+`@smonn/ids/prisma` is a subpath export that provides a read/write transform pair for integrating `Id<Brand>` with Prisma's `$extends` extension model. It requires `@prisma/client` as a peer dependency — installing `@smonn/ids` alone does not require Prisma.
+
+```bash
+pnpm add @prisma/client
+```
+
+```ts
+import { idField } from "@smonn/ids/prisma";
+import { createTimestampId } from "@smonn/ids";
+import type { Id } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+const userIdField = idField(usr);
+
+const xprisma = prisma.$extends({
+  result: {
+    user: {
+      id: {
+        needs: { id: true },
+        compute(user) {
+          // Cast required — see Prisma caveat below
+          return userIdField.read(user.id) as Id<"usr">;
+        },
+      },
+    },
+  },
+});
+
+// Write path: Id<Brand> is already canonical — pass it directly
+await xprisma.user.create({ data: { id: userIdField.write(usr.generate()), name: "Alice" } });
+
+// Read path: validated and typed as Id<"usr"> (with cast)
+const user = await xprisma.user.findFirstOrThrow();
+```
+
+`idField(codec)` works with any codec variant — `TimestampCodec`, `OpaqueTimestampCodec`, `ReverseTimestampCodec`, and `WrappedKeyCodec` all satisfy the required interface.
+
+**Write path:** `Id<Brand>` is already canonical, so `write` is an identity function — it returns the string unchanged.
+
+**Read path:** values from the database are normalised via `codec.safeParse()` rather than the strict `is()` check. Data at rest should already be canonical per [ADR-0003](./docs/adr/0003-canonical-strict-is.md), but `safeParse` is a safe boundary in case stale non-canonical values exist. An unrecognised value throws at read time so corrupt data surfaces immediately rather than silently.
+
+**Prisma casting caveat:** Prisma's `$extends` result component can add typed computed accessors to model instances, but cannot retroactively re-type an existing schema field at the Prisma Client level. The `read` function asserts `Id<Brand>` at the TypeScript level, but Prisma's generated types for the model field will not reflect this branding. Callers will need an explicit `as Id<"brand">` cast at consumption sites. This is a Prisma type-system constraint, not a library limitation — see the JSDoc on `idField` for the canonical example.
+
+```ts
+import {
+  idField, // (codec: IdColumnCodec<Brand>) => IdTransform<Brand>
+  type IdColumnCodec, // { safeParse(value: unknown): ParseResult<Brand> }
+  type IdTransform, // { read(value: unknown): Id<Brand>; write(value: Id<Brand>): string }
+} from "@smonn/ids/prisma";
 ```
 
 ## CLI

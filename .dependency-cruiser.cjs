@@ -36,6 +36,16 @@ module.exports = {
       },
     },
     {
+      name: "prisma-adapter-no-internals",
+      severity: "error",
+      comment: "prisma adapter may import only types from @smonn/ids internals",
+      from: { path: "^src/prisma\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/types\\.ts$",
+      },
+    },
+    {
       name: "wire-middle-no-siblings",
       severity: "error",
       comment: "parse and envelope import invariants only, not each other",

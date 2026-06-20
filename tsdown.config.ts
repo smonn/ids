@@ -9,6 +9,7 @@ export default defineConfig({
     drizzle: "src/drizzle.ts",
     hono: "src/hono.ts",
     kysely: "src/kysely.ts",
+    prisma: "src/prisma.ts",
     express: "src/express.ts",
     cli: "bin/cli.ts",
   },
