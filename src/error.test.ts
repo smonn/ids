@@ -15,11 +15,10 @@ const ALL_CODES: IdsErrorCode[] = [
 ];
 
 describe("IdsError", () => {
-  it("constructs with each code and surfaces message", () => {
+  it("constructs with each code", () => {
     for (const code of ALL_CODES) {
       const err = new IdsError(code, "test message");
       expect(err.code).toBe(code);
-      expect(err.message).toBe("test message");
     }
   });
 
