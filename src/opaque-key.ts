@@ -5,6 +5,56 @@ export type OpaqueKeyFormat = "hex" | "base64url";
 
 const validAesKeyByteLengths = new Set([16, 24, 32]);
 
+declare const opaqueKeyBrand: unique symbol;
+
+/**
+ * Opaque imported handle for one AES key used by the Opaque Timestamp codec.
+ *
+ * Holds the underlying `CryptoKey` internally; callers never access it directly.
+ * Obtain handles via {@link importOpaqueKey} and pass them to
+ * `createOpaqueTimestampId` as the `key` option.
+ *
+ * Distinct from the `WrappingKey` used by `@smonn/ids/wrapped` — one raw
+ * secret must not silently serve both codecs without an explicit import.
+ */
+export type OpaqueKey = {
+  readonly [opaqueKeyBrand]: "OpaqueKey";
+};
+
+const opaqueKeyInternals = new WeakMap<OpaqueKey, CryptoKey>();
+
+/**
+ * Imports raw AES key bytes into an {@link OpaqueKey} handle for the Opaque
+ * Timestamp codec.
+ *
+ * Accepts 16, 24, or 32 bytes (AES-128 / AES-192 / AES-256 strength).
+ * To store or transport key material, use {@link encodeOpaqueKey} /
+ * {@link decodeOpaqueKey} (`"hex"` or `"base64url"` — not Crockford base32).
+ *
+ * @param bytes - 16, 24, or 32 raw key bytes.
+ */
+export async function importOpaqueKey(bytes: Uint8Array): Promise<OpaqueKey> {
+  assertValidAesKeyByteLength(bytes.length);
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    bytes as Uint8Array<ArrayBuffer>,
+    "AES-CBC",
+    false,
+    ["encrypt", "decrypt"],
+  );
+  const key = Object.freeze({}) as OpaqueKey;
+  opaqueKeyInternals.set(key, cryptoKey);
+  return key;
+}
+
+export function getOpaqueKeyCryptoKey(key: OpaqueKey): CryptoKey {
+  const cryptoKey = opaqueKeyInternals.get(key);
+  if (cryptoKey === undefined) {
+    throw new Error("invalid opaque key");
+  }
+  return cryptoKey;
+}
+
 /**
  * Encodes raw AES key bytes for storage in env vars or secret managers.
  *
