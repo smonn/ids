@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createOpaqueTimestampId, importOpaqueKey } from "./opaque.js";
 import { encodeOpaqueKey, decodeOpaqueKey } from "./opaque-key.js";
+import {
+  createWrappedKeyId,
+  importWrappingKey,
+  encodeWrappingKey,
+  decodeWrappingKey,
+} from "./wrapped.js";
 import { run } from "./cli.js";
 
 type Capture = {
@@ -257,7 +263,7 @@ describe("cli", () => {
       expect(result.stderr).toBe("--key-format requires a value\n");
     });
 
-    it("rejects --key-format without --opaque", async () => {
+    it("rejects --key-format without --opaque or --wrapped", async () => {
       const result = await runCapture([
         "inspect",
         "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
@@ -266,7 +272,7 @@ describe("cli", () => {
       ]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("--key-format requires --opaque\n");
+      expect(result.stderr).toBe("--key-format requires --opaque or --wrapped\n");
     });
 
     it("--opaque rejects an invalid brand", async () => {
@@ -846,5 +852,369 @@ describe("cli", () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toBe(`${expected}\n`);
     });
+  });
+});
+
+const testWrappingKeyBytes = new Uint8Array(32).fill(0xcd);
+const testWrappingKeyHex = encodeWrappingKey(testWrappingKeyBytes, "hex");
+
+describe("cli keygen --wrapped", () => {
+  it("emits a 256-bit hex wrapping key by default", async () => {
+    const result = await runCapture(["keygen", "--wrapped"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("keygen --wrapped output round-trips through decodeWrappingKey", async () => {
+    const result = await runCapture(["keygen", "--wrapped"]);
+    expect(result.exitCode).toBe(0);
+    const bytes = decodeWrappingKey(result.stdout.trim(), "hex");
+    expect(bytes).toHaveLength(32);
+  });
+
+  it("supports --bits 128", async () => {
+    const result = await runCapture(["keygen", "--wrapped", "--bits", "128"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it("supports --bits 192", async () => {
+    const result = await runCapture(["keygen", "--wrapped", "--bits", "192"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^[0-9a-f]{48}$/);
+  });
+
+  it("supports base64url output with --key-format", async () => {
+    const result = await runCapture([
+      "keygen",
+      "--wrapped",
+      "--bits",
+      "128",
+      "--key-format",
+      "base64url",
+    ]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(result.stdout.trim()).toHaveLength(22);
+  });
+
+  it("rejects unknown flags with --wrapped", async () => {
+    const result = await runCapture(["keygen", "--wrapped", "--bogus"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("unsupported flag: --bogus\n");
+  });
+
+  it("rejects --opaque with --wrapped (unsupported for keygen)", async () => {
+    const result = await runCapture(["keygen", "--wrapped", "--opaque"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("unsupported flag for keygen: --opaque\n");
+  });
+
+  it("keygen --wrapped is distinct from keygen (different secret domain)", async () => {
+    const opaqueResult = await runCapture(["keygen"]);
+    const wrappedResult = await runCapture(["keygen", "--wrapped"]);
+    expect(opaqueResult.exitCode).toBe(0);
+    expect(wrappedResult.exitCode).toBe(0);
+    // both emit hex keys (different random bytes, same format)
+    expect(opaqueResult.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+    expect(wrappedResult.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("usage documents --wrapped flag for keygen", async () => {
+    const result = await runCapture(["--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--wrapped");
+    expect(result.stdout).toContain("IDS_WRAPPING_KEY");
+  });
+});
+
+describe("cli inspect --wrapped", () => {
+  it("requires --kind when --wrapped is passed", async () => {
+    const result = await runCapture(["inspect", "inv_00000000000000000000000000", "--wrapped"], {
+      env: { IDS_WRAPPING_KEY: testWrappingKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("--kind is required with --wrapped\n");
+  });
+
+  it("rejects an invalid --kind value", async () => {
+    const result = await runCapture(
+      ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u8"],
+      { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("--kind must be u32, i32, u64, or i64, got 'u8'\n");
+  });
+
+  it("rejects a missing --kind value", async () => {
+    const result = await runCapture(
+      ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind"],
+      { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("--kind requires a value\n");
+  });
+
+  it("recovers a u32 lookup key from a wrapped ID", async () => {
+    const key = await importWrappingKey(testWrappingKeyBytes);
+    const inv = createWrappedKeyId("inv", {
+      kind: "u32",
+      keys: [key],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(42);
+    const result = await runCapture(["inspect", id, "--wrapped", "--kind", "u32"], {
+      env: { IDS_WRAPPING_KEY: testWrappingKeyHex },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("brand:      inv");
+    expect(result.stdout).toContain("lookup-key: 42");
+    expect(result.stdout).toContain(`canonical:  ${id}`);
+    expect(result.stdout).toContain("input:      canonical");
+  });
+
+  it("recovers an i32 lookup key (negative)", async () => {
+    const key = await importWrappingKey(testWrappingKeyBytes);
+    const inv = createWrappedKeyId("iny", {
+      kind: "i32",
+      keys: [key],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(-7);
+    const result = await runCapture(["inspect", id, "--wrapped", "--kind", "i32"], {
+      env: { IDS_WRAPPING_KEY: testWrappingKeyHex },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("lookup-key: -7");
+  });
+
+  it("recovers a u64 lookup key (bigint)", async () => {
+    const key = await importWrappingKey(testWrappingKeyBytes);
+    const inv = createWrappedKeyId("inz", {
+      kind: "u64",
+      keys: [key],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(9999999999999999n);
+    const result = await runCapture(["inspect", id, "--wrapped", "--kind", "u64"], {
+      env: { IDS_WRAPPING_KEY: testWrappingKeyHex },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("lookup-key: 9999999999999999");
+  });
+
+  it("prints verification failure on stderr for wrong key", async () => {
+    const key = await importWrappingKey(testWrappingKeyBytes);
+    const inv = createWrappedKeyId("inw", {
+      kind: "u32",
+      keys: [key],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(42);
+    const wrongKeyBytes = new Uint8Array(32).fill(0xff);
+    const wrongKeyHex = encodeWrappingKey(wrongKeyBytes, "hex");
+    const result = await runCapture(["inspect", id, "--wrapped", "--kind", "u32"], {
+      env: { IDS_WRAPPING_KEY: wrongKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("verification failed");
+  });
+
+  it("exits 1 when IDS_WRAPPING_KEY is missing", async () => {
+    const result = await runCapture(
+      ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u32"],
+      { env: {} },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("missing IDS_WRAPPING_KEY environment variable\n");
+  });
+
+  it("reads base64url IDS_WRAPPING_KEY when IDS_WRAPPING_KEY_FORMAT is base64url", async () => {
+    const key = await importWrappingKey(testWrappingKeyBytes);
+    const inv = createWrappedKeyId("inb", {
+      kind: "u32",
+      keys: [key],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(7);
+    const keyB64 = encodeWrappingKey(testWrappingKeyBytes, "base64url");
+    const result = await runCapture(["inspect", id, "--wrapped", "--kind", "u32"], {
+      env: { IDS_WRAPPING_KEY: keyB64, IDS_WRAPPING_KEY_FORMAT: "base64url" },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("lookup-key: 7");
+  });
+
+  it("--key-format overrides IDS_WRAPPING_KEY_FORMAT for --wrapped", async () => {
+    const key = await importWrappingKey(testWrappingKeyBytes);
+    const inv = createWrappedKeyId("inc", {
+      kind: "u32",
+      keys: [key],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(5);
+    const keyB64 = encodeWrappingKey(testWrappingKeyBytes, "base64url");
+    const result = await runCapture(
+      ["inspect", id, "--wrapped", "--kind", "u32", "--key-format", "base64url"],
+      { env: { IDS_WRAPPING_KEY: keyB64, IDS_WRAPPING_KEY_FORMAT: "hex" } },
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("lookup-key: 5");
+  });
+
+  it("rejects malformed IDS_WRAPPING_KEY", async () => {
+    const result = await runCapture(
+      ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u32"],
+      { env: { IDS_WRAPPING_KEY: "not-hex!" } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toMatch(/invalid hex key/);
+  });
+
+  it("rejects invalid base32 payload with --wrapped", async () => {
+    const result = await runCapture(
+      ["inspect", "inv_01h7b3k9rqxn1cw3p9r8t2sgk!", "--wrapped", "--kind", "u32"],
+      { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("invalid base32 payload\n");
+  });
+
+  it("rejects --wrapped and --opaque together", async () => {
+    const result = await runCapture(
+      ["inspect", "inv_00000000000000000000000000", "--wrapped", "--opaque", "--kind", "u32"],
+      { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("cannot use --wrapped and --opaque together\n");
+  });
+
+  it("structural-only inspect (no --wrapped) is unchanged for a valid ID", async () => {
+    const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"], {
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("brand:     usr");
+    expect(result.stdout).toContain("timestamp:");
+    expect(result.stdout).toContain("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
+  });
+
+  it("rejects invalid --key-format with --wrapped", async () => {
+    const result = await runCapture(
+      ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u32", "--key-format", "bogus"],
+      { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
+  });
+
+  it("rejects invalid IDS_WRAPPING_KEY_FORMAT", async () => {
+    const result = await runCapture(
+      ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u32"],
+      { env: { IDS_WRAPPING_KEY: testWrappingKeyHex, IDS_WRAPPING_KEY_FORMAT: "bogus" } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("IDS_WRAPPING_KEY_FORMAT must be hex or base64url, got 'bogus'\n");
+  });
+
+  it("rejects an invalid brand with --wrapped", async () => {
+    const result = await runCapture(
+      ["inspect", "12X_00000000000000000000000000", "--wrapped", "--kind", "u32"],
+      { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("invalid brand, expected three lowercase a-z characters\n");
+  });
+
+  it("rejects a missing --key-format value with --wrapped", async () => {
+    const result = await runCapture(
+      ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u32", "--key-format"],
+      { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("--key-format requires a value\n");
+  });
+
+  it("reads IDS_WRAPPING_KEY from process.env when env is not injected", async () => {
+    const key = await importWrappingKey(testWrappingKeyBytes);
+    const inv = createWrappedKeyId("ire", {
+      kind: "u32",
+      keys: [key],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(99);
+    const previousKey = process.env.IDS_WRAPPING_KEY;
+    process.env.IDS_WRAPPING_KEY = testWrappingKeyHex;
+    try {
+      let stdout = "";
+      let stderr = "";
+      const exitCode = await run({
+        argv: ["inspect", id, "--wrapped", "--kind", "u32"],
+        stdout: (s) => {
+          stdout += s;
+        },
+        stderr: (s) => {
+          stderr += s;
+        },
+      });
+      expect(exitCode).toBe(0);
+      expect(stderr).toBe("");
+      expect(stdout).toContain("lookup-key: 99");
+    } finally {
+      if (previousKey === undefined) delete process.env.IDS_WRAPPING_KEY;
+      else process.env.IDS_WRAPPING_KEY = previousKey;
+    }
+  });
+
+  it("reads IDS_WRAPPING_KEY_FORMAT from process.env when env is not injected", async () => {
+    const key = await importWrappingKey(testWrappingKeyBytes);
+    const inv = createWrappedKeyId("irf", {
+      kind: "u32",
+      keys: [key],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(55);
+    const keyB64 = encodeWrappingKey(testWrappingKeyBytes, "base64url");
+    const previousKey = process.env.IDS_WRAPPING_KEY;
+    const previousFmt = process.env.IDS_WRAPPING_KEY_FORMAT;
+    process.env.IDS_WRAPPING_KEY = keyB64;
+    process.env.IDS_WRAPPING_KEY_FORMAT = "base64url";
+    try {
+      let stdout = "";
+      let stderr = "";
+      const exitCode = await run({
+        argv: ["inspect", id, "--wrapped", "--kind", "u32"],
+        stdout: (s) => {
+          stdout += s;
+        },
+        stderr: (s) => {
+          stderr += s;
+        },
+      });
+      expect(exitCode).toBe(0);
+      expect(stderr).toBe("");
+      expect(stdout).toContain("lookup-key: 55");
+    } finally {
+      if (previousKey === undefined) delete process.env.IDS_WRAPPING_KEY;
+      else process.env.IDS_WRAPPING_KEY = previousKey;
+      if (previousFmt === undefined) delete process.env.IDS_WRAPPING_KEY_FORMAT;
+      else process.env.IDS_WRAPPING_KEY_FORMAT = previousFmt;
+    }
   });
 });
