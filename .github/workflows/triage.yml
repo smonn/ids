@@ -1,0 +1,113 @@
+name: Triage issues
+
+on:
+  issues:
+    types: [opened, reopened]
+  # Manual re-triage, e.g. for testing against an existing issue.
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to (re)triage
+        required: true
+        type: string
+
+concurrency:
+  group: triage-${{ github.event.issue.number || github.event.inputs.issue_number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    # Loop guard: never triage issues the bot app itself opened (process 4, later).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.issue.user.type != 'Bot' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Ensure triage labels exist
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ensure() { gh label create "$1" --color "$2" --description "$3" --force >/dev/null 2>&1 || true; }
+          ensure needs-triage    FBCA04 "Maintainer needs to evaluate this issue"
+          ensure needs-info      D93F0B "Waiting on reporter for more information"
+          ensure ready-for-agent 0E8A16 "Fully specified, ready for an AFK agent"
+          ensure ready-for-human 1D76DB "Requires human implementation"
+          ensure wontfix         FFFFFF "Will not be actioned"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Triage the issue
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.app-token.outputs.token }}
+          # Sonnet keeps subscription usage modest; bump to opus if triage quality needs it.
+          claude_args: --max-turns 30 --model claude-sonnet-4-6
+          prompt: |
+            You are the issue triage agent for `@smonn/ids`, a TypeScript library for
+            encoding and decoding sortable IDs. Triage issue
+            #${{ github.event.issue.number || github.event.inputs.issue_number }}
+            in ${{ github.repository }}.
+
+            Ground your judgment in the repo before deciding:
+            - CONTEXT.md — domain glossary, codec variants, and CLOSED design decisions.
+            - docs/adr/ — architecture decision records; some decisions are CLOSED.
+            - docs/agents/triage-labels.md — the canonical triage label vocabulary.
+            - The issue title, body, and any existing comments.
+
+            IDEMPOTENCY — check this first: if the issue already carries any of
+            `ready-for-agent`, `ready-for-human`, `wontfix`, or `needs-info`, it has
+            already been triaged. Do nothing and stop.
+
+            Otherwise, triage it:
+            1. Classify it as a bug or an enhancement (the templates apply `bug` /
+               `enhancement` labels as a hint).
+            2. For bugs, attempt to REPRODUCE: write a minimal failing test (e.g.
+               `src/<area>.repro.test.ts`), run `pnpm test`, and confirm whether it
+               fails as reported. Then delete the temp test — do NOT commit anything or
+               leave repro files behind. Report clearly whether reproduction succeeded.
+            3. Define ACCEPTANCE CRITERIA: a concrete, testable checklist of what "done"
+               means.
+            4. Scope it: list the files/areas likely affected and the API / wire format /
+               CLI / docs / ADR impact. Explicitly flag if it touches a CLOSED decision
+               (brand format, payload byte layout, canonical `is()`, monotonicity, custom
+               epoch, Opaque key behavior, or wire-indistinguishable codec variants).
+            5. Choose exactly ONE triage label:
+               - `needs-info`      — underspecified; you cannot reproduce or scope it.
+                                     List precisely what information is missing.
+               - `wontfix`         — reopens a closed decision without a compelling new
+                                     argument, or is clearly out of scope.
+               - `ready-for-human` — needs human judgment: design/architecture calls,
+                                     reopening a closed decision that has merit, or any
+                                     wire-format / ADR / breaking change a maintainer must own.
+               - `ready-for-agent` — fully specified, reproducible (if a bug), and safely
+                                     implementable by an autonomous agent (typically internal
+                                     implementation or clearly-bounded API/docs work).
+
+            Finally:
+            - Post ONE issue comment containing: the reproduction result, the acceptance
+              criteria, the scope/impact summary, and the chosen label with a one-line
+              rationale.
+            - Apply the chosen label and remove `needs-triage` if it is present.
+            - Do NOT modify code, open pull requests, or push. This is triage only.
