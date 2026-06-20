@@ -42,19 +42,6 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Ensure triage labels exist
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          ensure() { gh label create "$1" --color "$2" --description "$3" --force >/dev/null 2>&1 || true; }
-          ensure needs-triage    FBCA04 "Maintainer needs to evaluate this issue"
-          ensure needs-info      D93F0B "Waiting on reporter for more information"
-          ensure ready-for-agent 0E8A16 "Fully specified, ready for an AFK agent"
-          ensure ready-for-human 1D76DB "Requires human implementation"
-          ensure wontfix         FFFFFF "Will not be actioned"
-          ensure blocked         B60205 "Waiting on another issue to close first"
-
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
