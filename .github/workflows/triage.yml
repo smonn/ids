@@ -66,7 +66,12 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
           # Sonnet keeps subscription usage modest; bump to opus if triage quality needs it.
-          claude_args: --max-turns 30 --model claude-sonnet-4-6
+          # allowedTools must cover everything the prompt asks for (repro test +
+          # pnpm test + labeling), or the run burns turns on permission denials.
+          claude_args: |
+            --max-turns 40
+            --model claude-sonnet-4-6
+            --allowedTools "Bash,Edit,Write,Read,Grep,Glob,TodoWrite"
           prompt: |
             You are the issue triage agent for `@smonn/ids`, a TypeScript library for
             encoding and decoding sortable IDs. Triage issue
