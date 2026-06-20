@@ -18,11 +18,11 @@ Edit the right-hand column to match whatever vocabulary you actually use.
 
 The autonomous workflows in `.github/workflows/` use additional labels to track an issue's state as it moves through triage → implementation → review. These are applied by the App, not by the `mattpocock/skills` vocabulary.
 
-| Label         | Applied by    | Meaning                                                                 |
-| ------------- | ------------- | ----------------------------------------------------------------------- |
-| `blocked`     | `triage.yml`  | Depends on another open issue (`Blocked by #N` / `Depends on #N`). Parked until the blocker closes, when `unblock.yml` flips it back to `needs-triage`. |
-| `in-progress` | `implement.yml` | An agent has opened a PR implementing this issue (replaces `ready-for-agent`). |
-| `needs-human` | `rebase.yml`  | A PR's merge conflict could not be resolved automatically and needs manual attention. |
+| Label         | Applied by      | Meaning                                                                                                                                                 |
+| ------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `blocked`     | `triage.yml`    | Depends on another open issue (`Blocked by #N` / `Depends on #N`). Parked until the blocker closes, when `unblock.yml` flips it back to `needs-triage`. |
+| `in-progress` | `implement.yml` | An agent has opened a PR implementing this issue (replaces `ready-for-agent`).                                                                          |
+| `needs-human` | `rebase.yml`    | A PR's merge conflict could not be resolved automatically and needs manual attention.                                                                   |
 
 ### Issue state machine
 
