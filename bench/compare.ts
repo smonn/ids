@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 
 type Bench = {
   name: string;
-  avg_ns: number;
   min_ns: number;
+  avg_ns: number;
   p50_ns: number;
-  p75_ns: number;
   p99_ns: number;
+  max_ns: number;
   samples: number;
 };
 
@@ -17,10 +17,11 @@ type Report = {
   benches: Bench[];
 };
 
-// Two tiers. WARN is cosmetic — it labels rows in the PR comment. FAIL is what
-// actually blocks the check (exit 1) and is therefore autofix-eligible, so it sits
-// above the noise floor that doubling the sample count leaves on the µs-scale
-// opaque.* ops. Raise the sample count (index.ts) before loosening FAIL.
+// Gate on `min`, not p50. Shared-CI noise is upward-only (contention, GC, thermal
+// throttling can only make a sample slower), so the minimum approximates the
+// uncontended intrinsic cost and is far more stable run-to-run than the median —
+// which drifts with the whole distribution. A real regression raises the floor;
+// noise does not. The table still shows p50/mean/p99/max so the spread is visible.
 const WARN_THRESHOLD = 0.15;
 const FAIL_THRESHOLD = 0.3;
 
@@ -47,13 +48,6 @@ function fmtNs(ns: number): string {
   if (ns < 1_000) return `${ns.toFixed(2)} ns`;
   if (ns < 1_000_000) return `${(ns / 1_000).toFixed(2)} µs`;
   return `${(ns / 1_000_000).toFixed(2)} ms`;
-}
-
-function fmtOpsPerSec(ns: number): string {
-  const opsPerSec = 1e9 / ns;
-  if (opsPerSec >= 1e6) return `${(opsPerSec / 1e6).toFixed(2)}M/s`;
-  if (opsPerSec >= 1e3) return `${(opsPerSec / 1e3).toFixed(2)}k/s`;
-  return `${opsPerSec.toFixed(0)}/s`;
 }
 
 function fmtDelta(pct: number): string {
@@ -84,11 +78,11 @@ if (base === null) {
     "_No baseline available (base branch has no bench suite yet). Reporting absolute numbers only._",
   );
   lines.push("");
-  lines.push("| Bench | p50 | avg | Throughput | samples |");
-  lines.push("| --- | ---: | ---: | ---: | ---: |");
+  lines.push("| Bench | min | mean | p50 | p99 | max | samples |");
+  lines.push("| --- | ---: | ---: | ---: | ---: | ---: | ---: |");
   for (const b of pr.benches) {
     lines.push(
-      `| \`${b.name}\` | ${fmtNs(b.p50_ns)} | ${fmtNs(b.avg_ns)} | ${fmtOpsPerSec(b.p50_ns)} | ${b.samples} |`,
+      `| \`${b.name}\` | ${fmtNs(b.min_ns)} | ${fmtNs(b.avg_ns)} | ${fmtNs(b.p50_ns)} | ${fmtNs(b.p99_ns)} | ${fmtNs(b.max_ns)} | ${b.samples} |`,
     );
   }
 } else {
@@ -96,21 +90,22 @@ if (base === null) {
   lines.push("## Benchmarks");
   lines.push("");
   lines.push(
-    `Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}, blocking +${pct(FAIL_THRESHOLD)}. Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
+    `Gated on **min** (Δ min): warn ±${pct(WARN_THRESHOLD)}, blocking +${pct(FAIL_THRESHOLD)}. ` +
+      `p50/mean/p99/max are PR-side context only. Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
   );
   lines.push("");
-  lines.push("| Bench | Base p50 | PR p50 | Δ p50 | PR throughput | Notes |");
-  lines.push("| --- | ---: | ---: | ---: | ---: | --- |");
+  lines.push("| Bench | Base min | PR min | Δ min | p50 | mean | p99 | max | Notes |");
+  lines.push("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |");
 
   for (const cur of pr.benches) {
     const prev = baseByName.get(cur.name);
     if (prev === undefined) {
       lines.push(
-        `| \`${cur.name}\` | — | ${fmtNs(cur.p50_ns)} | new | ${fmtOpsPerSec(cur.p50_ns)} | — |`,
+        `| \`${cur.name}\` | — | ${fmtNs(cur.min_ns)} | new | ${fmtNs(cur.p50_ns)} | ${fmtNs(cur.avg_ns)} | ${fmtNs(cur.p99_ns)} | ${fmtNs(cur.max_ns)} | — |`,
       );
       continue;
     }
-    const delta = (cur.p50_ns - prev.p50_ns) / prev.p50_ns;
+    const delta = (cur.min_ns - prev.min_ns) / prev.min_ns;
     let note = "";
     if (delta > WARN_THRESHOLD) {
       regressions++;
@@ -125,20 +120,20 @@ if (base === null) {
       improvements++;
     }
     lines.push(
-      `| \`${cur.name}\` | ${fmtNs(prev.p50_ns)} | ${fmtNs(cur.p50_ns)} | ${fmtDelta(delta)} | ${fmtOpsPerSec(cur.p50_ns)} | ${note} |`,
+      `| \`${cur.name}\` | ${fmtNs(prev.min_ns)} | ${fmtNs(cur.min_ns)} | ${fmtDelta(delta)} | ${fmtNs(cur.p50_ns)} | ${fmtNs(cur.avg_ns)} | ${fmtNs(cur.p99_ns)} | ${fmtNs(cur.max_ns)} | ${note} |`,
     );
   }
 
   for (const prev of base.benches) {
     if (!pr.benches.some((b) => b.name === prev.name)) {
-      lines.push(`| \`${prev.name}\` | ${fmtNs(prev.p50_ns)} | — | removed | — | — |`);
+      lines.push(`| \`${prev.name}\` | ${fmtNs(prev.min_ns)} | — | removed | — | — | — | — | — |`);
     }
   }
 
   lines.push("");
   if (blocking > 0) {
     lines.push(
-      `**${blocking} blocking regression${blocking === 1 ? "" : "s"}** above the fail threshold (+${pct(FAIL_THRESHOLD)}).` +
+      `**${blocking} blocking regression${blocking === 1 ? "" : "s"}** above the fail threshold (+${pct(FAIL_THRESHOLD)} on min).` +
         (regressions > blocking
           ? ` ${regressions - blocking} more above warn (±${pct(WARN_THRESHOLD)}).`
           : ""),

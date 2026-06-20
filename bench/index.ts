@@ -37,11 +37,11 @@ const cases: Case[] = [
 
 type Bench = {
   name: string;
-  avg_ns: number;
   min_ns: number;
+  avg_ns: number;
   p50_ns: number;
-  p75_ns: number;
   p99_ns: number;
+  max_ns: number;
   samples: number;
 };
 
@@ -67,11 +67,11 @@ for (const c of cases) {
   }, measureOpts);
   results.push({
     name: c.name,
-    avg_ns: stats.avg,
     min_ns: stats.min,
+    avg_ns: stats.avg,
     p50_ns: stats.p50,
-    p75_ns: stats.p75,
     p99_ns: stats.p99,
+    max_ns: stats.max,
     samples: stats.samples?.length ?? stats.ticks ?? 0,
   });
 }
