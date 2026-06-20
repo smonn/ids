@@ -76,7 +76,6 @@ jobs:
           claude_args: |
             --max-turns 40
             --model claude-sonnet-4-6
-            --verbose
             --allowedTools "Bash,Edit,Write,Read,Grep,Glob,TodoWrite"
           prompt: |
             /triage #${{ github.event.issue.number || github.event.inputs.issue_number }}
