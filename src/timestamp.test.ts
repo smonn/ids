@@ -195,20 +195,16 @@ describe("id", () => {
   });
 
   it("fails if brand is not exactly three a-z characters", () => {
-    expect(() => createTimestampId("a")).toThrow();
-    expect(() => createTimestampId("aaaa")).toThrow();
-    expect(() => createTimestampId("!@?")).toThrow();
-  });
-
-  it("throws IdsError with code invalid_brand for a bad brand", () => {
-    let err: unknown;
-    try {
-      createTimestampId("!@?");
-    } catch (e) {
-      err = e;
+    for (const brand of ["a", "aaaa", "!@?"]) {
+      let err: unknown;
+      try {
+        createTimestampId(brand);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_brand");
     }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_brand");
   });
 
   it("parse throws IdsError with code invalid_id and ParseError on cause", () => {
