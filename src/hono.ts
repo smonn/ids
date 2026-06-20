@@ -9,7 +9,7 @@ type IdCodec<Brand extends string> = {
  * Hono middleware that validates a named route param against a codec via `safeParse`.
  *
  * - **Brand mismatch (`invalid_prefix`) → 404**: the resource cannot exist under this route.
- * - **Malformed payload (`not_string` | `invalid_base32`) → 400**: the request is invalid.
+ * - **Malformed or missing ID (`not_string` | `invalid_base32`) → 400**: the request is invalid.
  *
  * On success, stores the canonical `Id<Brand>` in the Hono context under `paramName`
  * and calls `next()`.

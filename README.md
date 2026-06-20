@@ -187,7 +187,7 @@ app.get("/users/:id", idParam("id", usr), (c) => {
 **400 vs 404 contract:**
 
 - **Brand mismatch (`invalid_prefix`) → 404.** The resource cannot exist under this route — a `usr_` ID makes no sense on `/orders/:id`. Use 404, not 400, to communicate that the combination of route and ID kind is meaningless.
-- **Malformed payload (`invalid_base32` or `not_string`) → 400.** The ID has the right prefix but the payload is broken — a bad request, not a missing resource.
+- **Malformed or missing ID (`invalid_base32` or `not_string`) → 400.** The ID is absent or unreadable — a bad request, not a missing resource.
 
 `idParam` calls `safeParse` at the boundary (lenient: accepts mixed case and Crockford aliases), so the handler always receives a canonical, normalized `Id<Brand>` — never the raw URL string. Works with any codec variant's structural `safeParse`.
 
