@@ -10,7 +10,16 @@ const hmacInfo = new TextEncoder().encode("@smonn/ids/wrapped/hmac/v1");
 
 declare const wrappingKeyBrand: unique symbol;
 
-/** Opaque imported handle for one operator wrapping secret (derived AES + HMAC subkeys). */
+/**
+ * Opaque imported handle for one operator wrapping secret.
+ *
+ * Holds derived AES and HMAC subkeys internally; callers never access subkeys
+ * or raw `CryptoKey` values directly. Obtain handles via {@link importWrappingKey}
+ * and pass them to `createWrappedKeyId` as the `keys` wrapping keyring.
+ *
+ * Distinct from the **Opaque key** used by `@smonn/ids/opaque` — one raw
+ * secret must not silently serve both codecs without an explicit import.
+ */
 export type WrappingKey = {
   readonly [wrappingKeyBrand]: "WrappingKey";
 };
@@ -29,9 +38,14 @@ export type WrappingKeyMaterial = {
 const internals = new WeakMap<WrappingKey, WrappingKeyInternals>();
 
 /**
- * Imports raw operator secret bytes into a {@link WrappingKey} handle.
+ * Import raw operator secret bytes into a {@link WrappingKey} handle.
  *
- * @param bytes - 16, 24, or 32 raw key bytes (AES-128/192/256).
+ * One raw secret derives into AES and HMAC subkeys held inside the returned
+ * handle. Accepts 16, 24, or 32 bytes (AES-128 / AES-192 / AES-256 strength).
+ * To store or transport key material, use {@link encodeWrappingKey} /
+ * {@link decodeWrappingKey} (`"hex"` or `"base64url"` — not Crockford base32).
+ *
+ * @param bytes - 16, 24, or 32 raw key bytes.
  */
 export async function importWrappingKey(bytes: Uint8Array): Promise<WrappingKey> {
   assertValidKeyByteLength(bytes.length);
@@ -47,7 +61,10 @@ export async function importWrappingKey(bytes: Uint8Array): Promise<WrappingKey>
 }
 
 /**
- * Encodes raw wrapping operator secret bytes for storage in env vars or secret managers.
+ * Encode raw wrapping operator secret bytes for storage in env vars or secret managers.
+ *
+ * Supports `"hex"` (lowercase) and `"base64url"`. Output round-trips through
+ * {@link decodeWrappingKey} back to the original bytes.
  */
 export function encodeWrappingKey(bytes: Uint8Array, format: WrappingKeyFormat): string {
   assertWrappingKeyFormat(format);
@@ -57,7 +74,9 @@ export function encodeWrappingKey(bytes: Uint8Array, format: WrappingKeyFormat):
 }
 
 /**
- * Decodes key material emitted by {@link encodeWrappingKey} back to raw bytes.
+ * Decode key material emitted by {@link encodeWrappingKey} back to raw bytes.
+ *
+ * The result can be passed directly to {@link importWrappingKey}.
  */
 export function decodeWrappingKey(encoded: string, format: WrappingKeyFormat): Uint8Array {
   assertWrappingKeyFormat(format);
