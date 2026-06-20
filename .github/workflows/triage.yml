@@ -63,18 +63,13 @@ jobs:
       - name: Triage the issue
         uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1.0.152
         env:
-          # Authenticate `gh` inside Claude's Bash so it can comment and label the
-          # issue directly. This works on both `issues` events and workflow_dispatch,
-          # where the action has no issue/PR context of its own.
+          # Fallback path for Claude's Bash; the App's built-in GitHub tools (via
+          # github_token) are the primary way it comments and labels.
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-        id: claude
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
-          # TEMP (debugging): stream the full SDK output into the job log so we can see
-          # what gh calls Claude makes and any auth errors. Remove before merge.
-          show_full_output: true
           # Sonnet keeps subscription usage modest; bump to opus if triage quality needs it.
           # allowedTools must cover everything the prompt asks for (repro test +
           # pnpm test + labeling), or the run burns turns on permission denials.
@@ -140,14 +135,22 @@ jobs:
               label actually posted before finishing.
             - Do NOT modify code, open pull requests, or push. This is triage only.
 
-      # TEMP (debugging): keep the raw execution log regardless of outcome.
-      - name: Upload Claude execution output
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: claude-execution-output
-          path: |
-            /home/runner/work/_temp/claude-execution-output.json
-            /home/runner/work/_temp/claude-prompts/claude-prompt.txt
-          if-no-files-found: warn
-          retention-days: 7
+      # Catch the "hollow success" case: the agent step can exit 0 without actually
+      # writing to the issue (e.g. a 403 on the comment/label). Assert the decision
+      # label is present so such runs fail loudly instead of passing silently. The
+      # invariant also holds for already-triaged issues (the label persists).
+      - name: Verify triage landed on the issue
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+        run: |
+          labels=$(gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name')
+          echo "Labels on #$ISSUE_NUMBER:"
+          echo "$labels"
+          if echo "$labels" | grep -qxE 'ready-for-agent|ready-for-human|needs-info|wontfix'; then
+            echo "✓ Triage decision label present."
+          else
+            echo "::error::Triage produced no decision label on #$ISSUE_NUMBER (agent likely failed to write — check App permissions and the run log)."
+            exit 1
+          fi
