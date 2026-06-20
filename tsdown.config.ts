@@ -11,6 +11,7 @@ export default defineConfig({
     kysely: "src/kysely.ts",
     prisma: "src/prisma.ts",
     express: "src/express.ts",
+    fastify: "src/fastify.ts",
     cli: "bin/cli.ts",
   },
   dts: {

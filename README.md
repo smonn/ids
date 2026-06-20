@@ -260,6 +260,71 @@ app.get("/things/:id", idParam("id", thing, { status: { brand_mismatch: 400 } })
 
 The 400 vs 404 defaults are identical to the Hono adapter: `reason: "brand_mismatch"` → 404, `reason: "malformed"` → 400. The canonical `Id<Brand>` is stored in `res.locals` under `paramName` and available to downstream handlers.
 
+### "Validate a route param in Fastify"
+
+`@smonn/ids/fastify` provides the same `idParam` factory for Fastify. Fastify is an **optional peer dependency**; install it separately alongside `@smonn/ids`.
+
+```bash
+pnpm add fastify
+```
+
+```ts
+import { idParam, IdParamError } from "@smonn/ids/fastify";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+// Default: throws IdParamError → setErrorHandler renders it
+fastify.get<{ Params: { id: string } }>(
+  "/users/:id",
+  {
+    preHandler: idParam("id", usr),
+  },
+  (request, reply) => {
+    const id = request.params.id; // Id<"usr">, canonical
+    // …
+  },
+);
+
+// Error handler receives the typed error
+fastify.setErrorHandler((err, request, reply) => {
+  if (err instanceof IdParamError) {
+    reply.status(err.statusCode).send({ error: err.reason });
+    return;
+  }
+  reply.send(err);
+});
+
+// Override: consumer fully owns the error response
+fastify.get(
+  "/orgs/:id",
+  {
+    preHandler: idParam("id", org, {
+      onError: (failure, request, reply) =>
+        reply.status(failure.status).send({ error: failure.reason }),
+    }),
+  },
+  handler,
+);
+
+// Or a lightweight status remap without a full handler
+fastify.get(
+  "/things/:id",
+  {
+    preHandler: idParam("id", thing, { status: { brand_mismatch: 400 } }),
+  },
+  handler,
+);
+```
+
+**Default error-channel behavior:** on failure the adapter throws `IdParamError` carrying `statusCode` and `reason` — it does **not** write a response body itself. Fastify's `setErrorHandler` receives the error and controls rendering exactly as it would for any other error.
+
+**`options.onError`:** when provided, the hook owns the response entirely — the adapter does not throw.
+
+**`options.status`:** remaps the default HTTP status for a failure reason without requiring a full handler.
+
+The 400 vs 404 defaults are identical to the Hono and Express adapters: `reason: "brand_mismatch"` → 404, `reason: "malformed"` → 400. The canonical `Id<Brand>` is stored in `request.params` under `paramName`. Works with any codec variant's structural `safeParse`.
+
 ### "Don't leak creation time in IDs that customers can see"
 
 The Timestamp codec exposes the creation timestamp by design — that's what makes `ORDER BY id` work. If that's a leak you can't accept (invoice IDs revealing billing cadence, signup IDs revealing acquisition velocity), use the Opaque Timestamp codec at `@smonn/ids/opaque`. Same `<brand>_<26 chars>` wire shape, but the payload is AES-encrypted under a key you supply.
@@ -398,6 +463,13 @@ import {
   type IdParamFailure, // { reason: "brand_mismatch" | "malformed"; status: number }
   type IdParamOptions, // { onError?, status? }
 } from "@smonn/ids/express";
+
+import {
+  idParam, // (paramName: string, codec, options?) => Fastify preHandler — throws IdParamError by default; onError/status options override
+  IdParamError, // Error subclass with .reason and .statusCode — thrown into setErrorHandler by default
+  type IdParamFailure, // { reason: "brand_mismatch" | "malformed"; status: number }
+  type IdParamOptions, // { onError?, status? }
+} from "@smonn/ids/fastify";
 ```
 
 `@smonn/ids/wrapped` ships the Wrapped key codec for `u32`, `i32`, `u64`, and `i64` lookup keys. `wrap(lookupKey)` returns a public ID; `unwrap(id)` verifies the payload and returns the lookup key; `safeUnwrap(input)` is the non-throwing path for untrusted input.
