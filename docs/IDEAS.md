@@ -18,8 +18,8 @@ different invariants.
 - **`createDigestId(brand, {ns, key})`** — one-way deterministic digest of caller material.
   Same material gives the same public ID; the material cannot be recovered from the ID.
   For idempotency keys, content-addressed records, and stable public pseudonyms.
-- **`createReverseTimestampId(brand)`** — bitwise-inverted timestamp bytes; lexicographic order
-  = newest first. For KV stores where descending range scans are awkward.
+- ~~**`createReverseTimestampId(brand)`**~~ — shipped. See [ADR-0010](./adr/0010-reverse-timestamp-inversion.md).
+  Bitwise-inverted timestamp bytes; lexicographic order = newest first. For KV stores where descending range scans are awkward.
 - **`createWrappedKeyId(brand, {kind, keys})`** — reversible verified wrapping of a
   storage lookup key. Accepted design: see [ADR-0009](./adr/0009-wrapped-key-compact-construction.md).
   Glossary: **Wrapped key codec**, **Lookup key**, **Wrapping key** in [CONTEXT.md](../CONTEXT.md).
