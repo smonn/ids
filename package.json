@@ -21,6 +21,7 @@
     "./wrapped": "./dist/wrapped.mjs",
     "./drizzle": "./dist/drizzle.mjs",
     "./hono": "./dist/hono.mjs",
+    "./prisma": "./dist/prisma.mjs",
     "./express": "./dist/express.mjs",
     "./package.json": "./package.json"
   },
@@ -59,6 +60,7 @@
     "vitest": "4.1.8"
   },
   "peerDependencies": {
+    "@prisma/client": ">=5.0.0",
     "drizzle-orm": ">=0.30.0",
     "express": ">=4.0.0",
     "hono": ">=4.0.0"
@@ -71,6 +73,9 @@
       "optional": true
     },
     "hono": {
+      "optional": true
+    },
+    "@prisma/client": {
       "optional": true
     }
   },
