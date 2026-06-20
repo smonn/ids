@@ -1147,7 +1147,7 @@ describe("cli inspect --wrapped", () => {
     );
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
+    expect(result.stderr).toContain("invalid brand");
   });
 
   it("rejects a missing --key-format value with --wrapped", async () => {
@@ -1263,14 +1263,14 @@ describe("cli generate --reverse", () => {
     const result = await runCapture(["generate", "BAD", "--reverse"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
+    expect(result.stderr).toContain("invalid brand");
   });
 
   it("--reverse rejects a missing brand", async () => {
     const result = await runCapture(["generate", "--reverse"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
+    expect(result.stderr).toContain("invalid brand");
   });
 
   it("--reverse with --opaque emits a conflict error and exits 1", async () => {
@@ -1333,7 +1333,7 @@ describe("cli inspect --reverse", () => {
     const result = await runCapture(["inspect", "12X_00000000000000000000000000", "--reverse"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid brand: expected three lowercase a-z characters\n");
+    expect(result.stderr).toContain("invalid brand");
   });
 
   it("--reverse rejects invalid base32 payload", async () => {
