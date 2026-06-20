@@ -1,5 +1,19 @@
 # @smonn/ids
 
+## 0.6.0
+
+### Minor Changes
+
+- ac14f46: Add `--reverse` flag to `generate` and `inspect` CLI commands for the Reverse Timestamp codec.
+- 0f63975: Add CLI support for the Wrapped key codec: `keygen --wrapped` emits wrapping key material, and `inspect --wrapped --kind <u32|i32|u64|i64>` recovers the lookup key from a wrapped ID via `IDS_WRAPPING_KEY`.
+- 525f2ff: Add `@smonn/ids/drizzle` subpath export with `idColumn(codec)` helper for Drizzle ORM column adapters.
+- 849bc4b: Add `@smonn/ids/express` subpath export with `idParam` middleware for Express route-param validation (404 on brand mismatch, 400 on malformed).
+- 11fae19: Add `@smonn/ids/hono` subpath export with `idParam` middleware for validating route params against a codec (404 on brand mismatch, 400 on malformed or missing ID).
+- 570c686: Add `@smonn/ids/kysely` subpath export with `idColumn(codec)` adapter and `IdColumnType<Brand>` for Kysely ORM integration.
+- be06bcb: Introduce nominal `OpaqueKey` type for the Opaque Timestamp codec. `importOpaqueKey` now returns `Promise<OpaqueKey>` instead of `Promise<CryptoKey>`, and `OpaqueTimestampOptions.key` is typed as `OpaqueKey`. Mirrors the `WrappingKey` pattern from `@smonn/ids/wrapped`. Pre-v1 breaking change — callers must obtain a key handle via `importOpaqueKey(bytes)` rather than passing a raw `CryptoKey`.
+- 757ca2d: Add `@smonn/ids/prisma` subpath export with `idField(codec)` adapter for Prisma `$extends` integration.
+- 508c553: Add `createReverseTimestampId` codec variant (`@smonn/ids/reverse`) that bitwise-inverts the 48-bit timestamp field so IDs sort newest-first.
+
 ## 0.5.0
 
 ### Minor Changes
@@ -114,6 +128,7 @@
   `decodeBase32` and `extractTimestamp` are ~5% faster as a result.
 
 - 424ac97: **Breaking — `Options` reshaped for a zero-allocation `generate()`:**
+
   - `Options.now`: `() => Date` → `() => number` (ms since Unix epoch). The previous contract allocated a `Date` only to immediately call `.getTime()` on it. Default is now `Date.now`.
   - `Options.rng`: `(bytes: number) => Uint8Array` → `(target: Uint8Array) => void`. Matches `crypto.getRandomValues` and Node's `crypto.randomFillSync`. Custom RNGs no longer have to allocate.
 
