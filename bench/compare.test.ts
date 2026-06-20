@@ -21,4 +21,13 @@ describe("failThreshold", () => {
   it("treats any future opaque.* bench as high-threshold", () => {
     expect(failThreshold("opaque.someNewBench")).toBe(0.5);
   });
+
+  it("returns 0.50 for wrapped.* benches (AES + HMAC async crypto, high CI runner variance)", () => {
+    expect(failThreshold("wrapped.wrap")).toBe(0.5);
+    expect(failThreshold("wrapped.unwrap")).toBe(0.5);
+  });
+
+  it("treats any future wrapped.* bench as high-threshold", () => {
+    expect(failThreshold("wrapped.someNewBench")).toBe(0.5);
+  });
 });
