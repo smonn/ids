@@ -64,11 +64,17 @@ jobs:
           # does not approve/merge — and GitHub blocks self-approval anyway.
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
           plugins: "code-review@claude-code-plugins"
-          prompt: "/code-review:code-review ${{ github.repository }}/pull/${{ env.PR_NUMBER }} --comment"
-          # Grant the read/inspect tools the code-review plugin needs (and Bash for
-          # gh), or it burns turns on permission denials and can't post inline
-          # comments. Read-only — no Edit/Write; the reviewer never changes code.
+          prompt: |
+            /code-review:code-review ${{ github.repository }}/pull/${{ env.PR_NUMBER }} --comment
+
+            Review the code itself: correctness and logic, design, architecture, API
+            surface, naming, and adherence to CONTEXT.md and docs/adr/. CI already runs
+            tests, typecheck, lint, depcruise, and build — do NOT run or re-verify those.
+          # Read-only inspection plus gh/git for reading the diff and posting comments.
+          # Bash is scoped to gh and git so the reviewer cannot run the static-analysis
+          # gate (pnpm test/lint/typecheck/build) — CI owns that; reviews stay fast and
+          # focused on code/design. No Edit/Write; the reviewer never changes code.
           claude_args: |
             --max-turns 40
             --model claude-sonnet-4-6
-            --allowedTools "Bash,Read,Grep,Glob,TodoWrite"
+            --allowedTools "Read,Grep,Glob,TodoWrite,Bash(gh:*),Bash(git:*)"
