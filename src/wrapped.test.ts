@@ -325,7 +325,7 @@ describe("wrapped", () => {
       err = e;
     }
     expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_key_format");
+    expect((err as IdsError).code).toBe("invalid_key_encoding");
 
     err = undefined;
     try {
@@ -334,7 +334,7 @@ describe("wrapped", () => {
       err = e;
     }
     expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_key_format");
+    expect((err as IdsError).code).toBe("invalid_key_encoding");
 
     err = undefined;
     try {
