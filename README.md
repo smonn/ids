@@ -228,6 +228,11 @@ import {
   type WrappingKey, // opaque imported handle for wrapping key material
   type WrappingKeyFormat, // "hex" | "base64url"
 } from "@smonn/ids/wrapped";
+
+import {
+  idColumn, // (codec: IdColumnCodec<Brand>) => PgCustomColumnBuilder (Drizzle column)
+  type IdColumnCodec, // { safeParse(value: unknown): ParseResult<Brand> }
+} from "@smonn/ids/drizzle";
 ```
 
 `@smonn/ids/wrapped` ships the Wrapped key codec for `u32`, `i32`, `u64`, and `i64` lookup keys. `wrap(lookupKey)` returns a public ID; `unwrap(id)` verifies the payload and returns the lookup key; `safeUnwrap(input)` is the non-throwing path for untrusted input.
@@ -333,6 +338,42 @@ const { id, lookupKey } = result; // Id<"inv">, number
 | `minIdForTime(date)`   | sync                    | —                             | —                              | Tight lower bound for any ID generated at `date` (for range queries)          |
 | `maxIdForTime(date)`   | sync                    | —                             | —                              | Tight upper bound for any ID generated at `date` (for range queries)          |
 | `toJsonSchema()`       | sync                    | sync                          | sync                           | JSON Schema (`type`/`pattern`/`description`/`example`) for the canonical form |
+
+## ORM adapters
+
+### Drizzle (`@smonn/ids/drizzle`)
+
+`@smonn/ids/drizzle` is a subpath export that provides a Drizzle custom column type bound to a codec. It requires `drizzle-orm` as a peer dependency — installing `@smonn/ids` alone does not require Drizzle.
+
+```bash
+pnpm add drizzle-orm
+```
+
+```ts
+import { pgTable } from "drizzle-orm/pg-core";
+import { idColumn } from "@smonn/ids/drizzle";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+export const users = pgTable("users", {
+  id: idColumn(usr).primaryKey(),
+});
+// users.id is typed as Id<"usr"> end-to-end
+```
+
+`idColumn(codec)` works with any codec variant — `TimestampCodec`, `OpaqueTimestampCodec`, and `WrappedKeyCodec` all satisfy the required interface.
+
+**Write path:** `Id<Brand>` is already canonical, so it is passed to the driver unchanged.
+
+**Read path:** values from the database are normalised via `codec.safeParse()` rather than the strict `is()` check. Data at rest should already be canonical per [ADR-0003](./docs/adr/0003-canonical-strict-is.md), but `safeParse` is a safe boundary in case stale non-canonical values exist. An unrecognised value throws at read time so corrupt data surfaces immediately rather than silently.
+
+```ts
+import {
+  idColumn, // (codec: IdColumnCodec<Brand>) => PgCustomColumnBuilder
+  type IdColumnCodec, // { safeParse(value: unknown): ParseResult<Brand> }
+} from "@smonn/ids/drizzle";
+```
 
 ## CLI
 

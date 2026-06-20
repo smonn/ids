@@ -5,6 +5,7 @@ export default defineConfig({
     index: "src/index.ts",
     opaque: "src/opaque.ts",
     wrapped: "src/wrapped.ts",
+    drizzle: "src/drizzle.ts",
     cli: "bin/cli.ts",
   },
   dts: {

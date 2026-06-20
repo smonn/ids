@@ -12,7 +12,17 @@ module.exports = {
       name: "wire-no-shell",
       severity: "error",
       from: { path: "^src/wire" },
-      to: { path: "^src/(timestamp|opaque|wrapped|cli|registry)\\.ts$" },
+      to: { path: "^src/(timestamp|opaque|wrapped|drizzle|cli|registry)\\.ts$" },
+    },
+    {
+      name: "drizzle-adapter-no-internals",
+      severity: "error",
+      comment: "drizzle adapter may import only types from @smonn/ids internals",
+      from: { path: "^src/drizzle\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/types\\.ts$",
+      },
     },
     {
       name: "wire-middle-no-siblings",
