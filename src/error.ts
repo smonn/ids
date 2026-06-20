@@ -28,9 +28,7 @@ export type IdsErrorCode =
  * try {
  *   usr.parse(rawInput);
  * } catch (err) {
- *   if (isIdsError(err) && err.code === "invalid_id") {
- *     // handle parse failure
- *   }
+ *   if (isIdsError(err) && err.code === "invalid_id") return; // handle parse failure
  * }
  * ```
  */
