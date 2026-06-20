@@ -51,6 +51,20 @@ jobs:
           gh label create re-review --color 006B75 \
             --description "Re-run the agent code review on this PR" --force >/dev/null 2>&1 || true
 
+      - name: Clear prior review comment (re-reviews only)
+        if: github.event_name == 'workflow_dispatch' || github.event.action == 'labeled'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # The code-review plugin skips a PR it has already reviewed. For an explicit
+          # re-review, delete its prior "## Code review" comment so it runs fresh.
+          gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq '.[] | select(.user.login == "smonn[bot]" and (.body | startswith("## Code review"))) | .id' \
+          | while read -r id; do
+              [ -n "$id" ] && gh api -X DELETE "repos/$GH_REPO/issues/comments/$id" && echo "deleted prior review comment $id"
+            done
+
       - name: Checkout PR head
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
