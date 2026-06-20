@@ -2,12 +2,15 @@ import { do_not_optimize, measure } from "mitata";
 import { decodeBase32, encodeBase32 } from "../src/base32.js";
 import { createTimestampId } from "../src/timestamp.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../src/opaque.js";
+import { createReverseTimestampId } from "../src/reverse.js";
 import { createWrappedKeyId, importWrappingKey } from "../src/wrapped.js";
 import type { Id } from "../src/types.js";
 
 const usr = createTimestampId("usr");
+const rev = createReverseTimestampId("rev");
 
 const canonicalId = usr.parse("usr_01h7b3k9rqxn1cw3p9r8t2sgkz") as Id<"usr">;
+const reverseId = rev.generate();
 const lenientInput = "USR_OIh7b3k9rqxnIcw3p9r8t2sgkz";
 const base32Payload = canonicalId.slice("usr_".length);
 
@@ -38,6 +41,8 @@ const cases: Case[] = [
   { name: "extractTimestamp", fn: () => usr.extractTimestamp(canonicalId) },
   { name: "encodeBase32", fn: () => encodeBase32(bytesPayload) },
   { name: "decodeBase32", fn: () => decodeBase32(base32Payload) },
+  { name: "reverse.generate", fn: () => rev.generate() },
+  { name: "reverse.extractTimestamp", fn: () => rev.extractTimestamp(reverseId) },
   { name: "opaque.generate", fn: () => opa.generate(), async: true },
   { name: "opaque.extractTimestamp", fn: () => opa.extractTimestamp(opaqueId), async: true },
   // wrapped.* use AES-block + HMAC on the hot path; same async-crypto variance handling as opaque.*
