@@ -44,10 +44,37 @@ jobs:
           for n in $blocked; do
             text=$(gh issue view "$n" --json body,comments \
               --jq '.body + "\n" + ([.comments[].body] | join("\n"))')
-            # Extract blocker issue numbers from the declared dependency phrases.
-            deps=$(printf '%s' "$text" \
-              | grep -oiE '(blocked by|depends on|requires)[[:space:]]*:?[[:space:]]*#[0-9]+' \
-              | grep -oE '[0-9]+' | sort -u)
+            # Extract blocker issue numbers from two declaration forms:
+            #   1. an inline phrase + number on one line ("Depends on #104"); and
+            #   2. a "## Blocked by" (or Depends on / Requires) heading followed by a
+            #      markdown bullet list of "- #N" items — the issue-template form, which a
+            #      line-by-line grep misses because the number sits on its own bullet line.
+            # The bullet pass reads only the LEADING #N of each bullet under the heading
+            # (not surrounding prose), so a self-reference like "Issue #109 depends on
+            # #104" resolves to #104, never #109.
+            deps=$(
+              {
+                printf '%s' "$text" \
+                  | grep -oiE '(blocked by|depends on|requires)[[:space:]]*:?[[:space:]]*#[0-9]+' \
+                  | grep -oE '[0-9]+'
+                printf '%s' "$text" | awk '
+                  { lc = tolower($0) }
+                  lc ~ /blocked by|depends on|requires/ { collect = 1; started = 0; next }
+                  collect {
+                    if ($0 ~ /^[ \t]*$/) { if (started) collect = 0; next }
+                    if ($0 ~ /^[ \t]*[-*][ \t]*#?[0-9]+/) {
+                      n = $0
+                      sub(/^[ \t]*[-*][ \t]*#?/, "", n)
+                      sub(/[^0-9].*$/, "", n)
+                      print n
+                      started = 1
+                      next
+                    }
+                    collect = 0
+                  }
+                '
+              } | sort -un
+            )
             if [ -z "$deps" ]; then
               echo "#$n: blocked but no parseable blocker reference; leaving for a human."
               continue
