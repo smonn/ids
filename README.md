@@ -414,6 +414,17 @@ import {
 } from "@smonn/ids/reverse";
 
 import {
+  importSigningKey, // (bytes: Uint8Array) => Promise<SigningKey>
+  encodeSigningKey, // (bytes: Uint8Array, format: SigningKeyFormat) => string
+  decodeSigningKey, // (encoded: string, format: SigningKeyFormat) => Uint8Array
+  IdsError, // re-exported from @smonn/ids/signed for convenience
+  isIdsError, // re-exported from @smonn/ids/signed for convenience
+  type SigningKey, // opaque imported handle for HMAC key material (HKDF-derived)
+  type SigningKeyFormat, // "hex" | "base64url"
+  type IdsErrorCode, // re-exported from @smonn/ids/signed for convenience
+} from "@smonn/ids/signed";
+
+import {
   IdsError, // re-exported for convenience — same class as "@smonn/ids"
   isIdsError, // re-exported for convenience — same guard as "@smonn/ids"
   type IdsErrorCode, // re-exported for convenience — same union as "@smonn/ids"

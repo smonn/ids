@@ -5,6 +5,7 @@ export default defineConfig({
     index: "src/index.ts",
     opaque: "src/opaque.ts",
     reverse: "src/reverse.ts",
+    signed: "src/signed.ts",
     wrapped: "src/wrapped.ts",
     drizzle: "src/drizzle.ts",
     hono: "src/hono.ts",
