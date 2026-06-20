@@ -21,6 +21,7 @@
     "./wrapped": "./dist/wrapped.mjs",
     "./drizzle": "./dist/drizzle.mjs",
     "./hono": "./dist/hono.mjs",
+    "./kysely": "./dist/kysely.mjs",
     "./prisma": "./dist/prisma.mjs",
     "./express": "./dist/express.mjs",
     "./package.json": "./package.json"
@@ -52,6 +53,7 @@
     "express": "^5.2.1",
     "hono": "^4.12.26",
     "knip": "6.16.1",
+    "kysely": "^0.29.2",
     "mitata": "1.0.34",
     "oxfmt": "0.55.0",
     "oxlint": "1.69.0",
@@ -63,7 +65,8 @@
     "@prisma/client": ">=5.0.0",
     "drizzle-orm": ">=0.30.0",
     "express": ">=4.0.0",
-    "hono": ">=4.0.0"
+    "hono": ">=4.0.0",
+    "kysely": ">=0.27.0"
   },
   "peerDependenciesMeta": {
     "drizzle-orm": {
@@ -73,6 +76,9 @@
       "optional": true
     },
     "hono": {
+      "optional": true
+    },
+    "kysely": {
       "optional": true
     },
     "@prisma/client": {
