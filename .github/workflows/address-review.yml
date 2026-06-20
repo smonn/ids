@@ -94,11 +94,15 @@ jobs:
 
       - name: Configure git identity and working branch
         if: steps.gate.outputs.proceed == 'true'
+        env:
+          # Via env, not ${{ }} interpolation, so a crafted branch name can't inject
+          # shell. (headRefName is PR-author-controlled.)
+          BRANCH: ${{ steps.gate.outputs.branch }}
         run: |
           git config user.name "smonn[bot]"
           git config user.email "110314539+smonn[bot]@users.noreply.github.com"
           # We checked out a detached SHA; recreate the branch at it so we can push.
-          git checkout -B "${{ steps.gate.outputs.branch }}"
+          git checkout -B "$BRANCH"
 
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
         if: steps.gate.outputs.proceed == 'true'
