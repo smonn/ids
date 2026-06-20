@@ -559,7 +559,11 @@ interface Database {
   users: { id: IdColumnType<"usr"> };
 }
 
-// Apply runtime transformation in query handlers:
+// Kysely has no runtime transformer — fromDriver/toDriver do NOT fire automatically.
+// You must call fromDriver() manually on every read result.
+// The `as unknown as string` cast is required because TypeScript already sees
+// row.id as Id<"usr"> (from the Database interface), even though the raw DB
+// value is a plain string at runtime.
 const row = await db.selectFrom("users").selectAll().executeTakeFirstOrThrow();
 const id = usrCol.fromDriver(row.id as unknown as string);
 ```
