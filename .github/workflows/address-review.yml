@@ -1,9 +1,11 @@
 name: Address PR review feedback
 
 # When a human asks for changes on an agent PR, have the agent address them.
-# Triggers on a "Changes requested" review, or an @claude mention in a PR comment
+# Triggers on a "Changes requested" review, or an @ids-agent mention in a PR comment
 # or review comment. Only fires on HUMAN input (never the bot's own reviews/
 # comments) so it can't loop with the reviewer, and only on agent/issue-* branches.
+# The mention phrase is a project-specific, collision-proof string (not @claude) so
+# it can't accidentally ping unrelated GitHub Apps that answer to @claude.
 
 on:
   pull_request_review:
@@ -25,7 +27,7 @@ permissions:
 jobs:
   address:
     # Human actor only (no bot loops), and either a changes-requested review or an
-    # explicit @claude mention. The agent-branch check happens in the gate step,
+    # explicit @ids-agent mention. The agent-branch check happens in the gate step,
     # since issue_comment payloads don't carry the head ref.
     # Security: this trigger is privileged (secrets + write token), and the job
     # checks out and executes the PR branch's code. Restrict to trusted humans
@@ -35,8 +37,8 @@ jobs:
       github.actor != 'smonn[bot]' && github.event.sender.type != 'Bot' &&
       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association || github.event.comment.author_association) && (
         (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested') ||
-        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-        (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(github.event.comment.body, '@claude'))
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@ids-agent')) ||
+        (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(github.event.comment.body, '@ids-agent'))
       )
     runs-on: ubuntu-latest
     environment: automation
