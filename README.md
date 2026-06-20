@@ -164,6 +164,33 @@ The `pattern` describes the **canonical form only** — it matches `generate()` 
 
 `example` is produced by calling `generate()` on each invocation, so it is fresh (non-deterministic) and always matches the returned `pattern`. One consequence: a codec wired with an injected `now` outside the 48-bit range — the same misconfiguration that breaks `generate()` — makes `toJsonSchema()` throw too.
 
+### "Validate a route param in Hono"
+
+`@smonn/ids/hono` provides `idParam` — a middleware factory that validates a named route param against a codec and exposes the canonical `Id<Brand>` to the handler. Hono is an **optional peer dependency**; install it separately alongside `@smonn/ids`.
+
+```bash
+pnpm add hono
+```
+
+```ts
+import { idParam } from "@smonn/ids/hono";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+app.get("/users/:id", idParam("id", usr), (c) => {
+  const id = c.get("id"); // Id<"usr">, canonical
+  // …
+});
+```
+
+**400 vs 404 contract:**
+
+- **Brand mismatch (`invalid_prefix`) → 404.** The resource cannot exist under this route — a `usr_` ID makes no sense on `/orders/:id`. Use 404, not 400, to communicate that the combination of route and ID kind is meaningless.
+- **Malformed payload (`invalid_base32` or `not_string`) → 400.** The ID has the right prefix but the payload is broken — a bad request, not a missing resource.
+
+`idParam` calls `safeParse` at the boundary (lenient: accepts mixed case and Crockford aliases), so the handler always receives a canonical, normalized `Id<Brand>` — never the raw URL string. Works with any codec variant's structural `safeParse`.
+
 ### "Don't leak creation time in IDs that customers can see"
 
 The Timestamp codec exposes the creation timestamp by design — that's what makes `ORDER BY id` work. If that's a leak you can't accept (invoice IDs revealing billing cadence, signup IDs revealing acquisition velocity), use the Opaque Timestamp codec at `@smonn/ids/opaque`. Same `<brand>_<26 chars>` wire shape, but the payload is AES-encrypted under a key you supply.
@@ -228,6 +255,10 @@ import {
   type WrappingKey, // opaque imported handle for wrapping key material
   type WrappingKeyFormat, // "hex" | "base64url"
 } from "@smonn/ids/wrapped";
+
+import {
+  idParam, // (paramName: string, codec) => Hono MiddlewareHandler — validates route param, 404 on brand mismatch, 400 on malformed
+} from "@smonn/ids/hono";
 ```
 
 `@smonn/ids/wrapped` ships the Wrapped key codec for `u32`, `i32`, `u64`, and `i64` lookup keys. `wrap(lookupKey)` returns a public ID; `unwrap(id)` verifies the payload and returns the lookup key; `safeUnwrap(input)` is the non-throwing path for untrusted input.
