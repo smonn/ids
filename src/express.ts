@@ -5,39 +5,108 @@ type IdCodec<Brand extends string> = {
   safeParse(value: unknown): ParseResult<Brand>;
 };
 
+/** Discriminated failure value passed to `onError` and emitted to Express error pipeline via `next(err)`. */
+export type IdParamFailure =
+  | { readonly reason: "brand_mismatch"; readonly status: number }
+  | { readonly reason: "malformed"; readonly status: number };
+
+/**
+ * Typed error forwarded to Express's error pipeline (`next(err)`) on validation failure.
+ * Inspect `err.reason` and `err.status` in error-handling middleware.
+ */
+export class IdParamError extends Error {
+  readonly status: number;
+  readonly reason: "brand_mismatch" | "malformed";
+
+  constructor(reason: "brand_mismatch" | "malformed", status: number) {
+    super(`ID validation failed: ${reason}`);
+    this.name = "IdParamError";
+    this.reason = reason;
+    this.status = status;
+  }
+}
+
+/** Options for `idParam`. All fields are optional. */
+export type IdParamOptions = {
+  /**
+   * Called instead of forwarding to `next(err)` when provided. The hook owns the response
+   * entirely — the adapter does not call `next(err)` itself.
+   */
+  onError?: (failure: IdParamFailure, req: Request, res: Response, next: NextFunction) => void;
+  /**
+   * Remap the default HTTP status for a failure reason without a full handler.
+   * e.g. `{ brand_mismatch: 400 }` treats both failure kinds as 400.
+   */
+  status?: { brand_mismatch?: number; malformed?: number };
+};
+
 /**
  * Express middleware that validates a named route param against a codec via `safeParse`.
  *
- * - **Brand mismatch (`invalid_prefix`) → 404**: the resource cannot exist under this route.
- * - **Malformed or missing ID (`not_string` | `invalid_base32`) → 400**: the request is invalid.
+ * **Default (no options):** calls `next(err)` with an `IdParamError` carrying `status` and `reason`,
+ * so the app's existing error-handling middleware controls rendering. The adapter does not write
+ * a response body itself.
+ *
+ * **`options.onError`:** when provided, the hook owns the response entirely — the adapter does
+ * not call `next(err)`.
+ *
+ * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
+ *
+ * - **Brand mismatch (`invalid_prefix`) → `reason: "brand_mismatch"`, default 404**
+ * - **Malformed or missing ID → `reason: "malformed"`, default 400**
  *
  * On success, stores the canonical `Id<Brand>` in `res.locals` under `paramName`
  * and calls `next()`.
  *
  * @example
  * ```ts
- * import { idParam } from "@smonn/ids/express";
+ * import { idParam, IdParamError } from "@smonn/ids/express";
  * import { createTimestampId } from "@smonn/ids";
  *
  * const usr = createTimestampId("usr");
+ *
+ * // Default: forwards error to app error-handling middleware
  * app.get("/users/:id", idParam("id", usr), (req, res) => {
  *   const id = res.locals.id; // Id<"usr">, canonical
  * });
+ *
+ * // Error-handling middleware receives the typed error
+ * app.use((err, req, res, next) => {
+ *   if (err instanceof IdParamError) {
+ *     res.status(err.status).json({ error: err.reason });
+ *     return;
+ *   }
+ *   next(err);
+ * });
+ *
+ * // Override: consumer fully owns the response
+ * app.get("/orgs/:id", idParam("id", org, {
+ *   onError: (failure, req, res) => res.status(failure.status).json({ error: failure.reason }),
+ * }), handler);
+ *
+ * // Or a lightweight status remap without a full handler
+ * app.get("/things/:id", idParam("id", thing, { status: { brand_mismatch: 400 } }), handler);
  * ```
  */
 export function idParam<ParamKey extends string, Brand extends string>(
   paramName: ParamKey,
   codec: IdCodec<Brand>,
+  options?: IdParamOptions,
 ): (req: Request, res: Response<unknown, Record<ParamKey, Id<Brand>>>, next: NextFunction) => void {
   return (req, res, next): void => {
     const raw = req.params[paramName];
     const result = codec.safeParse(raw);
     if (!result.ok) {
-      if (result.error === "invalid_prefix") {
-        res.status(404).send("Not Found");
+      const reason =
+        result.error === "invalid_prefix" ? ("brand_mismatch" as const) : ("malformed" as const);
+      const defaultStatus = reason === "brand_mismatch" ? 404 : 400;
+      const status = options?.status?.[reason] ?? defaultStatus;
+      const failure: IdParamFailure = { reason, status };
+      if (options?.onError) {
+        options.onError(failure, req, res, next);
         return;
       }
-      res.status(400).send("Bad Request");
+      next(new IdParamError(reason, status));
       return;
     }
     (res.locals as Record<string, unknown>)[paramName] = result.id;
