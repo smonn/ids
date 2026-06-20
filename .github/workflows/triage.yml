@@ -103,6 +103,13 @@ jobs:
               state,title`. If ANY is still OPEN, post ONE comment listing the open
               blockers, run `gh issue edit <n> --add-label blocked --remove-label
               needs-triage`, and STOP. (unblock.yml re-triages when the blocker closes.)
+            - SCOPE FENCE: when you write the acceptance criteria, include an explicit
+              `Non-goals / Out of scope` list. For any issue in a `Blocked by` / split
+              chain, name the sibling issue that owns each deferred piece, and ensure
+              every docs criterion covers ONLY behavior this issue itself ships — never
+              pre-documenting a follow-up's work (e.g. don't ask a foundation issue to
+              add an error-code table its sibling conversion will ship). If the body
+              lacks this fence and scope is ambiguous, add the fence in your comment.
             - CLOSED DECISIONS: if the request reopens a CLOSED decision (brand format,
               payload byte layout, canonical `is()`, monotonicity, custom epoch, Opaque
               key behavior, or wire-indistinguishable codec variants) with no compelling

@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     # Same isolated secrets env as triage (APP_ID / APP_PRIVATE_KEY / CLAUDE_CODE_OAUTH_TOKEN).
     environment: automation
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
       BRANCH: agent/issue-${{ github.event.issue.number || github.event.inputs.issue_number }}
@@ -104,9 +104,11 @@ jobs:
           # the repo-specific scaffolding the skill doesn't carry (branch naming, the
           # full CI gate, changesets, PR creation, issue-state transition, escalation).
           # Implementation is turn-heavy; Sonnet keeps subscription usage in check,
-          # bump to opus if quality needs it.
+          # bump to opus if quality needs it. The /tdd skill spends several turns
+          # per red→green→refactor cycle, so a multi-slice issue needs generous
+          # headroom — keep issues small AND give the loop room to finish.
           claude_args: |
-            --max-turns 80
+            --max-turns 150
             --model claude-sonnet-4-6
             --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
           prompt: |
@@ -134,6 +136,14 @@ jobs:
                approval steps — proceed on the acceptance criteria as the agreed spec.
                Run the suite with `pnpm test`. Hard rules that override anything:
                - NEVER weaken, delete, or skip tests just to get green.
+               - Limit doc edits (README / CONTEXT.md / ADR) to what the acceptance
+                 criteria require AND to behavior THIS PR actually implements. Do NOT
+                 copy tables, examples, or sections out of an ADR or CONTEXT.md that
+                 describe behavior a sibling/blocked issue will ship — pre-documenting
+                 unshipped behavior is a scope violation. Adding a new export to the
+                 README API-surface list is fine; documenting how it behaves is not,
+                 until the PR that ships that behavior. Respect any `Out of scope`
+                 fence in the issue.
                - NEVER touch a CLOSED design decision (brand format, payload byte
                  layout, canonical `is()`, monotonicity, custom epoch, Opaque key
                  behavior, or wire-indistinguishable codec variants). If the task

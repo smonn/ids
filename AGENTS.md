@@ -8,6 +8,8 @@ Issues live in GitHub Issues on `smonn/ids`, accessed via the `gh` CLI. See `doc
 
 ### GitHub workflow
 
+- Before filing, break work into the smallest independently-shippable issues along natural seams; prefer a `Blocked by #N` chain (additive foundation first, then the change that depends on it) over one oversized issue, which can exhaust an implementing agent's turn budget before it opens a PR. Give every split issue an explicit `Out of scope` fence naming the sibling issue that owns the deferred work.
+- A PR's docs (`README` / `CONTEXT.md` / ADR) describe only behavior that PR ships — don't pre-document a sibling/blocked issue's work or an unmerged design. Adding an export updates the API-surface list; documenting how it behaves waits for the PR that implements it.
 - Use the repository issue templates when creating GitHub issues, unless the user explicitly asks for a quick/freeform issue.
 - Use the repository PR template when opening pull requests.
 - Link the originating issue from PRs when one exists.

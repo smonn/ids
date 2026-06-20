@@ -4,6 +4,8 @@
 
 Use the GitHub issue forms for bug reports and feature or enhancement requests. Blank issues are disabled so reports include the expected behavior or motivation, actual behavior or desired behavior, relevant **Codec variant**, affected surface, and enough context for triage.
 
+**Right-size the work before filing.** Break a change into the smallest independently-shippable units along its natural seams, and file those rather than one large issue. This matters most for `ready-for-agent` work: an oversized issue — one that bundles, say, a new type plus its adoption across many call sites plus docs plus tests — can exhaust the implementing agent's turn budget before it ever opens a PR. Prefer a short chain of small issues — an additive foundation first, then the change that depends on it — filing the foundation as unblocked and giving each dependent a `Blocked by #N` section. Give every split issue an explicit **Out of scope** fence that names the sibling issue owning the deferred work (e.g. "the error-code table ships with the conversion in #149"), so an implementer can't pull a follow-up's work forward.
+
 Maintainers apply triage labels after reading the issue:
 
 - `needs-triage` means a maintainer still needs to evaluate the issue.
@@ -57,6 +59,7 @@ Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, and `pnpm depc
 
 - **Don't mock the clock or RNG.** Inject them via `TimestampOptions` (`now`, `rng`) — see the existing tests for how.
 - **New exports → update the API surface section in [`README.md`](./README.md).**
+- **Document only shipped behavior.** A PR's `README` / `CONTEXT.md` / ADR edits describe behavior implemented in that same PR — never pre-document a sibling issue's work or an unmerged design. Adding a new export to the API-surface list is in scope; documenting how it _behaves_ waits for the PR that ships that behavior.
 - **New domain concept → add a glossary entry to [`CONTEXT.md`](./CONTEXT.md)**, including any synonyms you want future contributors to avoid.
 - **New design decision that's hard to reverse, surprising without context, and the result of a real trade-off → add a new ADR** under `docs/adr/`, numbered sequentially.
 - **Commit subjects:** `<scope>: <what changed>` (e.g. `id: tighten is() to canonical-only`).
