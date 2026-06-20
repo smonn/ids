@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     # Same isolated secrets env as triage (APP_ID / APP_PRIVATE_KEY / CLAUDE_CODE_OAUTH_TOKEN).
     environment: automation
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
       BRANCH: agent/issue-${{ github.event.issue.number || github.event.inputs.issue_number }}
@@ -104,9 +104,11 @@ jobs:
           # the repo-specific scaffolding the skill doesn't carry (branch naming, the
           # full CI gate, changesets, PR creation, issue-state transition, escalation).
           # Implementation is turn-heavy; Sonnet keeps subscription usage in check,
-          # bump to opus if quality needs it.
+          # bump to opus if quality needs it. The /tdd skill spends several turns
+          # per red→green→refactor cycle, so a multi-slice issue needs generous
+          # headroom — keep issues small AND give the loop room to finish.
           claude_args: |
-            --max-turns 80
+            --max-turns 150
             --model claude-sonnet-4-6
             --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
           prompt: |

@@ -4,6 +4,8 @@
 
 Use the GitHub issue forms for bug reports and feature or enhancement requests. Blank issues are disabled so reports include the expected behavior or motivation, actual behavior or desired behavior, relevant **Codec variant**, affected surface, and enough context for triage.
 
+**Right-size the work before filing.** Break a change into the smallest independently-shippable units along its natural seams, and file those rather than one large issue. This matters most for `ready-for-agent` work: an oversized issue — one that bundles, say, a new type plus its adoption across many call sites plus docs plus tests — can exhaust the implementing agent's turn budget before it ever opens a PR. Prefer a short chain of small issues — an additive foundation first, then the change that depends on it — filing the foundation as unblocked and giving each dependent a `Blocked by #N` section.
+
 Maintainers apply triage labels after reading the issue:
 
 - `needs-triage` means a maintainer still needs to evaluate the issue.
