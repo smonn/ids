@@ -30,4 +30,9 @@ describe("failThreshold", () => {
   it("treats any future wrapped.* bench as high-threshold", () => {
     expect(failThreshold("wrapped.someNewBench")).toBe(0.5);
   });
+
+  it("returns 0.30 for reverse.* benches (sync inversion, same variance profile as plain Timestamp)", () => {
+    expect(failThreshold("reverse.generate")).toBe(0.3);
+    expect(failThreshold("reverse.extractTimestamp")).toBe(0.3);
+  });
 });
