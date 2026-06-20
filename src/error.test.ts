@@ -63,6 +63,14 @@ describe("IdsError", () => {
     }
     expect(keys).not.toContain(expect.stringMatching(/brand|IdsError/i));
   });
+
+  it("brand symbol is present with value true", () => {
+    const err = new IdsError("invalid_brand", "test");
+    expect(
+      Object.getOwnPropertyDescriptor(err, Symbol.for("@smonn/ids/IdsError"))
+        ?.value,
+    ).toBe(true);
+  });
 });
 
 describe("isIdsError", () => {
