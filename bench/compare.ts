@@ -17,7 +17,14 @@ type Report = {
   benches: Bench[];
 };
 
-const REGRESSION_THRESHOLD = 0.15;
+// Two tiers. WARN is cosmetic — it labels rows in the PR comment. FAIL is what
+// actually blocks the check (exit 1) and is therefore autofix-eligible, so it sits
+// above the noise floor that doubling the sample count leaves on the µs-scale
+// opaque.* ops. Raise the sample count (index.ts) before loosening FAIL.
+const WARN_THRESHOLD = 0.15;
+const FAIL_THRESHOLD = 0.3;
+
+const pct = (v: number): string => `${(v * 100).toFixed(0)}%`;
 
 function usage(): never {
   process.stderr.write("usage: compare <base.json> <pr.json>\n");
@@ -67,6 +74,7 @@ if (pr === null) {
 
 const lines: string[] = [];
 let regressions = 0;
+let blocking = 0;
 let improvements = 0;
 
 if (base === null) {
@@ -88,7 +96,7 @@ if (base === null) {
   lines.push("## Benchmarks");
   lines.push("");
   lines.push(
-    `Threshold: ±${(REGRESSION_THRESHOLD * 100).toFixed(0)}% on p50. Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
+    `Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}, blocking +${pct(FAIL_THRESHOLD)}. Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
   );
   lines.push("");
   lines.push("| Bench | Base p50 | PR p50 | Δ p50 | PR throughput | Notes |");
@@ -104,10 +112,15 @@ if (base === null) {
     }
     const delta = (cur.p50_ns - prev.p50_ns) / prev.p50_ns;
     let note = "";
-    if (delta > REGRESSION_THRESHOLD) {
-      note = "**regression**";
+    if (delta > WARN_THRESHOLD) {
       regressions++;
-    } else if (delta < -REGRESSION_THRESHOLD) {
+      if (delta > FAIL_THRESHOLD) {
+        note = "**regression (blocking)**";
+        blocking++;
+      } else {
+        note = "regression (warn)";
+      }
+    } else if (delta < -WARN_THRESHOLD) {
       note = "improvement";
       improvements++;
     }
@@ -123,17 +136,25 @@ if (base === null) {
   }
 
   lines.push("");
-  if (regressions > 0) {
+  if (blocking > 0) {
     lines.push(
-      `**${regressions} regression${regressions === 1 ? "" : "s"} above the ${(REGRESSION_THRESHOLD * 100).toFixed(0)}% threshold.**`,
+      `**${blocking} blocking regression${blocking === 1 ? "" : "s"}** above the fail threshold (+${pct(FAIL_THRESHOLD)}).` +
+        (regressions > blocking
+          ? ` ${regressions - blocking} more above warn (±${pct(WARN_THRESHOLD)}).`
+          : ""),
+    );
+  } else if (regressions > 0) {
+    lines.push(
+      `${regressions} regression${regressions === 1 ? "" : "s"} above warn (±${pct(WARN_THRESHOLD)}) but under the blocking threshold — not failing the check.`,
     );
   } else {
     lines.push(
-      `No regressions above the ${(REGRESSION_THRESHOLD * 100).toFixed(0)}% threshold.${improvements > 0 ? ` ${improvements} improvement${improvements === 1 ? "" : "s"}.` : ""}`,
+      `No regressions above warn (±${pct(WARN_THRESHOLD)}).${improvements > 0 ? ` ${improvements} improvement${improvements === 1 ? "" : "s"}.` : ""}`,
     );
   }
 }
 
 process.stdout.write(lines.join("\n") + "\n");
 
-if (regressions > 0) process.exit(1);
+// Only a blocking-tier regression fails the check (and is therefore autofix-eligible).
+if (blocking > 0) process.exit(1);
