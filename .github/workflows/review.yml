@@ -65,6 +65,10 @@ jobs:
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
           plugins: "code-review@claude-code-plugins"
           prompt: "/code-review:code-review ${{ github.repository }}/pull/${{ env.PR_NUMBER }} --comment"
+          # Grant the read/inspect tools the code-review plugin needs (and Bash for
+          # gh), or it burns turns on permission denials and can't post inline
+          # comments. Read-only — no Edit/Write; the reviewer never changes code.
           claude_args: |
             --max-turns 40
             --model claude-sonnet-4-6
+            --allowedTools "Bash,Read,Grep,Glob,TodoWrite"
