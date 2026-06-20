@@ -27,8 +27,13 @@ jobs:
     # Human actor only (no bot loops), and either a changes-requested review or an
     # explicit @claude mention. The agent-branch check happens in the gate step,
     # since issue_comment payloads don't carry the head ref.
+    # Security: this trigger is privileged (secrets + write token), and the job
+    # checks out and executes the PR branch's code. Restrict to trusted humans
+    # (author_association) here, and to same-repo agent branches in the gate step,
+    # so a forked PR cannot run attacker-controlled code with our secrets.
     if: >-
-      github.actor != 'smonn[bot]' && github.event.sender.type != 'Bot' && (
+      github.actor != 'smonn[bot]' && github.event.sender.type != 'Bot' &&
+      contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association || github.event.comment.author_association) && (
         (github.event_name == 'pull_request_review' && github.event.review.state == 'changes_requested') ||
         (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
         (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(github.event.comment.body, '@claude'))
@@ -52,10 +57,17 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          branch=$(gh pr view "$PR_NUMBER" --json headRefName --jq '.headRefName')
-          echo "PR #$PR_NUMBER head: $branch"
-          if [ "$(gh pr view "$PR_NUMBER" --json state --jq '.state')" != "OPEN" ]; then
+          info=$(gh pr view "$PR_NUMBER" --json headRefName,state,headRepository,headRepositoryOwner)
+          branch=$(printf '%s' "$info" | jq -r '.headRefName')
+          state=$(printf '%s' "$info" | jq -r '.state')
+          headrepo=$(printf '%s' "$info" | jq -r '.headRepositoryOwner.login + "/" + .headRepository.name')
+          echo "PR #$PR_NUMBER: state=$state head=$headrepo:$branch base=$GH_REPO"
+          if [ "$state" != "OPEN" ]; then
             echo "PR is not open; skipping."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          elif [ "$headrepo" != "$GH_REPO" ]; then
+            # Never check out / execute code from a fork in this privileged workflow.
+            echo "::warning::PR head is a fork ($headrepo); refusing to run on untrusted code."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           elif printf '%s' "$branch" | grep -q '^agent/issue-'; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
