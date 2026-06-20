@@ -4,9 +4,6 @@ on:
   pull_request:
   push:
     branches: [main]
-  # Required for the merge queue: GitHub runs CI against the temporary
-  # merge_group ref before landing each PR on main.
-  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
