@@ -62,6 +62,12 @@ jobs:
 
       - name: Triage the issue
         uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1.0.152
+        env:
+          # Authenticate `gh` inside Claude's Bash so it can comment and label the
+          # issue directly. This works on both `issues` events and workflow_dispatch,
+          # where the action has no issue/PR context of its own.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
@@ -78,15 +84,20 @@ jobs:
             #${{ github.event.issue.number || github.event.inputs.issue_number }}
             in ${{ github.repository }}.
 
+            You interact with the issue using the `gh` CLI, which is already
+            authenticated (GH_TOKEN / GH_REPO are set). Read it with
+            `gh issue view <n> --json title,body,labels,comments`. Do NOT rely on any
+            other comment mechanism — `gh` is the only supported path here.
+
             Ground your judgment in the repo before deciding:
             - CONTEXT.md — domain glossary, codec variants, and CLOSED design decisions.
             - docs/adr/ — architecture decision records; some decisions are CLOSED.
             - docs/agents/triage-labels.md — the canonical triage label vocabulary.
             - The issue title, body, and any existing comments.
 
-            IDEMPOTENCY — check this first: if the issue already carries any of
-            `ready-for-agent`, `ready-for-human`, `wontfix`, or `needs-info`, it has
-            already been triaged. Do nothing and stop.
+            IDEMPOTENCY — check this first via `gh issue view`: if the issue already
+            carries any of `ready-for-agent`, `ready-for-human`, `wontfix`, or
+            `needs-info`, it has already been triaged. Do nothing and stop.
 
             Otherwise, triage it:
             1. Classify it as a bug or an enhancement (the templates apply `bug` /
@@ -113,9 +124,14 @@ jobs:
                                      implementable by an autonomous agent (typically internal
                                      implementation or clearly-bounded API/docs work).
 
-            Finally:
-            - Post ONE issue comment containing: the reproduction result, the acceptance
+            Finally, using `gh` (this is the actual deliverable — the job is not done
+            until these land on the issue):
+            - Post ONE issue comment with the reproduction result, the acceptance
               criteria, the scope/impact summary, and the chosen label with a one-line
-              rationale.
-            - Apply the chosen label and remove `needs-triage` if it is present.
+              rationale:
+              `gh issue comment <n> --body "..."` (use a heredoc for the multi-line body).
+            - Apply the chosen label and remove `needs-triage` if present:
+              `gh issue edit <n> --add-label "<label>" --remove-label "needs-triage"`.
+            - Verify with `gh issue view <n> --json labels,comments` that the comment and
+              label actually posted before finishing.
             - Do NOT modify code, open pull requests, or push. This is triage only.
