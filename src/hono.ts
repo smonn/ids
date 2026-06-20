@@ -1,15 +1,43 @@
-import type { MiddlewareHandler } from "hono";
+import { HTTPException } from "hono/http-exception";
+import type { Context, MiddlewareHandler } from "hono";
 import type { Id, ParseResult } from "./types.js";
 
 type IdCodec<Brand extends string> = {
   safeParse(value: unknown): ParseResult<Brand>;
 };
 
+/** Discriminated failure value passed to `onError` and emitted to `app.onError` via HTTPException. */
+export type IdParamFailure =
+  | { readonly reason: "brand_mismatch"; readonly status: number }
+  | { readonly reason: "malformed"; readonly status: number };
+
+/** Options for `idParam`. All fields are optional. */
+export type IdParamOptions = {
+  /**
+   * Called instead of throwing when provided. The hook owns the response entirely —
+   * the adapter neither throws nor writes a body.
+   */
+  onError?: (failure: IdParamFailure, c: Context) => Response | Promise<Response>;
+  /**
+   * Remap the default HTTP status for a failure reason without a full handler.
+   * e.g. `{ brand_mismatch: 400 }` treats both failure kinds as 400.
+   */
+  status?: { brand_mismatch?: number; malformed?: number };
+};
+
 /**
  * Hono middleware that validates a named route param against a codec via `safeParse`.
  *
- * - **Brand mismatch (`invalid_prefix`) → 404**: the resource cannot exist under this route.
- * - **Malformed or missing ID (`not_string` | `invalid_base32`) → 400**: the request is invalid.
+ * **Default (no options):** throws `HTTPException(status)` so the app's existing `onError` handler
+ * controls rendering and content negotiation. The adapter does not write a response body itself.
+ *
+ * **`options.onError`:** when provided, the hook owns the response entirely — the adapter neither
+ * throws nor writes a response.
+ *
+ * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
+ *
+ * - **Brand mismatch (`invalid_prefix`) → `reason: "brand_mismatch"`, default 404**
+ * - **Malformed or missing ID → `reason: "malformed"`, default 400**
  *
  * On success, stores the canonical `Id<Brand>` in the Hono context under `paramName`
  * and calls `next()`.
@@ -20,23 +48,39 @@ type IdCodec<Brand extends string> = {
  * import { createTimestampId } from "@smonn/ids";
  *
  * const usr = createTimestampId("usr");
+ *
+ * // Default: throws HTTPException → app.onError renders it
  * app.get("/users/:id", idParam("id", usr), (c) => {
  *   const id = c.get("id"); // Id<"usr">, canonical
  * });
+ *
+ * // Override: consumer fully owns the response
+ * app.get("/orgs/:id", idParam("id", org, {
+ *   onError: (failure, c) => c.json({ error: failure.reason }, failure.status),
+ * }), handler);
+ *
+ * // Or a lightweight status remap without a full handler
+ * app.get("/things/:id", idParam("id", thing, { status: { brand_mismatch: 400 } }), handler);
  * ```
  */
 export function idParam<ParamKey extends string, Brand extends string>(
   paramName: ParamKey,
   codec: IdCodec<Brand>,
+  options?: IdParamOptions,
 ): MiddlewareHandler<{ Variables: Record<ParamKey, Id<Brand>> }> {
   return async (c, next) => {
     const raw = c.req.param(paramName);
     const result = codec.safeParse(raw);
     if (!result.ok) {
-      if (result.error === "invalid_prefix") {
-        return c.text("Not Found", 404);
+      const reason =
+        result.error === "invalid_prefix" ? ("brand_mismatch" as const) : ("malformed" as const);
+      const defaultStatus = reason === "brand_mismatch" ? 404 : 400;
+      const status = options?.status?.[reason] ?? defaultStatus;
+      const failure: IdParamFailure = { reason, status };
+      if (options?.onError) {
+        return options.onError(failure, c);
       }
-      return c.text("Bad Request", 400);
+      throw new HTTPException(status as ConstructorParameters<typeof HTTPException>[0]);
     }
     c.set(paramName, result.id);
     await next();
