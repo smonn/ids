@@ -43,13 +43,18 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Ensure the re-review label exists
+      - name: Ensure the agent-PR action labels exist
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          # Provision the on-demand action labels for agent PRs so a maintainer can
+          # apply them. re-review re-runs this review; needs-rebase (rebase.yml) merges
+          # latest main into the branch and resolves conflicts.
           gh label create re-review --color 006B75 \
             --description "Re-run the agent code review on this PR" --force >/dev/null 2>&1 || true
+          gh label create needs-rebase --color FBCA04 \
+            --description "Merge latest main into this agent PR and resolve conflicts" --force >/dev/null 2>&1 || true
 
       - name: Clear prior review comment (re-reviews only)
         if: github.event_name == 'workflow_dispatch' || github.event.action == 'labeled'
