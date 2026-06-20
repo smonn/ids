@@ -5,6 +5,11 @@ name: Auto-rebase agent PRs
 # both: behind-but-clean PRs are refreshed with `gh pr update-branch` (cheap, re-runs
 # their CI against latest main), and TRUE conflicts are handed to Claude to merge
 # main and resolve.
+#
+# claude-code-action rejects the `push` event ("Unsupported event type: push"), so
+# the Claude resolve cannot run inline on a push. Instead, the push run only detects
+# conflicts and re-dispatches this same workflow as `workflow_dispatch` (a supported
+# event) once per conflicting PR; the `resolve` job then runs under that valid event.
 
 on:
   push:
@@ -107,9 +112,44 @@ jobs:
           gh pr update-branch "${{ matrix.number }}" \
             || echo "PR #${{ matrix.number }} already up to date or update skipped."
 
+  dispatch_resolve:
+    needs: detect
+    # On a push we can't run claude-code-action (it rejects `push`). Re-dispatch this
+    # workflow as workflow_dispatch — once per conflicting PR — so the `resolve` job
+    # below runs under a supported event. Dispatching with the App token makes the
+    # dispatched run's actor `smonn[bot]`, which `resolve`'s allowed_bots permits.
+    if: >-
+      github.event_name == 'push' &&
+      needs.detect.outputs.conflicting != '[]' && needs.detect.outputs.conflicting != ''
+    runs-on: ubuntu-latest
+    environment: automation
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Dispatch a workflow_dispatch resolve per conflicting PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          CONFLICTING: ${{ needs.detect.outputs.conflicting }}
+        run: |
+          printf '%s' "$CONFLICTING" | jq -r '.[].number' | while read -r n; do
+            [ -n "$n" ] || continue
+            echo "Dispatching a resolve run for PR #$n"
+            gh workflow run rebase.yml --ref main -f pr_number="$n"
+          done
+
   resolve:
     needs: detect
-    if: needs.detect.outputs.conflicting != '[]' && needs.detect.outputs.conflicting != ''
+    # Only ever runs under workflow_dispatch (see dispatch_resolve) — never inline on
+    # a push, where claude-code-action would fail with "Unsupported event type: push".
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      needs.detect.outputs.conflicting != '[]' && needs.detect.outputs.conflicting != ''
     strategy:
       # Serialize: each resolve rebases against the same main, and keeping them
       # one-at-a-time bounds concurrent subscription usage.
@@ -157,7 +197,8 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
-          # Triggered by push to main (often a bot merge) — allow our App only.
+          # Dispatched by dispatch_resolve via the App token, so the run's actor is
+          # smonn[bot] — allow our App only.
           allowed_bots: "smonn[bot]"
           claude_args: |
             --max-turns 60
