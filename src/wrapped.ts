@@ -71,8 +71,9 @@ export type WrappedKeyCodec<Brand extends string, Kind extends WrappedKind> = {
   /**
    * Verify the payload of a trusted `Id<Brand>` and return the lookup key.
    *
-   * Throws `"verification failed"` if no entry in the wrapping keyring matches
-   * the payload tag. Use {@link safeUnwrap} for untrusted input.
+   * Throws `IdsError` with `code: "verification_failed"` if no entry in the
+   * wrapping keyring matches the payload tag. Use {@link safeUnwrap} for
+   * untrusted input.
    */
   unwrap(id: Id<Brand>): Promise<LookupKeyForKind<Kind>>;
   /**
