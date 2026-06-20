@@ -1113,7 +1113,15 @@ describe("cli inspect --wrapped", () => {
 
   it("rejects invalid --key-format with --wrapped", async () => {
     const result = await runCapture(
-      ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u32", "--key-format", "bogus"],
+      [
+        "inspect",
+        "inv_00000000000000000000000000",
+        "--wrapped",
+        "--kind",
+        "u32",
+        "--key-format",
+        "bogus",
+      ],
       { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
     );
     expect(result.exitCode).toBe(1);
