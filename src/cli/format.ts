@@ -8,6 +8,24 @@ type InspectOutput = {
   nowMs: number;
 };
 
+type WrappedInspectOutput = {
+  brand: string;
+  lookupKey: number | bigint;
+  canonical: Id<string>;
+  input: string;
+};
+
+export function formatWrappedInspectOutput(result: WrappedInspectOutput): string {
+  const inputLine = describeInputForm(result.input, result.canonical);
+  return [
+    `brand:      ${result.brand}`,
+    `lookup-key: ${result.lookupKey.toString()}`,
+    `canonical:  ${result.canonical}`,
+    `input:      ${inputLine}`,
+    "",
+  ].join("\n");
+}
+
 export function formatInspectOutput(result: InspectOutput): string {
   const relative = formatRelative(result.timestamp.getTime(), result.nowMs);
   const inputLine = describeInputForm(result.input, result.canonical);

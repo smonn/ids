@@ -1,9 +1,17 @@
 import { createTimestampId } from "../../timestamp.js";
 import { createOpaqueTimestampId, type OpaqueKeyFormat } from "../../opaque.js";
+import { createWrappedKeyId, type WrappingKey } from "../../wrapped.js";
 import { codecOpts } from "../codec-options.js";
-import { formatInspectOutput } from "../format.js";
-import { splitFlags, unsupportedFlagForCommand } from "../flags.js";
+import { formatInspectOutput, formatWrappedInspectOutput } from "../format.js";
+import {
+  isKindError,
+  parseKind,
+  splitFlags,
+  unsupportedFlagForCommand,
+  type WrappedKindValue,
+} from "../flags.js";
 import { isKeyFormatError, loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
+import { loadWrappingKey, parseWrappingKeyFormat } from "../wrapping-key.js";
 import type { RunOpts } from "../types.js";
 import { usage } from "../usage.js";
 
@@ -12,7 +20,7 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
   const unsupported = unsupportedFlagForCommand(
     "inspect",
     flags,
-    new Set(["--opaque", "--key-format"]),
+    new Set(["--opaque", "--wrapped", "--kind", "--key-format"]),
   );
   if (unsupported !== undefined) {
     opts.stderr(unsupported + "\n");
@@ -33,11 +41,33 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
     return Promise.resolve(1);
   }
   const opaque = flags.has("--opaque");
-  if (!opaque && flags.has("--key-format")) {
-    opts.stderr("--key-format requires --opaque\n");
+  const wrapped = flags.has("--wrapped");
+  if (opaque && wrapped) {
+    opts.stderr("cannot use --wrapped and --opaque together\n");
+    return Promise.resolve(1);
+  }
+  if (!opaque && !wrapped && flags.has("--key-format")) {
+    opts.stderr("--key-format requires --opaque or --wrapped\n");
     return Promise.resolve(1);
   }
   const brand = input.slice(0, 3).toLowerCase();
+  if (wrapped) {
+    const kind = parseKind(values);
+    if (kind === undefined) {
+      opts.stderr("--kind is required with --wrapped\n");
+      return Promise.resolve(1);
+    }
+    if (isKindError(kind)) {
+      opts.stderr(kind + "\n");
+      return Promise.resolve(1);
+    }
+    const format = parseWrappingKeyFormat(values, opts);
+    if (isKeyFormatError(format)) {
+      opts.stderr(format + "\n");
+      return Promise.resolve(1);
+    }
+    return runWrappedInspect(brand, input, kind, format, opts);
+  }
   if (opaque) {
     const format = parseOpaqueKeyFormat(values, opts);
     if (isKeyFormatError(format)) {
@@ -71,6 +101,53 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
     }),
   );
   return Promise.resolve(0);
+}
+
+async function runWrappedInspect(
+  brand: string,
+  input: string,
+  kind: WrappedKindValue,
+  format: string,
+  opts: RunOpts,
+): Promise<number> {
+  const keyResult = await loadWrappingKey(opts, format as "hex" | "base64url");
+  if (typeof keyResult === "string") {
+    opts.stderr(keyResult + "\n");
+    return 1;
+  }
+  let codec;
+  try {
+    codec = createWrappedKeyId(brand, {
+      kind,
+      keys: [keyResult as WrappingKey],
+      allowDuplicateBrand: true,
+    });
+  } catch (err) {
+    opts.stderr((err as Error).message + "\n");
+    return 1;
+  }
+  const validation = codec["~standard"].validate(input);
+  if (validation.issues) {
+    opts.stderr(validation.issues[0]!.message + "\n");
+    return 1;
+  }
+  const canonical = validation.value;
+  let lookupKey;
+  try {
+    lookupKey = await codec.unwrap(canonical);
+  } catch (err) {
+    opts.stderr((err as Error).message + "\n");
+    return 1;
+  }
+  opts.stdout(
+    formatWrappedInspectOutput({
+      brand,
+      lookupKey,
+      canonical,
+      input,
+    }),
+  );
+  return 0;
 }
 
 async function runOpaqueInspect(
