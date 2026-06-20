@@ -81,7 +81,7 @@ export function decodeOpaqueKey(encoded: string, format: OpaqueKeyFormat): Uint8
   if (format === "hex") {
     if (encoded.length === 0 || encoded.length % 2 !== 0) {
       throw new IdsError(
-        "invalid_key_format",
+        "invalid_key_encoding",
         "invalid hex key: length must be a positive even number of characters",
       );
     }
