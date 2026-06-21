@@ -1,6 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { IdCodec, IdParamFailure } from "./adapter-types.js";
-import { resolveIdParamFailure } from "./adapter-types.js";
+import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
 import type { Id } from "./types.js";
 
 export type { IdParamFailure };
