@@ -144,13 +144,19 @@ jobs:
                stop and post a comment saying the branch moved and the request needs a
                re-run (re-apply the label), rather than forcing.
             5. Reply to the feedback IN-THREAD — do NOT post one big catch-all summary
-               comment. For each inline review comment you acted on, reply on its own
-               thread citing the commit that addressed it (use the pushed short SHA):
-               `gh api -X POST repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/comments/<id>/replies -f body='Fixed in <sha>: <one line on what changed>.'`
+               comment. ALWAYS author each reply body with the Write tool to a file
+               (e.g. `reply.md`) and pass that file to `gh` — never build a reply inside
+               a shell argument. Inline `-f body='...'` corrupts: it breaks on an
+               apostrophe ("doesn't") and tempts you to backslash-escape markdown. In the
+               file, use plain characters and real newlines; never emit `\n`, `\<`, `\[`,
+               or other backslash escapes (GitHub renders raw markdown). For each inline
+               review comment you acted on, reply on its own thread citing the commit
+               that addressed it (use the pushed short SHA):
+               `gh api -X POST repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/comments/<id>/replies -F body=@reply.md`
                For a point you declined, reply on its thread explaining why (no commit).
                For one you deferred, reply linking the follow-up issue, e.g. "Out of scope
                for this PR — filed #N to track." For feedback NOT anchored to an inline
                comment (a review summary or a plain PR comment), post a single concise
-               top-level reply instead.
+               top-level reply with `gh pr comment ${{ env.PR_NUMBER }} --body-file <file>`.
 
             Do NOT approve or merge the PR, and do NOT push to main. A human re-reviews.
