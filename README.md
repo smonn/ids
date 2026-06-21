@@ -616,7 +616,7 @@ const encoded = encodeSigningKey(rawBytes, "base64url"); // string
 const decoded = decodeSigningKey(encoded, "base64url"); // Uint8Array
 ```
 
-**Keyring rotation.** Pass a non-empty ordered list of signing keys at construction. The first entry is the _current_ key — the only one `generate` / `generateAt` sign with. `verify` / `safeVerify` trial every entry in order until the tag matches, so IDs signed under any listed key remain verifiable. Removing an entry from the list revokes all IDs signed under it.
+**Managing the signing keyring.** Pass a non-empty ordered list of signing keys at construction. The first entry is the _current_ key — the only one `generate` / `generateAt` sign with. `verify` / `safeVerify` trial every entry in order until the tag matches, so IDs signed under any listed key remain verifiable. Removing an entry from the list revokes all IDs signed under it.
 
 ```ts
 const oldKey = await importSigningKey(rawOldSecret);
