@@ -9,12 +9,7 @@ type InspectOutput = {
   nowMs: number;
 };
 
-type SignedInspectOutput = {
-  brand: string;
-  timestamp: Date;
-  canonical: Id<string>;
-  input: string;
-  nowMs: number;
+type SignedInspectOutput = InspectOutput & {
   verification?: "ok" | "failed";
 };
 
