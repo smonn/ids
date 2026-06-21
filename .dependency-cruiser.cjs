@@ -168,6 +168,7 @@ module.exports = {
     {
       name: "registry-only-from-codec-constructors",
       severity: "error",
+      comment: "only codec constructors may import registry",
       from: { path: "^src", pathNot: "^src/(timestamp|opaque|reverse|wrapped|signed)\\.ts$" },
       to: { path: "^src/registry" },
     },
