@@ -482,11 +482,15 @@ import {
   importSigningKey, // (bytes: Uint8Array) => Promise<SigningKey>
   encodeSigningKey, // (bytes: Uint8Array, format: SigningKeyFormat) => string
   decodeSigningKey, // (encoded: string, format: SigningKeyFormat) => Uint8Array
+  createSignedTimestampId, // (brand: string, opts: SignedTimestampOptions) => SignedTimestampCodec<Brand>
   IdsError, // re-exported from @smonn/ids/signed for convenience
   isIdsError, // re-exported from @smonn/ids/signed for convenience
   type SigningKey, // opaque SigningKey handle (HKDF-derived)
   type SigningKeyFormat, // "hex" | "base64url"
   type IdsErrorCode, // re-exported from @smonn/ids/signed for convenience
+  type SignedTimestampCodec, // returned by createSignedTimestampId
+  type SignedTimestampOptions, // { keys: SigningKey[], now?, rng?, allowDuplicateBrand? } constructor options
+  type SafeVerifyResult, // { ok: true, id: Id<Brand> } | { ok: false, error: ParseError | "verification_failed" }
 } from "@smonn/ids/signed";
 
 import {
