@@ -425,12 +425,13 @@ No key material is required. The inversion is a deterministic byte transform; `g
 
 ## Choosing a codec variant
 
-| Codec             | Import               | Sort direction            | Key required       | Timestamp extractable      | Range query support                                            |
-| ----------------- | -------------------- | ------------------------- | ------------------ | -------------------------- | -------------------------------------------------------------- |
-| Timestamp         | `@smonn/ids`         | Ascending (oldest-first)  | No                 | Always                     | `minIdForTime(t_old)` → `maxIdForTime(t_new)`                  |
-| Reverse Timestamp | `@smonn/ids/reverse` | Descending (newest-first) | No                 | Always                     | `minIdForTime(t_new)` → `maxIdForTime(t_old)` (bounds flipped) |
-| Opaque Timestamp  | `@smonn/ids/opaque`  | None (encrypted)          | Yes (AES key)      | With key only              | None — encrypted payloads do not sort by time                  |
-| Wrapped key       | `@smonn/ids/wrapped` | None                      | Yes (wrapping key) | N/A — not timestamp-family | None                                                           |
+| Codec             | Import               | Sort direction            | Key required       | Timestamp extractable      | Range query support                                                          |
+| ----------------- | -------------------- | ------------------------- | ------------------ | -------------------------- | ---------------------------------------------------------------------------- |
+| Timestamp         | `@smonn/ids`         | Ascending (oldest-first)  | No                 | Always (plaintext)         | `minIdForTime(t_old)` → `maxIdForTime(t_new)`                                |
+| Reverse Timestamp | `@smonn/ids/reverse` | Descending (newest-first) | No                 | Always (plaintext)         | `minIdForTime(t_new)` → `maxIdForTime(t_old)` (bounds flipped)               |
+| Signed Timestamp  | `@smonn/ids/signed`  | Ascending (oldest-first)  | Yes (signing key)  | Always (plaintext)         | `minIdForTime(t_old)` → `maxIdForTime(t_new)` (sentinels carry no valid tag) |
+| Opaque Timestamp  | `@smonn/ids/opaque`  | None (encrypted)          | Yes (AES key)      | With key only              | None — encrypted payloads do not sort by time                                |
+| Wrapped key       | `@smonn/ids/wrapped` | None                      | Yes (wrapping key) | N/A — not timestamp-family | None                                                                         |
 
 ## What this is **not** for
 
@@ -553,6 +554,84 @@ import {
 } from "@smonn/ids/fastify";
 ```
 
+`@smonn/ids/signed` ships the Signed Timestamp codec — it keeps the 48-bit timestamp **readable and sortable** like the Timestamp codec, but replaces half of the random tail with a truncated HMAC tag, making IDs **tamper-evident and verifiable without a database lookup**. This adds **integrity, not confidentiality** — the opposite security axis from the Opaque Timestamp codec, which hides the timestamp but has no auth tag.
+
+The canonical use case is **share links**: embed a Signed Timestamp ID in a share URL and verify it on receipt without a database roundtrip.
+
+```ts
+import { createSignedTimestampId, importSigningKey } from "@smonn/ids/signed";
+
+const key = await importSigningKey(new Uint8Array(32));
+const shares = createSignedTimestampId("shr", { keys: [key] });
+
+const id = await shares.generate(); // "shr_…", timestamp readable and sortable
+shares.extractTimestamp(id); // Date — sync, timestamp is plaintext
+
+await shares.verify(id); // passes; throws IdsError verification_failed on tamper
+```
+
+The non-throwing `safeVerify` path accepts untrusted input, structurally parses first, then verifies — without throwing:
+
+```ts
+const result = await shares.safeVerify(req.params.shareId);
+
+if (!result.ok) {
+  if (result.error === "verification_failed") return 403; // tampered or wrong key
+  return 400; // malformed ID
+}
+
+const { id } = result; // Id<"shr">, canonical
+```
+
+`safeVerify` returns one of:
+
+```ts
+// Success
+{
+  ok: true;
+  id: Id<Brand>;
+}
+
+// Structural parse failure (wrong brand, invalid base32, etc.)
+{
+  ok: false;
+  error: "not_string" | "invalid_prefix" | "invalid_base32";
+}
+
+// Structurally valid but tag mismatch (tampered, wrong keyring, or revoked key)
+{
+  ok: false;
+  error: "verification_failed";
+}
+```
+
+**False-accept bound.** With a signing keyring of `n` entries, an attacker's per-`verify` success probability is approximately `n / 2⁴⁰`. Verification is online-only — the signing key lives server-side, so offline guessing is not possible.
+
+**Key handling.** Import signing key material via `importSigningKey(bytes)` from raw bytes (16, 24, or 32 bytes). Signing-key material is a **separate secret domain** from Opaque keys and Wrapping keys — same `hex` / `base64url` encoded-format conventions, but a distinct `SigningKey` handle and HKDF label so one raw secret cannot silently serve multiple codecs.
+
+```ts
+import { encodeSigningKey, decodeSigningKey } from "@smonn/ids/signed";
+
+const encoded = encodeSigningKey(rawBytes, "base64url"); // string
+const decoded = decodeSigningKey(encoded, "base64url"); // Uint8Array
+```
+
+**Keyring rotation.** Pass a non-empty ordered list of signing keys at construction. The first entry is the _current_ key — the only one `generate` / `generateAt` sign with. `verify` / `safeVerify` trial every entry in order until the tag matches, so IDs signed under any listed key remain verifiable. Removing an entry from the list revokes all IDs signed under it.
+
+```ts
+const oldKey = await importSigningKey(rawOldSecret);
+const newKey = await importSigningKey(rawNewSecret);
+
+// Before rotation: only oldKey in the ring
+const legacy = createSignedTimestampId("shr", { keys: [oldKey] });
+const id = await legacy.generate();
+
+// After rotation: newKey is current; oldKey is still accepted on verify
+const rotated = createSignedTimestampId("shr", { keys: [newKey, oldKey] });
+await rotated.verify(id); // succeeds — tried oldKey and matched
+await rotated.generate(); // signs with newKey
+```
+
 `@smonn/ids/wrapped` ships the Wrapped key codec for `u32`, `i32`, `u64`, and `i64` lookup keys. `wrap(lookupKey)` returns a public ID; `unwrap(id)` verifies the payload and returns the lookup key; `safeUnwrap(input)` is the non-throwing path for untrusted input.
 
 **Integer kinds and value types.** The 32-bit kinds (`u32`, `i32`) use safe JavaScript `number` values in their fixed-width ranges. The 64-bit kinds (`u64`, `i64`) always use `bigint` — even when the magnitude would fit in a `number` — to prevent silent truncation or sign erasure.
@@ -642,22 +721,26 @@ const { id, lookupKey } = result; // Id<"inv">, number
 
 ### Codec methods
 
-| Method                 | `TimestampCodec<Brand>` | `ReverseTimestampCodec<Brand>` | `OpaqueTimestampCodec<Brand>` | `WrappedKeyCodec<Brand, Kind>` | Description                                                                   |
-| ---------------------- | ----------------------- | ------------------------------ | ----------------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
-| `generate()`           | sync                    | sync                           | async                         | —                              | Produce a fresh ID                                                            |
-| `generateAt(date)`     | sync                    | sync                           | async                         | —                              | Produce a fresh ID with timestamp bytes from `date` (for backfills)           |
-| `wrap(lookupKey)`      | —                       | —                              | —                             | async                          | Wrap a lookup key into a public ID using the current wrapping key             |
-| `unwrap(id)`           | —                       | —                              | —                             | async                          | Verify and recover the lookup key; throws on verification failure             |
-| `safeUnwrap(input)`    | —                       | —                              | —                             | async                          | Non-throwing: structurally parse then verify; returns parse or verify error   |
-| `is(value)`            | sync                    | sync                           | sync                          | sync                           | Strict type guard: `true` only for already-canonical strings                  |
-| `parse(value)`         | sync                    | sync                           | sync                          | sync                           | Lenient: normalise to canonical, or throw                                     |
-| `safeParse(value)`     | sync                    | sync                           | sync                          | sync                           | Lenient: normalise to canonical, or return `{ ok: false, error }`             |
-| `extractTimestamp(id)` | sync                    | sync                           | async                         | —                              | Decode the creation `Date` from an `Id<Brand>` (trusts the type)              |
-| `minIdForTime(date)`   | sync                    | sync †                         | —                             | —                              | Tight lower bound for any ID generated at `date` (for range queries)          |
-| `maxIdForTime(date)`   | sync                    | sync †                         | —                             | —                              | Tight upper bound for any ID generated at `date` (for range queries)          |
-| `toJsonSchema()`       | sync                    | sync                           | sync                          | sync                           | JSON Schema (`type`/`pattern`/`description`/`example`) for the canonical form |
+| Method                 | `TimestampCodec<Brand>` | `ReverseTimestampCodec<Brand>` | `OpaqueTimestampCodec<Brand>` | `SignedTimestampCodec<Brand>` | `WrappedKeyCodec<Brand, Kind>` | Description                                                                   |
+| ---------------------- | ----------------------- | ------------------------------ | ----------------------------- | ----------------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
+| `generate()`           | sync                    | sync                           | async                         | async                         | —                              | Produce a fresh ID                                                            |
+| `generateAt(date)`     | sync                    | sync                           | async                         | async                         | —                              | Produce a fresh ID with timestamp bytes from `date` (for backfills)           |
+| `verify(id)`           | —                       | —                              | —                             | async                         | —                              | Verify the HMAC tag; throws `IdsError` `verification_failed` on mismatch      |
+| `safeVerify(input)`    | —                       | —                              | —                             | async                         | —                              | Non-throwing: structurally parse then verify; returns parse or verify error   |
+| `wrap(lookupKey)`      | —                       | —                              | —                             | —                             | async                          | Wrap a lookup key into a public ID using the current wrapping key             |
+| `unwrap(id)`           | —                       | —                              | —                             | —                             | async                          | Verify and recover the lookup key; throws on verification failure             |
+| `safeUnwrap(input)`    | —                       | —                              | —                             | —                             | async                          | Non-throwing: structurally parse then verify; returns parse or verify error   |
+| `is(value)`            | sync                    | sync                           | sync                          | sync                          | sync                           | Strict type guard: `true` only for already-canonical strings                  |
+| `parse(value)`         | sync                    | sync                           | sync                          | sync                          | sync                           | Lenient: normalise to canonical, or throw                                     |
+| `safeParse(value)`     | sync                    | sync                           | sync                          | sync                          | sync                           | Lenient: normalise to canonical, or return `{ ok: false, error }`             |
+| `extractTimestamp(id)` | sync                    | sync                           | async                         | sync                          | —                              | Decode the creation `Date` from an `Id<Brand>` (trusts the type)              |
+| `minIdForTime(date)`   | sync                    | sync †                         | —                             | sync ‡                        | —                              | Tight lower bound for any ID generated at `date` (for range queries)          |
+| `maxIdForTime(date)`   | sync                    | sync †                         | —                             | sync ‡                        | —                              | Tight upper bound for any ID generated at `date` (for range queries)          |
+| `toJsonSchema()`       | sync                    | sync                           | sync                          | sync                          | sync                           | JSON Schema (`type`/`pattern`/`description`/`example`) for the canonical form |
 
 † Under the Reverse Timestamp codec, a newer timestamp maps to a lexicographically smaller ID — pass `minIdForTime(t_new)` as the lower bound and `maxIdForTime(t_old)` as the upper bound for a [t_old, t_new] scan.
+
+‡ Signed Timestamp sentinels carry no valid HMAC tag and are not verifiable — they exist only for indexed range scans, not as real IDs.
 
 ## ORM adapters
 
