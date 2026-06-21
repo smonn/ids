@@ -2,6 +2,7 @@ import { validateBrand } from "./brand.js";
 import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 import { createReverseTimestampLayoutOps } from "./layouts/reverse-timestamp.js";
 import { registerBrand } from "./registry.js";
+import { defaultRng } from "./rng.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
 
@@ -75,10 +76,6 @@ export type ReverseTimestampCodec<Brand extends string> = {
   /** Standard Schema validate entry point. */
   readonly "~standard": StandardSchemaProps<Brand>;
 };
-
-function defaultRng(target: Uint8Array): void {
-  crypto.getRandomValues(target as Uint8Array<ArrayBuffer>);
-}
 
 /**
  * Creates a Reverse Timestamp codec for `brand` (three lowercase a–z characters).

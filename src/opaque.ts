@@ -2,6 +2,7 @@ import { validateBrand } from "./brand.js";
 import { createOpaqueLayoutOps } from "./layouts/opaque.js";
 import { getOpaqueKeyCryptoKey, type OpaqueKey } from "./opaque-key.js";
 import { registerBrand } from "./registry.js";
+import { defaultRng } from "./rng.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
 
@@ -75,10 +76,6 @@ export type OpaqueTimestampCodec<Brand extends string> = {
   /** Standard Schema validate entry point. */
   readonly "~standard": StandardSchemaProps<Brand>;
 };
-
-function defaultRng(target: Uint8Array): void {
-  crypto.getRandomValues(target as Uint8Array<ArrayBuffer>);
-}
 
 /**
  * Creates an Opaque Timestamp codec for `brand` (three lowercase a–z characters).
