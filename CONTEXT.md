@@ -16,6 +16,10 @@ _Avoid_: brand (use **Brand** for the unsuffixed form), header.
 The brand-scoped object that generates, parses, and validates IDs for one entity type. The brand is validated once at construction; the prefix is captured by each method. One codec per brand, typically constructed at module init. Concrete codecs are **Codec variants**.
 _Avoid_: factory, generator, encoder.
 
+**IdCodec**:
+The minimum structural interface required by web and ORM adapters — a subset of **Codec**. Any codec variant satisfies this because all expose `safeParse`. Adapters only ever call `safeParse`; they never call key-dependent methods like `extractTimestamp`, `wrap`, or `unwrap`. Internal to the adapter layer; not a public package export. Distinct from **Codec** (the full brand-scoped object with all methods).
+_Avoid_: codec interface (use **IdCodec** for precision), partial codec.
+
 **Codec variant**:
 A concrete codec algorithm sharing the same wire shape (`<brand>_` + 26 Crockford base32 chars) but differing in byte layout and capabilities. Shipped today: the **Timestamp codec**, **Opaque Timestamp codec**, **Reverse Timestamp codec**, and **Wrapped key codec** — see [ADR-0009](./docs/adr/0009-wrapped-key-compact-construction.md). Accepted but not yet implemented: the **Signed Timestamp codec** — see [ADR-0012](./docs/adr/0012-signed-timestamp-construction.md). Each variant is a separate subpath export — see [ADR-0005](./docs/adr/0005-codec-variant-subpath-exports.md).
 _Avoid_: default codec (use **Timestamp codec** for the dominant variant), trust mode, algorithm.
