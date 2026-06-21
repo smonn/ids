@@ -12,7 +12,9 @@ module.exports = {
       name: "wire-no-shell",
       severity: "error",
       from: { path: "^src/wire" },
-      to: { path: "^src/(timestamp|opaque|reverse|wrapped|drizzle|kysely|cli|registry)\\.ts$" },
+      to: {
+        path: "^src/(timestamp|opaque|reverse|wrapped|signed|drizzle|kysely|cli|registry)\\.ts$",
+      },
     },
     {
       name: "drizzle-adapter-no-internals",
@@ -101,21 +103,21 @@ module.exports = {
     {
       name: "codec-constructors-wire-codec-shell-only",
       severity: "error",
-      from: { path: "^src/(timestamp|opaque|reverse|wrapped)\\.ts$" },
+      from: { path: "^src/(timestamp|opaque|reverse|wrapped|signed)\\.ts$" },
       to: { path: "^src/wire", pathNot: "^src/wire/codec-shell" },
     },
     {
       name: "codec-constructors-layouts-only",
       severity: "error",
       comment: "only codec constructors may import layouts",
-      from: { path: "^src", pathNot: "^src/(timestamp|opaque|reverse|wrapped)\\.ts$" },
+      from: { path: "^src", pathNot: "^src/(timestamp|opaque|reverse|wrapped|signed)\\.ts$" },
       to: { path: "^src/layouts" },
     },
     {
       name: "layouts-no-shell",
       severity: "error",
       from: { path: "^src/layouts" },
-      to: { path: "^src/(timestamp|opaque|reverse|wrapped|cli|registry)\\.ts$" },
+      to: { path: "^src/(timestamp|opaque|reverse|wrapped|signed|cli|registry)\\.ts$" },
     },
     {
       name: "layouts-no-sibling-layouts",
@@ -145,7 +147,7 @@ module.exports = {
     {
       name: "codec-constructors-no-base32",
       severity: "error",
-      from: { path: "^src/(timestamp|opaque|reverse|wrapped)\\.ts$" },
+      from: { path: "^src/(timestamp|opaque|reverse|wrapped|signed)\\.ts$" },
       to: { path: "^src/base32" },
     },
     {
@@ -160,13 +162,13 @@ module.exports = {
       name: "brand-only-from-codec-constructors",
       severity: "error",
       comment: "only codec constructors may import brand",
-      from: { path: "^src", pathNot: "^src/(timestamp|opaque|reverse|wrapped)\\.ts$" },
+      from: { path: "^src", pathNot: "^src/(timestamp|opaque|reverse|wrapped|signed)\\.ts$" },
       to: { path: "^src/brand" },
     },
     {
       name: "registry-only-from-codec-constructors",
       severity: "error",
-      from: { path: "^src", pathNot: "^src/(timestamp|opaque|reverse|wrapped)\\.ts$" },
+      from: { path: "^src", pathNot: "^src/(timestamp|opaque|reverse|wrapped|signed)\\.ts$" },
       to: { path: "^src/registry" },
     },
     {
