@@ -8,6 +8,12 @@
 //
 // Updates that omit `labels` (body/title/state-only) pass through untouched, as
 // do issue writes whose labels are all non-lifecycle (e.g. just `enhancement`).
+//
+// `address-feedback` and `needs-review` are deliberately ABSENT from LIFECYCLE:
+// they pass through by omission, not via a positive allowlist. A PreToolUse hook
+// cannot verify actor identity, so any agent session may set them — the
+// trade-off is accepted because they drive the review lifecycle (re-run review /
+// address PR feedback), not the triage lifecycle. See docs/agents/triage-labels.md.
 import { readFileSync } from "node:fs";
 
 const LIFECYCLE = new Set([
@@ -19,9 +25,7 @@ const LIFECYCLE = new Set([
   "needs-info",
   "wontfix",
   "needs-human",
-  "needs-review",
   "needs-rebase",
-  "address-feedback",
 ]);
 
 let input;
