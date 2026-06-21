@@ -1,7 +1,7 @@
 import { decodeBase64Url, decodeHex, encodeBase64Url, encodeHex } from "./bytes.js";
 import { IdsError } from "./error.js";
 
-/** Wire encoding for signing key operator secret bytes (not Crockford base32). */
+/** Wire encoding for signing key raw key bytes (not Crockford base32). */
 export type SigningKeyFormat = "hex" | "base64url";
 
 const validKeyByteLengths = new Set([16, 24, 32]);
