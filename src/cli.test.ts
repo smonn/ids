@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { createOpaqueTimestampId, importOpaqueKey } from "./opaque.js";
 import { encodeOpaqueKey, decodeOpaqueKey } from "./opaque-key.js";
 import {
+  createSignedTimestampId,
+  importSigningKey,
+  encodeSigningKey,
+  decodeSigningKey,
+} from "./signed.js";
+import {
   createWrappedKeyId,
   importWrappingKey,
   encodeWrappingKey,
@@ -293,7 +299,7 @@ describe("cli", () => {
       expect(result.stderr).toBe("--key-format requires a value\n");
     });
 
-    it("rejects --key-format without --opaque or --wrapped", async () => {
+    it("rejects --key-format without --opaque, --wrapped, or --signed", async () => {
       const result = await runCapture([
         "inspect",
         "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
@@ -302,7 +308,7 @@ describe("cli", () => {
       ]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("--key-format requires --opaque or --wrapped\n");
+      expect(result.stderr).toBe("--key-format requires --opaque, --wrapped, or --signed\n");
     });
 
     it("--opaque rejects an invalid brand", async () => {
@@ -727,11 +733,11 @@ describe("cli", () => {
       expect(result.stdout).toBe(`${expected}\n`);
     });
 
-    it("rejects --key-format without --opaque", async () => {
+    it("rejects --key-format without --opaque or --signed", async () => {
       const result = await runCapture(["generate", "usr", "--key-format", "base64url"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("--key-format requires --opaque\n");
+      expect(result.stderr).toBe("--key-format requires --opaque or --signed\n");
     });
 
     it("rejects duplicate --key-format flags", async () => {
@@ -958,6 +964,13 @@ describe("cli keygen --wrapped", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("--wrapped");
     expect(result.stdout).toContain("IDS_WRAPPING_KEY");
+  });
+
+  it("usage documents IDS_SIGNING_KEY_FORMAT for keygen --signed", async () => {
+    const result = await runCapture(["--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--signed");
+    expect(result.stdout).toContain("IDS_SIGNING_KEY_FORMAT");
   });
 });
 
@@ -1390,5 +1403,553 @@ describe("cli inspect --reverse", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("cannot use --reverse and --wrapped together\n");
+  });
+});
+
+const testSigningKeyBytes = new Uint8Array(32).fill(0xef);
+const testSigningKeyHex = encodeSigningKey(testSigningKeyBytes, "hex");
+
+describe("cli keygen --signed", () => {
+  it("emits a 256-bit hex signing key by default", async () => {
+    const result = await runCapture(["keygen", "--signed"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("keygen --signed output round-trips through decodeSigningKey", async () => {
+    const result = await runCapture(["keygen", "--signed"]);
+    expect(result.exitCode).toBe(0);
+    const bytes = decodeSigningKey(result.stdout.trim(), "hex");
+    expect(bytes).toHaveLength(32);
+  });
+
+  it("supports --bits 128", async () => {
+    const result = await runCapture(["keygen", "--signed", "--bits", "128"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it("supports --bits 192", async () => {
+    const result = await runCapture(["keygen", "--signed", "--bits", "192"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^[0-9a-f]{48}$/);
+  });
+
+  it("supports base64url output with --key-format", async () => {
+    const result = await runCapture([
+      "keygen",
+      "--signed",
+      "--bits",
+      "128",
+      "--key-format",
+      "base64url",
+    ]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(result.stdout.trim()).toHaveLength(22);
+  });
+
+  it("rejects --signed and --wrapped together", async () => {
+    const result = await runCapture(["keygen", "--signed", "--wrapped"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("cannot use --signed and --wrapped together\n");
+  });
+
+  it("rejects --wrapped and --signed together (reverse order)", async () => {
+    const result = await runCapture(["keygen", "--wrapped", "--signed"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("cannot use --signed and --wrapped together\n");
+  });
+
+  it("rejects --opaque with --signed (--opaque is unsupported for keygen)", async () => {
+    const result = await runCapture(["keygen", "--signed", "--opaque"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("unsupported flag for keygen: --opaque\n");
+  });
+
+  it("keygen --signed is distinct from keygen and keygen --wrapped (separate secret domains)", async () => {
+    const opaqueResult = await runCapture(["keygen"]);
+    const wrappedResult = await runCapture(["keygen", "--wrapped"]);
+    const signedResult = await runCapture(["keygen", "--signed"]);
+    expect(opaqueResult.exitCode).toBe(0);
+    expect(wrappedResult.exitCode).toBe(0);
+    expect(signedResult.exitCode).toBe(0);
+    expect(opaqueResult.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+    expect(wrappedResult.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+    expect(signedResult.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("usage documents --signed flag for keygen", async () => {
+    const result = await runCapture(["--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--signed");
+    expect(result.stdout).toContain("IDS_SIGNING_KEY");
+  });
+});
+
+describe("cli generate --signed", () => {
+  it("mints a signed ID that verifies with the same key", async () => {
+    const key = await importSigningKey(testSigningKeyBytes);
+    const usr = createSignedTimestampId("usr", {
+      keys: [key],
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x00),
+      allowDuplicateBrand: true,
+    });
+    const expected = await usr.generate();
+    const result = await runCapture(["generate", "usr", "--signed"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x00),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(`${expected}\n`);
+  });
+
+  it("without IDS_SIGNING_KEY exits 1 with a clear error", async () => {
+    const result = await runCapture(["generate", "usr", "--signed"], { env: {} });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("missing IDS_SIGNING_KEY environment variable\n");
+  });
+
+  it("rejects --signed and --opaque together", async () => {
+    const result = await runCapture(["generate", "usr", "--signed", "--opaque"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_KEY: testKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("cannot use --signed and --opaque together\n");
+  });
+
+  it("rejects --signed and --reverse together", async () => {
+    const result = await runCapture(["generate", "usr", "--signed", "--reverse"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("cannot use --signed and --reverse together\n");
+  });
+
+  it("rejects --signed and --wrapped together (--wrapped is unsupported in generate)", async () => {
+    const result = await runCapture(["generate", "usr", "--signed", "--wrapped"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("--wrapped");
+  });
+
+  it("rejects malformed IDS_SIGNING_KEY", async () => {
+    const result = await runCapture(["generate", "usr", "--signed"], {
+      env: { IDS_SIGNING_KEY: "not-hex!" },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toMatch(/invalid hex key/);
+  });
+
+  it("rejects an invalid brand with --signed", async () => {
+    const result = await runCapture(["generate", "BAD", "--signed"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("invalid_brand");
+  });
+
+  it("--signed --count N mints N signed IDs", async () => {
+    let counter = 0;
+    const result = await runCapture(["generate", "usr", "--signed", "--count", "3"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+      now: () => 0x123456789abc,
+      rng: (target) => {
+        target.fill(0);
+        target[4] = counter++;
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const lines = result.stdout.split("\n");
+    expect(lines.at(-1)).toBe("");
+    const ids = lines.slice(0, -1);
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(3);
+    for (const id of ids) expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
+  });
+
+  it("reads base64url IDS_SIGNING_KEY when IDS_SIGNING_KEY_FORMAT is base64url", async () => {
+    const key = await importSigningKey(testSigningKeyBytes);
+    const usr = createSignedTimestampId("usr", {
+      keys: [key],
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x00),
+      allowDuplicateBrand: true,
+    });
+    const expected = await usr.generate();
+    const keyB64 = encodeSigningKey(testSigningKeyBytes, "base64url");
+    const result = await runCapture(["generate", "usr", "--signed"], {
+      env: { IDS_SIGNING_KEY: keyB64, IDS_SIGNING_KEY_FORMAT: "base64url" },
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x00),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(`${expected}\n`);
+  });
+
+  it("--key-format on the command line wins over IDS_SIGNING_KEY_FORMAT", async () => {
+    const key = await importSigningKey(testSigningKeyBytes);
+    const expected = await createSignedTimestampId("usr", {
+      keys: [key],
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x00),
+      allowDuplicateBrand: true,
+    }).generate();
+    const result = await runCapture(["generate", "usr", "--signed", "--key-format=hex"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_SIGNING_KEY_FORMAT: "base64url" },
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x00),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(`${expected}\n`);
+  });
+
+  it("rejects --key-format without --signed or --opaque for generate", async () => {
+    const result = await runCapture(["generate", "usr", "--key-format", "base64url"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("--key-format requires --opaque or --signed\n");
+  });
+
+  it("rejects an invalid IDS_SIGNING_KEY_FORMAT", async () => {
+    const result = await runCapture(["generate", "usr", "--signed"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_SIGNING_KEY_FORMAT: "bogus" },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("IDS_SIGNING_KEY_FORMAT must be hex or base64url, got 'bogus'\n");
+  });
+
+  it("rejects an invalid --key-format with --signed", async () => {
+    const result = await runCapture(["generate", "usr", "--signed", "--key-format", "bogus"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
+  });
+
+  it("rejects a missing --key-format value with --signed", async () => {
+    const result = await runCapture(["generate", "usr", "--signed", "--key-format"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("--key-format requires a value\n");
+  });
+
+  it("rejects a missing brand with --signed", async () => {
+    const result = await runCapture(["generate", "--signed"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("invalid_brand");
+  });
+
+  it("reads IDS_SIGNING_KEY from process.env when env is not injected", async () => {
+    const previous = process.env.IDS_SIGNING_KEY;
+    process.env.IDS_SIGNING_KEY = testSigningKeyHex;
+    try {
+      const result = await runCapture(["generate", "usr", "--signed"], {
+        now: () => 0x123456789abc,
+        rng: (target) => target.fill(0x00),
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}\n$/);
+    } finally {
+      if (previous === undefined) delete process.env.IDS_SIGNING_KEY;
+      else process.env.IDS_SIGNING_KEY = previous;
+    }
+  });
+
+  it("falls back to Date.now and crypto.getRandomValues when not overridden (--signed)", async () => {
+    let stdout = "";
+    const exitCode = await run({
+      argv: ["generate", "usr", "--signed"],
+      stdout: (s) => {
+        stdout += s;
+      },
+      stderr: () => {},
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}\n$/);
+  });
+});
+
+describe("cli inspect --signed", () => {
+  it("without IDS_SIGNING_KEY: decodes the timestamp and exits 0 (structural-only)", async () => {
+    const key = await importSigningKey(testSigningKeyBytes);
+    const fixed = new Date("2026-05-28T12:00:00Z");
+    const usr = createSignedTimestampId("usr", {
+      keys: [key],
+      now: () => fixed.getTime(),
+      rng: (target) => target.fill(0x42),
+      allowDuplicateBrand: true,
+    });
+    const id = await usr.generate();
+    const result = await runCapture(["inspect", id, "--signed"], {
+      env: {},
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("brand:     usr");
+    expect(result.stdout).toContain("timestamp: 2026-05-28T12:00:00.000Z");
+    expect(result.stdout).toContain(`canonical: ${id}`);
+    expect(result.stdout).not.toContain("verification:");
+  });
+
+  it("with correct IDS_SIGNING_KEY: prints verification: ok and exits 0", async () => {
+    const key = await importSigningKey(testSigningKeyBytes);
+    const fixed = new Date("2026-05-28T12:00:00Z");
+    const usr = createSignedTimestampId("usr", {
+      keys: [key],
+      now: () => fixed.getTime(),
+      rng: (target) => target.fill(0x42),
+      allowDuplicateBrand: true,
+    });
+    const id = await usr.generate();
+    const result = await runCapture(["inspect", id, "--signed"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("brand:     usr");
+    expect(result.stdout).toContain("timestamp: 2026-05-28T12:00:00.000Z");
+    expect(result.stdout).toContain("verification: ok");
+    expect(result.stdout).toContain(`canonical: ${id}`);
+  });
+
+  it("with wrong IDS_SIGNING_KEY: prints verification: failed and exits 1", async () => {
+    const key = await importSigningKey(testSigningKeyBytes);
+    const fixed = new Date("2026-05-28T12:00:00Z");
+    const usr = createSignedTimestampId("usr", {
+      keys: [key],
+      now: () => fixed.getTime(),
+      rng: (target) => target.fill(0x42),
+      allowDuplicateBrand: true,
+    });
+    const id = await usr.generate();
+    const wrongKeyBytes = new Uint8Array(32).fill(0x11);
+    const wrongKeyHex = encodeSigningKey(wrongKeyBytes, "hex");
+    const result = await runCapture(["inspect", id, "--signed"], {
+      env: { IDS_SIGNING_KEY: wrongKeyHex },
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("timestamp: 2026-05-28T12:00:00.000Z");
+    expect(result.stdout).toContain("verification: failed");
+  });
+
+  it("the verification: ok/failed line appears between timestamp and canonical", async () => {
+    const key = await importSigningKey(testSigningKeyBytes);
+    const fixed = new Date("2026-05-28T12:00:00Z");
+    const usr = createSignedTimestampId("usr", {
+      keys: [key],
+      now: () => fixed.getTime(),
+      rng: (target) => target.fill(0x42),
+      allowDuplicateBrand: true,
+    });
+    const id = await usr.generate();
+    const result = await runCapture(["inspect", id, "--signed"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(0);
+    const lines = result.stdout.trimEnd().split("\n");
+    expect(lines[0]).toMatch(/^brand:/);
+    expect(lines[1]).toMatch(/^timestamp:/);
+    expect(lines[2]).toBe("verification: ok");
+    expect(lines[3]).toMatch(/^canonical:/);
+    expect(lines[4]).toMatch(/^input:/);
+  });
+
+  it("rejects --signed and --opaque together", async () => {
+    const result = await runCapture(
+      ["inspect", "usr_00000000000000000000000000", "--signed", "--opaque"],
+      { env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_KEY: testKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("cannot use --signed and --opaque together\n");
+  });
+
+  it("rejects --signed and --wrapped together", async () => {
+    const result = await runCapture(
+      ["inspect", "usr_00000000000000000000000000", "--signed", "--wrapped", "--kind", "u32"],
+      { env: { IDS_SIGNING_KEY: testSigningKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("cannot use --signed and --wrapped together\n");
+  });
+
+  it("rejects --signed and --reverse together", async () => {
+    const result = await runCapture(
+      ["inspect", "usr_00000000000000000000000000", "--signed", "--reverse"],
+      { env: { IDS_SIGNING_KEY: testSigningKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("cannot use --signed and --reverse together\n");
+  });
+
+  it("rejects --key-format without --opaque, --wrapped, or --signed", async () => {
+    const result = await runCapture([
+      "inspect",
+      "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+      "--key-format",
+      "base64url",
+    ]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("--key-format requires --opaque, --wrapped, or --signed\n");
+  });
+
+  it("rejects an invalid --key-format with --signed", async () => {
+    const result = await runCapture(
+      ["inspect", "usr_00000000000000000000000000", "--signed", "--key-format", "bogus"],
+      { env: { IDS_SIGNING_KEY: testSigningKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
+  });
+
+  it("routes empty IDS_SIGNING_KEY through loadSigningKey (exits 1 with error)", async () => {
+    const result = await runCapture(["inspect", "usr_00000000000000000000000000", "--signed"], {
+      env: { IDS_SIGNING_KEY: "" },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("missing IDS_SIGNING_KEY environment variable\n");
+  });
+
+  it("rejects malformed IDS_SIGNING_KEY", async () => {
+    const result = await runCapture(["inspect", "usr_00000000000000000000000000", "--signed"], {
+      env: { IDS_SIGNING_KEY: "not-hex!" },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toMatch(/invalid hex key/);
+  });
+
+  it("rejects invalid base32 payload with --signed (no key)", async () => {
+    const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgk!", "--signed"], {
+      env: {},
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("invalid base32 payload\n");
+  });
+
+  it("rejects invalid base32 payload with --signed (key present)", async () => {
+    const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgk!", "--signed"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("invalid base32 payload\n");
+  });
+
+  it("reads base64url IDS_SIGNING_KEY when IDS_SIGNING_KEY_FORMAT is base64url", async () => {
+    const key = await importSigningKey(testSigningKeyBytes);
+    const fixed = new Date("2026-05-28T12:00:00Z");
+    const usr = createSignedTimestampId("usr", {
+      keys: [key],
+      now: () => fixed.getTime(),
+      rng: (target) => target.fill(0x42),
+      allowDuplicateBrand: true,
+    });
+    const id = await usr.generate();
+    const keyB64 = encodeSigningKey(testSigningKeyBytes, "base64url");
+    const result = await runCapture(["inspect", id, "--signed"], {
+      env: { IDS_SIGNING_KEY: keyB64, IDS_SIGNING_KEY_FORMAT: "base64url" },
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("verification: ok");
+    expect(result.stdout).toContain("timestamp: 2026-05-28T12:00:00.000Z");
+  });
+
+  it("rejects an invalid IDS_SIGNING_KEY_FORMAT", async () => {
+    const result = await runCapture(["inspect", "usr_00000000000000000000000000", "--signed"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_SIGNING_KEY_FORMAT: "bogus" },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("IDS_SIGNING_KEY_FORMAT must be hex or base64url, got 'bogus'\n");
+  });
+
+  it("rejects an invalid brand with --signed", async () => {
+    const result = await runCapture(["inspect", "12X_00000000000000000000000000", "--signed"], {
+      env: {},
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("invalid_brand");
+  });
+
+  it("rejects a missing --key-format value with --signed (inspect)", async () => {
+    const result = await runCapture(
+      ["inspect", "usr_00000000000000000000000000", "--signed", "--key-format"],
+      { env: { IDS_SIGNING_KEY: testSigningKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("--key-format requires a value\n");
+  });
+
+  it("reads IDS_SIGNING_KEY from process.env when env is not injected (inspect)", async () => {
+    const key = await importSigningKey(testSigningKeyBytes);
+    const fixed = new Date("2026-05-28T12:00:00Z");
+    const usr = createSignedTimestampId("usr", {
+      keys: [key],
+      now: () => fixed.getTime(),
+      rng: (target) => target.fill(0x42),
+      allowDuplicateBrand: true,
+    });
+    const id = await usr.generate();
+    const previous = process.env.IDS_SIGNING_KEY;
+    process.env.IDS_SIGNING_KEY = testSigningKeyHex;
+    try {
+      let stdout = "";
+      let stderr = "";
+      const exitCode = await run({
+        argv: ["inspect", id, "--signed"],
+        stdout: (s) => {
+          stdout += s;
+        },
+        stderr: (s) => {
+          stderr += s;
+        },
+      });
+      expect(exitCode).toBe(0);
+      expect(stderr).toBe("");
+      expect(stdout).toContain("verification: ok");
+      expect(stdout).toContain("timestamp: 2026-05-28T12:00:00.000Z");
+    } finally {
+      if (previous === undefined) delete process.env.IDS_SIGNING_KEY;
+      else process.env.IDS_SIGNING_KEY = previous;
+    }
   });
 });

@@ -9,6 +9,10 @@ type InspectOutput = {
   nowMs: number;
 };
 
+type SignedInspectOutput = InspectOutput & {
+  verification?: "ok" | "failed";
+};
+
 type WrappedInspectOutput = {
   brand: string;
   lookupKey: number | bigint;
@@ -33,6 +37,21 @@ export function formatWrappedInspectOutput(result: WrappedInspectOutput): string
     `input:      ${inputLine}`,
     "",
   ].join("\n");
+}
+
+export function formatSignedInspectOutput(result: SignedInspectOutput): string {
+  const relative = formatRelative(result.timestamp.getTime(), result.nowMs);
+  const inputLine = describeInputForm(result.input, result.canonical);
+  const lines = [
+    `brand:     ${result.brand}`,
+    `timestamp: ${result.timestamp.toISOString()} (${relative})`,
+  ];
+  if (result.verification !== undefined) {
+    // "verification:" is the spec-mandated key name; the extra chars vs. other labels are intentional.
+    lines.push(`verification: ${result.verification}`);
+  }
+  lines.push(`canonical: ${result.canonical}`, `input:     ${inputLine}`, "");
+  return lines.join("\n");
 }
 
 export function formatInspectOutput(result: InspectOutput): string {
