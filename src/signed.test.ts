@@ -248,6 +248,89 @@ describe("createSignedTimestampId", () => {
     expect(codec.extractTimestamp(id).getTime()).toBe(date.getTime());
   });
 
+  // --- 48-bit timestamp boundary tests ---
+
+  it("generateAt() round-trips at epoch (ms=0)", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", {
+      keys: [key],
+      now: () => 0,
+      rng: () => {},
+      allowDuplicateBrand: true,
+    });
+    const id = await codec.generateAt(new Date(0));
+    expect(codec.extractTimestamp(id).getTime()).toBe(0);
+  });
+
+  it("generateAt() round-trips at the 48-bit ceiling (ms=2^48-1)", async () => {
+    const key = await makeKey();
+    const maxMs = 2 ** 48 - 1;
+    const codec = createSignedTimestampId("sgn", {
+      keys: [key],
+      now: () => maxMs,
+      rng: () => {},
+      allowDuplicateBrand: true,
+    });
+    const id = await codec.generateAt(new Date(maxMs));
+    expect(codec.extractTimestamp(id).getTime()).toBe(maxMs);
+  });
+
+  it("generateAt() rejects pre-epoch dates", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    await expect(codec.generateAt(new Date(-1))).rejects.toThrow("timestamp is negative");
+  });
+
+  it("generateAt() rejects dates that overflow 48 bits", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    await expect(codec.generateAt(new Date(2 ** 48))).rejects.toThrow(
+      "timestamp exceeds 48-bit range",
+    );
+  });
+
+  it("generateAt() rejects an Invalid Date (NaN timestamp)", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    await expect(codec.generateAt(new Date(NaN))).rejects.toThrow("timestamp is not a number");
+  });
+
+  it("minIdForTime() rejects pre-epoch dates", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    expect(() => codec.minIdForTime(new Date(-1))).toThrow("timestamp is negative");
+  });
+
+  it("minIdForTime() rejects dates that overflow 48 bits", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    expect(() => codec.minIdForTime(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
+  });
+
+  it("minIdForTime() rejects an Invalid Date", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    expect(() => codec.minIdForTime(new Date(NaN))).toThrow("timestamp is not a number");
+  });
+
+  it("maxIdForTime() rejects pre-epoch dates", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    expect(() => codec.maxIdForTime(new Date(-1))).toThrow("timestamp is negative");
+  });
+
+  it("maxIdForTime() rejects dates that overflow 48 bits", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    expect(() => codec.maxIdForTime(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
+  });
+
+  it("maxIdForTime() rejects an Invalid Date", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    expect(() => codec.maxIdForTime(new Date(NaN))).toThrow("timestamp is not a number");
+  });
+
   // --- minIdForTime / maxIdForTime sentinels ---
 
   it("minIdForTime and maxIdForTime bound any ID generated at the same timestamp", async () => {
