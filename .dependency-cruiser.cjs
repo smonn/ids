@@ -172,6 +172,13 @@ module.exports = {
       to: { path: "^src/registry" },
     },
     {
+      name: "rng-only-from-codec-constructors",
+      severity: "error",
+      comment: "only codec constructors may import the shared RNG utility",
+      from: { path: "^src", pathNot: "^src/(timestamp|opaque|reverse|wrapped|signed)\\.ts$" },
+      to: { path: "^src/rng" },
+    },
+    {
       name: "leaves-no-upward",
       severity: "error",
       from: { path: "^src/(base32|bytes|types|brand)\\.ts$" },
