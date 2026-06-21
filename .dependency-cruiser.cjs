@@ -2,6 +2,17 @@
 module.exports = {
   forbidden: [
     {
+      name: "adapter-types-imports-allowlist",
+      severity: "error",
+      comment:
+        "adapter-types may import only types — it must not pull in codec constructors, layouts, wire internals, or higher-layer modules",
+      from: { path: "^src/adapter-types\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/types\\.ts$",
+      },
+    },
+    {
       name: "wire-no-layouts",
       severity: "error",
       comment: "wire layer must not depend on layouts",
@@ -19,18 +30,19 @@ module.exports = {
     {
       name: "drizzle-adapter-no-internals",
       severity: "error",
-      comment: "drizzle adapter may import only types and error surface from @smonn/ids internals",
+      comment:
+        "drizzle adapter may import only types, error surface, and adapter-types from @smonn/ids internals",
       from: { path: "^src/drizzle\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/(types|error)\\.ts$",
+        pathNot: "^src/(types|error|adapter-types)\\.ts$",
       },
     },
     {
       name: "kysely-adapter-no-internals",
       severity: "error",
       comment:
-        "kysely adapter may import only types, error surface, and the drizzle adapter from @smonn/ids internals",
+        "kysely adapter may import only types, error surface, and the drizzle adapter from @smonn/ids internals; adapter-types is reachable transitively via drizzle (kysely imports IdColumnCodec from drizzle, which re-exports it from adapter-types) — this transitive path is intentional",
       from: { path: "^src/kysely\\.ts$" },
       to: {
         path: "^src",
@@ -40,11 +52,12 @@ module.exports = {
     {
       name: "prisma-adapter-no-internals",
       severity: "error",
-      comment: "prisma adapter may import only types and error surface from @smonn/ids internals",
+      comment:
+        "prisma adapter may import only types, error surface, and adapter-types from @smonn/ids internals",
       from: { path: "^src/prisma\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/(types|error)\\.ts$",
+        pathNot: "^src/(types|error|adapter-types)\\.ts$",
       },
     },
     {

@@ -1,23 +1,11 @@
 import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
-import type { Id, ParseResult } from "./types.js";
+import type { IdColumnCodec } from "./adapter-types.js";
+import type { Id } from "./types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };
 
-/**
- * Minimum codec interface required by the Prisma adapter.
- *
- * Any codec variant satisfies this type — TimestampCodec, OpaqueTimestampCodec,
- * ReverseTimestampCodec, and WrappedKeyCodec all expose `safeParse`. The adapter
- * never calls key-dependent methods.
- *
- * Intentionally the same structural shape as the Drizzle adapter's IdColumnCodec.
- * Do NOT import IdColumnCodec from `@smonn/ids/drizzle` — that would create
- * cross-adapter coupling.
- */
-export type IdColumnCodec<Brand extends string> = {
-  safeParse(value: unknown): ParseResult<Brand>;
-};
+export type { IdColumnCodec };
 
 /**
  * Read/write transform pair for integrating `Id<Brand>` with Prisma extensions.
