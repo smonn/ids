@@ -18,7 +18,7 @@ import {
   type WrappedKindValue,
 } from "../flags.js";
 import { isKeyFormatError, loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
-import { loadSigningKey, parseSigningKeyFormat } from "../signing-key.js";
+import { loadSigningKey, parseSigningKeyFormat, type SigningKeyFormat } from "../signing-key.js";
 import { loadWrappingKey, parseWrappingKeyFormat } from "../wrapping-key.js";
 import type { RunOpts } from "../types.js";
 import { usage } from "../usage.js";
@@ -259,7 +259,7 @@ async function runOpaqueInspect(
 async function runSignedInspect(
   brand: string,
   input: string,
-  format: string,
+  format: SigningKeyFormat,
   opts: RunOpts,
 ): Promise<number> {
   // Always parse structurally first using the Timestamp codec — the Signed Timestamp
@@ -289,7 +289,7 @@ async function runSignedInspect(
     return 0;
   }
 
-  const keyResult = await loadSigningKey(opts, format as "hex" | "base64url");
+  const keyResult = await loadSigningKey(opts, format);
   if (typeof keyResult === "string") {
     opts.stderr(keyResult + "\n");
     return 1;
@@ -299,12 +299,15 @@ async function runSignedInspect(
   const signedCodec = createSignedTimestampId(brand, {
     keys: [keyResult],
     allowDuplicateBrand: true,
-    ...(opts.now !== undefined ? { now: opts.now } : {}),
-    ...(opts.rng !== undefined ? { rng: opts.rng } : {}),
+    ...codecOpts(opts),
   });
-  // Structure is already validated above; safeVerify can only return "verification_failed" here.
   const verifyResult = await signedCodec.safeVerify(input);
   if (!verifyResult.ok) {
+    if (verifyResult.error !== "verification_failed") {
+      // ParseError — structural problem (e.g. format-version mismatch not caught above)
+      opts.stderr(verifyResult.error + "\n");
+      return 1;
+    }
     opts.stdout(
       formatSignedInspectOutput({
         brand,
