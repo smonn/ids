@@ -188,7 +188,11 @@ jobs:
                --remove-label ready-for-agent`, then post a brief issue comment with
                the PR URL.
 
-            Keep the change minimal and scoped strictly to the acceptance criteria.
+            Keep the change minimal and scoped strictly to the acceptance criteria. If
+            you spot an adjacent improvement, a pre-existing bug, or a tempting refactor
+            that the acceptance criteria did not ask for, do NOT fold it into this PR —
+            file a follow-up issue for it (match the relevant `.github/ISSUE_TEMPLATE/`
+            form, label it `needs-triage`) and keep this PR honed to its scope.
             Do NOT push to main directly. A human reviews and merges the PR.
 
       # Catch the "hollow success" case: the agent can exit 0 without opening a PR.

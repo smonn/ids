@@ -173,6 +173,23 @@ jobs:
             about correctness, design, architecture, API surface, and naming; do NOT run
             or re-verify the static-analysis gate.
 
+            SCOPE DISCIPLINE — a review HONES scope, it never grows it. Classify every
+            finding before you post it:
+              - IN-SCOPE: a defect in the lines/files THIS PR changes, or a missed,
+                incorrect, or over-reached acceptance criterion from the originating
+                issue. These are the only findings that may be "hard" (drive a fix).
+              - FOLLOW-UP: anything that would EXTEND scope — a pre-existing problem in
+                code this PR doesn't touch, an adjacent improvement, a new
+                capability / rule / abstraction / test the acceptance criteria didn't
+                ask for, or a broader refactor. NEVER raise these as hard findings no
+                matter how valid; recommend filing a follow-up issue (or note an existing
+                one) and move on. Do not push the PR to do this extra work.
+            If the PR ITSELF has expanded beyond its acceptance criteria, that is an
+            in-scope Spec finding: recommend the extra work be TRIMMED and moved to a
+            follow-up issue, rather than ratifying the expansion. When unsure whether a
+            finding is in-scope, treat it as a follow-up — bias the loop toward
+            converging, never toward growing.
+
             You are headless: do NOT pause for input. Surface the findings in TWO
             places — inline on the diff where a finding maps to a changed line, and a
             single top-level summary comment for everything else.
@@ -235,11 +252,15 @@ jobs:
 
             FINALLY, decide whether this review surfaced any HARD findings. A hard
             finding is a real defect that needs a fix before merge — a clear Standards
-            violation or a missing / incorrect Spec requirement — as opposed to a soft
-            suggestion, nice-to-have, or judgment call. If you posted ONE OR MORE hard
-            findings (inline or in the summary), apply the `address-feedback` label as
-            your last action so the fix loop (address-review.yml) picks the PR up
-            automatically:
+            violation or a missing / incorrect Spec requirement — that is ALSO IN-SCOPE
+            (a flaw in what this PR changed, or a missed / incorrect acceptance
+            criterion), as opposed to a soft suggestion, nice-to-have, judgment call, or
+            anything classified FOLLOW-UP above. A finding about adjacent or pre-existing
+            code, or about new capabilities beyond the acceptance criteria, is NEVER hard
+            no matter how valid — it is a follow-up. If you posted ONE OR MORE in-scope
+            hard findings (inline or in the summary), apply the `address-feedback` label
+            as your last action so the fix loop (address-review.yml) picks the PR up
+            automatically — this keeps the loop honing the PR instead of growing it:
 
                 gh pr edit ${{ env.PR_NUMBER }} --add-label address-feedback
 

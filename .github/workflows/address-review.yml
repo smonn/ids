@@ -188,10 +188,21 @@ jobs:
                and `gh api repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/comments`
                for inline review comments — record each comment's `id`, `path`, and
                `line`). Focus on the most recent human review.
-            2. Address each actionable point as ITS OWN commit: make the change, then
-               `git commit` it alone with a clear, scoped message (one fix per commit, so
-               each maps to a single hash). Make the changes faithfully. For any point
-               that changes behavior or needs new/changed tests, use the repo's `tdd`
+            2. SCOPE RULE (applies to every point): a fix HONES this PR, it never
+               extends it. Implement ONLY (a) defects in the lines/files this PR already
+               changed and (b) missed or incorrect acceptance criteria from the
+               originating issue. If addressing a point would GROW the diff beyond the
+               issue's scope — a new file, a new capability, a new rule / abstraction,
+               tests for code this PR didn't touch, or a broader refactor — do NOT
+               implement it: file a follow-up issue and link it on the thread (per the
+               OUT OF SCOPE path below). When in doubt, prefer a follow-up over expanding
+               the diff. Honing changes (tightening, simplifying, removing, fixing this
+               PR's own new code) are always fine.
+
+               Address each in-scope actionable point as ITS OWN commit: make the change,
+               then `git commit` it alone with a clear, scoped message (one fix per
+               commit, so each maps to a single hash). Make the changes faithfully. For
+               any point that changes behavior or needs new/changed tests, use the repo's `tdd`
                skill — invoke it with `/tdd` — so the fix follows red→green→refactor and
                the testing standards; you are headless, so do NOT pause for the skill's
                interactive approval steps, proceed on the review comment as the agreed
