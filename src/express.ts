@@ -1,12 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
-import type { IdParamFailure } from "./adapter-types.js";
-import type { Id, ParseResult } from "./types.js";
+import type { IdCodec, IdParamFailure } from "./adapter-types.js";
+import { resolveIdParamFailure } from "./adapter-types.js";
+import type { Id } from "./types.js";
 
 export type { IdParamFailure };
-
-type IdCodec<Brand extends string> = {
-  safeParse(value: unknown): ParseResult<Brand>;
-};
 
 /**
  * Typed error forwarded to Express's error pipeline (`next(err)`) on validation failure.
@@ -95,16 +92,12 @@ export function idParam<ParamKey extends string, Brand extends string>(
     const raw = req.params[paramName];
     const result = codec.safeParse(raw);
     if (!result.ok) {
-      const reason =
-        result.error === "invalid_prefix" ? ("brand_mismatch" as const) : ("malformed" as const);
-      const defaultStatus = reason === "brand_mismatch" ? 404 : 400;
-      const status = options?.status?.[reason] ?? defaultStatus;
-      const failure: IdParamFailure = { reason, status };
+      const failure = resolveIdParamFailure(result.error, options);
       if (options?.onError) {
         options.onError(failure, req, res, next);
         return;
       }
-      next(new IdParamError(reason, status));
+      next(new IdParamError(failure.reason, failure.status));
       return;
     }
     (res.locals as Record<string, unknown>)[paramName] = result.id;
