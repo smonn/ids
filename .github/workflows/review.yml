@@ -156,24 +156,44 @@ jobs:
             places — inline on the diff where a finding maps to a changed line, and a
             single top-level summary comment for everything else.
 
-            FIRST, post inline review comments for every finding that anchors to a
-            specific changed line. Use the GitHub pulls-comments API (one call per
-            finding), pinning each to the reviewed commit:
+            CRITICAL — how to author every comment body. GitHub renders raw markdown,
+            and shell-quoting comment bodies inline is the #1 source of corrupted
+            reviews. So for EVERY comment (inline and summary):
+              - Author the body with the Write tool to a file (e.g. `body.md`). The
+                Write tool writes bytes verbatim — use REAL newlines (press enter), not
+                `\n`. Never construct a body inside a shell argument or heredoc.
+              - Never emit backslash escapes (`\n`, `\t`, `\"`) and never escape markdown
+                metacharacters (`<`, `>`, `[`, `]`, backtick) with a backslash — write
+                them as plain characters; GitHub renders them correctly. A literal `\n`
+                or `\<` in a posted comment is a bug.
+              - Pass the file to `gh`; do not pass the prose as a string argument.
 
-                gh api -X POST repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/comments \
-                  -f commit_id=${{ steps.sha.outputs.sha }} \
-                  -f path=<file> -F line=<line-in-the-new-file> -f side=RIGHT \
-                  -f body=$'**[Standards|Spec]** <the finding>\n\n<!-- code-review:${{ steps.sha.outputs.sha }} -->'
+            FIRST, post inline review comments for every finding that anchors to a
+            specific changed line — one API call per finding, pinned to the reviewed
+            commit. Write the finding's body to a file, then build the payload with `jq`
+            (so jq does all JSON escaping) and post via `--input`:
+
+                # write the body to body.md with the Write tool first, then:
+                jq -n \
+                  --arg commit_id "${{ steps.sha.outputs.sha }}" \
+                  --arg path "<file>" \
+                  --argjson line <line-in-the-new-file> \
+                  --arg body "$(cat body.md)" \
+                  '{commit_id:$commit_id, path:$path, line:$line, side:"RIGHT", body:$body}' \
+                  | gh api -X POST repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/comments --input -
+
+            The body file must start with `**[Standards|Spec]** <the finding>` and END
+            with the hidden marker line `<!-- code-review:${{ steps.sha.outputs.sha }} -->`
+            (verbatim, full SHA) so forced re-reviews can clean it up.
 
             Only anchor to lines that are part of THIS PR's diff against origin/main — a
             line GitHub won't accept (not in the diff) returns 422; if a finding has no
-            such line, leave it for the summary instead. End every inline body with the
-            hidden `<!-- code-review:${{ steps.sha.outputs.sha }} -->` marker (verbatim,
-            full SHA) so forced re-reviews can clean it up.
+            such line, leave it for the summary instead.
 
-            THEN post the summary as ONE top-level comment via
-            `gh pr comment ${{ env.PR_NUMBER }} --body-file <file>` (use a file/heredoc
-            for the multi-line body). It MUST begin EXACTLY with, in order:
+            THEN post the summary as ONE top-level comment. Write the full summary to a
+            file with the Write tool (real newlines, no escapes — see the rules above),
+            then post it with `gh pr comment ${{ env.PR_NUMBER }} --body-file <file>`.
+            It MUST begin EXACTLY with, in order:
 
                 ## Code review (commit `${{ steps.sha.outputs.short }}`)
                 <!-- code-review:${{ steps.sha.outputs.sha }} -->
@@ -199,7 +219,10 @@ jobs:
             --allowedTools "Read,Grep,Glob,TodoWrite,Task,Bash(gh:*),Bash(git:*)"
 
       # Catch the "hollow success" case: the agent can exit 0 without posting. Require
-      # a review comment tagged with THIS commit's marker so a silent failure fails loudly.
+      # a review comment tagged with THIS commit's marker so a silent failure fails
+      # loudly. Also guard against corrupted bodies: a body that still contains literal
+      # escape sequences (\n, \<, \[) instead of rendered markdown means the agent
+      # shell-quoted the prose — fail so the garbled review doesn't ship silently.
       - name: Verify the review comment was posted
         if: steps.gate.outputs.skip != 'true'
         env:
@@ -208,11 +231,25 @@ jobs:
           HEAD_SHA: ${{ steps.sha.outputs.sha }}
         run: |
           marker="<!-- code-review:${HEAD_SHA} -->"
-          found=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
-            --jq "[.[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$marker\")))] | length")
-          if [ "${found:-0}" -gt 0 ]; then
-            echo "✓ Review comment for $HEAD_SHA posted on PR #$PR_NUMBER."
-          else
+          # Collect every comment for this commit's marker, summary (issues) + inline
+          # (pulls), as one JSON array of body strings. Each call emits a JSON array;
+          # `jq -s add` concatenates them while keeping each body a discrete string.
+          select="[.[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$marker\"))) | .body]"
+          bodies=$(
+            { gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate --jq "$select"
+              gh api "repos/$GH_REPO/pulls/$PR_NUMBER/comments"  --paginate --jq "$select"
+            } | jq -s 'add'
+          )
+          found=$(echo "$bodies" | jq 'length')
+          if [ "${found:-0}" -le 0 ]; then
             echo "::error::No review comment tagged $HEAD_SHA on PR #$PR_NUMBER — the review did not post (check the run log)."
             exit 1
           fi
+          # A well-formed body has real newlines and unescaped markdown; a literal
+          # backslash-escape (\n, \<, \[) means the prose was shell-quoted — corruption.
+          corrupt=$(echo "$bodies" | jq '[.[] | select(test("\\\\n|\\\\<|\\\\\\["))] | length')
+          if [ "${corrupt:-0}" -gt 0 ]; then
+            echo "::error::A review comment for $HEAD_SHA contains literal escape sequences (\\n, \\<, \\[) instead of rendered markdown — the body was shell-quoted. Fix the body authoring and re-review."
+            exit 1
+          fi
+          echo "✓ $found review comment(s) for $HEAD_SHA posted on PR #$PR_NUMBER, all well-formed."
