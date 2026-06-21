@@ -4,7 +4,8 @@ module.exports = {
     {
       name: "adapter-types-imports-allowlist",
       severity: "error",
-      comment: "adapter-types may import only types — it must not pull in codec constructors, layouts, wire internals, or higher-layer modules",
+      comment:
+        "adapter-types may import only types — it must not pull in codec constructors, layouts, wire internals, or higher-layer modules",
       from: { path: "^src/adapter-types\\.ts$" },
       to: {
         path: "^src",
