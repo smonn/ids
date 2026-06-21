@@ -18,6 +18,7 @@
     ".": "./dist/index.mjs",
     "./opaque": "./dist/opaque.mjs",
     "./reverse": "./dist/reverse.mjs",
+    "./signed": "./dist/signed.mjs",
     "./wrapped": "./dist/wrapped.mjs",
     "./drizzle": "./dist/drizzle.mjs",
     "./hono": "./dist/hono.mjs",
