@@ -261,6 +261,24 @@ describe("createSignedTimestampId", () => {
     expect(id <= max).toBe(true);
   });
 
+  // --- Sentinel non-verifiability ---
+
+  it("minIdForTime sentinel is not verifiable (carries no valid tag)", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    const sentinel = codec.minIdForTime(new Date(1_700_000_000_000));
+    const result = await codec.safeVerify(sentinel);
+    expect(result).toEqual({ ok: false, error: "verification_failed" });
+  });
+
+  it("maxIdForTime sentinel is not verifiable (carries no valid tag)", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    const sentinel = codec.maxIdForTime(new Date(1_700_000_000_000));
+    const result = await codec.safeVerify(sentinel);
+    expect(result).toEqual({ ok: false, error: "verification_failed" });
+  });
+
   // --- safeVerify structural parse errors ---
 
   it("safeVerify returns a parse error for structurally invalid input", async () => {
