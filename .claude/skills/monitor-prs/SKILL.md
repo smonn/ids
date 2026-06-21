@@ -24,7 +24,7 @@ disable-model-invocation: true
 - **Agent branch:** a branch whose name starts with `agent/` — created by an automated agent implementing a GitHub issue. The PR author is `claude[bot]`.
 - **Non-agent branch:** any PR branch not matching the `agent/` prefix — human-authored.
 - **Hard findings:** Standards hard violations or Spec hard gaps surfaced by the `/review` skill — labelled "Hard violations" or "Hard gap" in the review output.
-- **Soft / judgment-call findings:** suggestions, style improvements, and non-binding notes from `/review` — labelled "Judgement calls" in the review output.
+- **Soft / judgement-call findings:** suggestions, style improvements, and non-binding notes from `/review` — labelled "Judgement calls" in the review output.
 
 ## Routing table
 
@@ -51,7 +51,7 @@ Confirm that `address-feedback` is applied to the PR.
 
 File a new GitHub issue for each hard finding using the appropriate `.github/ISSUE_TEMPLATE/`. Do not fix inline. Do not commit to the PR branch.
 
-### Review posted, soft / judgment-call findings only
+### Review posted, soft / judgement-call findings only
 
 Scan the PR review threads. Resolve any thread that already has a reply (the finding has been acknowledged). Do not apply `address-feedback`.
 
@@ -96,4 +96,4 @@ Escalate — post a summary to the user and ask before acting — when any of th
 
 - **CLOSED design decision:** a review finding or failure requires reopening brand format, payload byte layout, canonical `is()`, monotonicity, custom epoch, Opaque key behavior, or wire-indistinguishable codec variants. Do not act; surface the finding and the tension.
 - **Repeated CI failure:** the same PR has had CI fail 3 or more times with no fix committed between failures. Report the pattern and ask the user how to proceed.
-- **Architectural judgment required:** a conflict, finding, or failure cannot be resolved without a design decision above the routing table authority (e.g. API shape, ADR amendment, cross-issue dependency). Summarize the conflict and ask the user.
+- **Architectural judgement required:** a conflict, finding, or failure cannot be resolved without a design decision above the routing table authority (e.g. API shape, ADR amendment, cross-issue dependency). Summarize the conflict and ask the user.
