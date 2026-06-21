@@ -45,7 +45,7 @@ export function assertValidKeyMaterialByteLength(byteLength: number, noun: strin
  */
 export function encodeKeyMaterial(
   bytes: Uint8Array,
-  format: unknown,
+  format: KeyMaterialFormat,
   formatNoun: string,
   lengthNoun: string,
 ): string {
@@ -62,7 +62,7 @@ export function encodeKeyMaterial(
  */
 export function decodeKeyMaterial(
   encoded: string,
-  format: unknown,
+  format: KeyMaterialFormat,
   formatNoun: string,
   lengthNoun: string,
 ): Uint8Array {
