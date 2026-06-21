@@ -29,7 +29,7 @@ function assertKeyMaterialFormat(
  * Throws `empty_keyring` when `keys` is empty.
  * `noun` appears in the message (e.g. `"signing"` → "signing keyring must contain at least one key").
  */
-export function assertNonEmptyKeyring<K = unknown>(keys: readonly K[], noun: string): void {
+function assertNonEmptyKeyring<K = unknown>(keys: readonly K[], noun: string): void {
   if (keys.length === 0) {
     throw new IdsError("empty_keyring", `${noun} keyring must contain at least one key`);
   }
@@ -39,7 +39,7 @@ export function assertNonEmptyKeyring<K = unknown>(keys: readonly K[], noun: str
  * Throws `duplicate_keyring_entry` when any two entries in `keys` compare equal.
  * Uses the caller-supplied constant-time `keysEqual` comparator.
  */
-export function assertNoDuplicateKeyringEntries<K>(
+function assertNoDuplicateKeyringEntries<K>(
   keys: readonly K[],
   keysEqual: (a: K, b: K) => boolean,
   noun: string,

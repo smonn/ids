@@ -1,6 +1,4 @@
 import {
-  assertNoDuplicateKeyringEntries,
-  assertNonEmptyKeyring,
   assertValidKeyMaterialByteLength,
   assertValidKeyring,
   decodeKeyMaterial,
@@ -117,7 +115,7 @@ export function getSigningKeyHmacKey(key: SigningKey): CryptoKey {
  * @deprecated Use {@link assertValidKeyring} with {@link signingKeysEqual} for a combined check, or rely on the codec constructor's built-in validation instead.
  */
 export function assertNonEmptySigningKeyring(keys: readonly SigningKey[]): void {
-  assertNonEmptyKeyring(keys, "signing");
+  assertValidKeyring(keys, signingKeysEqual, "signing");
 }
 
 /**
@@ -126,7 +124,7 @@ export function assertNonEmptySigningKeyring(keys: readonly SigningKey[]): void 
  * @deprecated Use {@link assertValidKeyring} with {@link signingKeysEqual} for a combined check, or rely on the codec constructor's built-in validation instead.
  */
 export function assertNonDuplicateSigningKeys(keys: readonly SigningKey[]): void {
-  assertNoDuplicateKeyringEntries(keys, signingKeysEqual, "signing");
+  assertValidKeyring(keys, signingKeysEqual, "signing");
 }
 
 function getSigningKeyInternals(key: SigningKey): SigningKeyInternals {
