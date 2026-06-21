@@ -32,7 +32,7 @@ express.ts / fastify.ts / hono.ts   ← web framework adapters
   ↓
 adapter-types.ts                    ← shared web-adapter type hub
   ↓
-types.ts                            ← leaf
+types.ts / error.ts                 ← leaves
 ```
 
 `drizzle.ts` imports `readIdColumn` and `IdColumnCodec` from `adapter-types.ts` (chunk 1 of the ORM read-path consolidation). `prisma.ts` and `kysely.ts` still inline the read guard — those migrations are out of scope until chunks 2 and 3 land.
