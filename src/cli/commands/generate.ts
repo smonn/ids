@@ -6,7 +6,7 @@ import { codecOpts } from "../codec-options.js";
 import { formatCliError } from "../format.js";
 import { parseCount, splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
-import { loadSigningKey, parseSigningKeyFormat } from "../signing-key.js";
+import { loadSigningKey, parseSigningKeyFormat, type SigningKeyFormat } from "../signing-key.js";
 import type { RunOpts } from "../types.js";
 
 export function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
@@ -117,10 +117,10 @@ async function runOpaqueGenerate(
 async function runSignedGenerate(
   brand: string,
   count: number,
-  format: string,
+  format: SigningKeyFormat,
   opts: RunOpts,
 ): Promise<number> {
-  const keyResult = await loadSigningKey(opts, format as "hex" | "base64url");
+  const keyResult = await loadSigningKey(opts, format);
   if (typeof keyResult === "string") {
     opts.stderr(keyResult + "\n");
     return 1;
@@ -130,8 +130,7 @@ async function runSignedGenerate(
     codec = createSignedTimestampId(brand, {
       keys: [keyResult],
       allowDuplicateBrand: true,
-      ...(opts.now !== undefined ? { now: opts.now } : {}),
-      ...(opts.rng !== undefined ? { rng: opts.rng } : {}),
+      ...codecOpts(opts),
     });
   } catch (err) {
     opts.stderr(formatCliError(err) + "\n");
