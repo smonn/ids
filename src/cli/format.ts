@@ -52,6 +52,9 @@ export function formatSignedInspectOutput(result: SignedInspectOutput): string {
     `timestamp: ${result.timestamp.toISOString()} (${relative})`,
   ];
   if (result.verification !== undefined) {
+    // `verification:` (14 chars) is intentionally wider than the other labels
+    // (11 chars); the spec mandates this exact key name, so the misalignment is
+    // unavoidable without renaming the label.
     lines.push(`verification: ${result.verification}`);
   }
   lines.push(`canonical: ${result.canonical}`, `input:     ${inputLine}`, "");
