@@ -2,6 +2,7 @@ import { createTimestampId } from "../../timestamp.js";
 import { createOpaqueTimestampId, type OpaqueKeyFormat } from "../../opaque.js";
 import { createReverseTimestampId } from "../../reverse.js";
 import { codecOpts } from "../codec-options.js";
+import { formatCliError } from "../format.js";
 import { parseCount, splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
 import type { RunOpts } from "../types.js";
@@ -55,7 +56,7 @@ export function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise
     try {
       codec = createReverseTimestampId(brand ?? "", codecOpts(opts));
     } catch (err) {
-      opts.stderr((err as Error).message + "\n");
+      opts.stderr(formatCliError(err) + "\n");
       return Promise.resolve(1);
     }
     for (let i = 0; i < count; i++) opts.stdout(codec.generate() + "\n");
@@ -65,7 +66,7 @@ export function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise
   try {
     codec = createTimestampId(brand ?? "", codecOpts(opts));
   } catch (err) {
-    opts.stderr((err as Error).message + "\n");
+    opts.stderr(formatCliError(err) + "\n");
     return Promise.resolve(1);
   }
   for (let i = 0; i < count; i++) opts.stdout(codec.generate() + "\n");
@@ -87,7 +88,7 @@ async function runOpaqueGenerate(
   try {
     codec = createOpaqueTimestampId(brand, { key: keyResult, ...codecOpts(opts) });
   } catch (err) {
-    opts.stderr((err as Error).message + "\n");
+    opts.stderr(formatCliError(err) + "\n");
     return 1;
   }
   for (let i = 0; i < count; i++) opts.stdout((await codec.generate()) + "\n");
