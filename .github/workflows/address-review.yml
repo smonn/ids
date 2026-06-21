@@ -60,10 +60,10 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
-      # Cost guard: the review → address-feedback → address-review → needs-review →
-      # review cycle is entirely bot-driven once started (review.yml auto-applies
-      # address-feedback on hard findings; we apply needs-review at the end, which
-      # re-fires review). Cap the consecutive BOT-driven rounds so a reviewer that keeps
+      # Cost guard: the review → address-feedback → address-review → push → review
+      # cycle is entirely bot-driven once started (review.yml auto-applies
+      # address-feedback on hard findings; the fix push re-fires review.yml via its
+      # synchronize trigger). Cap the consecutive BOT-driven rounds so a reviewer that keeps
       # flagging the same point can't loop forever — mirrors autofix.yml's MAX_ATTEMPTS.
       # A human applying the label breaks the cycle and resets the counter, and an
       # already-escalated PR is skipped.
@@ -260,21 +260,9 @@ jobs:
 
             Do NOT approve or merge the PR, and do NOT push to main. A human re-reviews.
 
-      # Close the review loop: once fixes are pushed, apply `needs-review` so review.yml
-      # fires automatically (via its `labeled` trigger) instead of waiting for a human to
-      # re-apply the label. The push-skip path (branch advanced past EVENT_SHA) leaves the
-      # head SHA equal to EVENT_SHA — in that case the agent already posted a comment and
-      # stopped, so we must NOT request a review.
-      - name: Apply needs-review label if push succeeded
-        if: success() && steps.gate.outputs.proceed == 'true'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          current_sha=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
-          if [ "$current_sha" != "$EVENT_SHA" ]; then
-            gh pr edit "$PR_NUMBER" --add-label needs-review
-            echo "Applied needs-review label (branch advanced to $current_sha)"
-          else
-            echo "Branch still at $EVENT_SHA — push was skipped; needs-review not applied"
-          fi
+      # No explicit re-review trigger is needed: when the fix push lands it advances the
+      # PR head, and review.yml re-reviews automatically via its `synchronize` trigger
+      # (deduped per commit). The push-skip path (branch advanced past EVENT_SHA) leaves
+      # the head at EVENT_SHA with no new push — the agent already posted a comment and
+      # stopped — so nothing fires, which is the intended behaviour. `needs-review` stays
+      # available as the manual "re-review now" signal a maintainer can apply by hand.

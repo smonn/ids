@@ -1,8 +1,10 @@
 name: Review agent PRs
 
 # Posts an automated code review (a two-axis Standards + Spec report, never an
-# approval) on each agent PR when it opens. Scoped to agent/issue-* so it doesn't
-# review human PRs, and runs once on open — not on every push — to bound cost.
+# approval) on each agent PR. Scoped to agent/issue-* so it doesn't review human PRs.
+# It reviews on open and on every push (synchronize), deduped per commit so a single
+# commit is reviewed once — this keeps the required `review` check fresh on the current
+# head SHA instead of stranding it on the opened commit after later pushes.
 #
 # The job ALWAYS runs (there is no job-level `if`) and the agent/event/label scoping
 # lives in the first `scope` step instead. This is deliberate: the `review` check is a
@@ -19,8 +21,8 @@ name: Review agent PRs
 # marker (`<!-- code-review-summary -->`) and re-posted fresh on every review, so
 # successive rounds REPLACE it instead of piling up — there is only ever one summary
 # comment on the PR. It also records the reviewed commit's SHA (`<!-- code-review:SHA
-# -->`); automatic triggers (opened/reopened) skip when the sticky summary already
-# covers the current commit. Inline comments keep only the per-SHA marker; a forced
+# -->`); automatic triggers (opened/reopened/synchronize) skip when the sticky summary
+# already covers the current commit. Inline comments keep only the per-SHA marker; a forced
 # re-review (the `needs-review` label or workflow_dispatch) sweeps this commit's prior
 # inline comments so the new pass replaces them, while earlier commits' inline comments
 # stay as history.
@@ -33,7 +35,7 @@ name: Review agent PRs
 
 on:
   pull_request:
-    types: [opened, reopened, labeled]
+    types: [opened, reopened, synchronize, labeled]
   workflow_dispatch:
     inputs:
       pr_number:
