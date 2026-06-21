@@ -11,7 +11,7 @@ const hmacInfo = new TextEncoder().encode("ids/signed-timestamp/hmac");
 declare const signingKeyBrand: unique symbol;
 
 /**
- * Opaque imported handle for one operator signing secret.
+ * Opaque imported handle for one operator signing key.
  *
  * Holds a single HMAC-SHA-256 key derived via HKDF under the domain-separation
  * label `ids/signed-timestamp/hmac`. The underlying `CryptoKey` is held
@@ -19,8 +19,8 @@ declare const signingKeyBrand: unique symbol;
  * {@link importSigningKey} and pass them to `createSignedTimestampId` as the
  * `keys` signing keyring.
  *
- * Distinct from both the **Opaque key** and the **Wrapping key** — one raw
- * secret must not silently serve multiple codecs without an explicit import.
+ * Distinct from both the **Opaque key** and the **Wrapping key** — the same
+ * raw key material must not silently serve multiple codecs without an explicit import.
  */
 export type SigningKey = {
   readonly [signingKeyBrand]: "SigningKey";
@@ -34,7 +34,7 @@ type SigningKeyInternals = {
 const internals = new WeakMap<SigningKey, SigningKeyInternals>();
 
 /**
- * Import raw operator secret bytes into a {@link SigningKey} handle.
+ * Import raw operator key material into a {@link SigningKey} handle.
  *
  * Derives a single HMAC-SHA-256 key via HKDF under the domain-separation label
  * `ids/signed-timestamp/hmac`. Accepts 16, 24, or 32 bytes. To store or
@@ -53,7 +53,7 @@ export async function importSigningKey(bytes: Uint8Array): Promise<SigningKey> {
 }
 
 /**
- * Encode raw signing operator secret bytes for storage in env vars or secret managers.
+ * Encode raw signing operator key material for storage in env vars or secret managers.
  *
  * Supports `"hex"` (lowercase) and `"base64url"`. Output round-trips through
  * {@link decodeSigningKey} back to the original bytes.
@@ -103,7 +103,7 @@ export function decodeSigningKey(encoded: string, format: SigningKeyFormat): Uin
 }
 
 /**
- * Returns true when two handles were imported from the same raw operator secret.
+ * Returns true when two handles were imported from the same raw key material.
  *
  * Uses a constant-time comparison so duplicate detection over key material does
  * not leak the position of the first differing byte through a timing side channel.
@@ -119,7 +119,12 @@ export function signingKeysEqual(a: SigningKey, b: SigningKey): boolean {
   return diff === 0;
 }
 
-/** Returns the derived HMAC CryptoKey held inside the handle. Not part of the public API. */
+/**
+ * Returns the derived HMAC CryptoKey held inside the handle.
+ *
+ * Intentional module-internal escape hatch for codec implementations (e.g. `createSignedTimestampId`).
+ * Not re-exported from `@smonn/ids/signed`; external callers cannot reach this.
+ */
 export function getSigningKeyHmacKey(key: SigningKey): CryptoKey {
   return getSigningKeyInternals(key).hmacKey;
 }
