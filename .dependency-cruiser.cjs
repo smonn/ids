@@ -183,7 +183,7 @@ module.exports = {
       comment:
         "key-material is a leaf importable only by the three key-handle modules (opaque-key, wrapping-key, signing-key)",
       from: {
-        path: "^src",
+        path: "^src.*\\.ts$",
         pathNot: "^src/(opaque-key|wrapping-key|signing-key)\\.ts$",
       },
       to: { path: "^src/key-material\\.ts$" },
