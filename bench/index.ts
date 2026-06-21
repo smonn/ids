@@ -4,6 +4,7 @@ import { createTimestampId } from "../src/timestamp.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../src/opaque.js";
 import { createReverseTimestampId } from "../src/reverse.js";
 import { createWrappedKeyId, importWrappingKey } from "../src/wrapped.js";
+import { createSignedTimestampId, importSigningKey } from "../src/signed.js";
 import type { Id } from "../src/types.js";
 
 const usr = createTimestampId("usr");
@@ -28,6 +29,11 @@ const wrappingKey = await importWrappingKey(new Uint8Array(32));
 const wrp = createWrappedKeyId("wrp", { kind: "u32", keys: [wrappingKey] });
 const wrappedId = await wrp.wrap(42);
 
+// Pre-import the signing key once; bench measures steady-state HMAC cost, not key import.
+const signingKey = await importSigningKey(new Uint8Array(32));
+const sgn = createSignedTimestampId("sgn", { keys: [signingKey] });
+const signedId = await sgn.generate();
+
 type Case =
   | { name: string; fn: () => unknown; async?: false }
   | { name: string; fn: () => Promise<unknown>; async: true };
@@ -48,6 +54,9 @@ const cases: Case[] = [
   // wrapped.* use AES-block + HMAC on the hot path; same async-crypto variance handling as opaque.*
   { name: "wrapped.wrap", fn: () => wrp.wrap(42), async: true },
   { name: "wrapped.unwrap", fn: () => wrp.unwrap(wrappedId), async: true },
+  // signed.* use HMAC-SHA-256 on the hot path; same async-crypto variance handling as opaque.* / wrapped.*
+  { name: "signed.generate", fn: () => sgn.generate(), async: true },
+  { name: "signed.verify", fn: () => sgn.verify(signedId), async: true },
 ];
 
 type Bench = {

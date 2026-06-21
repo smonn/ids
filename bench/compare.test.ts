@@ -31,6 +31,15 @@ describe("failThreshold", () => {
     expect(failThreshold("wrapped.someNewBench")).toBe(0.5);
   });
 
+  it("returns 0.50 for signed.* benches (HMAC async crypto, high CI runner variance)", () => {
+    expect(failThreshold("signed.generate")).toBe(0.5);
+    expect(failThreshold("signed.verify")).toBe(0.5);
+  });
+
+  it("treats any future signed.* bench as high-threshold", () => {
+    expect(failThreshold("signed.someNewBench")).toBe(0.5);
+  });
+
   it("returns 0.30 for reverse.* benches (sync inversion, same variance profile as plain Timestamp)", () => {
     expect(failThreshold("reverse.generate")).toBe(0.3);
     expect(failThreshold("reverse.extractTimestamp")).toBe(0.3);
