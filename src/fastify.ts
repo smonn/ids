@@ -58,6 +58,13 @@ export type IdParamOptions = {
  *
  * On success, stores the canonical `Id<Brand>` in `request.params` under `paramName`.
  *
+ * **Return type note:** the returned hook is typed as
+ * `(request: FastifyRequest<{ Params: Record<string, Id<Brand>> }>, reply: FastifyReply) => Promise<void>`.
+ * Assigning it to a Fastify `preHandler` slot is backward-compatible (method-signature bivariance applies).
+ * However, a locally-annotated variable typed as the bare `(request: FastifyRequest, reply: FastifyReply) => Promise<void>`
+ * will produce a TypeScript error under `--strictFunctionTypes` because function parameter types are contravariant.
+ * Use `preHandler` assignment or let TypeScript infer the type to avoid this.
+ *
  * @example
  * ```ts
  * import { idParam, IdParamError } from "@smonn/ids/fastify";
@@ -97,7 +104,10 @@ export function idParam<ParamKey extends string, Brand extends string>(
   paramName: ParamKey,
   codec: IdCodec<Brand>,
   options?: IdParamOptions,
-): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
+): (
+  request: FastifyRequest<{ Params: Record<string, Id<Brand>> }>,
+  reply: FastifyReply,
+) => Promise<void> {
   return async (request, reply): Promise<void> => {
     const raw = (request.params as Record<ParamKey, unknown>)[paramName];
     const result = codec.safeParse(raw);
@@ -113,6 +123,6 @@ export function idParam<ParamKey extends string, Brand extends string>(
       }
       throw new IdParamError(reason, status);
     }
-    (request.params as Record<ParamKey, Id<Brand>>)[paramName] = result.id;
+    request.params[paramName] = result.id;
   };
 }
