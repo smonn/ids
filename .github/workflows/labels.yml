@@ -19,8 +19,9 @@ concurrency:
   group: sync-labels
   cancel-in-progress: false
 
-permissions:
-  issues: write
+# All mutations go through the App token below, so the default GITHUB_TOKEN needs no
+# permissions at all.
+permissions: {}
 
 jobs:
   sync:
@@ -33,6 +34,8 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Least-privilege: managing repository labels needs only issues:write.
+          permission-issues: write
 
       - name: Ensure all pipeline labels exist
         env:

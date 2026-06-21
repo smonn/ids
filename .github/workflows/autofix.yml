@@ -44,6 +44,13 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Least-privilege: scope the token to what this job does — read the failed CI
+          # run's logs (actions:read), push the fix (contents), and comment/label the PR
+          # (issues + pulls) — instead of the App's full installation grant.
+          permission-actions: read
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Checkout the agent branch
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3

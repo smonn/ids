@@ -5,14 +5,16 @@ name: Review agent PRs
 # review human PRs, and runs once on open — not on every push — to bound cost.
 #
 # Findings that anchor to a changed line are posted as INLINE review comments on the
-# diff; the top-level summary comment carries the overview plus any findings that
-# don't map to a specific line. Both the summary comment and every inline comment are
-# tagged with the reviewed commit SHA (`<!-- code-review:SHA -->`). Automatic triggers
-# (opened/reopened) dedup on the summary comment's tag — a commit already reviewed is
-# skipped, so reopens and redeliveries don't repost. Explicit re-review (the
-# `needs-review` label or workflow_dispatch) forces a fresh pass, deleting only that
-# same commit's prior summary AND inline comments so the new pass replaces them;
-# comments on earlier commits are left in place as history.
+# diff; a single STICKY top-level summary comment carries the overview plus any
+# findings that don't map to a specific line. The summary is tagged with a stable
+# marker (`<!-- code-review-summary -->`) and re-posted fresh on every review, so
+# successive rounds REPLACE it instead of piling up — there is only ever one summary
+# comment on the PR. It also records the reviewed commit's SHA (`<!-- code-review:SHA
+# -->`); automatic triggers (opened/reopened) skip when the sticky summary already
+# covers the current commit. Inline comments keep only the per-SHA marker; a forced
+# re-review (the `needs-review` label or workflow_dispatch) sweeps this commit's prior
+# inline comments so the new pass replaces them, while earlier commits' inline comments
+# stay as history.
 #
 # As its final step the agent applies `address-feedback` to the PR when it found one
 # or more HARD findings, so address-review.yml picks the PR up automatically and the
@@ -60,6 +62,12 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Least-privilege: review only reads the checked-out PR, posts review comments
+          # (issues + pulls), and toggles the address-feedback label. It never pushes —
+          # contents stays read-only.
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Resolve PR head SHA
         id: sha
@@ -82,39 +90,46 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: gh pr edit "$PR_NUMBER" --remove-label needs-review || true
 
-      - name: Dedup on reviewed commit
+      - name: Dedup and keep a single sticky summary
         id: gate
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           HEAD_SHA: ${{ steps.sha.outputs.sha }}
         run: |
-          # The summary comment and every inline comment carry a hidden marker for the
-          # commit reviewed. HEAD_SHA is a hex object id, so it's safe to splice into jq.
-          # Dedup keys on the top-level summary comment (issues/comments); the inline
-          # comments (pulls/comments) are only swept on a forced re-review.
-          marker="<!-- code-review:${HEAD_SHA} -->"
-          existing=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
-            --jq ".[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$marker\"))) | .id")
+          # The summary is a SINGLE sticky comment per PR, tagged with a stable marker
+          # and re-posted fresh each review so rounds don't pile up. It also carries the
+          # reviewed commit's SHA marker (a hex object id, safe to splice into jq) so we
+          # can tell whether the current commit was already reviewed. Inline comments
+          # keep only the per-SHA marker and are swept on a forced re-review.
+          summary_marker="<!-- code-review-summary -->"
+          sha_marker="<!-- code-review:${HEAD_SHA} -->"
+          summary_id=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq "[.[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$summary_marker\")))][0].id // empty")
+          if [ "$FORCED" != "true" ] && [ -n "$summary_id" ]; then
+            # Non-forced (opened / reopened / redelivery): skip if the sticky summary
+            # already covers THIS commit.
+            if gh api "repos/$GH_REPO/issues/comments/$summary_id" --jq '.body' | grep -qF "$sha_marker"; then
+              echo "Commit $HEAD_SHA already reviewed; skipping."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          # Proceeding: delete the stale sticky summary so the agent's fresh post is the
+          # only summary on the PR (collapses N round-summaries into one).
+          if [ -n "$summary_id" ]; then
+            gh api -X DELETE "repos/$GH_REPO/issues/comments/$summary_id" && echo "removed prior sticky summary $summary_id"
+          fi
+          # On a forced re-review also drop this commit's prior inline comments so the new
+          # pass replaces them (earlier commits' inline comments stay as history).
           if [ "$FORCED" = "true" ]; then
-            # Explicit re-review: drop only this commit's prior summary AND inline
-            # comments so the fresh pass replaces them (other commits' comments are
-            # left as history), then run.
-            for id in $existing; do
-              gh api -X DELETE "repos/$GH_REPO/issues/comments/$id" && echo "deleted prior summary $id for $HEAD_SHA"
-            done
             inline=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER/comments" --paginate \
-              --jq ".[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$marker\"))) | .id")
+              --jq ".[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$sha_marker\"))) | .id")
             for id in $inline; do
               gh api -X DELETE "repos/$GH_REPO/pulls/comments/$id" && echo "deleted prior inline comment $id for $HEAD_SHA"
             done
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          elif [ -n "$existing" ]; then
-            echo "Commit $HEAD_SHA already reviewed; skipping."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Checkout PR head
         if: steps.gate.outputs.skip != 'true'
@@ -157,6 +172,23 @@ jobs:
             CI already runs tests, typecheck, lint, depcruise, and build — the review is
             about correctness, design, architecture, API surface, and naming; do NOT run
             or re-verify the static-analysis gate.
+
+            SCOPE DISCIPLINE — a review HONES scope, it never grows it. Classify every
+            finding before you post it:
+              - IN-SCOPE: a defect in the lines/files THIS PR changes, or a missed,
+                incorrect, or over-reached acceptance criterion from the originating
+                issue. These are the only findings that may be "hard" (drive a fix).
+              - FOLLOW-UP: anything that would EXTEND scope — a pre-existing problem in
+                code this PR doesn't touch, an adjacent improvement, a new
+                capability / rule / abstraction / test the acceptance criteria didn't
+                ask for, or a broader refactor. NEVER raise these as hard findings no
+                matter how valid; recommend filing a follow-up issue (or note an existing
+                one) and move on. Do not push the PR to do this extra work.
+            If the PR ITSELF has expanded beyond its acceptance criteria, that is an
+            in-scope Spec finding: recommend the extra work be TRIMMED and moved to a
+            follow-up issue, rather than ratifying the expansion. When unsure whether a
+            finding is in-scope, treat it as a follow-up — bias the loop toward
+            converging, never toward growing.
 
             You are headless: do NOT pause for input. Surface the findings in TWO
             places — inline on the diff where a finding maps to a changed line, and a
@@ -202,6 +234,7 @@ jobs:
             It MUST begin EXACTLY with, in order:
 
                 ## Code review (commit `${{ steps.sha.outputs.short }}`)
+                <!-- code-review-summary -->
                 <!-- code-review:${{ steps.sha.outputs.sha }} -->
 
                 > *This was generated by AI during review.*
@@ -210,17 +243,24 @@ jobs:
             point you already posted inline, replace its full text with a one-line
             pointer (e.g. "See inline comment on `src/foo.ts`") so the detail lives with
             the code and isn't duplicated. Keep findings with no line anchor in full.
-            The heading line and the `<!-- code-review:... -->` marker (the full SHA,
-            kept verbatim) are the summary comment's dedup key — never alter or omit
-            them; the post-run verify step fails the job if the summary is missing.
+            The heading line and BOTH marker lines — the stable `<!-- code-review-summary
+            -->` (which keeps this the single sticky summary) and the full-SHA `<!--
+            code-review:... -->` (the reviewed commit) — must be kept verbatim and in
+            this order; they are the summary comment's keys, and the post-run verify step
+            fails the job if the summary is missing. (Inline comments keep ONLY the
+            per-SHA marker, not the summary marker.)
 
             FINALLY, decide whether this review surfaced any HARD findings. A hard
             finding is a real defect that needs a fix before merge — a clear Standards
-            violation or a missing / incorrect Spec requirement — as opposed to a soft
-            suggestion, nice-to-have, or judgment call. If you posted ONE OR MORE hard
-            findings (inline or in the summary), apply the `address-feedback` label as
-            your last action so the fix loop (address-review.yml) picks the PR up
-            automatically:
+            violation or a missing / incorrect Spec requirement — that is ALSO IN-SCOPE
+            (a flaw in what this PR changed, or a missed / incorrect acceptance
+            criterion), as opposed to a soft suggestion, nice-to-have, judgment call, or
+            anything classified FOLLOW-UP above. A finding about adjacent or pre-existing
+            code, or about new capabilities beyond the acceptance criteria, is NEVER hard
+            no matter how valid — it is a follow-up. If you posted ONE OR MORE in-scope
+            hard findings (inline or in the summary), apply the `address-feedback` label
+            as your last action so the fix loop (address-review.yml) picks the PR up
+            automatically — this keeps the loop honing the PR instead of growing it:
 
                 gh pr edit ${{ env.PR_NUMBER }} --add-label address-feedback
 

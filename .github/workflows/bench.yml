@@ -9,6 +9,11 @@ concurrency:
 
 jobs:
   bench:
+    # Same-repo PRs only. A fork PR runs with a read-only GITHUB_TOKEN, so the
+    # comment / artifact-upload / regression-fail steps below would 403 and surface a
+    # spurious red check that isn't a real regression. (It also keeps untrusted fork
+    # code from running here at all.)
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
