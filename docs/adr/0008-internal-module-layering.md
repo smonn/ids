@@ -63,7 +63,7 @@ Each `layouts/<variant>.ts` exports a single binder — `createTimestampLayoutOp
 | `layouts/timestamp.ts`    | `createTimestampLayoutOps` — scratch buffer, generate/extract/min/max/exampleWireId                                                                                                                                                             |
 | `layouts/opaque.ts`       | `createOpaqueLayoutOps` — AES-CBC encrypt/decrypt; builds plaintext via `wire/timestamp-bytes`                                                                                                                                                  |
 | `key-material.ts`         | Key-material leaf — shared format/length validation, hex/base64url encode/decode, and keyring non-emptiness/duplicate-entry assertion helpers, all parameterized by noun; imported only by `opaque-key.ts`, `wrapping-key.ts`, `signing-key.ts` |
-| `adapter-types.ts`        | Shared web-adapter type hub — exports `IdParamFailure` discriminated union and the shared ORM read guard `readIdColumn`; imported only by `express.ts`, `fastify.ts`, `hono.ts`, and `drizzle.ts`; imports from `types.ts` and `error.ts`       |
+| `adapter-types.ts`        | Shared web-adapter type hub — exports `IdParamFailure` discriminated union and the shared read helper `readIdColumn`; imported only by `express.ts`, `fastify.ts`, `hono.ts`, and `drizzle.ts`; imports from `types.ts` and `error.ts`          |
 
 ## Consequences
 
