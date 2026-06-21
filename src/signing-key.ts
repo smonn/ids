@@ -1,10 +1,12 @@
-import { decodeBase64Url, decodeHex, encodeBase64Url, encodeHex } from "./bytes.js";
 import { IdsError } from "./error.js";
+import {
+  assertValidKeyMaterialByteLength,
+  decodeKeyMaterial,
+  encodeKeyMaterial,
+} from "./key-material.js";
 
 /** Wire encoding for signing key raw key bytes (not Crockford base32). */
 export type SigningKeyFormat = "hex" | "base64url";
-
-const validKeyByteLengths = new Set([16, 24, 32]);
 
 const hmacInfo = new TextEncoder().encode("ids/signed-timestamp/hmac");
 
@@ -45,7 +47,7 @@ const internals = new WeakMap<SigningKey, SigningKeyInternals>();
  * @throws {IdsError} `invalid_key_length` if `bytes.length` is not 16, 24, or 32.
  */
 export async function importSigningKey(bytes: Uint8Array): Promise<SigningKey> {
-  assertValidKeyByteLength(bytes.length);
+  assertValidKeyMaterialByteLength(bytes.length, "signing");
   const hmacKey = await deriveHmacKey(bytes);
   const key = Object.freeze({}) as SigningKey;
   internals.set(key, { rawBytes: bytes.slice(), hmacKey });
@@ -62,10 +64,7 @@ export async function importSigningKey(bytes: Uint8Array): Promise<SigningKey> {
  * @throws {IdsError} `invalid_key_length` if `bytes.length` is not 16, 24, or 32.
  */
 export function encodeSigningKey(bytes: Uint8Array, format: SigningKeyFormat): string {
-  assertSigningKeyFormat(format);
-  assertValidKeyByteLength(bytes.length);
-  if (format === "hex") return encodeHex(bytes);
-  return encodeBase64Url(bytes);
+  return encodeKeyMaterial(bytes, format, "signing", "signing");
 }
 
 /**
@@ -78,28 +77,7 @@ export function encodeSigningKey(bytes: Uint8Array, format: SigningKeyFormat): s
  * @throws {IdsError} `invalid_key_length` if the decoded bytes are not 16, 24, or 32 bytes.
  */
 export function decodeSigningKey(encoded: string, format: SigningKeyFormat): Uint8Array {
-  assertSigningKeyFormat(format);
-  let bytes: Uint8Array;
-  if (format === "hex") {
-    if (encoded.length === 0 || encoded.length % 2 !== 0) {
-      throw new IdsError(
-        "invalid_key_encoding",
-        "invalid hex key: length must be a positive even number of characters",
-      );
-    }
-    if (!/^[0-9a-fA-F]+$/.test(encoded)) {
-      throw new IdsError("invalid_key_encoding", "invalid hex key: expected [0-9a-fA-F] only");
-    }
-    bytes = decodeHex(encoded);
-  } else {
-    try {
-      bytes = decodeBase64Url(encoded);
-    } catch {
-      throw new IdsError("invalid_key_encoding", "invalid base64url key");
-    }
-  }
-  assertValidKeyByteLength(bytes.length);
-  return bytes;
+  return decodeKeyMaterial(encoded, format, "signing", "signing");
 }
 
 /**
@@ -176,30 +154,4 @@ async function deriveHmacKey(bytes: Uint8Array): Promise<CryptoKey> {
     false,
     ["sign", "verify"],
   );
-}
-
-function assertValidKeyByteLength(byteLength: number): void {
-  if (!validKeyByteLengths.has(byteLength)) {
-    throw new IdsError(
-      "invalid_key_length",
-      `invalid signing key length: expected 16, 24, or 32 bytes, got ${byteLength}`,
-    );
-  }
-}
-
-function assertSigningKeyFormat(format: unknown): asserts format is SigningKeyFormat {
-  if (format !== "hex" && format !== "base64url") {
-    throw new IdsError(
-      "invalid_key_format",
-      `invalid signing key format: expected hex or base64url, got '${formatForError(format)}'`,
-    );
-  }
-}
-
-function formatForError(value: unknown): string {
-  try {
-    return String(value);
-  } catch {
-    return "[unprintable]";
-  }
 }

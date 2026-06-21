@@ -177,6 +177,27 @@ module.exports = {
       from: { path: "^src/(base32|bytes|types|brand)\\.ts$" },
       to: { path: "^src/(wire|layouts|timestamp|opaque|cli|registry)" },
     },
+    {
+      name: "key-material-leaf-restricted",
+      severity: "error",
+      comment:
+        "key-material is a leaf importable only by the three key-handle modules (opaque-key, wrapping-key, signing-key)",
+      from: {
+        path: "^src.*\\.ts$",
+        pathNot: "^src/(opaque-key|wrapping-key|signing-key)\\.ts$",
+      },
+      to: { path: "^src/key-material\\.ts$" },
+    },
+    {
+      name: "key-material-leaf-no-upward",
+      severity: "error",
+      comment: "key-material leaf may only import bytes and error",
+      from: { path: "^src/key-material\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/(bytes|error)\\.ts$",
+      },
+    },
   ],
   options: {
     doNotFollow: { path: "node_modules" },

@@ -21,6 +21,12 @@ timestamp.ts / opaque.ts            ← validateBrand, registerBrand, inject def
         ↓
       base32, bytes, types          ← leaves
   brand.ts, registry.ts             ← peer leaves (codec constructors only)
+
+opaque-key.ts / wrapping-key.ts / signing-key.ts   ← key-handle modules
+  ↓
+key-material.ts                     ← shared key-material leaf (format/length/encode/decode)
+  ↓
+  bytes, error                      ← leaves
 ```
 
 Codec constructors import **`wire/codec-shell`** separately from **`layouts/<variant>`** — the diagram shows two composition edges, not a single chain through layouts into all of `wire/`.
@@ -37,15 +43,16 @@ Each `layouts/<variant>.ts` exports a single binder — `createTimestampLayoutOp
 
 ### Responsibilities
 
-| Module                    | Role                                                                                           |
-| ------------------------- | ---------------------------------------------------------------------------------------------- |
-| `wire/invariants.ts`      | Shared wire constants (`payloadByteLength`, `payloadBase32Length`, `base32CharClass`)          |
-| `wire/parse.ts`           | Canonical normalization at the boundary (`safeParse`, `is`); Standard Schema validate          |
-| `wire/envelope.ts`        | Payload ↔ base32; `toWireId` / `payloadBytesFromId` (trust-the-type)                           |
-| `wire/timestamp-bytes.ts` | 6-byte big-endian ms read/write; partial base32 suffix decode for timestamp extraction         |
-| `wire/codec-shell.ts`     | `wireMethods(prefix)` — wire surface shared by all variants                                    |
-| `layouts/timestamp.ts`    | `createTimestampLayoutOps` — scratch buffer, generate/extract/min/max/exampleWireId            |
-| `layouts/opaque.ts`       | `createOpaqueLayoutOps` — AES-CBC encrypt/decrypt; builds plaintext via `wire/timestamp-bytes` |
+| Module                    | Role                                                                                                                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wire/invariants.ts`      | Shared wire constants (`payloadByteLength`, `payloadBase32Length`, `base32CharClass`)                                                                                             |
+| `wire/parse.ts`           | Canonical normalization at the boundary (`safeParse`, `is`); Standard Schema validate                                                                                             |
+| `wire/envelope.ts`        | Payload ↔ base32; `toWireId` / `payloadBytesFromId` (trust-the-type)                                                                                                              |
+| `wire/timestamp-bytes.ts` | 6-byte big-endian ms read/write; partial base32 suffix decode for timestamp extraction                                                                                            |
+| `wire/codec-shell.ts`     | `wireMethods(prefix)` — wire surface shared by all variants                                                                                                                       |
+| `layouts/timestamp.ts`    | `createTimestampLayoutOps` — scratch buffer, generate/extract/min/max/exampleWireId                                                                                               |
+| `layouts/opaque.ts`       | `createOpaqueLayoutOps` — AES-CBC encrypt/decrypt; builds plaintext via `wire/timestamp-bytes`                                                                                    |
+| `key-material.ts`         | Key-material leaf — shared format/length validation and hex/base64url encode/decode, parameterized by noun; imported only by `opaque-key.ts`, `wrapping-key.ts`, `signing-key.ts` |
 
 ## Consequences
 
@@ -55,3 +62,4 @@ Each `layouts/<variant>.ts` exports a single binder — `createTimestampLayoutOp
 - The CLI layer may import public codec entrypoints and Opaque key helpers from `timestamp.ts` / `opaque.ts`, but not their internal dependencies directly.
 - **dependency-cruiser** enforces the rings in CI; `.dependency-cruiser.cjs` is the source of truth.
 - `CONTEXT.md` unchanged — Payload, Byte layout, Prefix already cover the domain; wire/layouts are implementation.
+- **`key-material.ts`** is a leaf below the three key-handle modules. It must not import `wire/`, `layouts/`, or any codec constructor. Adding a new keyed codec only requires importing `key-material.ts` from its key-handle module — no re-pasting of validation logic.
