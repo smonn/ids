@@ -965,6 +965,13 @@ describe("cli keygen --wrapped", () => {
     expect(result.stdout).toContain("--wrapped");
     expect(result.stdout).toContain("IDS_WRAPPING_KEY");
   });
+
+  it("usage documents IDS_SIGNING_KEY_FORMAT for keygen --signed", async () => {
+    const result = await runCapture(["--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--signed");
+    expect(result.stdout).toContain("IDS_SIGNING_KEY_FORMAT");
+  });
 });
 
 describe("cli inspect --wrapped", () => {
