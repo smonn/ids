@@ -116,7 +116,7 @@ describe("cli", () => {
 
   describe("unsupported opaque typo flags", () => {
     it.each([
-      ["inspect", ["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"]],
+      ["inspect", ["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw"]],
       ["generate", ["generate", "usr"]],
       ["keygen", ["keygen"]],
     ])("%s rejects a misspelled --opaque flag", async (_command, argv) => {
@@ -127,7 +127,7 @@ describe("cli", () => {
     });
 
     it.each([
-      ["inspect", ["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"]],
+      ["inspect", ["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw"]],
       ["generate", ["generate", "usr"]],
       ["keygen", ["keygen"]],
     ])("%s rejects a misspelled --opaque flag with an inline value", async (_command, argv) => {
@@ -140,7 +140,7 @@ describe("cli", () => {
 
   describe("inspect", () => {
     it("rejects a misspelled --opaque flag before inspecting", async () => {
-      const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz", "--opqaue"]);
+      const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw", "--opqaue"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
       expect(result.stderr).toBe("unsupported flag: --opqaue\n");
@@ -172,69 +172,69 @@ describe("cli", () => {
     });
 
     it("rejects an unexpected extra positional argument", async () => {
-      const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz", "extra"]);
+      const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw", "extra"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
       expect(result.stderr).toBe("unexpected argument: extra\n");
     });
 
     it("wrong-shape brand prints the createTimestampId error and exits 1", async () => {
-      const result = await runCapture(["inspect", "12X_01h7b3k9rqxn1cw3p9r8t2sgkz"]);
+      const result = await runCapture(["inspect", "12X_01h7b3k9rqxn1cw3p9r8t2sgkw"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
       expect(result.stderr).toContain("invalid_brand");
     });
 
     it("non-canonical (uppercase only) reports 'was uppercase' and shows canonical form", async () => {
-      const result = await runCapture(["inspect", "USR_01H7B3K9RQXN1CW3P9R8T2SGKZ"], {
+      const result = await runCapture(["inspect", "USR_01H7B3K9RQXN1CW3P9R8T2SGKW"], {
         now: () => new Date("2026-06-01T00:00:00Z").getTime(),
       });
       expect(result.exitCode).toBe(0);
       const lines = result.stdout.trimEnd().split("\n");
       expect(lines[0]).toBe("brand:     usr");
-      expect(lines[2]).toBe("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
+      expect(lines[2]).toBe("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw");
       expect(lines[3]).toBe("input:     not canonical (was uppercase)");
     });
 
     it("non-canonical (aliases only) reports 'used Crockford aliases'", async () => {
-      const result = await runCapture(["inspect", "usr_olh7b3k9rqxnicw3p9r8t2sgkz"], {
+      const result = await runCapture(["inspect", "usr_olh7b3k9rqxnicw3p9r8t2sgkw"], {
         now: () => new Date("2026-06-01T00:00:00Z").getTime(),
       });
       expect(result.exitCode).toBe(0);
       const lines = result.stdout.trimEnd().split("\n");
-      expect(lines[2]).toBe("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
+      expect(lines[2]).toBe("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw");
       expect(lines[3]).toBe("input:     not canonical (used Crockford aliases)");
     });
 
     it("non-canonical (uppercase + aliases) reports both", async () => {
-      const result = await runCapture(["inspect", "USR_Olh7b3k9rqxnIcw3p9r8t2sgkz"], {
+      const result = await runCapture(["inspect", "USR_Olh7b3k9rqxnIcw3p9r8t2sgkw"], {
         now: () => new Date("2026-06-01T00:00:00Z").getTime(),
       });
       expect(result.exitCode).toBe(0);
       const lines = result.stdout.trimEnd().split("\n");
-      expect(lines[2]).toBe("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
+      expect(lines[2]).toBe("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw");
       expect(lines[3]).toBe("input:     not canonical (was uppercase + used Crockford aliases)");
     });
 
     it("`i` is an alias for inspect", async () => {
-      const result = await runCapture(["i", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"], {
+      const result = await runCapture(["i", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw"], {
         now: () => new Date("2026-06-01T00:00:00Z").getTime(),
       });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
+      expect(result.stdout).toContain("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw");
     });
 
     it("falls back to Date.now when not overridden", async () => {
       let stdout = "";
       const exitCode = await run({
-        argv: ["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"],
+        argv: ["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw"],
         stdout: (s) => {
           stdout += s;
         },
         stderr: () => {},
       });
       expect(exitCode).toBe(0);
-      expect(stdout).toContain("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
+      expect(stdout).toContain("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw");
     });
 
     it.each([
@@ -249,7 +249,7 @@ describe("cli", () => {
       ["1 hour from now", -3_600_000],
     ])("renders relative time as '%s'", async (relative, offset) => {
       const thenMs = new Date("1983-05-27T10:24:22.469Z").getTime();
-      const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"], {
+      const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw"], {
         now: () => thenMs + offset,
       });
       expect(result.exitCode).toBe(0);
@@ -257,7 +257,7 @@ describe("cli", () => {
     });
 
     it("prints brand/timestamp/canonical/input for a canonical ID and exits 0", async () => {
-      const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"], {
+      const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw"], {
         now: () => new Date("2026-06-01T00:00:00Z").getTime(),
       });
       expect(result.exitCode).toBe(0);
@@ -266,7 +266,7 @@ describe("cli", () => {
         [
           "brand:     usr",
           "timestamp: 1983-05-27T10:24:22.469Z (43 years ago)",
-          "canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+          "canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw",
           "input:     canonical",
           "",
         ].join("\n"),
@@ -302,7 +302,7 @@ describe("cli", () => {
     it("rejects --key-format without --opaque, --wrapped, or --signed", async () => {
       const result = await runCapture([
         "inspect",
-        "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+        "usr_01h7b3k9rqxn1cw3p9r8t2sgkw",
         "--key-format",
         "base64url",
       ]);
@@ -1145,13 +1145,13 @@ describe("cli inspect --wrapped", () => {
   });
 
   it("structural-only inspect (no --wrapped) is unchanged for a valid ID", async () => {
-    const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkz"], {
+    const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw"], {
       now: () => new Date("2026-06-01T00:00:00Z").getTime(),
     });
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("brand:     usr");
     expect(result.stdout).toContain("timestamp:");
-    expect(result.stdout).toContain("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
+    expect(result.stdout).toContain("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw");
   });
 
   it("rejects invalid --key-format with --wrapped", async () => {
@@ -1816,7 +1816,7 @@ describe("cli inspect --signed", () => {
   it("rejects --key-format without --opaque, --wrapped, or --signed", async () => {
     const result = await runCapture([
       "inspect",
-      "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+      "usr_01h7b3k9rqxn1cw3p9r8t2sgkw",
       "--key-format",
       "base64url",
     ]);

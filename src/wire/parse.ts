@@ -1,11 +1,13 @@
 import { alphabet } from "../base32.js";
 import type { Id, ParseError, ParseResult, Prefix } from "../types.js";
-import { payloadBase32Length } from "./invariants.js";
+import { base32FinalCharClass, payloadBase32Length } from "./invariants.js";
 
 const replacePattern = /[ilo]/g;
 const aliasTestPattern = /[ilo]/;
 const replacer = (match: string): string => (match === "o" ? "0" : "1");
-const base32Pattern = new RegExp(`^[${alphabet}]{${payloadBase32Length}}$`);
+const base32Pattern = new RegExp(
+  `^[${alphabet}]{${payloadBase32Length - 1}}${base32FinalCharClass}$`,
+);
 
 export function safeParse<Brand extends string>(
   prefix: Prefix<Brand>,

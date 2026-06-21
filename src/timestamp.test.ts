@@ -9,6 +9,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
+import { decodeBase32, encodeBase32 } from "./base32.js";
 import { createTimestampId, IdsError, isIdsError, type TimestampOptions } from "./index.js";
 import type { Id, JsonSchema } from "./types.js";
 
@@ -132,37 +133,83 @@ describe("id", () => {
 
   it("is() accepts only canonical form", () => {
     const usr = createTimestampId("usr");
-    expect(usr.is("usr_01h7b3k9rqxn1cw3p9r8t2sgkz")).toBe(true);
-    expect(usr.is("USR_01H7B3K9RQXN1CW3P9R8T2SGKZ")).toBe(false); // uppercase
-    expect(usr.is("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toBe(false); // contains o/i/l aliases
+    expect(usr.is("usr_01h7b3k9rqxn1cw3p9r8t2sgkw")).toBe(true);
+    expect(usr.is("USR_01H7B3K9RQXN1CW3P9R8T2SGKW")).toBe(false); // uppercase
+    expect(usr.is("usr_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toBe(false); // contains o/i/l aliases
+  });
+
+  // Regression tests for non-canonical trailing-bit variants (issue #210).
+  // A 16-byte payload encoded in 26 base32 chars (130 bits) leaves 2 surplus bits in
+  // the 26th char; canonical encoding sets them to zero. The 3 non-canonical variants
+  // ('0'→'1','2','3') decode to the SAME 16-byte payload but must be rejected.
+  it("is() returns false for all 3 non-canonical final-char variants", () => {
+    const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+    expect(usr.is("usr_00000000000000000000000000")).toBe(true); // '0' → canonical
+    expect(usr.is("usr_00000000000000000000000001")).toBe(false); // '1' → low 2 bits 01
+    expect(usr.is("usr_00000000000000000000000002")).toBe(false); // '2' → low 2 bits 10
+    expect(usr.is("usr_00000000000000000000000003")).toBe(false); // '3' → low 2 bits 11
+  });
+
+  it("safeParse() rejects all 3 non-canonical final-char variants as invalid_base32", () => {
+    const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+    expect(usr.safeParse("usr_00000000000000000000000001")).toEqual({
+      ok: false,
+      error: "invalid_base32",
+    });
+    expect(usr.safeParse("usr_00000000000000000000000002")).toEqual({
+      ok: false,
+      error: "invalid_base32",
+    });
+    expect(usr.safeParse("usr_00000000000000000000000003")).toEqual({
+      ok: false,
+      error: "invalid_base32",
+    });
+  });
+
+  it("encodeBase32(decodeBase32(x)) === x round-trip for every string safeParse accepts", () => {
+    const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+    // All 8 canonical final-char values ('0','4','8','c','g','m','r','w').
+    for (const finalChar of ["0", "4", "8", "c", "g", "m", "r", "w"]) {
+      const id = "usr_0000000000000000000000000" + finalChar;
+      const result = usr.safeParse(id);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        const base32 = result.id.slice("usr_".length);
+        expect(encodeBase32(decodeBase32(base32))).toBe(base32);
+      }
+    }
+    // Also verify via generate(): every real ID round-trips.
+    const generated = usr.generate();
+    const base32 = generated.slice("usr_".length);
+    expect(encodeBase32(decodeBase32(base32))).toBe(base32);
   });
 
   it("parse() normalises lenient input to canonical form", () => {
     const usr = createTimestampId("usr");
-    expect(usr.parse("USR_01H7B3K9rqxn4cw3p9r8t2sgkz")).toEqual("usr_01h7b3k9rqxn4cw3p9r8t2sgkz");
-    expect(usr.parse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual("usr_01h7b3k9rqxn1cw3p9r8t2sgkz");
+    expect(usr.parse("USR_01H7B3K9rqxn4cw3p9r8t2sgkw")).toEqual("usr_01h7b3k9rqxn4cw3p9r8t2sgkw");
+    expect(usr.parse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toEqual("usr_01h7b3k9rqxn1cw3p9r8t2sgkw");
   });
 
   it("safeParse() returns canonical form on success", () => {
     const usr = createTimestampId("usr");
-    expect(usr.safeParse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
+    expect(usr.safeParse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toEqual({
       ok: true,
-      id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+      id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw",
     });
   });
 
   it("safeParse() canonicalises an all-alias base32 portion", () => {
     const usr = createTimestampId("usr");
-    expect(usr.safeParse("usr_" + "i".repeat(26))).toEqual({
+    expect(usr.safeParse("usr_" + "o".repeat(26))).toEqual({
       ok: true,
-      id: "usr_" + "1".repeat(26),
+      id: "usr_" + "0".repeat(26),
     });
   });
 
   it("safeParse() fails on bad input", () => {
     const usr = createTimestampId("usr");
     expect(usr.safeParse(null)).toEqual({ ok: false, error: "not_string" });
-    expect(usr.safeParse("org_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
+    expect(usr.safeParse("org_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toEqual({
       ok: false,
       error: "invalid_prefix",
     });
@@ -382,8 +429,8 @@ describe("id", () => {
 
     it("validate() returns { value: canonical } on lenient success", () => {
       const usr = createTimestampId("usr");
-      expect(usr["~standard"].validate("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
-        value: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+      expect(usr["~standard"].validate("usr_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toEqual({
+        value: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw",
       });
     });
 
@@ -396,7 +443,7 @@ describe("id", () => {
 
     it("validate() reports a wrong prefix with the expected brand prefix", () => {
       const usr = createTimestampId("usr");
-      expect(usr["~standard"].validate("org_01h7b3k9rqxn1cw3p9r8t2sgkz")).toEqual({
+      expect(usr["~standard"].validate("org_01h7b3k9rqxn1cw3p9r8t2sgkw")).toEqual({
         issues: [{ message: "expected prefix 'usr_'" }],
       });
     });
@@ -453,7 +500,7 @@ describe("id", () => {
     it("the three ParseError variants produce three distinct messages", () => {
       const usr = createTimestampId("usr");
       const messages = new Set(
-        [123, "org_01h7b3k9rqxn1cw3p9r8t2sgkz", "usr_01h7b3k9rqxn1cw3p9r8t2sgk!"].map((input) => {
+        [123, "org_01h7b3k9rqxn1cw3p9r8t2sgkw", "usr_01h7b3k9rqxn1cw3p9r8t2sgk!"].map((input) => {
           const r = usr["~standard"].validate(input);
           if (!r.issues) throw new Error("expected failure");
           return r.issues[0]!.message;
@@ -475,7 +522,7 @@ describe("id", () => {
 
     it("pattern is anchored at both ends and brand-specific", () => {
       const usr = createTimestampId("usr");
-      expect(usr.toJsonSchema().pattern).toBe("^usr_[0-9a-hjkmnp-tv-z]{26}$");
+      expect(usr.toJsonSchema().pattern).toBe("^usr_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$");
     });
 
     it("description names the brand", () => {
@@ -501,8 +548,8 @@ describe("id", () => {
     it("pattern rejects uppercase and Crockford-alias variants (strict per ADR-0003)", () => {
       const usr = createTimestampId("usr");
       const re = new RegExp(usr.toJsonSchema().pattern);
-      expect(re.test("USR_01H7B3K9RQXN1CW3P9R8T2SGKZ")).toBe(false); // uppercase
-      expect(re.test("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toBe(false); // o/i/l aliases
+      expect(re.test("USR_01H7B3K9RQXN1CW3P9R8T2SGKW")).toBe(false); // uppercase
+      expect(re.test("usr_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toBe(false); // o/i/l aliases
       expect(re.test("usr_ilo7b3k9rqxn1cw3p9r8t2sgkz")).toBe(false); // i, l, o present
     });
 

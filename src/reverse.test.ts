@@ -99,41 +99,41 @@ describe("reverse timestamp codec", () => {
   it("generate() output matches expected format", () => {
     const rev = createReverseTimestampId("rev");
     const id = rev.generate();
-    expect(id).toMatch(/^rev_[0-9a-hjkmnp-tv-z]{26}$/);
+    expect(id).toMatch(/^rev_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$/);
   });
 
   it("generateAt() produces canonical form (lowercase, no aliases)", () => {
     const rev = createReverseTimestampId("rev");
     const id = rev.generateAt(new Date("2024-03-15T12:00:00Z"));
-    expect(id).toMatch(/^rev_[0-9a-hjkmnp-tv-z]{26}$/);
+    expect(id).toMatch(/^rev_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$/);
     expect(rev.is(id)).toBe(true);
   });
 
   it("is() accepts only canonical form", () => {
     const rev = createReverseTimestampId("rev");
-    expect(rev.is("rev_01h7b3k9rqxn1cw3p9r8t2sgkz")).toBe(true);
-    expect(rev.is("REV_01H7B3K9RQXN1CW3P9R8T2SGKZ")).toBe(false);
-    expect(rev.is("rev_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toBe(false);
+    expect(rev.is("rev_01h7b3k9rqxn1cw3p9r8t2sgkw")).toBe(true);
+    expect(rev.is("REV_01H7B3K9RQXN1CW3P9R8T2SGKW")).toBe(false);
+    expect(rev.is("rev_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toBe(false);
   });
 
   it("parse() normalises lenient input to canonical form", () => {
     const rev = createReverseTimestampId("rev");
-    expect(rev.parse("REV_01H7B3K9rqxn4cw3p9r8t2sgkz")).toEqual("rev_01h7b3k9rqxn4cw3p9r8t2sgkz");
-    expect(rev.parse("rev_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual("rev_01h7b3k9rqxn1cw3p9r8t2sgkz");
+    expect(rev.parse("REV_01H7B3K9rqxn4cw3p9r8t2sgkw")).toEqual("rev_01h7b3k9rqxn4cw3p9r8t2sgkw");
+    expect(rev.parse("rev_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toEqual("rev_01h7b3k9rqxn1cw3p9r8t2sgkw");
   });
 
   it("safeParse() returns canonical form on success", () => {
     const rev = createReverseTimestampId("rev");
-    expect(rev.safeParse("rev_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
+    expect(rev.safeParse("rev_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toEqual({
       ok: true,
-      id: "rev_01h7b3k9rqxn1cw3p9r8t2sgkz",
+      id: "rev_01h7b3k9rqxn1cw3p9r8t2sgkw",
     });
   });
 
   it("safeParse() fails on bad input", () => {
     const rev = createReverseTimestampId("rev");
     expect(rev.safeParse(null)).toEqual({ ok: false, error: "not_string" });
-    expect(rev.safeParse("org_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
+    expect(rev.safeParse("org_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toEqual({
       ok: false,
       error: "invalid_prefix",
     });
@@ -238,7 +238,7 @@ describe("reverse timestamp codec", () => {
 
     it("pattern is anchored and brand-specific", () => {
       const rev = createReverseTimestampId("rev");
-      expect(rev.toJsonSchema().pattern).toBe("^rev_[0-9a-hjkmnp-tv-z]{26}$");
+      expect(rev.toJsonSchema().pattern).toBe("^rev_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$");
     });
 
     it("example matches the pattern and is() returns true", () => {
@@ -263,8 +263,8 @@ describe("reverse timestamp codec", () => {
 
     it("validate() returns { value: canonical } on lenient success", () => {
       const rev = createReverseTimestampId("rev");
-      expect(rev["~standard"].validate("rev_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
-        value: "rev_01h7b3k9rqxn1cw3p9r8t2sgkz",
+      expect(rev["~standard"].validate("rev_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toEqual({
+        value: "rev_01h7b3k9rqxn1cw3p9r8t2sgkw",
       });
     });
 
@@ -277,7 +277,7 @@ describe("reverse timestamp codec", () => {
 
     it("validate() reports wrong prefix", () => {
       const rev = createReverseTimestampId("rev");
-      expect(rev["~standard"].validate("org_01h7b3k9rqxn1cw3p9r8t2sgkz")).toEqual({
+      expect(rev["~standard"].validate("org_01h7b3k9rqxn1cw3p9r8t2sgkw")).toEqual({
         issues: [{ message: "expected prefix 'rev_'" }],
       });
     });
