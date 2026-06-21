@@ -1,14 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
+import type { IdParamFailure } from "./adapter-types.js";
 import type { Id, ParseResult } from "./types.js";
+
+export type { IdParamFailure };
 
 type IdCodec<Brand extends string> = {
   safeParse(value: unknown): ParseResult<Brand>;
 };
-
-/** Discriminated failure value passed to `onError` and emitted to Express error pipeline via `next(err)`. */
-export type IdParamFailure =
-  | { readonly reason: "brand_mismatch"; readonly status: number }
-  | { readonly reason: "malformed"; readonly status: number };
 
 /**
  * Typed error forwarded to Express's error pipeline (`next(err)`) on validation failure.

@@ -1,15 +1,13 @@
 import { HTTPException } from "hono/http-exception";
 import type { Context, MiddlewareHandler } from "hono";
+import type { IdParamFailure } from "./adapter-types.js";
 import type { Id, ParseResult } from "./types.js";
+
+export type { IdParamFailure };
 
 type IdCodec<Brand extends string> = {
   safeParse(value: unknown): ParseResult<Brand>;
 };
-
-/** Discriminated failure value passed to `onError` and emitted to `app.onError` via HTTPException. */
-export type IdParamFailure =
-  | { readonly reason: "brand_mismatch"; readonly status: number }
-  | { readonly reason: "malformed"; readonly status: number };
 
 /** Options for `idParam`. All fields are optional. */
 export type IdParamOptions = {
