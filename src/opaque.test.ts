@@ -105,7 +105,7 @@ describe("opaque", () => {
   it("generate() output matches the canonical wire pattern", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const usr = createOpaqueTimestampId("usr", { key });
-    expect(await usr.generate()).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
+    expect(await usr.generate()).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$/);
   });
 
   it("OpaqueTimestampOptions accepts reusable objects that omit defaulted injection points", async () => {
@@ -113,7 +113,7 @@ describe("opaque", () => {
     const options: OpaqueTimestampOptions = { key };
     const usr = createOpaqueTimestampId("usr", options);
 
-    expect(await usr.generate()).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
+    expect(await usr.generate()).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$/);
   });
 
   it("falls back to default injections when Opaque Timestamp options are explicitly undefined", async () => {
@@ -145,7 +145,7 @@ describe("opaque", () => {
   it("safeParse() of a foreign prefix fails with invalid_prefix", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const usr = createOpaqueTimestampId("usr", { key });
-    expect(usr.safeParse("org_01h7b3k9rqxn1cw3p9r8t2sgkz")).toEqual({
+    expect(usr.safeParse("org_01h7b3k9rqxn1cw3p9r8t2sgkw")).toEqual({
       ok: false,
       error: "invalid_prefix",
     });
@@ -154,9 +154,9 @@ describe("opaque", () => {
   it("safeParse() normalises lenient input to canonical form", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const usr = createOpaqueTimestampId("usr", { key });
-    expect(usr.safeParse("USR_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
+    expect(usr.safeParse("USR_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toEqual({
       ok: true,
-      id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+      id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw",
     });
   });
 
@@ -178,8 +178,8 @@ describe("opaque", () => {
   it("~standard.validate returns canonical Id on success", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const usr = createOpaqueTimestampId("usr", { key });
-    expect(usr["~standard"].validate("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz")).toEqual({
-      value: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+    expect(usr["~standard"].validate("usr_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toEqual({
+      value: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw",
     });
   });
 

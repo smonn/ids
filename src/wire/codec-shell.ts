@@ -1,6 +1,6 @@
 import { IdsError } from "../error.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../types.js";
-import { base32CharClass, payloadBase32Length } from "./invariants.js";
+import { base32CharClass, base32FinalCharClass, payloadBase32Length } from "./invariants.js";
 import { is, safeParse, standardValidate } from "./parse.js";
 
 type WireMethods<Brand extends string> = {
@@ -28,7 +28,7 @@ export function wireMethods<Brand extends string>(prefix: Prefix<Brand>): WireMe
     safeParse: (value: unknown): ParseResult<Brand> => safeParse(prefix, value),
     toJsonSchema: (brand: Brand, example: string): JsonSchema => ({
       type: "string",
-      pattern: `^${prefix}${base32CharClass}{${payloadBase32Length}}$`,
+      pattern: `^${prefix}${base32CharClass}{${payloadBase32Length - 1}}${base32FinalCharClass}$`,
       description: `Branded ID for '${brand}'`,
       example,
     }),

@@ -10,9 +10,9 @@ import type { Id } from "../src/types.js";
 const usr = createTimestampId("usr");
 const rev = createReverseTimestampId("rev");
 
-const canonicalId = usr.parse("usr_01h7b3k9rqxn1cw3p9r8t2sgkz") as Id<"usr">;
+const canonicalId = usr.parse("usr_01h7b3k9rqxn1cw3p9r8t2sgkw") as Id<"usr">;
 const reverseId = rev.generate();
-const lenientInput = "USR_OIh7b3k9rqxnIcw3p9r8t2sgkz";
+const lenientInput = "USR_OIh7b3k9rqxnIcw3p9r8t2sgkw";
 const base32Payload = canonicalId.slice("usr_".length);
 
 const bytesPayload = new Uint8Array(16);
