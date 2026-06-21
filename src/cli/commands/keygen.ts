@@ -1,4 +1,5 @@
 import { encodeOpaqueKey } from "../../opaque.js";
+import { encodeSigningKey } from "../../signed.js";
 import { encodeWrappingKey } from "../../wrapped.js";
 import { parseBits, splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, parseKeygenFormat } from "../opaque-key.js";
@@ -9,7 +10,7 @@ export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<n
   const unsupported = unsupportedFlagForCommand(
     "keygen",
     flags,
-    new Set(["--wrapped", "--bits", "--key-format"]),
+    new Set(["--signed", "--wrapped", "--bits", "--key-format"]),
   );
   if (unsupported !== undefined) {
     opts.stderr(unsupported + "\n");
@@ -24,6 +25,12 @@ export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<n
     opts.stderr(`unexpected argument: ${extra}\n`);
     return Promise.resolve(1);
   }
+  const signed = flags.has("--signed");
+  const wrapped = flags.has("--wrapped");
+  if (signed && wrapped) {
+    opts.stderr("cannot use --signed and --wrapped together\n");
+    return Promise.resolve(1);
+  }
   const bits = parseBits(values);
   if (typeof bits === "string") {
     opts.stderr(bits + "\n");
@@ -36,7 +43,14 @@ export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<n
   }
   const bytes = new Uint8Array(bits / 8);
   crypto.getRandomValues(bytes);
-  const wrapped = flags.has("--wrapped");
-  opts.stdout((wrapped ? encodeWrappingKey(bytes, format) : encodeOpaqueKey(bytes, format)) + "\n");
+  let encoded: string;
+  if (signed) {
+    encoded = encodeSigningKey(bytes, format);
+  } else if (wrapped) {
+    encoded = encodeWrappingKey(bytes, format);
+  } else {
+    encoded = encodeOpaqueKey(bytes, format);
+  }
+  opts.stdout(encoded + "\n");
   return Promise.resolve(0);
 }

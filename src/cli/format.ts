@@ -9,6 +9,15 @@ type InspectOutput = {
   nowMs: number;
 };
 
+type SignedInspectOutput = {
+  brand: string;
+  timestamp: Date;
+  canonical: Id<string>;
+  input: string;
+  nowMs: number;
+  verification?: "ok" | "failed";
+};
+
 type WrappedInspectOutput = {
   brand: string;
   lookupKey: number | bigint;
@@ -33,6 +42,20 @@ export function formatWrappedInspectOutput(result: WrappedInspectOutput): string
     `input:      ${inputLine}`,
     "",
   ].join("\n");
+}
+
+export function formatSignedInspectOutput(result: SignedInspectOutput): string {
+  const relative = formatRelative(result.timestamp.getTime(), result.nowMs);
+  const inputLine = describeInputForm(result.input, result.canonical);
+  const lines = [
+    `brand:     ${result.brand}`,
+    `timestamp: ${result.timestamp.toISOString()} (${relative})`,
+  ];
+  if (result.verification !== undefined) {
+    lines.push(`verification: ${result.verification}`);
+  }
+  lines.push(`canonical: ${result.canonical}`, `input:     ${inputLine}`, "");
+  return lines.join("\n");
 }
 
 export function formatInspectOutput(result: InspectOutput): string {

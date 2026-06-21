@@ -29,7 +29,12 @@ export function splitFlags(args: ReadonlyArray<string>): ParsedFlags {
   for (let i = 0; i < args.length; i++) {
     const raw = args[i]!;
     const { flag, inlineValue } = splitFlagToken(raw);
-    if (flag === "--opaque" || flag === "--wrapped" || flag === "--reverse") {
+    if (
+      flag === "--opaque" ||
+      flag === "--wrapped" ||
+      flag === "--reverse" ||
+      flag === "--signed"
+    ) {
       addFlag(flag);
       if (inlineValue !== undefined) errors.push(`flag does not take a value: ${flag}`);
       continue;
@@ -69,6 +74,7 @@ const knownFlags = new Set([
   "--opaque",
   "--wrapped",
   "--reverse",
+  "--signed",
   "--kind",
   "--key-format",
   "--count",

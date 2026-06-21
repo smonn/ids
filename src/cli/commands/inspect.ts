@@ -1,9 +1,15 @@
 import { createTimestampId } from "../../timestamp.js";
 import { createOpaqueTimestampId, type OpaqueKeyFormat } from "../../opaque.js";
 import { createReverseTimestampId } from "../../reverse.js";
+import { createSignedTimestampId } from "../../signed.js";
 import { createWrappedKeyId, type WrappingKey } from "../../wrapped.js";
 import { codecOpts } from "../codec-options.js";
-import { formatCliError, formatInspectOutput, formatWrappedInspectOutput } from "../format.js";
+import {
+  formatCliError,
+  formatInspectOutput,
+  formatSignedInspectOutput,
+  formatWrappedInspectOutput,
+} from "../format.js";
 import {
   isKindError,
   parseKind,
@@ -12,6 +18,7 @@ import {
   type WrappedKindValue,
 } from "../flags.js";
 import { isKeyFormatError, loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
+import { loadSigningKey, parseSigningKeyFormat } from "../signing-key.js";
 import { loadWrappingKey, parseWrappingKeyFormat } from "../wrapping-key.js";
 import type { RunOpts } from "../types.js";
 import { usage } from "../usage.js";
@@ -21,7 +28,7 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
   const unsupported = unsupportedFlagForCommand(
     "inspect",
     flags,
-    new Set(["--opaque", "--wrapped", "--reverse", "--kind", "--key-format"]),
+    new Set(["--opaque", "--wrapped", "--reverse", "--signed", "--kind", "--key-format"]),
   );
   if (unsupported !== undefined) {
     opts.stderr(unsupported + "\n");
@@ -44,6 +51,7 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
   const opaque = flags.has("--opaque");
   const wrapped = flags.has("--wrapped");
   const reverse = flags.has("--reverse");
+  const signed = flags.has("--signed");
   if (opaque && wrapped) {
     opts.stderr("cannot use --wrapped and --opaque together\n");
     return Promise.resolve(1);
@@ -56,8 +64,20 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
     opts.stderr("cannot use --reverse and --wrapped together\n");
     return Promise.resolve(1);
   }
-  if (!opaque && !wrapped && flags.has("--key-format")) {
-    opts.stderr("--key-format requires --opaque or --wrapped\n");
+  if (signed && opaque) {
+    opts.stderr("cannot use --signed and --opaque together\n");
+    return Promise.resolve(1);
+  }
+  if (signed && wrapped) {
+    opts.stderr("cannot use --signed and --wrapped together\n");
+    return Promise.resolve(1);
+  }
+  if (signed && reverse) {
+    opts.stderr("cannot use --signed and --reverse together\n");
+    return Promise.resolve(1);
+  }
+  if (!opaque && !wrapped && !signed && flags.has("--key-format")) {
+    opts.stderr("--key-format requires --opaque, --wrapped, or --signed\n");
     return Promise.resolve(1);
   }
   const brand = input.slice(0, 3).toLowerCase();
@@ -85,6 +105,14 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
       return Promise.resolve(1);
     }
     return runOpaqueInspect(brand, input, format, opts);
+  }
+  if (signed) {
+    const format = parseSigningKeyFormat(values, opts);
+    if (isKeyFormatError(format)) {
+      opts.stderr(format + "\n");
+      return Promise.resolve(1);
+    }
+    return runSignedInspect(brand, input, format, opts);
   }
   if (reverse) {
     let reverseCodec;
@@ -223,6 +251,80 @@ async function runOpaqueInspect(
       canonical,
       input,
       nowMs,
+    }),
+  );
+  return 0;
+}
+
+async function runSignedInspect(
+  brand: string,
+  input: string,
+  format: string,
+  opts: RunOpts,
+): Promise<number> {
+  // Always parse structurally first using the Timestamp codec — the Signed Timestamp
+  // codec shares the same wire shape (prefix + 26 base32 chars) and the same first
+  // 6 plaintext timestamp bytes, so this is correct for structure validation and
+  // timestamp extraction regardless of whether a signing key is present.
+  let structCodec;
+  try {
+    structCodec = createTimestampId(brand, codecOpts(opts));
+  } catch (err) {
+    opts.stderr(formatCliError(err) + "\n");
+    return 1;
+  }
+  const validation = structCodec["~standard"].validate(input);
+  if (validation.issues) {
+    opts.stderr(validation.issues[0]!.message + "\n");
+    return 1;
+  }
+  const canonical = validation.value;
+  const timestamp = structCodec.extractTimestamp(canonical);
+  const nowMs = (opts.now ?? Date.now)();
+
+  const env = opts.env ?? process.env;
+  const rawKey = env.IDS_SIGNING_KEY;
+  if (!rawKey) {
+    opts.stdout(formatSignedInspectOutput({ brand, timestamp, canonical, input, nowMs }));
+    return 0;
+  }
+
+  const keyResult = await loadSigningKey(opts, format as "hex" | "base64url");
+  if (typeof keyResult === "string") {
+    opts.stderr(keyResult + "\n");
+    return 1;
+  }
+  // Brand was already validated by createTimestampId above; single key is non-empty and
+  // non-duplicate by construction; allowDuplicateBrand silences the registry check. Cannot throw.
+  const signedCodec = createSignedTimestampId(brand, {
+    keys: [keyResult],
+    allowDuplicateBrand: true,
+    ...(opts.now !== undefined ? { now: opts.now } : {}),
+    ...(opts.rng !== undefined ? { rng: opts.rng } : {}),
+  });
+  // Structure is already validated above; safeVerify can only return "verification_failed" here.
+  const verifyResult = await signedCodec.safeVerify(input);
+  if (!verifyResult.ok) {
+    opts.stdout(
+      formatSignedInspectOutput({
+        brand,
+        timestamp,
+        canonical,
+        input,
+        nowMs,
+        verification: "failed",
+      }),
+    );
+    return 1;
+  }
+  opts.stdout(
+    formatSignedInspectOutput({
+      brand,
+      timestamp,
+      canonical: verifyResult.id,
+      input,
+      nowMs,
+      verification: "ok",
     }),
   );
   return 0;
