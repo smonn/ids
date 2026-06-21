@@ -13,12 +13,12 @@ import type {
 } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
 import {
-  assertNonDuplicateSigningKeys,
-  assertNonEmptySigningKeyring,
+  assertValidKeyring,
   decodeSigningKey,
   encodeSigningKey,
   getSigningKeyHmacKey,
   importSigningKey,
+  signingKeysEqual,
   type SigningKey,
   type SigningKeyFormat,
 } from "./signing-key.js";
@@ -153,8 +153,7 @@ export function createSignedTimestampId<Brand extends string>(
 ): SignedTimestampCodec<Brand> {
   validateBrand(brand);
   registerBrand(brand, opts.allowDuplicateBrand);
-  assertNonEmptySigningKeyring(opts.keys);
-  assertNonDuplicateSigningKeys(opts.keys);
+  assertValidKeyring(opts.keys, signingKeysEqual, "signing");
 
   const hmacKeys = opts.keys.map(getSigningKeyHmacKey);
   const now = opts.now ?? Date.now;

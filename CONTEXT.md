@@ -89,7 +89,7 @@ A one-way codec variant: caller material is digested into a stable public ID und
 _Avoid_: Hash codec (too generic), Derived ID codec.
 
 **Canonical form**:
-The unique representation of an ID — lowercase, with Crockford base32 aliases (`o`, `i`, `l`) already resolved to `0`, `1`, `1`. Two strings denote the same ID iff their canonical forms are equal. `Id<Brand>` always holds a canonical string: `generate()` produces canonical, `parse()`/`safeParse()` normalise to canonical at the boundary, and `is()` is strict — see [ADR-0003](./docs/adr/0003-canonical-strict-is.md).
+The unique representation of an ID — lowercase, with Crockford base32 aliases (`o`, `i`, `l`) already resolved to `0`, `1`, `1`, **and the 26th (final) base32 character must have its low 2 bits set to zero** (i.e. it must be one of `0 4 8 c g m r w`). This last constraint arises because a 16-byte (128-bit) payload encoded in 26 Crockford base32 chars (130 bits) leaves 2 surplus padding bits in the final char; canonical encoding sets them to zero. Two strings denote the same ID iff their canonical forms are equal. `Id<Brand>` always holds a canonical string: `generate()` produces canonical, `parse()`/`safeParse()` normalise to canonical at the boundary and reject strings with non-zero padding bits as `invalid_base32`, and `is()` is strict — see [ADR-0003](./docs/adr/0003-canonical-strict-is.md).
 _Avoid_: normalised form (use **Canonical form**), valid form.
 
 **Payload**:

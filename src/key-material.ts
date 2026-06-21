@@ -25,6 +25,53 @@ function assertKeyMaterialFormat(
   }
 }
 
+/**
+ * Throws `empty_keyring` when `keys` is empty.
+ * `noun` appears in the message (e.g. `"signing"` → "signing keyring must contain at least one key").
+ */
+function assertNonEmptyKeyring<K = unknown>(keys: readonly K[], noun: string): void {
+  if (keys.length === 0) {
+    throw new IdsError("empty_keyring", `${noun} keyring must contain at least one key`);
+  }
+}
+
+/**
+ * Throws `duplicate_keyring_entry` when any two entries in `keys` compare equal.
+ * Uses the caller-supplied constant-time `keysEqual` comparator.
+ */
+function assertNoDuplicateKeyringEntries<K>(
+  keys: readonly K[],
+  keysEqual: (a: K, b: K) => boolean,
+  noun: string,
+): void {
+  for (let i = 0; i < keys.length; i++) {
+    for (let j = i + 1; j < keys.length; j++) {
+      if (keysEqual(keys[i]!, keys[j]!)) {
+        throw new IdsError("duplicate_keyring_entry", `duplicate ${noun} key in keyring`);
+      }
+    }
+  }
+}
+
+/**
+ * Asserts that `keys` is non-empty and contains no pairwise duplicates.
+ *
+ * Combines {@link assertNonEmptyKeyring} and {@link assertNoDuplicateKeyringEntries}
+ * into a single call for codec constructors that validate a keyring at construction.
+ *
+ * @param keys - The keyring to validate.
+ * @param keysEqual - Constant-time comparator (e.g. `wrappingKeysEqual`, `signingKeysEqual`).
+ * @param noun - Noun used in error messages (e.g. `"wrapping"`, `"signing"`).
+ */
+export function assertValidKeyring<K>(
+  keys: readonly K[],
+  keysEqual: (a: K, b: K) => boolean,
+  noun: string,
+): void {
+  assertNonEmptyKeyring(keys, noun);
+  assertNoDuplicateKeyringEntries(keys, keysEqual, noun);
+}
+
 /** Throws `invalid_key_length` when `byteLength` is not 16, 24, or 32. */
 export function assertValidKeyMaterialByteLength(byteLength: number, noun: string): void {
   if (!validByteLengths.has(byteLength)) {

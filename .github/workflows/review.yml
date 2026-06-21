@@ -13,6 +13,12 @@ name: Review agent PRs
 # `needs-review` label or workflow_dispatch) forces a fresh pass, deleting only that
 # same commit's prior summary AND inline comments so the new pass replaces them;
 # comments on earlier commits are left in place as history.
+#
+# As its final step the agent applies `address-feedback` to the PR when it found one
+# or more HARD findings, so address-review.yml picks the PR up automatically and the
+# agent fixes them — no human has to relay a review that surfaced real defects. Reviews
+# with only soft / judgment-call findings (or none) leave the label off, and a run the
+# dedup gate skipped never reaches the agent, so neither applies the label.
 
 on:
   pull_request:
@@ -41,7 +47,7 @@ jobs:
        startsWith(github.event.pull_request.head.ref, 'agent/issue-'))
     runs-on: ubuntu-latest
     environment: automation
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
       # Explicit re-review (manual dispatch or the needs-review label) forces a
@@ -208,15 +214,36 @@ jobs:
             kept verbatim) are the summary comment's dedup key — never alter or omit
             them; the post-run verify step fails the job if the summary is missing.
 
+            FINALLY, decide whether this review surfaced any HARD findings. A hard
+            finding is a real defect that needs a fix before merge — a clear Standards
+            violation or a missing / incorrect Spec requirement — as opposed to a soft
+            suggestion, nice-to-have, or judgment call. If you posted ONE OR MORE hard
+            findings (inline or in the summary), apply the `address-feedback` label as
+            your last action so the fix loop (address-review.yml) picks the PR up
+            automatically:
+
+                gh pr edit ${{ env.PR_NUMBER }} --add-label address-feedback
+
+            Do NOT apply the label if every finding is soft / a judgment call, or if you
+            found nothing — leave the PR for a human in that case. Applying this one
+            label is the only mutation you may make; it is not an approval or a change
+            request.
+
             This is a review only: never approve, request changes, merge, or edit code.
           # Read-only inspection plus gh/git for reading the diff and posting the
           # inline comments + summary, and Task so the skill can spawn its two parallel
-          # sub-agents. No Edit/Write; the reviewer never changes code, and Bash is scoped to gh/git
-          # so it cannot run the static-analysis gate (CI owns that).
+          # sub-agents. Write + Bash(cat/jq) are required by the body-authoring procedure
+          # in the prompt above: each comment body is written to a scratch file with the
+          # Write tool, then posted via `jq -n … --arg body "$(cat body.md)" | gh api`.
+          # Without them the agent burns turns retrying denied calls and can exhaust
+          # --max-turns before posting (the original cause of this job timing out). No
+          # Edit and no commit/push: the reviewer authors scratch files but never changes
+          # tracked code, and Bash stays scoped so it cannot run the static-analysis gate
+          # (CI owns that).
           claude_args: |
-            --max-turns 40
+            --max-turns 60
             --model claude-sonnet-4-6
-            --allowedTools "Read,Grep,Glob,TodoWrite,Task,Bash(gh:*),Bash(git:*)"
+            --allowedTools "Read,Grep,Glob,Write,TodoWrite,Task,Bash(gh:*),Bash(git:*),Bash(jq:*),Bash(cat:*)"
 
       # Catch the "hollow success" case: the agent can exit 0 without posting. Require
       # a review comment tagged with THIS commit's marker so a silent failure fails

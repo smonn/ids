@@ -88,7 +88,7 @@ End your turn immediately after every routing action. Never loop back, never pol
 - **No commits on the monitoring branch.** This skill is read-only for its own execution context.
 - **No commits on agent branches.** Routing actions are label operations and issue creation only — never code edits, rebases, or force-pushes on another branch.
 - **No bundling.** Handle one event per turn. If multiple events are pending, pick the most recent and end your turn; the next invocation handles the next event.
-- **Triage labels.** Do not set or remove pipeline / triage lifecycle labels (`blocked`, `needs-triage`, `ready-for-agent`, `ready-for-human`, `in-progress`, `needs-info`, `wontfix`, `needs-human`, `needs-rebase`). See `AGENTS.md` for the full prohibition and the carve-out that permits `address-feedback` and `needs-review` as supervised fallbacks in this skill.
+- **Triage labels.** Do not set or remove pipeline / triage lifecycle labels (`blocked`, `needs-triage`, `ready-for-agent`, `ready-for-human`, `in-progress`, `needs-info`, `wontfix`, `needs-human`, `needs-rebase`). See `AGENTS.md` for the full prohibition and the carve-out for the review-cycle labels `address-feedback` and `needs-review`, which the guard does not deny.
 
 ## Escalation rules
 

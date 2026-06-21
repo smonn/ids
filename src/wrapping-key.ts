@@ -1,8 +1,11 @@
 import {
   assertValidKeyMaterialByteLength,
+  assertValidKeyring,
   decodeKeyMaterial,
   encodeKeyMaterial,
 } from "./key-material.js";
+
+export { assertValidKeyring };
 
 /** Wire encoding for wrapping operator secret bytes (not Crockford base32). */
 export type WrappingKeyFormat = "hex" | "base64url";
