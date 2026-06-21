@@ -1,6 +1,6 @@
 ---
 name: monitor-prs
-description: Observe incoming PR events and route each one to a single automation action, then end the turn.
+description: Monitor open pull requests and route each event to the correct automation action.
 disable-model-invocation: true
 ---
 
