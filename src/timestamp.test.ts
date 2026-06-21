@@ -166,7 +166,7 @@ describe("id", () => {
     });
   });
 
-  it("encodeBase32(decodeBase32(x)) === x round-trip for every string safeParse accepts", () => {
+  it("encodeBase32(decodeBase32(x)) === x for all 8 canonical final-char values", () => {
     const usr = createTimestampId("usr", { allowDuplicateBrand: true });
     // All 8 canonical final-char values ('0','4','8','c','g','m','r','w').
     for (const finalChar of ["0", "4", "8", "c", "g", "m", "r", "w"]) {
