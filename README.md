@@ -391,6 +391,28 @@ Encryption is AES-CBC with a zero IV. That's deliberately safe here because the 
 
 To store or transport key material outside the library, `encodeOpaqueKey` / `decodeOpaqueKey` round-trip raw bytes in `hex` or `base64url` — distinct from the Crockford base32 used in ID payloads. The CLI's `keygen` subcommand emits keys in this format (see [CLI](#cli)).
 
+**Rotating the Opaque key.** Rotation is **forward-only and caller-tracked** — the codec deliberately has no key ring. The key feeds only `generate` and `extractTimestamp`; `parse`, `safeParse`, `is`, and `toJsonSchema` work on the wire form and never touch it, so rotating forward is nearly free: point new writes at a new key and keep the old key only to read old IDs' timestamps. Because the payload is unauthenticated ([ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md)) and carries no key id ([ADR-0007](./docs/adr/0007-wire-indistinguishable-codec-variants.md)), the library **cannot** trial a ring to pick the right key for you — a wrong key yields a plausible but wrong timestamp, never an error. You hold one codec per _key epoch_ and select it from your own record of which epoch minted each ID:
+
+```ts
+// One codec instance per key epoch. You — not the library — track which epoch
+// minted each ID (a key-epoch column, tenant→key map, created-at cutover). The
+// epoch CANNOT be read from the ID itself. `allowDuplicateBrand` silences the
+// per-brand registry warning (ADR-0007): multiple instances of one brand is the
+// legitimate case that flag exists for.
+const codecs = new Map([
+  [1, createOpaqueTimestampId("inv", { key: keyV1, allowDuplicateBrand: true })],
+  [2, createOpaqueTimestampId("inv", { key: keyV2, allowDuplicateBrand: true })], // current epoch
+]);
+
+const id = await codecs.get(2)!.generate(); // new IDs use the current epoch's key
+
+// Reading an old ID: look up its epoch from your records, pick that codec.
+const epoch = await db.keyEpochFor(someOldId); // your bookkeeping, not the ID
+await codecs.get(epoch)!.extractTimestamp(someOldId);
+```
+
+If you need transparent, correctness-grade rotation where the library trials a key ring and a wrong key is _rejected_, that's the Signed Timestamp codec's job ([ADR-0012](./docs/adr/0012-signed-timestamp-construction.md)) — its HMAC tag gives a verifiable ring. The Opaque codec trades that away for confidentiality. See [ADR-0013](./docs/adr/0013-opaque-key-rotation.md).
+
 ### "Newest-first IDs for descending range scans"
 
 Most KV stores (DynamoDB, Cloud Datastore, range-scan KV) only support forward lexicographic scans natively — reading the most recent entries first would otherwise require a full reverse scan or a separate sort step. The Reverse Timestamp codec solves this by bitwise-inverting the 48-bit timestamp field before encoding, so newer IDs sort lexicographically before older ones.
