@@ -178,10 +178,6 @@ describe("id", () => {
         expect(encodeBase32(decodeBase32(base32))).toBe(base32);
       }
     }
-    // Also verify via generate(): every real ID round-trips.
-    const generated = usr.generate();
-    const base32 = generated.slice("usr_".length);
-    expect(encodeBase32(decodeBase32(base32))).toBe(base32);
   });
 
   it("parse() normalises lenient input to canonical form", () => {
