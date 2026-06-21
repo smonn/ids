@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { IdsError, isIdsError } from "./error.js";
 import {
   decodeOpaqueKey,
   encodeOpaqueKey,
@@ -26,52 +27,119 @@ describe("opaque-key", () => {
   });
 
   it("rejects invalid hex length", () => {
-    expect(() => decodeOpaqueKey("abc", "hex")).toThrow(/even number/);
+    let err: unknown;
+    try {
+      decodeOpaqueKey("abc", "hex");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_encoding");
   });
 
   it("rejects invalid hex characters", () => {
-    expect(() => decodeOpaqueKey("gg", "hex")).toThrow(/\[0-9a-fA-F\]/);
+    let err: unknown;
+    try {
+      decodeOpaqueKey("gg", "hex");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_encoding");
   });
 
   it("rejects invalid AES key byte length", () => {
-    expect(() => decodeOpaqueKey("aabbcc", "hex")).toThrow(/16, 24, or 32 bytes/);
-    expect(() => encodeOpaqueKey(new Uint8Array(8), "hex")).toThrow(/16, 24, or 32 bytes/);
+    let err: unknown;
+    try {
+      decodeOpaqueKey("aabbcc", "hex");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_length");
+
+    err = undefined;
+    try {
+      encodeOpaqueKey(new Uint8Array(8), "hex");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_length");
   });
 
   it("rejects invalid opaque key format when encoding", () => {
-    expect(() => encodeOpaqueKey(bytes16, "bogus" as never)).toThrow(
-      "invalid opaque key format: expected hex or base64url, got 'bogus'",
-    );
+    let err: unknown;
+    try {
+      encodeOpaqueKey(bytes16, "bogus" as never);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_format");
   });
 
   it("rejects invalid opaque key format when decoding", () => {
-    expect(() => decodeOpaqueKey("AAECAwQFBgcICQoLDA0ODw", "bogus" as never)).toThrow(
-      "invalid opaque key format: expected hex or base64url, got 'bogus'",
-    );
+    let err: unknown;
+    try {
+      decodeOpaqueKey("AAECAwQFBgcICQoLDA0ODw", "bogus" as never);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_format");
   });
 
   it("rejects non-string opaque key format values", () => {
-    expect(() => encodeOpaqueKey(bytes16, undefined as never)).toThrow(
-      "invalid opaque key format: expected hex or base64url, got 'undefined'",
-    );
-    expect(() => decodeOpaqueKey("AAECAwQFBgcICQoLDA0ODw", undefined as never)).toThrow(
-      "invalid opaque key format: expected hex or base64url, got 'undefined'",
-    );
+    let err: unknown;
+    try {
+      encodeOpaqueKey(bytes16, undefined as never);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_format");
+
+    err = undefined;
+    try {
+      decodeOpaqueKey("AAECAwQFBgcICQoLDA0ODw", undefined as never);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_format");
   });
 
   it("rejects non-coercible opaque key format values with a clear error", () => {
     const format = Object.create(null) as never;
+    let err: unknown;
+    try {
+      encodeOpaqueKey(bytes16, format);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_format");
 
-    expect(() => encodeOpaqueKey(bytes16, format)).toThrow(
-      "invalid opaque key format: expected hex or base64url, got '[unprintable]'",
-    );
-    expect(() => decodeOpaqueKey("AAECAwQFBgcICQoLDA0ODw", format)).toThrow(
-      "invalid opaque key format: expected hex or base64url, got '[unprintable]'",
-    );
+    err = undefined;
+    try {
+      decodeOpaqueKey("AAECAwQFBgcICQoLDA0ODw", format);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_format");
   });
 
   it("rejects invalid base64url key material", () => {
-    expect(() => decodeOpaqueKey("!!!", "base64url")).toThrow(/invalid base64url key/);
+    let err: unknown;
+    try {
+      decodeOpaqueKey("!!!", "base64url");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_key_encoding");
   });
 });
 
@@ -94,12 +162,24 @@ describe("importOpaqueKey", () => {
   });
 
   it("rejects invalid key byte lengths", async () => {
-    await expect(importOpaqueKey(new Uint8Array(8))).rejects.toThrow(/16, 24, or 32 bytes/);
-    await expect(importOpaqueKey(new Uint8Array(31))).rejects.toThrow(/16, 24, or 32 bytes/);
+    await expect(importOpaqueKey(new Uint8Array(8))).rejects.toMatchObject({
+      code: "invalid_key_length",
+    });
+    await expect(importOpaqueKey(new Uint8Array(31))).rejects.toMatchObject({
+      code: "invalid_key_length",
+    });
   });
 
-  it("getOpaqueKeyCryptoKey throws on an unregistered handle", () => {
+  it("getOpaqueKeyCryptoKey throws on an unregistered handle (internal guard — plain Error)", () => {
     const fake = Object.freeze({}) as OpaqueKey;
-    expect(() => getOpaqueKeyCryptoKey(fake)).toThrow("invalid opaque key");
+    let err: unknown;
+    try {
+      getOpaqueKeyCryptoKey(fake);
+    } catch (e) {
+      err = e;
+    }
+    // WeakMap handle-not-found is an internal invariant — stays plain Error, not IdsError
+    expect(err instanceof Error).toBe(true);
+    expect(isIdsError(err)).toBe(false);
   });
 });

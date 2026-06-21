@@ -1,4 +1,5 @@
 import { decodeBase64Url, decodeHex, encodeBase64Url, encodeHex } from "./bytes.js";
+import { IdsError } from "./error.js";
 
 /** Wire encoding for opaque AES key material (not Crockford base32). */
 export type OpaqueKeyFormat = "hex" | "base64url";
@@ -79,17 +80,20 @@ export function decodeOpaqueKey(encoded: string, format: OpaqueKeyFormat): Uint8
   let bytes: Uint8Array;
   if (format === "hex") {
     if (encoded.length === 0 || encoded.length % 2 !== 0) {
-      throw new Error("invalid hex key: length must be a positive even number of characters");
+      throw new IdsError(
+        "invalid_key_encoding",
+        "invalid hex key: length must be a positive even number of characters",
+      );
     }
     if (!/^[0-9a-fA-F]+$/.test(encoded)) {
-      throw new Error("invalid hex key: expected [0-9a-fA-F] only");
+      throw new IdsError("invalid_key_encoding", "invalid hex key: expected [0-9a-fA-F] only");
     }
     bytes = decodeHex(encoded);
   } else {
     try {
       bytes = decodeBase64Url(encoded);
     } catch {
-      throw new Error("invalid base64url key");
+      throw new IdsError("invalid_key_encoding", "invalid base64url key");
     }
   }
   assertValidAesKeyByteLength(bytes.length);
@@ -98,13 +102,17 @@ export function decodeOpaqueKey(encoded: string, format: OpaqueKeyFormat): Uint8
 
 function assertValidAesKeyByteLength(byteLength: number): void {
   if (!validAesKeyByteLengths.has(byteLength)) {
-    throw new Error(`invalid AES key length: expected 16, 24, or 32 bytes, got ${byteLength}`);
+    throw new IdsError(
+      "invalid_key_length",
+      `invalid AES key length: expected 16, 24, or 32 bytes, got ${byteLength}`,
+    );
   }
 }
 
 function assertOpaqueKeyFormat(format: unknown): asserts format is OpaqueKeyFormat {
   if (format !== "hex" && format !== "base64url") {
-    throw new Error(
+    throw new IdsError(
+      "invalid_key_format",
       `invalid opaque key format: expected hex or base64url, got '${formatForError(format)}'`,
     );
   }

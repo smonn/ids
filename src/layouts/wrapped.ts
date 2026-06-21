@@ -205,13 +205,6 @@ export function createWrappedLayoutOps<Brand extends string, Kind extends Layout
   return {
     wrap: (lookupKey: LayoutLookupKey<Kind>): Promise<Id<Brand>> =>
       wrapLookupKey(prefix, brand, wrapKey, kind, lookupKey),
-    unwrap: async (id: Id<Brand>): Promise<LayoutLookupKey<Kind>> => {
-      for (const key of keys) {
-        const lookupKey = await tryUnwrapLookupKey(prefix, brand, key, kind, id);
-        if (lookupKey !== null) return lookupKey;
-      }
-      throw new Error("verification failed");
-    },
     tryUnwrap: async (id: Id<Brand>): Promise<LayoutLookupKey<Kind> | null> => {
       for (const key of keys) {
         const lookupKey = await tryUnwrapLookupKey(prefix, brand, key, kind, id);

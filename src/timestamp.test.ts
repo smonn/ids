@@ -9,7 +9,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { createTimestampId, type TimestampOptions } from "./index.js";
+import { createTimestampId, IdsError, isIdsError, type TimestampOptions } from "./index.js";
 import type { Id, JsonSchema } from "./types.js";
 
 describe("id", () => {
@@ -195,9 +195,29 @@ describe("id", () => {
   });
 
   it("fails if brand is not exactly three a-z characters", () => {
-    expect(() => createTimestampId("a")).toThrow();
-    expect(() => createTimestampId("aaaa")).toThrow();
-    expect(() => createTimestampId("!@?")).toThrow();
+    for (const brand of ["a", "aaaa", "!@?"]) {
+      let err: unknown;
+      try {
+        createTimestampId(brand);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_brand");
+    }
+  });
+
+  it("parse throws IdsError with code invalid_id and ParseError on cause", () => {
+    const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+    let err: unknown;
+    try {
+      usr.parse("not-a-usr-id");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("invalid_prefix");
   });
 
   it("generate() output matches expected format", () => {

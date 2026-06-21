@@ -1,4 +1,5 @@
 import { validateBrand } from "./brand.js";
+import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 import { createWrappedLayoutOps } from "./layouts/wrapped.js";
 import { registerBrand } from "./registry.js";
 import type {
@@ -20,6 +21,8 @@ import {
   wrappingKeysEqual,
 } from "./wrapping-key.js";
 
+/** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
+export { IdsError, isIdsError, type IdsErrorCode };
 export {
   decodeWrappingKey,
   encodeWrappingKey,
@@ -68,8 +71,9 @@ export type WrappedKeyCodec<Brand extends string, Kind extends WrappedKind> = {
   /**
    * Verify the payload of a trusted `Id<Brand>` and return the lookup key.
    *
-   * Throws `"verification failed"` if no entry in the wrapping keyring matches
-   * the payload tag. Use {@link safeUnwrap} for untrusted input.
+   * Throws `IdsError` with `code: "verification_failed"` if no entry in the
+   * wrapping keyring matches the payload tag. Use {@link safeUnwrap} for
+   * untrusted input.
    */
   unwrap(id: Id<Brand>): Promise<LookupKeyForKind<Kind>>;
   /**
@@ -107,13 +111,13 @@ const i64Max = (1n << 63n) - 1n;
 
 function assertSupportedKind(kind: WrappedKind): asserts kind is WrappedKind {
   if (kind !== "u32" && kind !== "i32" && kind !== "u64" && kind !== "i64") {
-    throw new Error("invalid wrapped key kind: expected u32, i32, u64, or i64");
+    throw new IdsError("invalid_kind", "invalid wrapped key kind: expected u32, i32, u64, or i64");
   }
 }
 
 function assertNonEmptyKeyring(keys: readonly WrappingKey[]): void {
   if (keys.length === 0) {
-    throw new Error("wrapped keyring must contain at least one key");
+    throw new IdsError("empty_keyring", "wrapped keyring must contain at least one key");
   }
 }
 
@@ -121,7 +125,7 @@ function assertNonDuplicateKeys(keys: readonly WrappingKey[]): void {
   for (let i = 0; i < keys.length; i++) {
     for (let j = i + 1; j < keys.length; j++) {
       if (wrappingKeysEqual(keys[i]!, keys[j]!)) {
-        throw new Error("duplicate wrapping key in keyring");
+        throw new IdsError("duplicate_keyring_entry", "duplicate wrapping key in keyring");
       }
     }
   }
@@ -135,7 +139,10 @@ function assertU32LookupKey(lookupKey: unknown): asserts lookupKey is number {
     lookupKey < 0 ||
     lookupKey > u32Max
   ) {
-    throw new Error(`invalid u32 lookup key: expected integer in [0, ${u32Max}], got ${lookupKey}`);
+    throw new IdsError(
+      "invalid_lookup_key",
+      `invalid u32 lookup key: expected integer in [0, ${u32Max}], got ${lookupKey}`,
+    );
   }
 }
 
@@ -147,7 +154,8 @@ function assertI32LookupKey(lookupKey: unknown): asserts lookupKey is number {
     lookupKey < i32Min ||
     lookupKey > i32Max
   ) {
-    throw new Error(
+    throw new IdsError(
+      "invalid_lookup_key",
       `invalid i32 lookup key: expected integer in [${i32Min}, ${i32Max}], got ${lookupKey}`,
     );
   }
@@ -155,13 +163,17 @@ function assertI32LookupKey(lookupKey: unknown): asserts lookupKey is number {
 
 function assertU64LookupKey(lookupKey: unknown): asserts lookupKey is bigint {
   if (typeof lookupKey !== "bigint" || lookupKey < 0n || lookupKey > u64Max) {
-    throw new Error(`invalid u64 lookup key: expected bigint in [0, ${u64Max}], got ${lookupKey}`);
+    throw new IdsError(
+      "invalid_lookup_key",
+      `invalid u64 lookup key: expected bigint in [0, ${u64Max}], got ${lookupKey}`,
+    );
   }
 }
 
 function assertI64LookupKey(lookupKey: unknown): asserts lookupKey is bigint {
   if (typeof lookupKey !== "bigint" || lookupKey < i64Min || lookupKey > i64Max) {
-    throw new Error(
+    throw new IdsError(
+      "invalid_lookup_key",
       `invalid i64 lookup key: expected bigint in [${i64Min}, ${i64Max}], got ${lookupKey}`,
     );
   }
@@ -223,7 +235,13 @@ export function createWrappedKeyId<Brand extends string, Kind extends WrappedKin
       assertLookupKey(opts.kind, lookupKey);
       return layout.wrap(lookupKey);
     },
-    unwrap: (id) => layout.unwrap(id),
+    unwrap: async (id) => {
+      const lookupKey = await layout.tryUnwrap(id);
+      if (lookupKey === null) {
+        throw new IdsError("verification_failed", "verification failed");
+      }
+      return lookupKey;
+    },
     safeUnwrap: async (input) => {
       const parsed = wire.safeParse(input);
       if (!parsed.ok) return parsed;
