@@ -129,10 +129,16 @@ jobs:
                  - DISAGREE / unsafe / conflicts with a CLOSED decision: don't implement;
                    you'll explain your reasoning on the thread in step 5.
                  - OUT OF SCOPE but a legitimate improvement: file a follow-up issue with
-                   `gh issue create` (clear title + body linking this PR
-                   #${{ env.PR_NUMBER }} and the review thread, labelled `needs-triage`)
-                   and capture its number. Don't file for points you merely disagree with,
-                   or that are already covered by an existing issue.
+                   `gh issue create` and capture its number. Structure the body to match the
+                   matching repo issue form under `.github/ISSUE_TEMPLATE/`
+                   (`feature_request.yml` for an enhancement/refactor, `bug_report.yml` for a
+                   bug), filling each of its fields under the same headings — `gh issue
+                   create` bypasses the web form, so a freeform body would not match what a
+                   human submission produces and triage expects. Give it a clear,
+                   conventional-commit-style title, link this PR #${{ env.PR_NUMBER }} and the
+                   review thread in the body, and label it `needs-triage`. Don't file for
+                   points you merely disagree with, or that are already covered by an existing
+                   issue.
                Keep a map of {review comment id → commit sha | "declined: reason" |
                "follow-up: #N"}.
             3. With every fix committed, re-run the full CI gate exactly as ci.yml does:

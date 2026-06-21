@@ -23,11 +23,15 @@ permissions:
 
 jobs:
   triage:
-    # Loop guard: skip bot-authored issues, and on `labeled` events only act when
-    # `needs-triage` was added (so triage/implement applying their own labels are no-ops).
+    # Loop guard: skip THIRD-PARTY bot-authored issues, but allow our own trusted App
+    # (`smonn[bot]`) through — it files follow-up issues from address-review.yml and
+    # re-triage from unblock.yml, which must still be triaged (mirrors the
+    # `allowed_bots: "smonn[bot]"` pattern in the claude-code-action step below). This is
+    # loop-safe: triage creates no issues, and on `labeled` events we only act when
+    # `needs-triage` was added, so triage/implement applying their own labels are no-ops.
     if: >-
       ${{ github.event_name == 'workflow_dispatch' ||
-      (github.event.issue.user.type != 'Bot' &&
+      ((github.event.issue.user.type != 'Bot' || github.event.issue.user.login == 'smonn[bot]') &&
        (github.event.action != 'labeled' || github.event.label.name == 'needs-triage')) }}
     runs-on: ubuntu-latest
     # Agent secrets (APP_ID / APP_PRIVATE_KEY / CLAUDE_CODE_OAUTH_TOKEN) live in
