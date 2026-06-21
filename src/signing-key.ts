@@ -1,8 +1,11 @@
 import {
   assertValidKeyMaterialByteLength,
+  assertValidKeyring,
   decodeKeyMaterial,
   encodeKeyMaterial,
 } from "./key-material.js";
+
+export { assertValidKeyring };
 
 /** Wire encoding for signing key raw key bytes (not Crockford base32). */
 export type SigningKeyFormat = "hex" | "base64url";
