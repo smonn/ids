@@ -243,7 +243,11 @@ describe("idParam", () => {
   describe("Wrapped key codec", () => {
     it("works with the Wrapped key codec's structural safeParse", async () => {
       const key = await importWrappingKey(new Uint8Array(32));
-      const ord = createWrappedKeyId("ord", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+      const ord = createWrappedKeyId("ord", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
       const handler = idParam("id", ord);
 
       const validId = await ord.wrap(42);
@@ -256,7 +260,11 @@ describe("idParam", () => {
 
     it("wrong brand with Wrapped key codec throws IdParamError with statusCode=404", async () => {
       const key = await importWrappingKey(new Uint8Array(32));
-      const ord = createWrappedKeyId("ord", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+      const ord = createWrappedKeyId("ord", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
       const usrCodec = createTimestampId("usr", { allowDuplicateBrand: true });
       const handler = idParam("id", ord);
 
