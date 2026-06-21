@@ -417,8 +417,6 @@ import {
   importSigningKey, // (bytes: Uint8Array) => Promise<SigningKey>
   encodeSigningKey, // (bytes: Uint8Array, format: SigningKeyFormat) => string
   decodeSigningKey, // (encoded: string, format: SigningKeyFormat) => Uint8Array
-  assertNonEmptySigningKeyring, // (keys: readonly SigningKey[]) => void — throws IdsError empty_keyring
-  assertNonDuplicateSigningKeys, // (keys: readonly SigningKey[]) => void — throws IdsError duplicate_keyring_entry
   IdsError, // re-exported from @smonn/ids/signed for convenience
   isIdsError, // re-exported from @smonn/ids/signed for convenience
   type SigningKey, // opaque SigningKey handle (HKDF-derived)

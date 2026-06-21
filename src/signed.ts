@@ -1,6 +1,4 @@
 export {
-  assertNonDuplicateSigningKeys,
-  assertNonEmptySigningKeyring,
   decodeSigningKey,
   encodeSigningKey,
   importSigningKey,
