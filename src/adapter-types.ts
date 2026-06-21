@@ -10,7 +10,7 @@ export type IdCodec<Brand extends string> = {
   safeParse(value: unknown): ParseResult<Brand>;
 };
 
-/** Alias of {@link IdCodec} — preserved for backward compatibility with ORM adapter consumers. */
+/** Re-exported from ORM adapter subpaths (`@smonn/ids/drizzle`, `@smonn/ids/prisma`, `@smonn/ids/kysely`) under the public name; structurally identical to {@link IdCodec}. */
 export type IdColumnCodec<Brand extends string> = IdCodec<Brand>;
 
 /**
