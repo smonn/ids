@@ -109,11 +109,10 @@ jobs:
             exit 0
           fi
           next=$((count + 1))
-          # Record the round so the next bot-driven run sees it. Kept visible during a
-          # loop so maintainers can watch it progress; removed once a human takes over.
-          body=$(printf '%s\n\n%s\n' \
-            "${marker}${next} -->" \
-            "_Automated review-fix loop: round ${next} of ${MAX_AUTO_ROUNDS}. A human applying the address-feedback label resets this._")
+          # Record the round as a hidden marker only (no visible text) so the next
+          # bot-driven run can read it without adding a visible comment; the round count
+          # is surfaced to humans only in the escalation comment above.
+          body="${marker}${next} -->"
           if [ -n "$cid" ]; then
             gh api -X PATCH "repos/$GH_REPO/issues/comments/$cid" -f body="$body" >/dev/null
           else
@@ -239,6 +238,19 @@ jobs:
                for this PR — filed #N to track." For feedback NOT anchored to an inline
                comment (a review summary or a plain PR comment), post a single concise
                top-level reply with `gh pr comment ${{ env.PR_NUMBER }} --body-file <file>`.
+            6. RESOLVE each inline thread you FIXED so it collapses out of the
+               conversation and the PR stays readable. Resolve ONLY threads you addressed
+               with a commit — leave threads you declined or deferred OPEN so the
+               maintainer can weigh in. Thread IDs are GraphQL node IDs (not the REST
+               comment ids you replied to), so map and resolve via GraphQL: list the PR's
+               review threads with each thread's id and its first comment's databaseId,
+               then for every thread whose first comment matches an inline comment you
+               fixed, call the resolve mutation:
+
+                   gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{id isResolved comments(first:1){nodes{databaseId}}}}}}}' \
+                     -F o=${{ github.repository_owner }} -F r=${{ github.event.repository.name }} -F n=${{ env.PR_NUMBER }}
+
+                   gh api graphql -f query='mutation($t:ID!){resolveReviewThread(input:{threadId:$t}){thread{isResolved}}}' -F t=<THREAD_NODE_ID>
 
             Do NOT approve or merge the PR, and do NOT push to main. A human re-reviews.
 
