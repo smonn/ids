@@ -16,7 +16,8 @@ Observe incoming PR events and route each one to a single, correct automation ac
 1. Query all open PRs: `gh pr list --state open --json number,title,labels,headRefName`.
 2. For each PR, surface its current state:
    - Labels (lifecycle + triage).
-   - Unresolved review thread count via `gh pr view {number} --json reviews`.
+   - Unresolved review thread count — `gh pr view --json reviews` returns review submission objects, not thread resolution state; use the GraphQL API:
+     `gh api graphql -f query='query($n:Int!){repository(owner:"smonn",name:"ids"){pullRequest(number:$n){reviewThreads(first:100){nodes{isResolved}}}}}' -F n={number} | jq '[.data.repository.pullRequest.reviewThreads.nodes[]|select(.isResolved==false)]|length'`
    - CI status: `gh pr checks {number} --json name,state,conclusion`.
 3. Present the list to the user with that state inline. Ask the user to confirm the watch set and note any PRs to exclude before you act on any event.
 
