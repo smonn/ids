@@ -61,3 +61,10 @@ jobs:
 
           # Escalation
           ensure needs-human     B60205 "Automated handling gave up; needs a human"
+
+          # Auto-address loop counter (set by address-review.yml; remove a label to reset).
+          # One auto-round-N is present at a time; keep this range in step with that
+          # workflow's MAX_AUTO_ROUNDS.
+          ensure auto-round-1    C5DEF5 "Auto-address loop: 1 consecutive bot-driven round"
+          ensure auto-round-2    C5DEF5 "Auto-address loop: 2 consecutive bot-driven rounds"
+          ensure auto-round-3    C5DEF5 "Auto-address loop: 3 consecutive bot-driven rounds"
