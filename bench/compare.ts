@@ -33,7 +33,7 @@ const FAIL_THRESHOLD_DEFAULT = 0.3;
 
 // wrapped.* operations use AES + HMAC async crypto (WebCrypto) whose p50 swings on shared CI
 // runners for the same reason as opaque.*. Same 50% threshold applied for consistency.
-// Signed/Digest bench issues should follow the same async-bench variance pattern when added.
+// Digest bench issues should follow the same async-bench variance pattern when added.
 const FAIL_THRESHOLD_WRAPPED = FAIL_THRESHOLD_OPAQUE;
 
 // signed.* operations use HMAC-SHA-256 async crypto whose p50 swings on shared CI
