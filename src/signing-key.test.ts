@@ -11,6 +11,7 @@ import {
   type SigningKeyFormat,
 } from "./signing-key.js";
 import { importWrappingKey, getWrappingKeyMaterial } from "./wrapping-key.js";
+import { importOpaqueKey, getOpaqueKeyCryptoKey } from "./opaque-key.js";
 import { isIdsError, type IdsErrorCode } from "./error.js";
 
 const bytes16 = new Uint8Array(16).map((_, i) => i);
@@ -157,6 +158,19 @@ describe("HKDF domain separation", () => {
     const wrapSig = await crypto.subtle.sign("HMAC", wrappingHmacKey, testData);
 
     expect(new Uint8Array(sigSig)).not.toEqual(new Uint8Array(wrapSig));
+  });
+
+  it("same raw bytes as SigningKey and OpaqueKey yield different algorithm keys", async () => {
+    const rawBytes = new Uint8Array(32).fill(0xef);
+
+    const signingKey = await importSigningKey(rawBytes);
+    const opaqueKey = await importOpaqueKey(rawBytes);
+
+    const signingHmacKey = getSigningKeyHmacKey(signingKey);
+    const opaqueCryptoKey = getOpaqueKeyCryptoKey(opaqueKey);
+
+    expect(signingHmacKey.algorithm.name).toBe("HMAC");
+    expect(opaqueCryptoKey.algorithm.name).toBe("AES-CBC");
   });
 
   it("two different SigningKey imports of the same bytes produce the same HMAC output", async () => {
