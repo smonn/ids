@@ -2,6 +2,7 @@ import { validateBrand } from "./brand.js";
 import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 import { createSignedTimestampLayoutOps } from "./layouts/signed-timestamp.js";
 import { registerBrand } from "./registry.js";
+import { defaultRng } from "./rng.js";
 import type {
   Id,
   JsonSchema,
@@ -128,10 +129,6 @@ export type SignedTimestampCodec<Brand extends string> = {
   /** Standard Schema validate entry point. */
   readonly "~standard": StandardSchemaProps<Brand>;
 };
-
-function defaultRng(target: Uint8Array): void {
-  crypto.getRandomValues(target as Uint8Array<ArrayBuffer>);
-}
 
 /**
  * Construct a {@link SignedTimestampCodec} for `brand`.
