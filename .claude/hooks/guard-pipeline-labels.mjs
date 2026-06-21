@@ -6,6 +6,10 @@
 // automations (triage.yml / unblock.yml / implement.yml). An agent setting them
 // by hand races the bot — see docs/agents/triage-labels.md.
 //
+// Exception: `address-feedback` and `needs-review` are maintainer-applied labels
+// (see the pipeline state label table in triage-labels.md) and may be set by the
+// monitoring agent on behalf of the maintainer.
+//
 // Updates that omit `labels` (body/title/state-only) pass through untouched, as
 // do issue writes whose labels are all non-lifecycle (e.g. just `enhancement`).
 import { readFileSync } from "node:fs";
@@ -19,9 +23,7 @@ const LIFECYCLE = new Set([
   "needs-info",
   "wontfix",
   "needs-human",
-  "needs-review",
   "needs-rebase",
-  "address-feedback",
 ]);
 
 let input;
