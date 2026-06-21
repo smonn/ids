@@ -95,7 +95,10 @@ jobs:
             for d in $deps; do
               state=$(gh issue view "$d" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
               echo "#$n blocker #$d: $state"
-              [ "$state" = "CLOSED" ] || all_closed=false
+              # A blocker is resolved when it is CLOSED (issue or closed PR) or
+              # MERGED. `gh issue view` on a *merged* PR reports state MERGED, not
+              # CLOSED — blockers are often PRs (e.g. #179), so treat both as done.
+              case "$state" in CLOSED | MERGED) ;; *) all_closed=false ;; esac
             done
             if [ "$all_closed" = true ]; then
               echo "#$n: all blockers closed — unblocking and re-triaging."
