@@ -6,7 +6,8 @@ import { codecOpts } from "../codec-options.js";
 import { formatCliError } from "../format.js";
 import { parseCount, splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
-import { loadSigningKey, parseSigningKeyFormat, type SigningKeyFormat } from "../signing-key.js";
+import { loadSigningKey, parseSigningKeyFormat } from "../signing-key.js";
+import type { SigningKeyFormat } from "../../signed.js";
 import type { RunOpts } from "../types.js";
 
 export function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
