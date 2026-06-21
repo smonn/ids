@@ -2,10 +2,26 @@ name: Bench
 
 on:
   pull_request:
+    # Only run when something that can actually move the numbers changes. Docs/CI/ADR
+    # and test-only PRs (the bulk of traffic) skip the ~15-min double bench entirely.
+    paths:
+      - "src/**"
+      - "bench/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig.json"
+      - "tsdown.bench.config.ts"
+      - ".github/workflows/bench.yml"
 
 concurrency:
-  group: bench-${{ github.ref }}
-  cancel-in-progress: true
+  # Serialize bench repo-wide: one run at a time, the rest queue. A single bench job
+  # pins a shared runner for ~15 min, so several firing at once (many PRs landing
+  # together) starves the pool and inflates every run. Static group + no cancel = a
+  # global FIFO queue. Trade-off vs the old per-ref+cancel setup: rapid re-pushes to
+  # the same PR queue rather than supersede, but the paths filter above keeps
+  # bench-triggering PRs rare enough that the backlog stays small.
+  group: bench
+  cancel-in-progress: false
 
 jobs:
   bench:
