@@ -129,13 +129,13 @@ export type SignedTimestampCodec<Brand extends string> = {
   readonly "~standard": StandardSchemaProps<Brand>;
 };
 
-function assertNonEmptySigningKeyring(keys: readonly SigningKey[]): void {
+function assertNonEmptyKeyring(keys: readonly SigningKey[]): void {
   if (keys.length === 0) {
     throw new IdsError("empty_keyring", "signing keyring must contain at least one key");
   }
 }
 
-function assertNonDuplicateSigningKeys(keys: readonly SigningKey[]): void {
+function assertNonDuplicateKeys(keys: readonly SigningKey[]): void {
   for (let i = 0; i < keys.length; i++) {
     for (let j = i + 1; j < keys.length; j++) {
       if (signingKeysEqual(keys[i]!, keys[j]!)) {
@@ -168,8 +168,8 @@ export function createSignedTimestampId<Brand extends string>(
 ): SignedTimestampCodec<Brand> {
   validateBrand(brand);
   registerBrand(brand, opts.allowDuplicateBrand);
-  assertNonEmptySigningKeyring(opts.keys);
-  assertNonDuplicateSigningKeys(opts.keys);
+  assertNonEmptyKeyring(opts.keys);
+  assertNonDuplicateKeys(opts.keys);
 
   const hmacKeys = opts.keys.map(getSigningKeyHmacKey);
   const now = opts.now ?? Date.now;
