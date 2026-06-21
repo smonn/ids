@@ -109,7 +109,7 @@ export function idParam<ParamKey extends string, Brand extends string>(
   reply: FastifyReply,
 ) => Promise<void> {
   return async (request, reply): Promise<void> => {
-    const raw = (request.params as Record<ParamKey, unknown>)[paramName];
+    const raw = request.params[paramName];
     const result = codec.safeParse(raw);
     if (!result.ok) {
       const reason =
