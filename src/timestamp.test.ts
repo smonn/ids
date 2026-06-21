@@ -163,7 +163,7 @@ describe("id", () => {
     });
   });
 
-  it("encodeBase32(decodeBase32(x)) === x for all 8 canonical final-char values", () => {
+  it("encodeBase32(decodeBase32(x)) === x for all 8 canonical final-char values and varied real payloads", () => {
     const usr = createTimestampId("usr", { allowDuplicateBrand: true });
     // All 8 canonical final-char values ('0','4','8','c','g','m','r','w').
     for (const finalChar of ["0", "4", "8", "c", "g", "m", "r", "w"]) {
@@ -174,6 +174,23 @@ describe("id", () => {
         const base32 = result.id.slice("usr_".length);
         expect(encodeBase32(decodeBase32(base32))).toBe(base32);
       }
+    }
+    // Deterministic generate() calls with varied non-zero payloads.
+    const payloadFixtures: Array<[number, number]> = [
+      [0x123456789abc, 0x00],
+      [0x123456789abc, 0xff],
+      [0x000000000001, 0xab],
+      [0xffffffffffff, 0x55],
+    ];
+    for (const [ts, fill] of payloadFixtures) {
+      const codec = createTimestampId("usr", {
+        allowDuplicateBrand: true,
+        now: () => ts,
+        rng: (target: Uint8Array) => target.fill(fill),
+      });
+      const generated = codec.generate();
+      const base32 = generated.slice("usr_".length);
+      expect(encodeBase32(decodeBase32(base32))).toBe(base32);
     }
   });
 
