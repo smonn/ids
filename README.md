@@ -419,7 +419,7 @@ import {
   decodeSigningKey, // (encoded: string, format: SigningKeyFormat) => Uint8Array
   IdsError, // re-exported from @smonn/ids/signed for convenience
   isIdsError, // re-exported from @smonn/ids/signed for convenience
-  type SigningKey, // opaque imported handle for HMAC key material (HKDF-derived)
+  type SigningKey, // opaque SigningKey handle (HKDF-derived)
   type SigningKeyFormat, // "hex" | "base64url"
   type IdsErrorCode, // re-exported from @smonn/ids/signed for convenience
 } from "@smonn/ids/signed";
