@@ -114,6 +114,7 @@ export function getSigningKeyHmacKey(key: SigningKey): CryptoKey {
 /**
  * Asserts that a signing keyring is non-empty.
  * @throws {IdsError} `empty_keyring` if the array is empty.
+ * @deprecated Use {@link assertValidKeyring} with {@link signingKeysEqual} instead.
  */
 export function assertNonEmptySigningKeyring(keys: readonly SigningKey[]): void {
   assertNonEmptyKeyring(keys, "signing");
@@ -122,6 +123,7 @@ export function assertNonEmptySigningKeyring(keys: readonly SigningKey[]): void 
 /**
  * Asserts that no two entries in the signing keyring share the same raw bytes.
  * @throws {IdsError} `duplicate_keyring_entry` if a duplicate is found.
+ * @deprecated Use {@link assertValidKeyring} with {@link signingKeysEqual} instead.
  */
 export function assertNonDuplicateSigningKeys(keys: readonly SigningKey[]): void {
   assertNoDuplicateKeyringEntries(keys, signingKeysEqual, "signing");
