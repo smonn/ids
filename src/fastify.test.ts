@@ -88,6 +88,17 @@ describe("idParam", () => {
       expect((err as IdParamError).statusCode).toBe(400);
     });
 
+    it("undefined param (not_string path) throws IdParamError with reason=malformed and statusCode=400", async () => {
+      const handler = idParam("id", usr);
+      const req = makeReq("id", undefined);
+
+      const err = await catchError(() => handler(asReq(req), asReply()));
+
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("malformed");
+      expect((err as IdParamError).statusCode).toBe(400);
+    });
+
     it("onError override: consumer fully owns the response for brand mismatch", async () => {
       const captured: IdParamFailure[] = [];
       const handler = idParam("id", usr, {
