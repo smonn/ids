@@ -9,7 +9,7 @@ module.exports = {
       from: { path: "^src/adapter-types\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/types\\.ts$",
+        pathNot: "^src/(types|error)\\.ts$",
       },
     },
     {
