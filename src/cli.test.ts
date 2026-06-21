@@ -61,6 +61,18 @@ describe("formatCliError", () => {
     const err = new Error("something unexpected");
     expect(formatCliError(err)).toBe("something unexpected");
   });
+
+  it("returns String(err) for a thrown string", () => {
+    expect(formatCliError("oops")).toBe("oops");
+  });
+
+  it("returns String(err) for null", () => {
+    expect(formatCliError(null)).toBe("null");
+  });
+
+  it("returns String(err) for a plain object", () => {
+    expect(formatCliError({ code: "x" })).toBe("[object Object]");
+  });
 });
 
 describe("cli", () => {

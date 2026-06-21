@@ -17,7 +17,7 @@ type WrappedInspectOutput = {
 };
 
 export function formatCliError(err: unknown): string {
-  return isIdsError(err) ? `${err.code}: ${err.message}` : (err as Error).message;
+  return isIdsError(err) ? `${err.code}: ${err.message}` : err instanceof Error ? err.message : String(err);
 }
 
 export function formatWrappedInspectOutput(result: WrappedInspectOutput): string {
