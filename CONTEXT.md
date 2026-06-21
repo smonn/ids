@@ -17,7 +17,7 @@ The brand-scoped object that generates, parses, and validates IDs for one entity
 _Avoid_: factory, generator, encoder.
 
 **IdCodec**:
-The minimum structural interface required by web and ORM adapters — a subset of **Codec**. Any codec variant satisfies this because all expose `safeParse`. Adapters only ever call `safeParse`; they never call key-dependent methods like `extractTimestamp`, `wrap`, or `unwrap`. Internal to the adapter layer; not a public package export. Distinct from **Codec** (the full brand-scoped object with all methods).
+The minimum structural interface required by web and ORM adapters — a subset of **Codec**. Any codec variant satisfies this because all expose `safeParse`. Adapters only ever call `safeParse`; they never call key-dependent methods like `extractTimestamp`, `wrap`, or `unwrap`. Internal to the adapter layer; `IdCodec` itself is not a public package export, but the public API surface re-exports this shape via the `IdColumnCodec` alias from `@smonn/ids/drizzle`, `@smonn/ids/prisma`, and `@smonn/ids/kysely`. Distinct from **Codec** (the full brand-scoped object with all methods).
 _Avoid_: codec interface (use **IdCodec** for precision), partial codec.
 
 **Codec variant**:
