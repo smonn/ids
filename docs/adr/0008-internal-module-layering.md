@@ -35,7 +35,7 @@ adapter-types.ts                    ← shared web-adapter type hub
 types.ts / error.ts                 ← leaves
 ```
 
-`drizzle.ts` imports `readIdColumn` and `IdColumnCodec` from `adapter-types.ts` (chunk 1 of the ORM read-path consolidation). `prisma.ts` and `kysely.ts` still inline the read guard — those migrations are out of scope until chunks 2 and 3 land.
+`drizzle.ts` imports `readIdColumn` and `IdColumnCodec` from `adapter-types.ts`. `prisma.ts` and `kysely.ts` still inline the read guard.
 
 `kysely.ts` imports `IdColumnCodec` as a type from `drizzle.ts` (permitted by the `kysely-adapter-no-internals` depcruise rule, which explicitly allowlists `drizzle` in the kysely path). Keeping `kysely.ts` unchanged was a non-goal in #183; rather than pulling `IdColumnCodec` out of `drizzle.ts` into a shared module, the deliberate decision was to let `kysely.ts` borrow the type from its existing home. This is a stable trade-off: if the Kysely adapter ever diverges from the Drizzle type surface, the depcruise rule signals the coupling that must be resolved at that point.
 
