@@ -323,7 +323,7 @@ fastify.get<{ Params: { id: string } }>(
     preHandler: idParam("id", usr),
   },
   (request, reply) => {
-    const id = request.params.id; // Id<"usr">, canonical
+    const id = request.params.id; // string; use `as Id<"usr">` if the narrowed type is needed
     // …
   },
 );
