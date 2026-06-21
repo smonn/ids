@@ -61,7 +61,7 @@ export function assertNoDuplicateKeyringEntries<K>(
  *
  * @param keys - The keyring to validate.
  * @param keysEqual - Constant-time comparator (e.g. `wrappingKeysEqual`, `signingKeysEqual`).
- * @param noun - Adjective used in error messages (e.g. `"wrapping"`, `"signing"`).
+ * @param noun - Noun used in error messages (e.g. `"wrapping"`, `"signing"`).
  */
 export function assertValidKeyring<K>(
   keys: readonly K[],
