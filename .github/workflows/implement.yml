@@ -168,12 +168,15 @@ jobs:
                purely-internal changes need NO changeset.
             7. Commit with a clear conventional-commit message, then push:
                `git push -u origin agent/issue-${{ env.ISSUE_NUMBER }}`.
-            8. Open a pull request:
-               `gh pr create --base main --head agent/issue-${{ env.ISSUE_NUMBER }}`.
-               Fill in the repository PR template (.github/pull_request_template.md).
-               The body MUST contain `Closes #${{ env.ISSUE_NUMBER }}`, the test-plan
-               checklist with the commands you actually ran checked, and the impact
-               checklist. Do NOT request reviewers, approve, or merge — a human does that.
+            8. Open a pull request. Author the PR body with the Write tool to a file
+               (e.g. `pr-body.md`) — real newlines, plain characters, never backslash
+               escapes (`\n`, `\<`, `\[`) or escaped markdown metacharacters — then pass
+               that file: `gh pr create --base main --head agent/issue-${{ env.ISSUE_NUMBER }} --body-file pr-body.md`.
+               Do not build the body as a `--body "..."` string argument. Fill in the
+               repository PR template (.github/pull_request_template.md). The body MUST
+               contain `Closes #${{ env.ISSUE_NUMBER }}`, the test-plan checklist with the
+               commands you actually ran checked, and the impact checklist. Do NOT request
+               reviewers, approve, or merge — a human does that.
             9. Finally, transition the issue state and link the PR:
                `gh issue edit ${{ env.ISSUE_NUMBER }} --add-label in-progress
                --remove-label ready-for-agent`, then post a brief issue comment with
