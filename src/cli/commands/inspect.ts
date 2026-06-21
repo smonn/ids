@@ -18,7 +18,8 @@ import {
   type WrappedKindValue,
 } from "../flags.js";
 import { isKeyFormatError, loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
-import { loadSigningKey, parseSigningKeyFormat, type SigningKeyFormat } from "../signing-key.js";
+import { loadSigningKey, parseSigningKeyFormat } from "../signing-key.js";
+import type { SigningKeyFormat } from "../../signed.js";
 import { loadWrappingKey, parseWrappingKeyFormat } from "../wrapping-key.js";
 import type { RunOpts } from "../types.js";
 import { usage } from "../usage.js";
@@ -303,8 +304,9 @@ async function runSignedInspect(
   });
   const verifyResult = await signedCodec.safeVerify(input);
   if (!verifyResult.ok) {
+    /* v8 ignore next 4 -- defensive: both codecs share the same wire parse so ParseError
+       is unreachable after the createTimestampId pre-validation above passes */
     if (verifyResult.error !== "verification_failed") {
-      // ParseError — structural problem (e.g. format-version mismatch not caught above)
       opts.stderr(verifyResult.error + "\n");
       return 1;
     }
