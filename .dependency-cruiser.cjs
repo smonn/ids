@@ -168,7 +168,6 @@ module.exports = {
     {
       name: "registry-only-from-codec-constructors",
       severity: "error",
-      comment: "only codec constructors may import registry",
       from: { path: "^src", pathNot: "^src/(timestamp|opaque|reverse|wrapped|signed)\\.ts$" },
       to: { path: "^src/registry" },
     },
@@ -176,7 +175,7 @@ module.exports = {
       name: "rng-only-from-codec-constructors",
       severity: "error",
       comment:
-        "only rng-using codec constructors (opaque, reverse, signed) may import the shared RNG utility",
+        "only rng-using codec constructors (opaque, reverse, signed) may import the shared RNG utility — timestamp.ts and wrapped.ts do not use rng; add them here only if a future variant does",
       from: { path: "^src", pathNot: "^src/(opaque|reverse|signed)\\.ts$" },
       to: { path: "^src/rng" },
     },
