@@ -888,6 +888,12 @@ describe("cli", () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toBe(`${expected}\n`);
     });
+
+    it("keygen preamble covers all three key types", async () => {
+      const result = await runCapture(["--help"]);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("importOpaqueKey, importWrappingKey, or importSigningKey");
+    });
   });
 });
 

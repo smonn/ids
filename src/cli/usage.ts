@@ -19,7 +19,7 @@ export function usage(): string {
     "    --reverse mints Reverse Timestamp IDs (newest-first sort order).",
     "    --signed mints Signed Timestamp IDs; reads signing key from IDS_SIGNING_KEY (hex by default; IDS_SIGNING_KEY_FORMAT or --key-format).",
     "  keygen, k [--wrapped] [--signed] [--bits 128|192|256] [--key-format hex|base64url]",
-    "    Emit a random AES key for importOpaqueKey (stdout only).",
+    "    Emit a random key for importOpaqueKey, importWrappingKey, or importSigningKey (stdout only).",
     "    --wrapped emits a wrapping key for importWrappingKey instead (IDS_WRAPPING_KEY).",
     "    --signed emits a signing key for importSigningKey instead (IDS_SIGNING_KEY; hex by default; IDS_SIGNING_KEY_FORMAT or --key-format).",
     "",
