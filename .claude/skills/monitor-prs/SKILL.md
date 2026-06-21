@@ -6,8 +6,6 @@ disable-model-invocation: true
 
 # Monitor PRs
 
-Observe incoming PR events and route each one to a single, correct automation action. End your turn immediately after acting. Never stay alive polling.
-
 ## PR discovery
 
 **If PR numbers are passed as arguments:** use those PRs as the watch set. Skip the confirmation step and go straight to the routing table.
@@ -21,20 +19,27 @@ Observe incoming PR events and route each one to a single, correct automation ac
    - CI status: `gh pr checks {number} --json name,state,conclusion`.
 3. Present the list to the user with that state inline. Ask the user to confirm the watch set and note any PRs to exclude before you act on any event.
 
+## Definitions
+
+- **Agent branch:** a branch whose name starts with `agent/` — created by an automated agent implementing a GitHub issue. The PR author is `claude[bot]`.
+- **Non-agent branch:** any PR branch not matching the `agent/` prefix — human-authored.
+- **Hard findings:** Standards hard violations or Spec hard gaps surfaced by the `/review` skill — labelled "Hard violations" or "Hard gap" in the review output.
+- **Soft / judgment-call findings:** suggestions, style improvements, and non-binding notes from `/review` — labelled "Judgement calls" in the review output.
+
 ## Routing table
 
-Evaluate exactly one case per event. Apply the single action shown. End your turn.
+Evaluate exactly one case per event. Apply the single action shown.
 
 ### CI failure — agent branch
 
 Determine whether the failure is infra noise (flaky runner, network timeout, unrelated quota) or a real failure in the PR code.
 
-- **Infra noise:** re-run the failed jobs with `gh run rerun --failed <run-id>`. End your turn.
-- **Real failure:** apply the `address-feedback` label. End your turn.
+- **Infra noise:** re-run the failed jobs with `gh run rerun --failed <run-id>`.
+- **Real failure:** apply the `address-feedback` label.
 
 ### CI failure — non-agent branch
 
-Diagnose the failure: read the failing step logs (`gh run view <run-id> --log-failed`), identify the root cause, and report a concise summary to the user. Do not apply labels. Do not commit. End your turn.
+Diagnose the failure: read the failing step logs (`gh run view <run-id> --log-failed`), identify the root cause, and report a concise summary to the user. Do not apply labels. Do not commit.
 
 ### Review posted, hard findings — agent branch
 
@@ -42,15 +47,13 @@ Confirm that `address-feedback` is applied to the PR.
 - Auto after #220 — verify the label is present; if not, apply it manually.
 - Manual otherwise — apply the label now.
 
-End your turn.
-
 ### Review posted, hard findings — non-agent branch
 
-File a new GitHub issue for each hard finding using the appropriate `.github/ISSUE_TEMPLATE/`. Do not fix inline. Do not commit to the PR branch. End your turn.
+File a new GitHub issue for each hard finding using the appropriate `.github/ISSUE_TEMPLATE/`. Do not fix inline. Do not commit to the PR branch.
 
 ### Review posted, soft / judgment-call findings only
 
-Scan the PR review threads. Resolve any thread that already has a reply (the finding has been acknowledged). Do not apply `address-feedback`. End your turn.
+Scan the PR review threads. Resolve any thread that already has a reply (the finding has been acknowledged). Do not apply `address-feedback`.
 
 ### `address-feedback` run completed
 
@@ -58,27 +61,23 @@ Confirm that `needs-review` is applied to the PR.
 - Auto after #218 — verify the label is present; if not, apply it manually.
 - Manual otherwise — apply the label now.
 
-End your turn.
-
 ### Rebase completed
 
 Confirm that `needs-review` is applied to the PR.
 - Auto after #219 — verify the label is present; if not, apply it manually.
 - Manual otherwise — apply the label now.
 
-End your turn.
-
 ### Open thread with fix already committed
 
-For each open review thread where the fix is visible in a subsequent commit: reply to the thread citing the short SHA (`git log --oneline` or `gh pr view --json commits`). Resolve the thread. End your turn.
+For each open review thread where the fix is visible in a subsequent commit: reply to the thread citing the short SHA (`git log --oneline` or `gh pr view --json commits`). Resolve the thread.
 
 ### All checks green, all threads resolved
 
-Report to the user: "PR #N is ready to merge." Do not merge. End your turn.
+Report to the user: "PR #N is ready to merge." Do not merge.
 
 ### Event needs no action
 
-Skip silently. End your turn.
+Skip silently.
 
 ## Stop conditions
 
