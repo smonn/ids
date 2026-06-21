@@ -21,7 +21,7 @@ Default canonical vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `
 
 **Agents must not set or remove pipeline/triage lifecycle labels** (`blocked`, `needs-triage`, `ready-for-agent`, `ready-for-human`, `in-progress`, `needs-info`, `wontfix`, `needs-human`, `needs-rebase`). Those transitions are owned exclusively by the `.github/workflows/` App automations — e.g. when a blocker closes, `unblock.yml` flips `blocked → needs-triage` and triage re-evaluates; it never jumps straight to `ready-for-agent`. Setting them by hand races the bot. A `PreToolUse` hook in `.claude/settings.json` denies `mcp__github__issue_write` calls that include these labels. Set issue body/title/state freely; leave the lifecycle labels to the App.
 
-**Exception — monitoring agent:** A session acting as the PR monitor (watching for review comments, driving the address-feedback → needs-review loop, and merging once CI is green) may set `address-feedback` and `needs-review` on agent PRs. These two labels are designated "maintainer-applied" in `docs/agents/triage-labels.md`; the hook does not block them — they are absent from the LIFECYCLE set by omission, not via a positive allowlist.
+**Exception — address-feedback / needs-review:** Any agent session may set `address-feedback` and `needs-review` on agent PRs (the primary use-case is a monitoring session driving the review feedback loop, but the hook does not restrict by role). These two labels are designated "maintainer-applied" in `docs/agents/triage-labels.md`; the hook does not block them — they are absent from the LIFECYCLE set by omission, not via a positive allowlist.
 
 ### Domain docs
 
