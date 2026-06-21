@@ -22,6 +22,10 @@ export type OpaqueTimestampOptions = {
   /**
    * {@link OpaqueKey} handle for AES-CBC encryption and decryption.
    * Obtain via {@link importOpaqueKey}.
+   *
+   * A single key, not a ring: rotation is forward-only and caller-tracked —
+   * hold one codec per key epoch and select it from your own records. The
+   * library cannot trial keys (the payload is unauthenticated). See ADR-0013.
    */
   key: OpaqueKey;
   /** Returns the current timestamp in milliseconds. Defaults to `Date.now`. */
@@ -60,6 +64,10 @@ export type OpaqueTimestampCodec<Brand extends string> = {
   safeParse(value: unknown): ParseResult<Brand>;
   /**
    * Decrypts and decodes the creation `Date` from an `Id<Brand>`. Trusts the type — use `safeParse()` at boundaries first. See ADR-0002.
+   *
+   * Requires the same key used at generation; a wrong key returns a plausible
+   * but wrong `Date`, never an error. With rotation, select the codec for the
+   * ID's key epoch from your own records — the library cannot. See ADR-0013.
    */
   extractTimestamp(id: Id<Brand>): Promise<Date>;
   /** JSON Schema for the canonical wire form (`example` is a structural placeholder). */

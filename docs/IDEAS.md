@@ -70,28 +70,16 @@ out of scope for this same-size branch because a UUID plus verification tag does
 
 Three related threads around operating the Opaque Timestamp codec's key. Sketches, not commitments.
 
-- **Key rotation is caller-driven, not transparent.** The blast radius of a rotation is
-  narrower than it looks: the key only feeds `extractTimestamp`. `generate`, `parse`,
-  `safeParse`, `is`, and `toJsonSchema` work on the wire form and never touch it. So
-  swapping the key forward is nearly free — new IDs encrypt under the new key, old IDs
-  stay valid opaque strings whose _timestamp_ simply becomes unreadable without the old
-  key. What blocks _transparent_ "try every key in a ring" rotation is that the
-  construction is unauthenticated (ADR-0004: decrypt never throws, wrong key yields
-  garbage) and carries no key-id (ADR-0007: payloads are wire-indistinguishable, no
-  version marker). There is nothing to match a key against and nothing to validate a
-  guess. Options, roughly in order of honesty:
-  - _Forward-only, caller-tracked._ A keyring where `generate` uses the newest key and
-    `extractTimestamp` takes an explicit key/epoch hint the caller supplies from its own
-    records (DB column, tenant partition). No wire change.
-  - _Probabilistic trial-decrypt._ Try each key, accept the one whose decoded 48-bit
-    timestamp lands in a plausible window. A stale key false-accepts at ≈ 10yr / 2⁴⁸ms ≈
-    0.1% — dashboard-grade, never correctness-grade, and only if documented as such.
-  - _Transparent try-all-keys_ belongs to an authenticated variant (`createSignedTimestampId`'s
-    truncated HMAC gives a tag to verify against — accepted in
-    [ADR-0012](./adr/0012-signed-timestamp-construction.md), with a **Signing keyring** whose
-    `verify` trials the ring by tag match). Adding a key-id to the Opaque Timestamp codec itself is rejected
-    for the same reasons GCM was in ADR-0004: it either eats the random budget or breaks
-    the 16-byte / strip-trick invariant. Likely worth its own ADR.
+- ~~**Key rotation is caller-driven, not transparent.** Forward-only, caller-tracked
+  rotation (`generate` uses the current key; `extractTimestamp` needs the key from the
+  ID's epoch, which the caller tracks out-of-band); a probabilistic trial-decrypt variant
+  rejected as dashboard-grade-only; transparent try-all-keys deferred to the authenticated
+  Signed Timestamp codec; a wire key-id rejected for the same reasons GCM was in
+  ADR-0004.~~ — decided in [ADR-0013](./adr/0013-opaque-key-rotation.md) (Option 1,
+  caller-driven, no API change). Transparent correctness-grade rotation lives on the
+  Signed Timestamp codec's **Signing keyring** ([ADR-0012](./adr/0012-signed-timestamp-construction.md)).
+  Glossary updated with a **Key epoch** entry; the probabilistic and wire-key-id options
+  are recorded as rejected.
 - ~~**`ids keygen [--bits 128|256] [--key-format hex|base64url]`** — emit a random AES key
   (default 256-bit) for `importOpaqueKey`. Needs a documented decode helper so the
   emitted string round-trips back to raw bytes. Format is `hex`/`base64url` (secret
