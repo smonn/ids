@@ -1,14 +1,12 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+import type { IdParamFailure } from "./adapter-types.js";
 import type { ParseResult } from "./types.js";
+
+export type { IdParamFailure };
 
 type IdCodec<Brand extends string> = {
   safeParse(value: unknown): ParseResult<Brand>;
 };
-
-/** Discriminated failure value passed to `onError` and emitted to `setErrorHandler` via `IdParamError`. */
-export type IdParamFailure =
-  | { readonly reason: "brand_mismatch"; readonly status: number }
-  | { readonly reason: "malformed"; readonly status: number };
 
 /**
  * Typed error thrown into Fastify's `setErrorHandler` on validation failure.
