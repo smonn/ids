@@ -138,10 +138,7 @@ describe("id", () => {
     expect(usr.is("usr_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toBe(false); // contains o/i/l aliases
   });
 
-  // Regression tests for non-canonical trailing-bit variants (issue #210).
-  // A 16-byte payload encoded in 26 base32 chars (130 bits) leaves 2 surplus bits in
-  // the 26th char; canonical encoding sets them to zero. The 3 non-canonical variants
-  // ('0'→'1','2','3') decode to the SAME 16-byte payload but must be rejected.
+  // Regression tests for non-canonical trailing-bit variants — ADR-0003, issue #210.
   it("is() returns false for all 3 non-canonical final-char variants", () => {
     const usr = createTimestampId("usr", { allowDuplicateBrand: true });
     expect(usr.is("usr_00000000000000000000000000")).toBe(true); // '0' → canonical
