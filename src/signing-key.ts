@@ -114,7 +114,7 @@ export function signingKeysEqual(a: SigningKey, b: SigningKey): boolean {
   if (aBytes.length !== bBytes.length) return false;
   let diff = 0;
   for (let i = 0; i < aBytes.length; i++) {
-    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+    diff |= aBytes[i]! ^ bBytes[i]!;
   }
   return diff === 0;
 }
