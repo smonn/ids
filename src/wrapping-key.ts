@@ -104,15 +104,21 @@ export function decodeWrappingKey(encoded: string, format: WrappingKeyFormat): U
   return bytes;
 }
 
-/** Returns true when two handles were imported from the same raw operator secret. */
+/**
+ * Returns true when two handles were imported from the same raw operator secret.
+ *
+ * Uses a constant-time comparison so duplicate detection over key material does
+ * not leak the position of the first differing byte through a timing side channel.
+ */
 export function wrappingKeysEqual(a: WrappingKey, b: WrappingKey): boolean {
   const aInternals = getWrappingKeyInternals(a);
   const bInternals = getWrappingKeyInternals(b);
   if (aInternals.rawBytes.length !== bInternals.rawBytes.length) return false;
+  let diff = 0;
   for (let i = 0; i < aInternals.rawBytes.length; i++) {
-    if (aInternals.rawBytes[i] !== bInternals.rawBytes[i]) return false;
+    diff |= aInternals.rawBytes[i]! ^ bInternals.rawBytes[i]!;
   }
-  return true;
+  return diff === 0;
 }
 
 export function getWrappingKeyMaterial(key: WrappingKey): WrappingKeyMaterial {
