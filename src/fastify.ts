@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { IdParamFailure } from "./adapter-types.js";
-import type { ParseResult } from "./types.js";
+import type { Id, ParseResult } from "./types.js";
 
 export type { IdParamFailure };
 
@@ -99,7 +99,7 @@ export function idParam<ParamKey extends string, Brand extends string>(
   options?: IdParamOptions,
 ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
   return async (request, reply): Promise<void> => {
-    const raw = (request.params as Record<string, unknown>)[paramName];
+    const raw = (request.params as Record<ParamKey, unknown>)[paramName];
     const result = codec.safeParse(raw);
     if (!result.ok) {
       const reason =
@@ -113,6 +113,6 @@ export function idParam<ParamKey extends string, Brand extends string>(
       }
       throw new IdParamError(reason, status);
     }
-    (request.params as Record<string, unknown>)[paramName] = result.id;
+    (request.params as Record<ParamKey, Id<Brand>>)[paramName] = result.id;
   };
 }
