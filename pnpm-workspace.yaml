@@ -1,0 +1,13 @@
+# Dependency vulnerability remediation overrides.
+# All entries pin transitive, dev-only dependencies to patched releases.
+overrides:
+  # GHSA-fx2h-pf6j-xcff (high) + GHSA-v6wh-96g9-6wx3 (moderate):
+  # vite <8.0.16 server.fs.deny bypass / launch-editor NTLMv2 disclosure.
+  # Pulled in transitively via vitest; vitest accepts ^8.0.0.
+  vite: ^8.0.16
+  # GHSA-h67p-54hq-rp68 (moderate): js-yaml <=4.1.1 quadratic-complexity DoS
+  # in merge-key handling. Reached via @changesets/parse (^4.1.1 range).
+  # The separate js-yaml 3.x path (read-yaml-file -> @manypkg) cannot move to
+  # 4.x — read-yaml-file calls the removed safeLoad API — so it is left to
+  # upstream; impact is dev-only changeset parsing.
+  js-yaml@^4.1.1: ^4.2.0
