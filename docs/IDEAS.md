@@ -13,10 +13,8 @@ different invariants.
 - ~~`createOpaqueTimestampId(brand, {key})`~~ — shipped. See [ADR-0004](./adr/0004-aes-cbc-strip-trick.md),
   [ADR-0005](./adr/0005-codec-variant-subpath-exports.md), [ADR-0006](./adr/0006-async-keyed-codec-contract.md),
   [ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md).
-- **`createSignedTimestampId(brand, {keys})`** — half the random tail becomes a truncated
-  HMAC over brand+timestamp+random. Tamper-evident share links verified without a DB lookup.
-  Accepted design: see [ADR-0012](./adr/0012-signed-timestamp-construction.md).
-  Glossary: **Signed Timestamp codec**, **Signing key**, **Signing keyring** in [CONTEXT.md](../CONTEXT.md).
+- ~~**`createSignedTimestampId(brand, {keys})`**~~ — shipped. See [ADR-0012](./adr/0012-signed-timestamp-construction.md).
+  Half the random tail becomes a truncated HMAC over brand+timestamp+random. Tamper-evident share links verified without a DB lookup.
 - **`createDigestId(brand, {ns, key})`** — one-way deterministic digest of caller material.
   Same material gives the same public ID; the material cannot be recovered from the ID.
   For idempotency keys, content-addressed records, and stable public pseudonyms.

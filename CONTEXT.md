@@ -17,11 +17,11 @@ The brand-scoped object that generates, parses, and validates IDs for one entity
 _Avoid_: factory, generator, encoder.
 
 **Codec variant**:
-A concrete codec algorithm sharing the same wire shape (`<brand>_` + 26 Crockford base32 chars) but differing in byte layout and capabilities. Shipped today: the **Timestamp codec**, **Opaque Timestamp codec**, **Reverse Timestamp codec**, and **Wrapped key codec** — see [ADR-0009](./docs/adr/0009-wrapped-key-compact-construction.md). Accepted but not yet implemented: the **Signed Timestamp codec** — see [ADR-0012](./docs/adr/0012-signed-timestamp-construction.md). Each variant is a separate subpath export — see [ADR-0005](./docs/adr/0005-codec-variant-subpath-exports.md).
+A concrete codec algorithm sharing the same wire shape (`<brand>_` + 26 Crockford base32 chars) but differing in byte layout and capabilities. Shipped today: the **Timestamp codec**, **Opaque Timestamp codec**, **Reverse Timestamp codec**, **Wrapped key codec**, and **Signed Timestamp codec** — see [ADR-0009](./docs/adr/0009-wrapped-key-compact-construction.md) and [ADR-0012](./docs/adr/0012-signed-timestamp-construction.md). Each variant is a separate subpath export — see [ADR-0005](./docs/adr/0005-codec-variant-subpath-exports.md).
 _Avoid_: default codec (use **Timestamp codec** for the dominant variant), trust mode, algorithm.
 
 **Timestamp-family codec**:
-A codec variant whose payload represents an ID creation timestamp, either readable directly or recoverable only under key. Current members are the **Timestamp codec**, **Opaque Timestamp codec**, and **Reverse Timestamp codec**; the **Signed Timestamp codec** is accepted ([ADR-0012](./docs/adr/0012-signed-timestamp-construction.md)) and pending implementation.
+A codec variant whose payload represents an ID creation timestamp, either readable directly or recoverable only under key. Current members are the **Timestamp codec**, **Opaque Timestamp codec**, **Reverse Timestamp codec**, and **Signed Timestamp codec** — see [ADR-0012](./docs/adr/0012-signed-timestamp-construction.md).
 _Avoid_: timestamp layout (use **Timestamp byte layout** for the plaintext byte split), time codec, chronological codec.
 
 **Timestamp codec**:
