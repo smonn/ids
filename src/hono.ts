@@ -1,13 +1,9 @@
 import { HTTPException } from "hono/http-exception";
 import type { Context, MiddlewareHandler } from "hono";
-import type { IdParamFailure } from "./adapter-types.js";
-import type { Id, ParseResult } from "./types.js";
+import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
+import type { Id } from "./types.js";
 
 export type { IdParamFailure };
-
-type IdCodec<Brand extends string> = {
-  safeParse(value: unknown): ParseResult<Brand>;
-};
 
 /** Options for `idParam`. All fields are optional. */
 export type IdParamOptions = {
@@ -70,15 +66,11 @@ export function idParam<ParamKey extends string, Brand extends string>(
     const raw = c.req.param(paramName);
     const result = codec.safeParse(raw);
     if (!result.ok) {
-      const reason =
-        result.error === "invalid_prefix" ? ("brand_mismatch" as const) : ("malformed" as const);
-      const defaultStatus = reason === "brand_mismatch" ? 404 : 400;
-      const status = options?.status?.[reason] ?? defaultStatus;
-      const failure: IdParamFailure = { reason, status };
+      const failure = resolveIdParamFailure(result.error, options);
       if (options?.onError) {
         return options.onError(failure, c);
       }
-      throw new HTTPException(status as ConstructorParameters<typeof HTTPException>[0]);
+      throw new HTTPException(failure.status as ConstructorParameters<typeof HTTPException>[0]);
     }
     c.set(paramName, result.id);
     await next();

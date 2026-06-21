@@ -27,7 +27,17 @@ opaque-key.ts / wrapping-key.ts / signing-key.ts   ← key-handle modules
 key-material.ts                     ← shared key-material leaf (format/length/encode/decode)
   ↓
   bytes, error                      ← leaves
+
+express.ts / fastify.ts / hono.ts   ← web framework adapters
+  ↓
+adapter-types.ts                    ← shared web-adapter type hub
+  ↓
+types.ts                            ← leaf
 ```
+
+`drizzle.ts`, `prisma.ts`, and `kysely.ts` do **not** import `adapter-types.ts` — the ORM adapters define their types locally and share no common hub.
+
+`kysely.ts` imports `IdColumnCodec` as a type from `drizzle.ts` (permitted by the `kysely-adapter-no-internals` depcruise rule, which explicitly allowlists `drizzle` in the kysely path). Keeping `kysely.ts` unchanged was a non-goal in #183; rather than pulling `IdColumnCodec` out of `drizzle.ts` into a shared module, the deliberate decision was to let `kysely.ts` borrow the type from its existing home. This is a stable trade-off: if the Kysely adapter ever diverges from the Drizzle type surface, the depcruise rule signals the coupling that must be resolved at that point.
 
 Codec constructors import **`wire/codec-shell`** separately from **`layouts/<variant>`** — the diagram shows two composition edges, not a single chain through layouts into all of `wire/`.
 
@@ -53,6 +63,7 @@ Each `layouts/<variant>.ts` exports a single binder — `createTimestampLayoutOp
 | `layouts/timestamp.ts`    | `createTimestampLayoutOps` — scratch buffer, generate/extract/min/max/exampleWireId                                                                                                                                                             |
 | `layouts/opaque.ts`       | `createOpaqueLayoutOps` — AES-CBC encrypt/decrypt; builds plaintext via `wire/timestamp-bytes`                                                                                                                                                  |
 | `key-material.ts`         | Key-material leaf — shared format/length validation, hex/base64url encode/decode, and keyring non-emptiness/duplicate-entry assertion helpers, all parameterized by noun; imported only by `opaque-key.ts`, `wrapping-key.ts`, `signing-key.ts` |
+| `adapter-types.ts`        | Shared web-adapter type hub — exports `IdParamFailure` discriminated union; imported only by `express.ts`, `fastify.ts`, and `hono.ts`; bounded to importing only from `types.ts`                                                              |
 
 ## Consequences
 

@@ -4,23 +4,13 @@ import {
   type PgCustomColumnBuilder,
 } from "drizzle-orm/pg-core";
 import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
-import type { Id, ParseResult } from "./types.js";
+import type { IdColumnCodec } from "./adapter-types.js";
+import type { Id } from "./types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };
 
-/**
- * Minimum codec interface required by the Drizzle adapter.
- *
- * Any codec variant satisfies this type — TimestampCodec, OpaqueTimestampCodec,
- * and WrappedKeyCodec all expose `safeParse`. The adapter never calls
- * `extractTimestamp`, `wrap`/`unwrap`, or any key-dependent method.
- *
- * Kysely and Prisma adapter issues should use this same codec contract shape.
- */
-export type IdColumnCodec<Brand extends string> = {
-  safeParse(value: unknown): ParseResult<Brand>;
-};
+export type { IdColumnCodec };
 
 /**
  * Drizzle custom column type that stores an `Id<Brand>` as a canonical `text` value.

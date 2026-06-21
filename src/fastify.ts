@@ -1,12 +1,8 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { IdParamFailure } from "./adapter-types.js";
-import type { Id, ParseResult } from "./types.js";
+import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
+import type { Id } from "./types.js";
 
 export type { IdParamFailure };
-
-type IdCodec<Brand extends string> = {
-  safeParse(value: unknown): ParseResult<Brand>;
-};
 
 /**
  * Typed error thrown into Fastify's `setErrorHandler` on validation failure.
@@ -112,16 +108,12 @@ export function idParam<ParamKey extends string, Brand extends string>(
     const raw = request.params[paramName];
     const result = codec.safeParse(raw);
     if (!result.ok) {
-      const reason =
-        result.error === "invalid_prefix" ? ("brand_mismatch" as const) : ("malformed" as const);
-      const defaultStatus = reason === "brand_mismatch" ? 404 : 400;
-      const status = options?.status?.[reason] ?? defaultStatus;
-      const failure: IdParamFailure = { reason, status };
+      const failure = resolveIdParamFailure(result.error, options);
       if (options?.onError) {
         await options.onError(failure, request, reply);
         return;
       }
-      throw new IdParamError(reason, status);
+      throw new IdParamError(failure.reason, failure.status);
     }
     request.params[paramName] = result.id;
   };

@@ -6,8 +6,8 @@ This project is pre-1.0. Only the latest minor release receives security fixes.
 
 | Version | Supported |
 | ------- | --------- |
-| 0.2.x   | ✅        |
-| < 0.2   | ❌        |
+| 0.8.x   | ✅        |
+| < 0.8   | ❌        |
 
 ## Reporting a Vulnerability
 
