@@ -42,6 +42,9 @@ jobs:
       # run: steps (never interpolated into a shell) so a crafted branch name can't
       # inject. The startsWith gate above also constrains it to agent/issue-*.
       BRANCH: ${{ github.event.pull_request.head.ref }}
+      # Pin the checkout to the commit that carried the label, not the moving branch
+      # ref, to close the TOCTOU window (mirrors address-review.yml).
+      EVENT_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Generate GitHub App token
         id: app-token
@@ -49,6 +52,11 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Least-privilege: scope the token to what this job does — push the merge and
+          # toggle the review/escalation labels — instead of the App's full grant.
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Remove the needs-rebase label (so it can be re-applied)
         env:
@@ -56,17 +64,19 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: gh pr edit "$PR_NUMBER" --remove-label needs-rebase || true
 
-      - name: Checkout the PR branch
+      - name: Checkout the labelled commit (pinned SHA, not the branch ref)
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ env.EVENT_SHA }}
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Configure git identity
+      - name: Configure git identity and working branch
         run: |
           git config user.name "smonn[bot]"
           git config user.email "110314539+smonn[bot]@users.noreply.github.com"
+          # We checked out a detached SHA; recreate the branch at it so we can push.
+          git checkout -B "$BRANCH"
 
       - name: Check whether a merge is actually needed
         # Snapshot BEFORE the resolve step merges anything. If `main` is already an
@@ -131,8 +141,12 @@ jobs:
               lint` && `pnpm depcruise` && `pnpm fmt:check` && `pnpm typecheck` &&
               `pnpm test:coverage` && `pnpm build`. All must pass.
             - FINISH by committing the merge (keep the merge commit; do NOT force-push
-              or rebase history) and pushing to `${{ env.BRANCH }}`. Do NOT modify any
-              other branch, and do NOT push to main.
+              or rebase history) and pushing to `${{ env.BRANCH }}` with a plain `git
+              push`. The branch is checked out at the commit that carried the label, so
+              if the push is rejected because the branch has since advanced, do NOT
+              force — post a PR comment saying the branch moved and the rebase needs a
+              re-run (re-apply the label), then STOP. Do NOT modify any other branch,
+              and do NOT push to main.
             - ESCALATE instead of forcing it: if the conflict cannot be resolved safely
               — main changed the feature out from under this PR, or resolving would
               require reopening a CLOSED design decision — do NOT push; post a PR

@@ -42,6 +42,12 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Least-privilege: scope the token to what this job does — push the branch,
+          # comment/label the issue, open the PR — so a prompt-injection via untrusted
+          # issue content can't wield the App's full installation grant.
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Check if implementation already started
         id: gate

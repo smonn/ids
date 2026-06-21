@@ -60,6 +60,12 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Least-privilege: review only reads the checked-out PR, posts review comments
+          # (issues + pulls), and toggles the address-feedback label. It never pushes —
+          # contents stays read-only.
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Resolve PR head SHA
         id: sha

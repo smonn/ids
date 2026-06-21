@@ -52,6 +52,75 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Least-privilege: scope the minted token to exactly what this job does —
+          # push fixes, reply on review threads, file follow-up issues, toggle labels —
+          # so a prompt-injection via untrusted PR/review content can't wield the App's
+          # full installation grant.
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
+      # Cost guard: the review → address-feedback → address-review → needs-review →
+      # review cycle is entirely bot-driven once started (review.yml auto-applies
+      # address-feedback on hard findings; we apply needs-review at the end, which
+      # re-fires review). Cap the consecutive BOT-driven rounds so a reviewer that keeps
+      # flagging the same point can't loop forever — mirrors autofix.yml's MAX_ATTEMPTS.
+      # A human applying the label breaks the cycle and resets the counter, and an
+      # already-escalated PR is skipped.
+      - name: Guard against runaway auto-address loops
+        id: gate
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          SENDER: ${{ github.event.sender.login }}
+          MAX_AUTO_ROUNDS: "3"
+        run: |
+          marker="<!-- auto-address-rounds:"
+          labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -qx 'needs-human'; then
+            echo "PR #$PR_NUMBER already escalated to needs-human; skipping."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Locate the hidden round-counter comment (authored by the App) and read N.
+          cid=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq "[.[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$marker\")))][0].id // empty")
+          count=0
+          if [ -n "$cid" ]; then
+            count=$(gh api "repos/$GH_REPO/issues/comments/$cid" --jq '.body' \
+              | grep -oE 'auto-address-rounds:[0-9]+' | grep -oE '[0-9]+' | head -n1)
+            count=${count:-0}
+          fi
+          if [ "$SENDER" != "smonn[bot]" ]; then
+            # A human applied the label — a fresh, human-driven request the cap must not
+            # interfere with. Clear any stale counter from a prior auto-loop and proceed
+            # without posting bookkeeping noise.
+            echo "Human ($SENDER) applied address-feedback; resetting the round counter."
+            [ -n "$cid" ] && gh api -X DELETE "repos/$GH_REPO/issues/comments/$cid" >/dev/null || true
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Bot-driven round (review.yml re-applied the label): enforce the cap.
+          if [ "$count" -ge "$MAX_AUTO_ROUNDS" ]; then
+            echo "Auto-address round cap reached ($count/$MAX_AUTO_ROUNDS) — escalating instead of looping."
+            gh pr comment "$PR_NUMBER" --body "The automated review-fix loop ran $count round(s) without converging. Escalating for human review."
+            gh pr edit "$PR_NUMBER" --add-label needs-human
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          next=$((count + 1))
+          # Record the round so the next bot-driven run sees it. Kept visible during a
+          # loop so maintainers can watch it progress; removed once a human takes over.
+          body=$(printf '%s\n\n%s\n' \
+            "${marker}${next} -->" \
+            "_Automated review-fix loop: round ${next} of ${MAX_AUTO_ROUNDS}. A human applying the address-feedback label resets this._")
+          if [ -n "$cid" ]; then
+            gh api -X PATCH "repos/$GH_REPO/issues/comments/$cid" -f body="$body" >/dev/null
+          else
+            gh api -X POST "repos/$GH_REPO/issues/$PR_NUMBER/comments" -f body="$body" >/dev/null
+          fi
+          echo "Auto-address round $next of $MAX_AUTO_ROUNDS; proceeding."
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
 
       - name: Remove the address-feedback label (so it can be re-applied)
         env:
@@ -60,6 +129,7 @@ jobs:
         run: gh pr edit "$PR_NUMBER" --remove-label address-feedback || true
 
       - name: Checkout the labelled commit (pinned SHA, not the branch ref)
+        if: steps.gate.outputs.proceed == 'true'
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ env.EVENT_SHA }}
@@ -67,6 +137,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git identity and working branch
+        if: steps.gate.outputs.proceed == 'true'
         run: |
           git config user.name "smonn[bot]"
           git config user.email "110314539+smonn[bot]@users.noreply.github.com"
@@ -74,15 +145,19 @@ jobs:
           git checkout -B "$BRANCH"
 
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        if: steps.gate.outputs.proceed == 'true'
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        if: steps.gate.outputs.proceed == 'true'
         with:
           node-version: 24
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+        if: steps.gate.outputs.proceed == 'true'
 
       - name: Address the feedback
+        if: steps.gate.outputs.proceed == 'true'
         uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1.0.152
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -173,7 +248,7 @@ jobs:
       # head SHA equal to EVENT_SHA — in that case the agent already posted a comment and
       # stopped, so we must NOT request a review.
       - name: Apply needs-review label if push succeeded
-        if: success()
+        if: success() && steps.gate.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
