@@ -3,7 +3,9 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { IdParamError, idParam } from "./fastify.js";
 import type { IdParamFailure } from "./fastify.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "./opaque.js";
+import { createReverseTimestampId } from "./reverse.js";
 import { createTimestampId } from "./timestamp.js";
+import { createWrappedKeyId, importWrappingKey } from "./wrapped.js";
 
 type MockRequest = {
   params: Record<string, unknown>;
@@ -208,6 +210,62 @@ describe("idParam", () => {
       expect(err).toBeInstanceOf(IdParamError);
       expect((err as IdParamError).reason).toBe("malformed");
       expect((err as IdParamError).statusCode).toBe(400);
+    });
+  });
+
+  describe("Reverse Timestamp codec", () => {
+    it("works with the Reverse Timestamp codec's structural safeParse", async () => {
+      const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+      const handler = idParam("id", rev);
+
+      const validId = rev.generate();
+      const req = makeReq("id", validId);
+
+      await handler(asReq(req), asReply());
+
+      expect(req.params["id"]).toBe(validId);
+    });
+
+    it("wrong brand with Reverse Timestamp codec throws IdParamError with statusCode=404", async () => {
+      const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+      const usrCodec = createTimestampId("usr", { allowDuplicateBrand: true });
+      const handler = idParam("id", rev);
+
+      const req = makeReq("id", usrCodec.generate());
+      const err = await catchError(() => handler(asReq(req), asReply()));
+
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("brand_mismatch");
+      expect((err as IdParamError).statusCode).toBe(404);
+    });
+  });
+
+  describe("Wrapped key codec", () => {
+    it("works with the Wrapped key codec's structural safeParse", async () => {
+      const key = await importWrappingKey(new Uint8Array(32));
+      const ord = createWrappedKeyId("ord", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+      const handler = idParam("id", ord);
+
+      const validId = await ord.wrap(42);
+      const req = makeReq("id", validId);
+
+      await handler(asReq(req), asReply());
+
+      expect(req.params["id"]).toBe(validId);
+    });
+
+    it("wrong brand with Wrapped key codec throws IdParamError with statusCode=404", async () => {
+      const key = await importWrappingKey(new Uint8Array(32));
+      const ord = createWrappedKeyId("ord", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+      const usrCodec = createTimestampId("usr", { allowDuplicateBrand: true });
+      const handler = idParam("id", ord);
+
+      const req = makeReq("id", usrCodec.generate());
+      const err = await catchError(() => handler(asReq(req), asReply()));
+
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("brand_mismatch");
+      expect((err as IdParamError).statusCode).toBe(404);
     });
   });
 });
