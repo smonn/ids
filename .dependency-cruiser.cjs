@@ -174,7 +174,8 @@ module.exports = {
     {
       name: "rng-only-from-codec-constructors",
       severity: "error",
-      comment: "only rng-using codec constructors (opaque, reverse, signed) may import the shared RNG utility",
+      comment:
+        "only rng-using codec constructors (opaque, reverse, signed) may import the shared RNG utility",
       from: { path: "^src", pathNot: "^src/(opaque|reverse|signed)\\.ts$" },
       to: { path: "^src/rng" },
     },
