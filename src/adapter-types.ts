@@ -5,7 +5,7 @@ export type IdParamFailure =
   | { readonly reason: "brand_mismatch"; readonly status: number }
   | { readonly reason: "malformed"; readonly status: number };
 
-/** Minimum codec interface required by web and ORM adapters. Any codec variant satisfies this — all expose `safeParse`. Adapters only ever call `safeParse` — never key-dependent methods like `extractTimestamp`, `wrap`, or `unwrap`. */
+/** Minimum structural type required by web and ORM adapters. Any codec variant satisfies this — all expose `safeParse`. Adapters only ever call `safeParse` — never key-dependent methods like `extractTimestamp`, `wrap`, or `unwrap`. */
 export type IdCodec<Brand extends string> = {
   safeParse(value: unknown): ParseResult<Brand>;
 };
