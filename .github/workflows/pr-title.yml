@@ -18,7 +18,15 @@ jobs:
         env:
           # PR title becomes the squash-merge commit subject on main.
           PR_TITLE: ${{ github.event.pull_request.title }}
+          # Changesets opens its release PR from this branch with the fixed
+          # title "Version Packages", which is intentionally not Conventional
+          # Commits. The release workflow squash-merges it, so exempt it here.
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
+          if [[ "$HEAD_REF" == "changeset-release/main" ]]; then
+            echo "Changesets release PR ($HEAD_REF); skipping title check."
+            exit 0
+          fi
           pattern='^(feat|fix|docs|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?!?: .+'
           if [[ ! "$PR_TITLE" =~ $pattern ]]; then
             echo "::error::PR title is not a valid Conventional Commits subject: \"$PR_TITLE\""
