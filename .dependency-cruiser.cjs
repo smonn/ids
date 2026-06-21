@@ -2,6 +2,16 @@
 module.exports = {
   forbidden: [
     {
+      name: "adapter-types-imports-allowlist",
+      severity: "error",
+      comment: "adapter-types may import only types — it must not pull in codec constructors, layouts, wire internals, or higher-layer modules",
+      from: { path: "^src/adapter-types\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/types\\.ts$",
+      },
+    },
+    {
       name: "wire-no-layouts",
       severity: "error",
       comment: "wire layer must not depend on layouts",
@@ -31,7 +41,7 @@ module.exports = {
       name: "kysely-adapter-no-internals",
       severity: "error",
       comment:
-        "kysely adapter may import only types, error surface, and the drizzle adapter from @smonn/ids internals",
+        "kysely adapter may import only types, error surface, and the drizzle adapter from @smonn/ids internals; adapter-types is reachable transitively via drizzle (kysely imports IdColumnCodec from drizzle, which re-exports it from adapter-types) — this transitive path is intentional",
       from: { path: "^src/kysely\\.ts$" },
       to: {
         path: "^src",
