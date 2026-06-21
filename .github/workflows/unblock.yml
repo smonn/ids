@@ -1,13 +1,22 @@
 name: Unblock issues
 
-# When an issue closes, any issue parked as `blocked` that depended on it may now
-# be free. This sweeps open `blocked` issues, re-checks their declared blockers
-# ("Blocked by #N" / "Depends on #N" / "Requires #N"), and once every blocker is
-# closed, flips the issue back to `needs-triage` — which re-fires the triage
-# workflow to re-scope it against the now-complete dependency.
+# When an issue or pull request closes, any issue parked as `blocked` that
+# depended on it may now be free. This sweeps open `blocked` issues, re-checks
+# their declared blockers ("Blocked by #N" / "Depends on #N" / "Requires #N"),
+# and once every blocker is closed, flips the issue back to `needs-triage` —
+# which re-fires the triage workflow to re-scope it against the now-complete
+# dependency.
+#
+# Blockers are frequently PRs, not issues (e.g. "Blocked by #179" where #179 is a
+# pull request). Closing/merging a PR fires `pull_request`, never `issues`, so we
+# trigger on both. The sweep itself is generic — it scans every open `blocked`
+# issue and resolves each blocker's state via `gh issue view` (which works for PR
+# numbers too), independent of which event fired it.
 
 on:
   issues:
+    types: [closed]
+  pull_request:
     types: [closed]
   workflow_dispatch:
 
