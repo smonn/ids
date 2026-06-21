@@ -270,7 +270,7 @@ describe("id", () => {
   it("generate() output matches expected format", () => {
     const usr = createTimestampId("usr");
     const id = usr.generate();
-    expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
+    expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$/);
   });
 
   it("generate() called many times will always generate distinct values", () => {
@@ -390,7 +390,7 @@ describe("id", () => {
   it("generateAt() produces canonical form (lowercase, no aliases)", () => {
     const usr = createTimestampId("usr");
     const id = usr.generateAt(new Date("2024-03-15T12:00:00Z"));
-    expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
+    expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$/);
     expect(usr.is(id)).toBe(true);
   });
 
@@ -618,7 +618,7 @@ describe("dev-mode duplicate-brand warning", () => {
     const options: TimestampOptions = { allowDuplicateBrand: true };
     const usr = createTimestampId("zag", options);
 
-    expect(usr.generate()).toMatch(/^zag_[0-9a-hjkmnp-tv-z]{26}$/);
+    expect(usr.generate()).toMatch(/^zag_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$/);
   });
 
   it("warning message names the brand and the opt-out flag", () => {
