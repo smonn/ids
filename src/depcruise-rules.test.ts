@@ -31,7 +31,7 @@ const cases = [
     rule: "wire-no-shell",
   },
   {
-    fixture: "test/fixtures/depcruise/wire/parse.ts",
+    fixture: "test/fixtures/depcruise/wire/parse-middle.ts",
     rule: "wire-middle-no-siblings",
   },
   {
@@ -39,7 +39,7 @@ const cases = [
     rule: "wire-leaves-no-upward",
   },
   {
-    fixture: "test/fixtures/depcruise/wire/parse.ts",
+    fixture: "test/fixtures/depcruise/wire/parse-allowlist.ts",
     rule: "wire-parse-imports-allowlist",
   },
   {

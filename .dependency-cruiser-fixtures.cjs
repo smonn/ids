@@ -62,7 +62,7 @@ module.exports = {
     {
       name: "wire-middle-no-siblings",
       severity: "error",
-      from: { path: "^test/fixtures/depcruise/wire/(parse|envelope)\\.ts$" },
+      from: { path: "^test/fixtures/depcruise/wire/(parse-middle|envelope)\\.ts$" },
       to: { path: "^src/wire/(parse|envelope|codec-shell)\\.ts$" },
     },
     {
@@ -76,7 +76,7 @@ module.exports = {
     {
       name: "wire-parse-imports-allowlist",
       severity: "error",
-      from: { path: "^test/fixtures/depcruise/wire/parse\\.ts$" },
+      from: { path: "^test/fixtures/depcruise/wire/parse-allowlist\\.ts$" },
       to: {
         path: "^src",
         pathNot: "^src/(wire/invariants|base32|types)\\.ts$",
