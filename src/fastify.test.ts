@@ -238,6 +238,18 @@ describe("idParam", () => {
       expect((err as IdParamError).reason).toBe("brand_mismatch");
       expect((err as IdParamError).statusCode).toBe(404);
     });
+
+    it("malformed payload with Reverse Timestamp codec throws IdParamError with statusCode=400", async () => {
+      const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+      const handler = idParam("id", rev);
+
+      const req = makeReq("id", "rev_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+      const err = await catchError(() => handler(asReq(req), asReply()));
+
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("malformed");
+      expect((err as IdParamError).statusCode).toBe(400);
+    });
   });
 
   describe("Wrapped key codec", () => {
@@ -274,6 +286,23 @@ describe("idParam", () => {
       expect(err).toBeInstanceOf(IdParamError);
       expect((err as IdParamError).reason).toBe("brand_mismatch");
       expect((err as IdParamError).statusCode).toBe(404);
+    });
+
+    it("malformed payload with Wrapped key codec throws IdParamError with statusCode=400", async () => {
+      const key = await importWrappingKey(new Uint8Array(32));
+      const ord = createWrappedKeyId("ord", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const handler = idParam("id", ord);
+
+      const req = makeReq("id", "ord_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+      const err = await catchError(() => handler(asReq(req), asReply()));
+
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("malformed");
+      expect((err as IdParamError).statusCode).toBe(400);
     });
   });
 });
