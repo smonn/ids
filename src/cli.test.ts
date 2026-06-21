@@ -1489,6 +1489,12 @@ describe("cli keygen --signed", () => {
     expect(result.stdout).toContain("--signed");
     expect(result.stdout).toContain("IDS_SIGNING_KEY");
   });
+
+  it("keygen preamble covers all three key functions", async () => {
+    const result = await runCapture(["--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("importOpaqueKey, importWrappingKey, or importSigningKey");
+  });
 });
 
 describe("cli generate --signed", () => {
