@@ -1819,6 +1819,15 @@ describe("cli inspect --signed", () => {
     expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
   });
 
+  it("routes empty IDS_SIGNING_KEY through loadSigningKey (exits 1 with error)", async () => {
+    const result = await runCapture(["inspect", "usr_00000000000000000000000000", "--signed"], {
+      env: { IDS_SIGNING_KEY: "" },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("missing IDS_SIGNING_KEY environment variable\n");
+  });
+
   it("rejects malformed IDS_SIGNING_KEY", async () => {
     const result = await runCapture(["inspect", "usr_00000000000000000000000000", "--signed"], {
       env: { IDS_SIGNING_KEY: "not-hex!" },

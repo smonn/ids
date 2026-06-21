@@ -285,7 +285,7 @@ async function runSignedInspect(
 
   const env = opts.env ?? process.env;
   const rawKey = env.IDS_SIGNING_KEY;
-  if (!rawKey) {
+  if (rawKey === undefined) {
     opts.stdout(formatSignedInspectOutput({ brand, timestamp, canonical, input, nowMs }));
     return 0;
   }
