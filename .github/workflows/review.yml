@@ -4,6 +4,15 @@ name: Review agent PRs
 # approval) on each agent PR when it opens. Scoped to agent/issue-* so it doesn't
 # review human PRs, and runs once on open — not on every push — to bound cost.
 #
+# The job ALWAYS runs (there is no job-level `if`) and the agent/event/label scoping
+# lives in the first `scope` step instead. This is deliberate: the `review` check is a
+# required status check, and we want it to report a real, visible `success` on the head
+# commit for every PR — including human and forked PRs — rather than leaning on GitHub's
+# implicit "a job skipped by a conditional counts as success" rule. Out-of-scope PRs run
+# only the `scope` step (which needs no secrets, so forks report a genuine success too)
+# and then every later step no-ops, so the job finishes green without reviewing. In-scope
+# agent PRs run the full review, and a genuine review failure still fails the check.
+#
 # Findings that anchor to a changed line are posted as INLINE review comments on the
 # diff; a single STICKY top-level summary comment carries the overview plus any
 # findings that don't map to a specific line. The summary is tagged with a stable
@@ -42,11 +51,6 @@ permissions:
 
 jobs:
   review:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      ((github.event.action != 'labeled' || github.event.label.name == 'needs-review') &&
-       github.event.pull_request.head.repo.full_name == github.repository &&
-       startsWith(github.event.pull_request.head.ref, 'agent/issue-'))
     runs-on: ubuntu-latest
     environment: automation
     timeout-minutes: 30
@@ -56,7 +60,40 @@ jobs:
       # fresh pass; automatic open/reopen events dedup on the reviewed commit.
       FORCED: ${{ github.event_name == 'workflow_dispatch' || github.event.action == 'labeled' }}
     steps:
+      # Internal scope gate (replaces the old job-level `if`). The job always runs so the
+      # required `review` check always reports a real status on the head commit; this step
+      # decides whether the PR is actually in scope for a review. It uses ONLY the github
+      # context (no secrets), so a forked PR — which gets no secrets — still runs it and
+      # reports a genuine success instead of a skipped-but-required check. A PR is in scope
+      # when it's a manual dispatch, or a same-repo agent/issue-* branch on an open/reopen
+      # event (or a `needs-review` re-label). Everything else short-circuits to success.
+      - name: Decide whether this PR is in scope for an automated review
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          LABEL: ${{ github.event.label.name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          THIS_REPO: ${{ github.repository }}
+        run: |
+          review=false
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            review=true
+          elif { [ "$ACTION" != "labeled" ] || [ "$LABEL" = "needs-review" ]; } &&
+               [ "$HEAD_REPO" = "$THIS_REPO" ] &&
+               case "$HEAD_REF" in agent/issue-*) true ;; *) false ;; esac; then
+            review=true
+          fi
+          echo "review=$review" >> "$GITHUB_OUTPUT"
+          if [ "$review" = "true" ]; then
+            echo "In scope — running the automated review."
+          else
+            echo "Out of scope ($EVENT_NAME/$ACTION on $HEAD_REF) — reporting success without reviewing."
+          fi
+
       - name: Generate GitHub App token
+        if: steps.scope.outputs.review == 'true'
         id: app-token
         uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         with:
@@ -70,6 +107,7 @@ jobs:
           permission-pull-requests: write
 
       - name: Resolve PR head SHA
+        if: steps.scope.outputs.review == 'true'
         id: sha
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -84,13 +122,14 @@ jobs:
           echo "Head SHA for #$PR_NUMBER: $sha"
 
       - name: Remove the needs-review label (so it can be re-applied)
-        if: github.event.action == 'labeled'
+        if: steps.scope.outputs.review == 'true' && github.event.action == 'labeled'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: gh pr edit "$PR_NUMBER" --remove-label needs-review || true
 
       - name: Dedup and keep a single sticky summary
+        if: steps.scope.outputs.review == 'true'
         id: gate
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -132,7 +171,7 @@ jobs:
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Checkout PR head
-        if: steps.gate.outputs.skip != 'true'
+        if: steps.scope.outputs.review == 'true' && steps.gate.outputs.skip != 'true'
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: refs/pull/${{ env.PR_NUMBER }}/head
@@ -140,13 +179,13 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Fetch main as the review diff base
-        if: steps.gate.outputs.skip != 'true'
+        if: steps.scope.outputs.review == 'true' && steps.gate.outputs.skip != 'true'
         # The review skill diffs HEAD against a fixed point; make `origin/main`
         # resolvable (checkout only fetched the PR head ref).
         run: git fetch --no-tags origin main:refs/remotes/origin/main
 
       - name: Review the PR
-        if: steps.gate.outputs.skip != 'true'
+        if: steps.scope.outputs.review == 'true' && steps.gate.outputs.skip != 'true'
         uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1.0.152
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -291,7 +330,7 @@ jobs:
       # escape sequences (\n, \<, \[) instead of rendered markdown means the agent
       # shell-quoted the prose — fail so the garbled review doesn't ship silently.
       - name: Verify the review comment was posted
-        if: steps.gate.outputs.skip != 'true'
+        if: steps.scope.outputs.review == 'true' && steps.gate.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
