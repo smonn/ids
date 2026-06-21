@@ -1,5 +1,18 @@
 # @smonn/ids
 
+## 0.7.0
+
+### Minor Changes
+
+- 6f2842a: Add `@smonn/ids/fastify` subpath export: `idParam` preHandler hook factory for validating route params, with `IdParamError`, `IdParamFailure`, and `IdParamOptions` matching the Hono and Express adapter contract.
+- 6fb17db: Convert all caller-reachable throw sites to IdsError with stable code values (ADR-0011).
+- b3ed73d: Add `IdsError` class, `IdsErrorCode` union, and `isIdsError` branded guard (ADR-0011 foundation).
+- ba55eca: Add `@smonn/ids/signed` subpath: `importSigningKey`, `encodeSigningKey`, `decodeSigningKey`, `SigningKey`, and `SigningKeyFormat` for the Signed Timestamp codec key-material foundation.
+
+### Patch Changes
+
+- efe36be: CLI now prefixes IdsError stderr output with the stable error code (e.g. `invalid_brand: ...`) so subprocess tests can assert on the contractual code string rather than the non-contractual message text.
+
 ## 0.6.0
 
 ### Minor Changes
