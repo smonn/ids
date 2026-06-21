@@ -263,10 +263,6 @@ async function runSignedInspect(
   format: SigningKeyFormat,
   opts: RunOpts,
 ): Promise<number> {
-  // Always parse structurally first using the Timestamp codec — the Signed Timestamp
-  // codec shares the same wire shape (prefix + 26 base32 chars) and the same first
-  // 6 plaintext timestamp bytes, so this is correct for structure validation and
-  // timestamp extraction regardless of whether a signing key is present.
   let structCodec;
   try {
     structCodec = createTimestampId(brand, codecOpts(opts));
