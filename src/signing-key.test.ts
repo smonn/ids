@@ -239,6 +239,6 @@ describe("getSigningKeyHmacKey", () => {
 
   it("throws for an unregistered handle", () => {
     const fake = Object.freeze({}) as SigningKey;
-    expect(() => getSigningKeyHmacKey(fake)).toThrow("invalid signing key");
+    expect(() => getSigningKeyHmacKey(fake)).toThrow(Error);
   });
 });

@@ -102,15 +102,21 @@ export function decodeSigningKey(encoded: string, format: SigningKeyFormat): Uin
   return bytes;
 }
 
-/** Returns true when two handles were imported from the same raw operator secret. */
+/**
+ * Returns true when two handles were imported from the same raw operator secret.
+ *
+ * Uses a constant-time comparison so duplicate detection over key material does
+ * not leak the position of the first differing byte through a timing side channel.
+ */
 export function signingKeysEqual(a: SigningKey, b: SigningKey): boolean {
-  const aInternals = getSigningKeyInternals(a);
-  const bInternals = getSigningKeyInternals(b);
-  if (aInternals.rawBytes.length !== bInternals.rawBytes.length) return false;
-  for (let i = 0; i < aInternals.rawBytes.length; i++) {
-    if (aInternals.rawBytes[i] !== bInternals.rawBytes[i]) return false;
+  const aBytes = getSigningKeyInternals(a).rawBytes;
+  const bBytes = getSigningKeyInternals(b).rawBytes;
+  if (aBytes.length !== bBytes.length) return false;
+  let diff = 0;
+  for (let i = 0; i < aBytes.length; i++) {
+    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
   }
-  return true;
+  return diff === 0;
 }
 
 /** Returns the derived HMAC CryptoKey held inside the handle. Not part of the public API. */
