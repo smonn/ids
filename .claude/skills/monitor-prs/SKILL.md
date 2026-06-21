@@ -23,8 +23,8 @@ disable-model-invocation: true
 
 - **Agent branch:** a branch whose name starts with `agent/` — created by an automated agent implementing a GitHub issue. The PR author is `claude[bot]`.
 - **Non-agent branch:** any PR branch not matching the `agent/` prefix — human-authored.
-- **Hard findings:** Standards hard violations or Spec hard gaps surfaced by the `/review` skill — labelled "Hard violations" or "Hard gap" in the review output.
-- **Soft / judgement-call findings:** suggestions, style improvements, and non-binding notes from `/review` — labelled "Judgement calls" in the review output.
+- **Hard findings:** real defects that need a fix before merge — Standards violations or missing / incorrect Spec requirements surfaced by `/review`. The reliable signal is the `address-feedback` label, which `review.yml` applies automatically when one or more hard findings are posted; the summary also groups them under headings like "Hard violations" / "Hard gap".
+- **Soft / judgement-call findings:** suggestions, style improvements, and non-binding notes from `/review` (grouped under "Judgement calls"). No `address-feedback` label is applied when every finding is soft.
 
 ## Routing table
 
