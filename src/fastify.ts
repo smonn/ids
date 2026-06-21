@@ -97,7 +97,10 @@ export function idParam<ParamKey extends string, Brand extends string>(
   paramName: ParamKey,
   codec: IdCodec<Brand>,
   options?: IdParamOptions,
-): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
+): (
+  request: FastifyRequest<{ Params: Record<string, Id<Brand>> }>,
+  reply: FastifyReply,
+) => Promise<void> {
   return async (request, reply): Promise<void> => {
     const raw = (request.params as Record<ParamKey, unknown>)[paramName];
     const result = codec.safeParse(raw);
@@ -113,6 +116,6 @@ export function idParam<ParamKey extends string, Brand extends string>(
       }
       throw new IdParamError(reason, status);
     }
-    (request.params as Record<ParamKey, Id<Brand>>)[paramName] = result.id;
+    request.params[paramName] = result.id;
   };
 }

@@ -15,8 +15,8 @@ function makeReq(paramName: string, value: string | undefined): MockRequest {
   return { params: { [paramName]: value } };
 }
 
-function asReq(req: MockRequest): FastifyRequest {
-  return req as unknown as FastifyRequest;
+function asReq<T extends FastifyRequest = FastifyRequest>(req: MockRequest): T {
+  return req as unknown as T;
 }
 
 function asReply(): FastifyReply {
