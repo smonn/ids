@@ -2,34 +2,56 @@ name: Bench
 
 on:
   pull_request:
-    # Only run when something that can actually move the numbers changes. Docs/CI/ADR
-    # and test-only PRs (the bulk of traffic) skip the ~15-min double bench entirely.
-    paths:
-      - "src/**"
-      - "bench/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "tsconfig.json"
-      - "tsdown.bench.config.ts"
-      - ".github/workflows/bench.yml"
 
 concurrency:
   # Serialize bench repo-wide: one run at a time, the rest queue. A single bench job
   # pins a shared runner for ~15 min, so several firing at once (many PRs landing
   # together) starves the pool and inflates every run. Static group + no cancel = a
   # global FIFO queue. Trade-off vs the old per-ref+cancel setup: rapid re-pushes to
-  # the same PR queue rather than supersede, but the paths filter above keeps
-  # bench-triggering PRs rare enough that the backlog stays small.
+  # the same PR queue rather than supersede, but the `changes` gate below means only
+  # bench-affecting PRs run the suite, so the backlog stays small.
   group: bench
   cancel-in-progress: false
 
 jobs:
-  bench:
-    # Same-repo PRs only. A fork PR runs with a read-only GITHUB_TOKEN, so the
-    # comment / artifact-upload / regression-fail steps below would 403 and surface a
-    # spurious red check that isn't a real regression. (It also keeps untrusted fork
-    # code from running here at all.)
+  # Gate the expensive bench without a workflow-level `paths:` filter. Because `bench`
+  # is a *required* check, a path filter on `on:` would leave it stuck "Expected" on
+  # PRs that touch no bench files and block merge forever. A skipped *job*, by
+  # contrast, reports its required check as success — so we always run this cheap gate
+  # and let it skip `bench` for unrelated PRs. The same-repo guard lives here too: on
+  # fork PRs this job is skipped, which skips `bench` (no untrusted code, and none of
+  # the write-scoped steps below run to 403).
+  changes:
     if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.filter.outputs.run }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Detect bench-affecting changes
+        id: filter
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Fail safe: if the diff can't be computed, run the bench rather than
+          # silently skip a required regression check.
+          run=true
+          if changed=$(git diff --name-only "$BASE...$HEAD" 2>/dev/null); then
+            if printf '%s\n' "$changed" | grep -qE '^(src/|bench/|package\.json|pnpm-lock\.yaml|tsconfig\.json|tsdown\.bench\.config\.ts|\.github/workflows/bench\.yml)'; then
+              run=true
+            else
+              run=false
+            fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "bench-affecting changes: $run"
+
+  bench:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
