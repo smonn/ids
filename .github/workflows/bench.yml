@@ -4,14 +4,14 @@ on:
   pull_request:
 
 concurrency:
-  # Serialize bench repo-wide: one run at a time, the rest queue. A single bench job
-  # pins a shared runner for ~15 min, so several firing at once (many PRs landing
-  # together) starves the pool and inflates every run. Static group + no cancel = a
-  # global FIFO queue. Trade-off vs the old per-ref+cancel setup: rapid re-pushes to
-  # the same PR queue rather than supersede, but the `changes` gate below means only
-  # bench-affecting PRs run the suite, so the backlog stays small.
-  group: bench
-  cancel-in-progress: false
+  # Supersede stale runs of the same PR: a new push cancels the previous run on this
+  # ref, so the (required) bench check tracks the latest commit instead of queueing
+  # behind outdated runs. Cross-PR load is kept down by the `changes` gate below,
+  # which skips the suite entirely on PRs that touch no bench-affecting files — a
+  # global serialize-and-queue group would instead block each PR's latest commit
+  # behind unrelated and superseded runs.
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Gate the expensive bench without a workflow-level `paths:` filter. Because `bench`
