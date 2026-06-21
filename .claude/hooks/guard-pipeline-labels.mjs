@@ -7,8 +7,9 @@
 // by hand races the bot — see docs/agents/triage-labels.md.
 //
 // Exception: `address-feedback` and `needs-review` are maintainer-applied labels
-// (see the pipeline state label table in triage-labels.md) and may be set by the
-// monitoring agent on behalf of the maintainer.
+// (see the pipeline state label table in triage-labels.md). Actor identity cannot
+// be verified in a pre-tool hook, so any agent session may set these labels; the
+// trade-off is accepted because they control review lifecycle, not triage lifecycle.
 //
 // Updates that omit `labels` (body/title/state-only) pass through untouched, as
 // do issue writes whose labels are all non-lifecycle (e.g. just `enhancement`).
