@@ -109,24 +109,6 @@ export function getSigningKeyHmacKey(key: SigningKey): CryptoKey {
   return getSigningKeyInternals(key).hmacKey;
 }
 
-/**
- * Asserts that a signing keyring is non-empty.
- * @throws {IdsError} `empty_keyring` if the array is empty.
- * @deprecated Use {@link assertValidKeyring} with {@link signingKeysEqual} for a combined check, or rely on the codec constructor's built-in validation instead.
- */
-export function assertNonEmptySigningKeyring(keys: readonly SigningKey[]): void {
-  assertValidKeyring(keys, signingKeysEqual, "signing");
-}
-
-/**
- * Asserts that no two entries in the signing keyring share the same raw bytes.
- * @throws {IdsError} `duplicate_keyring_entry` if a duplicate is found.
- * @deprecated Use {@link assertValidKeyring} with {@link signingKeysEqual} for a combined check, or rely on the codec constructor's built-in validation instead.
- */
-export function assertNonDuplicateSigningKeys(keys: readonly SigningKey[]): void {
-  assertValidKeyring(keys, signingKeysEqual, "signing");
-}
-
 function getSigningKeyInternals(key: SigningKey): SigningKeyInternals {
   const keyInternals = internals.get(key);
   if (keyInternals === undefined) {

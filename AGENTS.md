@@ -19,7 +19,9 @@ Issues live in GitHub Issues on `smonn/ids`, accessed via the `gh` CLI. See `doc
 
 Default canonical vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
 
-**Agents must not set or remove pipeline/triage lifecycle labels** (`blocked`, `needs-triage`, `ready-for-agent`, `ready-for-human`, `in-progress`, `needs-info`, `wontfix`, `needs-human`, `needs-review`, `needs-rebase`, `address-feedback`). Those transitions are owned exclusively by the `.github/workflows/` App automations — e.g. when a blocker closes, `unblock.yml` flips `blocked → needs-triage` and triage re-evaluates; it never jumps straight to `ready-for-agent`. Setting them by hand races the bot. A `PreToolUse` hook in `.claude/settings.json` denies `mcp__github__issue_write` calls that include these labels. Set issue body/title/state freely; leave the lifecycle labels to the App.
+**Agents must not set or remove pipeline/triage lifecycle labels** (`blocked`, `needs-triage`, `ready-for-agent`, `ready-for-human`, `in-progress`, `needs-info`, `wontfix`, `needs-human`, `needs-rebase`). Those transitions are owned exclusively by the `.github/workflows/` App automations — e.g. when a blocker closes, `unblock.yml` flips `blocked → needs-triage` and triage re-evaluates; it never jumps straight to `ready-for-agent`. Setting them by hand races the bot. A `PreToolUse` hook in `.claude/settings.json` denies `mcp__github__issue_write` calls that include these labels. Set issue body/title/state freely; leave the lifecycle labels to the App.
+
+The review-lifecycle labels `address-feedback` and `needs-review` are the exception: the guard does **not** deny them. They pass through because they are **absent from the hook's `LIFECYCLE` set by omission, not via a positive allowlist**. Since a `PreToolUse` hook cannot verify actor identity, **any agent session may set them** (not just monitoring sessions) — accepted because they drive the review lifecycle, not triage.
 
 ### Domain docs
 

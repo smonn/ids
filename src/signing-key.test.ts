@@ -5,8 +5,6 @@ import {
   getSigningKeyHmacKey,
   importSigningKey,
   signingKeysEqual,
-  assertNonEmptySigningKeyring,
-  assertNonDuplicateSigningKeys,
   type SigningKey,
   type SigningKeyFormat,
 } from "./signing-key.js";
@@ -208,33 +206,6 @@ describe("signingKeysEqual", () => {
 });
 
 describe("keyring validation", () => {
-  it("assertNonEmptySigningKeyring accepts a single-entry keyring", async () => {
-    const key = await importSigningKey(bytes16);
-    expect(() => assertNonEmptySigningKeyring([key])).not.toThrow();
-  });
-
-  it("assertNonEmptySigningKeyring accepts a multi-entry keyring", async () => {
-    const key1 = await importSigningKey(bytes16);
-    const key2 = await importSigningKey(bytes32);
-    expect(() => assertNonEmptySigningKeyring([key1, key2])).not.toThrow();
-  });
-
-  it("assertNonEmptySigningKeyring throws IdsError empty_keyring for empty array", () => {
-    throwsIdsError(() => assertNonEmptySigningKeyring([]), "empty_keyring");
-  });
-
-  it("assertNonDuplicateSigningKeys accepts keys with distinct raw bytes", async () => {
-    const key1 = await importSigningKey(bytes16);
-    const key2 = await importSigningKey(bytes32);
-    expect(() => assertNonDuplicateSigningKeys([key1, key2])).not.toThrow();
-  });
-
-  it("assertNonDuplicateSigningKeys throws IdsError duplicate_keyring_entry for same raw bytes", async () => {
-    const key1 = await importSigningKey(bytes16);
-    const key2 = await importSigningKey(bytes16);
-    throwsIdsError(() => assertNonDuplicateSigningKeys([key1, key2]), "duplicate_keyring_entry");
-  });
-
   it("keys[0] is treated as current (first in array)", async () => {
     const key1 = await importSigningKey(bytes16);
     const key2 = await importSigningKey(bytes32);
