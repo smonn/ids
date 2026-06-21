@@ -550,7 +550,7 @@ describe("id", () => {
       const re = new RegExp(usr.toJsonSchema().pattern);
       expect(re.test("USR_01H7B3K9RQXN1CW3P9R8T2SGKW")).toBe(false); // uppercase
       expect(re.test("usr_Olh7b3k9rqxnIcw3p9r8t2sgkw")).toBe(false); // o/i/l aliases
-      expect(re.test("usr_ilo7b3k9rqxn1cw3p9r8t2sgkz")).toBe(false); // i, l, o present
+      expect(re.test("usr_ilo7b3k9rqxn1cw3p9r8t2sgkw")).toBe(false); // i, l, o present
     });
 
     it("different brands produce different patterns", () => {
