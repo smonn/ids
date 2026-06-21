@@ -166,3 +166,22 @@ jobs:
                top-level reply with `gh pr comment ${{ env.PR_NUMBER }} --body-file <file>`.
 
             Do NOT approve or merge the PR, and do NOT push to main. A human re-reviews.
+
+      # Close the review loop: once fixes are pushed, apply `needs-review` so review.yml
+      # fires automatically (via its `labeled` trigger) instead of waiting for a human to
+      # re-apply the label. The push-skip path (branch advanced past EVENT_SHA) leaves the
+      # head SHA equal to EVENT_SHA — in that case the agent already posted a comment and
+      # stopped, so we must NOT request a review.
+      - name: Apply needs-review label if push succeeded
+        if: success()
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          current_sha=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
+          if [ "$current_sha" != "$EVENT_SHA" ]; then
+            gh pr edit "$PR_NUMBER" --add-label needs-review
+            echo "Applied needs-review label (branch advanced to $current_sha)"
+          else
+            echo "Branch still at $EVENT_SHA — push was skipped; needs-review not applied"
+          fi
