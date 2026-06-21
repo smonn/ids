@@ -1,4 +1,3 @@
-import { IdsError } from "./error.js";
 import {
   assertValidKeyMaterialByteLength,
   decodeKeyMaterial,
@@ -105,30 +104,6 @@ export function signingKeysEqual(a: SigningKey, b: SigningKey): boolean {
  */
 export function getSigningKeyHmacKey(key: SigningKey): CryptoKey {
   return getSigningKeyInternals(key).hmacKey;
-}
-
-/**
- * Asserts that a signing keyring is non-empty.
- * @throws {IdsError} `empty_keyring` if the array is empty.
- */
-export function assertNonEmptySigningKeyring(keys: readonly SigningKey[]): void {
-  if (keys.length === 0) {
-    throw new IdsError("empty_keyring", "signing keyring must contain at least one key");
-  }
-}
-
-/**
- * Asserts that no two entries in the signing keyring share the same raw bytes.
- * @throws {IdsError} `duplicate_keyring_entry` if a duplicate is found.
- */
-export function assertNonDuplicateSigningKeys(keys: readonly SigningKey[]): void {
-  for (let i = 0; i < keys.length; i++) {
-    for (let j = i + 1; j < keys.length; j++) {
-      if (signingKeysEqual(keys[i]!, keys[j]!)) {
-        throw new IdsError("duplicate_keyring_entry", "duplicate signing key in keyring");
-      }
-    }
-  }
 }
 
 function getSigningKeyInternals(key: SigningKey): SigningKeyInternals {

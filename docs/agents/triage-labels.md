@@ -17,6 +17,8 @@ Edit the right-hand column to match whatever vocabulary you actually use.
 ## Pipeline state labels
 
 > **Ownership — App only, not agents.** Every label in the state machine below (and `ready-for-agent` / `ready-for-human` / `needs-triage` / `needs-info` / `wontfix` above) is a _pipeline_ label owned by the `.github/workflows/` automations. **Agents must not set or remove them.** When a blocker closes, `unblock.yml` flips `blocked → needs-triage` and triage re-evaluates — it never jumps an issue straight to `ready-for-agent`, so doing that by hand both usurps the App and lands the wrong state. A `PreToolUse` hook (`.claude/settings.json` → `.claude/hooks/guard-pipeline-labels.mjs`) denies any `mcp__github__issue_write` that includes one of these labels. Edit issue body/title/state as needed; leave the lifecycle labels to the App.
+>
+> **Exception — `address-feedback` and `needs-review`.** These two review-lifecycle labels are _not_ denied by the guard. They pass through because they are **absent from the hook's `LIFECYCLE` set by omission, not via a positive allowlist** — there is no dedicated carve-out entry, they are simply not listed. A `PreToolUse` hook cannot verify actor identity, so this is not a maintainer-only grant: **any agent session may set them**, and the trade-off is accepted because they control the review lifecycle (re-run automated review / address PR feedback), not the triage lifecycle.
 
 The autonomous workflows in `.github/workflows/` use additional labels to track an issue's state as it moves through triage → implementation → review. These are applied by the App, not by the `mattpocock/skills` vocabulary.
 

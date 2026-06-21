@@ -111,6 +111,27 @@ optional peer deps on the third-party lib — not as sibling packages.
   and the `is()` strict / `safeParse()` lenient split (ADR-0003). Probably one
   pass across both codec types, linking to the relevant ADR per method.~~ — shipped in #41.
 
+## Wire payload width (16 → 20 bytes)
+
+_Proposed, deferred to v1 — see [ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md)._
+
+The shared 16-byte payload is not a multiple of 5, so 26 Crockford base32 chars carry 2
+surplus padding bits in the final character — the root of the non-canonical trailing-bit
+issue (#210). The accepted fix for #210 pins those bits to zero in the canonical form
+([ADR-0003](./adr/0003-canonical-strict-is.md)). A **structural** alternative is to widen the
+payload to **20 bytes (160 bits → exactly 32 base32 chars, no padding)**, eliminating the
+surplus bits by construction.
+
+The open question is specifically **16 → 20** (15 bytes is rejected — it drops below the
+128-bit entropy floor). The cost is real: it invalidates every previously-issued ID across
+every codec, and because 20 bytes is not an AES block, the Opaque and Wrapped codecs' single-
+block AES strip trick ([ADR-0004](./adr/0004-aes-cbc-strip-trick.md)) must be replaced with a
+160-bit wide-block PRP (recommended: a 4-round Feistel reusing the existing single-block AES
+primitive). It also yields free upgrades — Timestamp/Reverse random 80 → 112 bits, Signed tag
+40 → 64 bits, Wrapped tag 64 → 96 bits. Because the #210 hole is already closed, this is a
+pure quality/entropy change whose breaking cost is best amortised in a deliberate v1
+breaking-change batch rather than shipped on its own.
+
 ## Explicitly rejected
 
 - **Monotonic intra-ms ordering.** See ADR-0002 — non-goal for public-facing IDs.
