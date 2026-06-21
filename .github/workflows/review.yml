@@ -13,6 +13,12 @@ name: Review agent PRs
 # `needs-review` label or workflow_dispatch) forces a fresh pass, deleting only that
 # same commit's prior summary AND inline comments so the new pass replaces them;
 # comments on earlier commits are left in place as history.
+#
+# As its final step the agent applies `address-feedback` to the PR when it found one
+# or more HARD findings, so address-review.yml picks the PR up automatically and the
+# agent fixes them — no human has to relay a review that surfaced real defects. Reviews
+# with only soft / judgment-call findings (or none) leave the label off, and a run the
+# dedup gate skipped never reaches the agent, so neither applies the label.
 
 on:
   pull_request:
@@ -207,6 +213,21 @@ jobs:
             The heading line and the `<!-- code-review:... -->` marker (the full SHA,
             kept verbatim) are the summary comment's dedup key — never alter or omit
             them; the post-run verify step fails the job if the summary is missing.
+
+            FINALLY, decide whether this review surfaced any HARD findings. A hard
+            finding is a real defect that needs a fix before merge — a clear Standards
+            violation or a missing / incorrect Spec requirement — as opposed to a soft
+            suggestion, nice-to-have, or judgment call. If you posted ONE OR MORE hard
+            findings (inline or in the summary), apply the `address-feedback` label as
+            your last action so the fix loop (address-review.yml) picks the PR up
+            automatically:
+
+                gh pr edit ${{ env.PR_NUMBER }} --add-label address-feedback
+
+            Do NOT apply the label if every finding is soft / a judgment call, or if you
+            found nothing — leave the PR for a human in that case. Applying this one
+            label is the only mutation you may make; it is not an approval or a change
+            request.
 
             This is a review only: never approve, request changes, merge, or edit code.
           # Read-only inspection plus gh/git for reading the diff and posting the
