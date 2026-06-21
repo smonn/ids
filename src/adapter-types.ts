@@ -14,7 +14,7 @@ export type IdCodec<Brand extends string> = {
 /** Re-exported from ORM adapter subpaths (`@smonn/ids/drizzle`, `@smonn/ids/prisma`, `@smonn/ids/kysely`) under the public name; structurally identical to {@link IdCodec}. */
 export type IdColumnCodec<Brand extends string> = IdCodec<Brand>;
 
-/** Parses `value` as `Id<Brand>` via `codec.safeParse`; throws `IdsError("invalid_id")` on failure. Shared read-path guard for ORM adapters. */
+/** Parses `value` as `Id<Brand>` via `codec.safeParse`; throws `IdsError("invalid_id")` on failure. Shared read helper for ORM adapters. */
 export function readIdColumn<Brand extends string>(
   codec: IdCodec<Brand>,
   value: unknown,
