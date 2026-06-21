@@ -35,7 +35,7 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'agent/issue-')
     runs-on: ubuntu-latest
     environment: automation
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       PR_NUMBER: ${{ github.event.pull_request.number }}
       # head.ref is PR-author-controlled; only ever used through this env var in
@@ -92,10 +92,17 @@ jobs:
           github_token: ${{ steps.app-token.outputs.token }}
           # The label may be applied by a maintainer (human) or our App.
           allowed_bots: "smonn[bot]"
+          # Code/test changes go through the project `tdd` skill (.claude/skills/tdd),
+          # invoked via `/tdd` in the prompt, so review fixes follow red→green→refactor
+          # and the testing standards rather than ad-hoc edits; `Skill` is in allowedTools
+          # so it can run (and chain to `/codebase-design`). The skill spends several
+          # turns per cycle, and a review can carry many threads, so this needs the same
+          # generous budget as implement.yml — keep --max-turns and timeout-minutes in
+          # step with each other.
           claude_args: |
-            --max-turns 60
+            --max-turns 150
             --model claude-sonnet-4-6
-            --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
+            --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
           prompt: |
             A human applied the `address-feedback` label to pull request
             #${{ env.PR_NUMBER }} (branch `${{ env.BRANCH }}`) of ${{ github.repository }}
@@ -109,7 +116,13 @@ jobs:
                `line`). Focus on the most recent human review.
             2. Address each actionable point as ITS OWN commit: make the change, then
                `git commit` it alone with a clear, scoped message (one fix per commit, so
-               each maps to a single hash). Make the changes faithfully. NEVER weaken,
+               each maps to a single hash). Make the changes faithfully. For any point
+               that changes behavior or needs new/changed tests, use the repo's `tdd`
+               skill — invoke it with `/tdd` — so the fix follows red→green→refactor and
+               the testing standards; you are headless, so do NOT pause for the skill's
+               interactive approval steps, proceed on the review comment as the agreed
+               spec. Trivial, non-behavioral edits (typos, comments, renames already
+               covered by tests) do not need the skill. NEVER weaken,
                skip, or delete tests to satisfy a comment, and NEVER touch a CLOSED design
                decision (CONTEXT.md, docs/adr/). You do not have to implement every
                point — for each one you don't, pick the honest resolution:

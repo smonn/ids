@@ -70,6 +70,48 @@ const userId = r.id; // Id<"usr">, canonical
 
 `ParseError` is exported as a literal union so the switch is exhaustive at compile time.
 
+### "Handle structured errors from this library"
+
+`parse()`, `unwrap()`, the ORM adapter read paths, and the codec constructors all throw `IdsError` on failure — a single class with a stable `code` field for programmatic branching. Use `isIdsError()` to safely identify them without depending on `instanceof` across module copies:
+
+```ts
+import { isIdsError } from "@smonn/ids";
+
+try {
+  users.parse(rawInput);
+} catch (err) {
+  if (isIdsError(err)) {
+    switch (err.code) {
+      case "invalid_id": // parse failed; err.cause is the ParseError string
+        return 400;
+      case "invalid_brand": // bad codec construction — fix the brand string
+        throw err;
+      // ...
+    }
+  }
+  throw err;
+}
+```
+
+**Error codes** (`IdsErrorCode` — stable contract; `message` is non-contractual):
+
+| `code`                    | meaning                                         | thrown by                                                 | remedy                                     |
+| ------------------------- | ----------------------------------------------- | --------------------------------------------------------- | ------------------------------------------ |
+| `invalid_brand`           | brand is not three lowercase `a–z` characters   | `create*Id(brand)` construction                           | Fix the brand string                       |
+| `invalid_key_format`      | format is not `hex` or `base64url`              | `decodeOpaqueKey`, `decodeWrappingKey`                    | Pass `"hex"` or `"base64url"`              |
+| `invalid_key_encoding`    | key string is malformed for its declared format | `decodeOpaqueKey`, `decodeWrappingKey`                    | Re-encode the key with the matching format |
+| `invalid_key_length`      | raw key is not 16, 24, or 32 bytes              | `importOpaqueKey`, `importWrappingKey`, decoder functions | Use a valid AES key size                   |
+| `invalid_kind`            | wrapped kind is not `u32`/`i32`/`u64`/`i64`     | `createWrappedKeyId({ kind })`                            | Use one of the four supported kinds        |
+| `empty_keyring`           | the wrapping keyring is empty                   | `createWrappedKeyId({ keys })`                            | Supply at least one `WrappingKey`          |
+| `duplicate_keyring_entry` | two keyring entries share the same raw secret   | `createWrappedKeyId({ keys })`                            | Deduplicate the key list                   |
+| `invalid_lookup_key`      | lookup key is out of range or the wrong JS type | `wrap(lookupKey)`                                         | Check the kind's range and JS type         |
+| `verification_failed`     | no keyring entry verifies the payload tag       | `unwrap(id)`                                              | Check keyring; tamper or wrong key         |
+| `invalid_id`              | string is not a valid ID for this brand         | `parse()`, ORM adapter read paths                         | Use `safeParse()` for untrusted input      |
+
+`invalid_id` carries the originating `ParseError` string on `cause` — check `err.cause` for `"not_string"`, `"invalid_prefix"`, or `"invalid_base32"` when you need to distinguish the failure mode.
+
+`isIdsError()` uses a non-enumerable brand symbol rather than bare `instanceof`, so it works correctly even when multiple copies of `@smonn/ids` are loaded in the same process (the ESM + CJS dual-package hazard).
+
 ### "Sort and date-stamp records using just the ID"
 
 The first 6 bytes of the payload are a big-endian millisecond Unix timestamp, so `ORDER BY id` sorts by creation time without a separate `created_at` column. To extract the timestamp from an existing ID:
@@ -414,6 +456,9 @@ import {
 } from "@smonn/ids";
 
 import {
+  IdsError, // re-exported for convenience — same class as "@smonn/ids"
+  isIdsError, // re-exported for convenience — same guard as "@smonn/ids"
+  type IdsErrorCode, // re-exported for convenience — same union as "@smonn/ids"
   createOpaqueTimestampId, // (brand: string, opts: OpaqueTimestampOptions) => OpaqueTimestampCodec<Brand>
   importOpaqueKey, // (bytes: Uint8Array) => Promise<OpaqueKey>
   encodeOpaqueKey, // (bytes: Uint8Array, format: OpaqueKeyFormat) => string
@@ -425,12 +470,18 @@ import {
 } from "@smonn/ids/opaque";
 
 import {
+  IdsError, // re-exported for convenience — same class as "@smonn/ids"
+  isIdsError, // re-exported for convenience — same guard as "@smonn/ids"
+  type IdsErrorCode, // re-exported for convenience — same union as "@smonn/ids"
   createReverseTimestampId, // (brand: string, opts?: ReverseTimestampOptions) => ReverseTimestampCodec<Brand>
   type ReverseTimestampCodec, // returned by createReverseTimestampId
   type ReverseTimestampOptions, // { now?, rng?, allowDuplicateBrand? } constructor options
 } from "@smonn/ids/reverse";
 
 import {
+  IdsError, // re-exported for convenience — same class as "@smonn/ids"
+  isIdsError, // re-exported for convenience — same guard as "@smonn/ids"
+  type IdsErrorCode, // re-exported for convenience — same union as "@smonn/ids"
   createWrappedKeyId, // (brand: string, opts: { kind: "u32" | "i32" | "u64" | "i64", keys }) => WrappedKeyCodec<Brand, Kind>
   importWrappingKey, // (bytes: Uint8Array) => Promise<WrappingKey>
   encodeWrappingKey, // (bytes: Uint8Array, format: WrappingKeyFormat) => string
@@ -441,15 +492,30 @@ import {
 } from "@smonn/ids/wrapped";
 
 import {
+  IdsError, // re-exported for convenience — same class as "@smonn/ids"
+  isIdsError, // re-exported for convenience — same guard as "@smonn/ids"
+  type IdsErrorCode, // re-exported for convenience — same union as "@smonn/ids"
   idColumn, // (codec: IdColumnCodec<Brand>) => PgCustomColumnBuilder (Drizzle column)
   type IdColumnCodec, // { safeParse(value: unknown): ParseResult<Brand> }
 } from "@smonn/ids/drizzle";
 
 import {
+  IdsError, // re-exported for convenience — same class as "@smonn/ids"
+  isIdsError, // re-exported for convenience — same guard as "@smonn/ids"
+  type IdsErrorCode, // re-exported for convenience — same union as "@smonn/ids"
   idField, // (codec: IdColumnCodec<Brand>) => IdTransform<Brand> — read/write transforms for Prisma $extends
   type IdColumnCodec, // { safeParse(value: unknown): ParseResult<Brand> }
   type IdTransform, // { read(value: unknown): Id<Brand>; write(value: Id<Brand>): string }
 } from "@smonn/ids/prisma";
+
+import {
+  IdsError, // re-exported for convenience — same class as "@smonn/ids"
+  isIdsError, // re-exported for convenience — same guard as "@smonn/ids"
+  type IdsErrorCode, // re-exported for convenience — same union as "@smonn/ids"
+  idColumn, // (codec: IdColumnCodec<Brand>) => { toDriver, fromDriver }
+  type IdColumnCodec, // { safeParse(value: unknown): ParseResult<Brand> }
+  type IdColumnType, // ColumnType<Id<Brand>, Id<Brand>, Id<Brand>>
+} from "@smonn/ids/kysely";
 
 import {
   idParam, // (paramName: string, codec, options?) => Hono MiddlewareHandler — throws HTTPException by default; onError/status options override
@@ -651,6 +717,9 @@ const id = usrCol.fromDriver(row.id as unknown as string);
 
 ```ts
 import {
+  IdsError, // re-exported for convenience — same class as "@smonn/ids"
+  isIdsError, // re-exported for convenience — same guard as "@smonn/ids"
+  type IdsErrorCode, // re-exported for convenience — same union as "@smonn/ids"
   idColumn, // (codec: IdColumnCodec<Brand>) => { toDriver, fromDriver }
   type IdColumnCodec, // { safeParse(value: unknown): ParseResult<Brand> }
   type IdColumnType, // ColumnType<Id<Brand>, Id<Brand>, Id<Brand>>

@@ -17,32 +17,32 @@ module.exports = {
     {
       name: "drizzle-adapter-no-internals",
       severity: "error",
-      comment: "drizzle adapter may import only types from @smonn/ids internals",
+      comment: "drizzle adapter may import only types and error surface from @smonn/ids internals",
       from: { path: "^src/drizzle\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/types\\.ts$",
+        pathNot: "^src/(types|error)\\.ts$",
       },
     },
     {
       name: "kysely-adapter-no-internals",
       severity: "error",
       comment:
-        "kysely adapter may import only types from @smonn/ids internals and the drizzle adapter",
+        "kysely adapter may import only types, error surface, and the drizzle adapter from @smonn/ids internals",
       from: { path: "^src/kysely\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/(types|drizzle)\\.ts$",
+        pathNot: "^src/(types|drizzle|error)\\.ts$",
       },
     },
     {
       name: "prisma-adapter-no-internals",
       severity: "error",
-      comment: "prisma adapter may import only types from @smonn/ids internals",
+      comment: "prisma adapter may import only types and error surface from @smonn/ids internals",
       from: { path: "^src/prisma\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/types\\.ts$",
+        pathNot: "^src/(types|error)\\.ts$",
       },
     },
     {

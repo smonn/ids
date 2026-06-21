@@ -7,7 +7,7 @@
  */
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createTimestampId } from "./timestamp.js";
-import { idField, type IdColumnCodec } from "./prisma.js";
+import { idField, IdsError, isIdsError, type IdColumnCodec } from "./prisma.js";
 import type { Id } from "./types.js";
 
 describe("prisma", () => {
@@ -44,14 +44,39 @@ describe("prisma", () => {
 
   it("rejects a wrong-brand value", () => {
     const orgId = org.generate();
-    expect(() => transform.read(orgId)).toThrow("[ids] invalid ID from database: invalid_prefix");
+    let err: unknown;
+    try {
+      transform.read(orgId);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("invalid_prefix");
   });
 
   it("rejects a malformed value", () => {
-    expect(() => transform.read("not-a-valid-id")).toThrow("[ids] invalid ID from database:");
+    let err: unknown;
+    try {
+      // valid prefix, invalid base32 payload
+      transform.read("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("invalid_base32");
   });
 
   it("rejects a non-string value", () => {
-    expect(() => transform.read(42)).toThrow("[ids] invalid ID from database: not_string");
+    let err: unknown;
+    try {
+      transform.read(42);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("not_string");
   });
 });

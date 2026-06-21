@@ -16,6 +16,8 @@ Edit the right-hand column to match whatever vocabulary you actually use.
 
 ## Pipeline state labels
 
+> **Ownership — App only, not agents.** Every label in the state machine below (and `ready-for-agent` / `ready-for-human` / `needs-triage` / `needs-info` / `wontfix` above) is a _pipeline_ label owned by the `.github/workflows/` automations. **Agents must not set or remove them.** When a blocker closes, `unblock.yml` flips `blocked → needs-triage` and triage re-evaluates — it never jumps an issue straight to `ready-for-agent`, so doing that by hand both usurps the App and lands the wrong state. A `PreToolUse` hook (`.claude/settings.json` → `.claude/hooks/guard-pipeline-labels.mjs`) denies any `mcp__github__issue_write` that includes one of these labels. Edit issue body/title/state as needed; leave the lifecycle labels to the App.
+
 The autonomous workflows in `.github/workflows/` use additional labels to track an issue's state as it moves through triage → implementation → review. These are applied by the App, not by the `mattpocock/skills` vocabulary.
 
 | Label              | Applied by                        | Meaning                                                                                                                                                                                                             |

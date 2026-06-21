@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi, afterAll, beforeAll } from "vitest";
 import { createTimestampId } from "./timestamp.js";
-import { idColumn, type IdColumnCodec, type IdColumnType } from "./kysely.js";
+import { idColumn, IdsError, isIdsError, type IdColumnCodec, type IdColumnType } from "./kysely.js";
 import type { Id } from "./types.js";
 import type { ColumnType } from "kysely";
 
@@ -48,13 +48,28 @@ describe("kysely", () => {
 
   it("rejects a wrong-brand value from DB", () => {
     const orgId = org.generate();
-    expect(() => usrCol.fromDriver(orgId as unknown as string)).toThrow(
-      "[ids] invalid ID from database: invalid_prefix",
-    );
+    let err: unknown;
+    try {
+      usrCol.fromDriver(orgId as unknown as string);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("invalid_prefix");
   });
 
   it("rejects a malformed value from DB", () => {
-    expect(() => usrCol.fromDriver("not-a-valid-id")).toThrow("[ids] invalid ID from database:");
+    let err: unknown;
+    try {
+      // valid prefix, invalid base32 payload
+      usrCol.fromDriver("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("invalid_base32");
   });
 
   it("IdColumnCodec accepts any codec variant with safeParse", () => {

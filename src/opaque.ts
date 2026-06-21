@@ -5,6 +5,8 @@ import { registerBrand } from "./registry.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
 
+/** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
+export { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 export {
   decodeOpaqueKey,
   encodeOpaqueKey,
