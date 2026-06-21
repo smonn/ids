@@ -1536,6 +1536,15 @@ describe("cli generate --signed", () => {
     expect(result.stderr).toBe("cannot use --signed and --reverse together\n");
   });
 
+  it("rejects --signed and --wrapped together (--wrapped is unsupported in generate)", async () => {
+    const result = await runCapture(["generate", "usr", "--signed", "--wrapped"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("--wrapped");
+  });
+
   it("rejects malformed IDS_SIGNING_KEY", async () => {
     const result = await runCapture(["generate", "usr", "--signed"], {
       env: { IDS_SIGNING_KEY: "not-hex!" },
