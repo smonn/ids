@@ -3,7 +3,7 @@ import { createOpaqueTimestampId, type OpaqueKeyFormat } from "../../opaque.js";
 import { createReverseTimestampId } from "../../reverse.js";
 import { createWrappedKeyId, type WrappingKey } from "../../wrapped.js";
 import { codecOpts } from "../codec-options.js";
-import { formatInspectOutput, formatWrappedInspectOutput } from "../format.js";
+import { formatCliError, formatInspectOutput, formatWrappedInspectOutput } from "../format.js";
 import {
   isKindError,
   parseKind,
@@ -91,7 +91,7 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
     try {
       reverseCodec = createReverseTimestampId(brand, codecOpts(opts));
     } catch (err) {
-      opts.stderr((err as Error).message + "\n");
+      opts.stderr(formatCliError(err) + "\n");
       return Promise.resolve(1);
     }
     const reverseValidation = reverseCodec["~standard"].validate(input);
@@ -117,7 +117,7 @@ export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<
   try {
     codec = createTimestampId(brand, codecOpts(opts));
   } catch (err) {
-    opts.stderr((err as Error).message + "\n");
+    opts.stderr(formatCliError(err) + "\n");
     return Promise.resolve(1);
   }
   const validation = codec["~standard"].validate(input);
@@ -160,7 +160,7 @@ async function runWrappedInspect(
       allowDuplicateBrand: true,
     });
   } catch (err) {
-    opts.stderr((err as Error).message + "\n");
+    opts.stderr(formatCliError(err) + "\n");
     return 1;
   }
   const validation = codec["~standard"].validate(input);
@@ -173,7 +173,7 @@ async function runWrappedInspect(
   try {
     lookupKey = await codec.unwrap(canonical);
   } catch (err) {
-    opts.stderr((err as Error).message + "\n");
+    opts.stderr(formatCliError(err) + "\n");
     return 1;
   }
   opts.stdout(
@@ -202,7 +202,7 @@ async function runOpaqueInspect(
   try {
     codec = createOpaqueTimestampId(brand, { key: keyResult, ...codecOpts(opts) });
   } catch (err) {
-    opts.stderr((err as Error).message + "\n");
+    opts.stderr(formatCliError(err) + "\n");
     return 1;
   }
   const validation = codec["~standard"].validate(input);

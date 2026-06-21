@@ -1,3 +1,4 @@
+import { isIdsError } from "../error.js";
 import type { Id } from "../types.js";
 
 type InspectOutput = {
@@ -14,6 +15,10 @@ type WrappedInspectOutput = {
   canonical: Id<string>;
   input: string;
 };
+
+export function formatCliError(err: unknown): string {
+  return isIdsError(err) ? `${err.code}: ${err.message}` : (err as Error).message;
+}
 
 export function formatWrappedInspectOutput(result: WrappedInspectOutput): string {
   const inputLine = describeInputForm(result.input, result.canonical);

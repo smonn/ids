@@ -9,6 +9,8 @@ import {
 } from "./wrapped.js";
 import { createReverseTimestampId } from "./reverse.js";
 import { run } from "./cli.js";
+import { IdsError } from "./error.js";
+import { formatCliError } from "./cli/format.js";
 
 type Capture = {
   stdout: string;
@@ -43,6 +45,23 @@ async function runCapture(
   });
   return { stdout, stderr, exitCode };
 }
+
+describe("formatCliError", () => {
+  it("prefixes IdsError with its stable error code", () => {
+    const err = new IdsError(
+      "invalid_brand",
+      "invalid brand: expected three lowercase a-z characters",
+    );
+    expect(formatCliError(err)).toBe(
+      "invalid_brand: invalid brand: expected three lowercase a-z characters",
+    );
+  });
+
+  it("returns plain message for non-IdsError", () => {
+    const err = new Error("something unexpected");
+    expect(formatCliError(err)).toBe("something unexpected");
+  });
+});
 
 describe("cli", () => {
   describe("usage", () => {
@@ -147,7 +166,7 @@ describe("cli", () => {
       const result = await runCapture(["inspect", "12X_01h7b3k9rqxn1cw3p9r8t2sgkz"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toContain("invalid brand");
+      expect(result.stderr).toContain("invalid_brand");
     });
 
     it("non-canonical (uppercase only) reports 'was uppercase' and shows canonical form", async () => {
@@ -281,7 +300,7 @@ describe("cli", () => {
         env: { IDS_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain("invalid brand");
+      expect(result.stderr).toContain("invalid_brand");
     });
 
     it("--opaque rejects invalid base32 payload", async () => {
@@ -395,14 +414,14 @@ describe("cli", () => {
     it("missing brand arg surfaces the createTimestampId error and exits 1", async () => {
       const result = await runCapture(["generate"]);
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain("invalid brand");
+      expect(result.stderr).toContain("invalid_brand");
     });
 
     it("invalid brand surfaces the createTimestampId error and exits 1", async () => {
       const result = await runCapture(["generate", "BAD"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toContain("invalid brand");
+      expect(result.stderr).toContain("invalid_brand");
     });
 
     it("rejects flags that belong to another command", async () => {
@@ -594,13 +613,13 @@ describe("cli", () => {
         env: { IDS_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain("invalid brand");
+      expect(result.stderr).toContain("invalid_brand");
     });
 
     it("--opaque rejects a missing brand", async () => {
       const result = await runCapture(["generate", "--opaque"], { env: { IDS_KEY: testKeyHex } });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain("invalid brand");
+      expect(result.stderr).toContain("invalid_brand");
     });
 
     it("--opaque rejects malformed IDS_KEY", async () => {
@@ -1026,7 +1045,7 @@ describe("cli inspect --wrapped", () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("verification failed");
+    expect(result.stderr).toContain("verification_failed");
   });
 
   it("exits 1 when IDS_WRAPPING_KEY is missing", async () => {
@@ -1147,7 +1166,7 @@ describe("cli inspect --wrapped", () => {
     );
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("invalid brand");
+    expect(result.stderr).toContain("invalid_brand");
   });
 
   it("rejects a missing --key-format value with --wrapped", async () => {
@@ -1263,14 +1282,14 @@ describe("cli generate --reverse", () => {
     const result = await runCapture(["generate", "BAD", "--reverse"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("invalid brand");
+    expect(result.stderr).toContain("invalid_brand");
   });
 
   it("--reverse rejects a missing brand", async () => {
     const result = await runCapture(["generate", "--reverse"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("invalid brand");
+    expect(result.stderr).toContain("invalid_brand");
   });
 
   it("--reverse with --opaque emits a conflict error and exits 1", async () => {
@@ -1333,7 +1352,7 @@ describe("cli inspect --reverse", () => {
     const result = await runCapture(["inspect", "12X_00000000000000000000000000", "--reverse"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("invalid brand");
+    expect(result.stderr).toContain("invalid_brand");
   });
 
   it("--reverse rejects invalid base32 payload", async () => {
