@@ -1,13 +1,13 @@
 # 20-byte payload: a wide-block PRP retires the base32 padding bits
 
-> **Status: Proposed — deferred to v1.** This ADR records a design that is *not* yet
+> **Status: Proposed — deferred to v1.** This ADR records a design that is _not_ yet
 > accepted. The live fix for the underlying security issue (#210) is the canonical-form
 > padding-bit constraint amended into [ADR-0003](./0003-canonical-strict-is.md); see
 > [ADR-0003](./0003-canonical-strict-is.md) and PR #211. The 20-byte redesign below is a
 > structural alternative that should be evaluated as part of a deliberate v1
 > breaking-change batch, not shipped in isolation. The first `##` section explains why.
 
-Pre-v1, we *could* widen the shared wire payload from 16 to **20 bytes (160 bits → exactly
+Pre-v1, we _could_ widen the shared wire payload from 16 to **20 bytes (160 bits → exactly
 32 Crockford base32 chars, no padding)**. Doing so would supersede the 16-byte invariant
 ([ADR-0002](./0002-payload-layout.md)) and the AES-CBC single-block strip trick
 ([ADR-0004](./0004-aes-cbc-strip-trick.md)), and would make the final-character
@@ -25,7 +25,7 @@ larger tags). The cost/benefit then looks like this:
   Timestamp random tail, bigger HMAC tags — all desirable, none of it fixes a live problem
   once the padding-bit constraint is in place.
 - **Costs are large and partly risky.** It invalidates every previously-issued ID across
-  *every* codec, *and* it introduces brand-new cryptographic code (a wide-block PRP) that
+  _every_ codec, _and_ it introduces brand-new cryptographic code (a wide-block PRP) that
   needs its own security review. Shipping new crypto reactively to retire 2 padding bits
   that are already neutralised is a poor trade.
 - **A major breaking change wants to be amortised.** Invalidating all IDs is a
@@ -43,10 +43,10 @@ Base32 packs 5 bits per character, so a padding-free payload requires `byteLengt
 multiple of 5: `128 bits → ⌈128/5⌉ = 26 chars = 130 bits`, leaving **2 surplus bits** in the
 final character — the root cause of #210. The mod-5 candidates bracketing today's 16 bytes:
 
-| bytes | bits | base32 chars | vs. today (128-bit) |
-| ----- | ---- | ------------ | ------------------- |
+| bytes | bits | base32 chars | vs. today (128-bit)                  |
+| ----- | ---- | ------------ | ------------------------------------ |
 | 15    | 120  | 24           | shorter, **below the 128-bit floor** |
-| 20    | 160  | 32           | longer, **≥ 128 bits** |
+| 20    | 160  | 32           | longer, **≥ 128 bits**               |
 
 20 bytes is the smallest mod-5 length that does not reduce the entropy floor. It encodes to
 exactly 32 chars, so `payloadBase32Length = ⌈20·8/5⌉ = 32` becomes exact and the surplus
@@ -80,26 +80,26 @@ for Wrapped/Signed, none for Opaque).
 
 ## Field re-layouts at 20 bytes (free upgrades)
 
-| codec               | today (16 B)                  | proposed (20 B)              | effect            |
-| ------------------- | ----------------------------- | ---------------------------- | ----------------- |
-| Timestamp / Reverse | `ts6 ‖ rand10` (80-bit rand)  | `ts6 ‖ rand14`               | 112-bit random    |
-| Signed              | `ts6 ‖ rand5 ‖ tag5` (40-bit) | `ts6 ‖ rand6 ‖ tag8`         | 64-bit tag        |
-| Wrapped             | `lane8 ‖ tag8` (64-bit tag)   | `lane8 ‖ tag12`              | 96-bit tag        |
-| Opaque              | `ts6 ‖ rand10`, single-block  | `ts6 ‖ rand14`, Feistel-PRP  | 112-bit random    |
+| codec               | today (16 B)                  | proposed (20 B)             | effect         |
+| ------------------- | ----------------------------- | --------------------------- | -------------- |
+| Timestamp / Reverse | `ts6 ‖ rand10` (80-bit rand)  | `ts6 ‖ rand14`              | 112-bit random |
+| Signed              | `ts6 ‖ rand5 ‖ tag5` (40-bit) | `ts6 ‖ rand6 ‖ tag8`        | 64-bit tag     |
+| Wrapped             | `lane8 ‖ tag8` (64-bit tag)   | `lane8 ‖ tag12`             | 96-bit tag     |
+| Opaque              | `ts6 ‖ rand10`, single-block  | `ts6 ‖ rand14`, Feistel-PRP | 112-bit random |
 
 ## Considered options
 
 - **Stay at 16 bytes + pin the padding bits (ADR-0003 amendment / PR #211) — ACCEPTED as the
   #210 fix; this ADR is the deferred alternative.** Correct and zero-migration, at the price
   of leaving the surplus bits and a length-specific `[048cgmrw]` final-char class in place.
-- **20 bytes + 4-round Feistel wide-block PRP — the recommended form *if* we take the
+- **20 bytes + 4-round Feistel wide-block PRP — the recommended form _if_ we take the
   redesign.** Clean PRP, reuses the existing single-block primitive, +entropy/+tag bits.
 - **20 bytes + AES-CBC ciphertext-stealing (CTS) — fallback.** Smallest delta from the strip
   trick (~2 calls) but hand-rolled (no WebCrypto CTS), CBC-malleable, and a fussier security
   writeup than Feistel for little saving. Documented in case the 4-call cost ever bites.
 - **15 bytes / 120 bits — REJECTED.** Shorter IDs, but below the 128-bit entropy floor
   (72-bit Timestamp random tail).
-- **80 bytes (mod-5 ∧ mod-16) — REJECTED.** The only length keeping single-block AES *and*
+- **80 bytes (mod-5 ∧ mod-16) — REJECTED.** The only length keeping single-block AES _and_
   zero padding, but 128-char IDs are a non-starter.
 - **CTR-family / FPE (FF1/FF3) — REJECTED.** CTR with a fixed/derived counter degenerates or
   risks keystream reuse (ADR-0004 already rejected the CTR family); FPE adds bundle weight.
