@@ -29,7 +29,7 @@ function assertKeyMaterialFormat(
  * Throws `empty_keyring` when `keys` is empty.
  * `noun` appears in the message (e.g. `"signing"` → "signing keyring must contain at least one key").
  */
-export function assertNonEmptyKeyring(keys: readonly unknown[], noun: string): void {
+export function assertNonEmptyKeyring<K = unknown>(keys: readonly K[], noun: string): void {
   if (keys.length === 0) {
     throw new IdsError("empty_keyring", `${noun} keyring must contain at least one key`);
   }
