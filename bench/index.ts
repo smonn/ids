@@ -71,24 +71,37 @@ type Bench = {
 
 const results: Bench[] = [];
 
-// Pin sample counts. Mitata batches ops under ~65µs (every op here), so each
-// "sample" is the mean of 4096 individual calls. 2000 batch-means tightens the
-// percentile noise on the jittery µs-scale opaque.* ops (which dominate variance)
-// without the wall higher counts hit: 10k × 4096 × ~30µs ≈ 20 min for the slow
-// async ops. Pair this with compare.ts's tiered thresholds; raise further only if
-// the opaque.* noise floor still trips the blocking threshold.
-const measureOpts = { min_samples: 2000, max_samples: 2000 } as const;
+// Pin sample counts per op class. The two classes batch differently under mitata,
+// so a single count can't serve both:
+//
+//   - Sync ns-scale ops (generate, parse, base32, reverse.*) are batched: every
+//     "sample" is already the mean of 4096 individual calls. A few hundred such
+//     batch-means pin the p50 to well within compare.ts's 15% warn threshold
+//     (measured run-to-run drift <1%), so SYNC_SAMPLES stays low — each extra
+//     sample is 4096 real calls, and these ops are the entire wall-clock cost.
+//   - Async crypto ops (opaque.* / wrapped.* / signed.*) are NOT batched: mitata
+//     runs one real call per sample (~70–250µs each). They want a high count to
+//     tame the µs-scale scheduler/thermal jitter that dominates their variance,
+//     and it stays cheap precisely because there is no ×4096 batch — 2000 samples
+//     is ~0.2–0.5s per op, not minutes. Pair with compare.ts's tiered thresholds.
+const SYNC_SAMPLES = 256;
+const ASYNC_SAMPLES = 2000;
+const syncOpts = { min_samples: SYNC_SAMPLES, max_samples: SYNC_SAMPLES } as const;
+const asyncOpts = { min_samples: ASYNC_SAMPLES, max_samples: ASYNC_SAMPLES } as const;
 
 for (const c of cases) {
-  const stats = await measure(function* () {
-    if (c.async) {
-      const fn = c.fn;
-      yield async () => do_not_optimize(await fn());
-    } else {
-      const fn = c.fn;
-      yield () => do_not_optimize(fn());
-    }
-  }, measureOpts);
+  const stats = await measure(
+    function* () {
+      if (c.async) {
+        const fn = c.fn;
+        yield async () => do_not_optimize(await fn());
+      } else {
+        const fn = c.fn;
+        yield () => do_not_optimize(fn());
+      }
+    },
+    c.async ? asyncOpts : syncOpts,
+  );
   results.push({
     name: c.name,
     avg_ns: stats.avg,
