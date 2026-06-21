@@ -67,36 +67,35 @@ jobs:
       # flagging the same point can't loop forever — mirrors autofix.yml's MAX_ATTEMPTS.
       # A human applying the label breaks the cycle and resets the counter, and an
       # already-escalated PR is skipped.
+      #
+      # The round count lives in an `auto-round-N` label on the PR (defined in labels.yml),
+      # NOT a hidden comment — a body-only `<!-- ... -->` comment still renders as a blank
+      # bubble in the timeline. A label keeps the conversation clean and lets a maintainer
+      # RESET the counter by simply removing the `auto-round-N` label in the PR sidebar.
       - name: Guard against runaway auto-address loops
         id: gate
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           SENDER: ${{ github.event.sender.login }}
+          # Keep in step with the auto-round-* labels defined in labels.yml.
           MAX_AUTO_ROUNDS: "3"
         run: |
-          marker="<!-- auto-address-rounds:"
           labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
           if echo "$labels" | grep -qx 'needs-human'; then
             echo "PR #$PR_NUMBER already escalated to needs-human; skipping."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Locate the hidden round-counter comment (authored by the App) and read N.
-          cid=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
-            --jq "[.[] | select(.user.login == \"smonn[bot]\" and (.body | contains(\"$marker\")))][0].id // empty")
+          # Read the current round from the lone auto-round-N label (0 if none present).
+          round_label=$(echo "$labels" | grep -oE '^auto-round-[0-9]+$' | head -n1)
           count=0
-          if [ -n "$cid" ]; then
-            count=$(gh api "repos/$GH_REPO/issues/comments/$cid" --jq '.body' \
-              | grep -oE 'auto-address-rounds:[0-9]+' | grep -oE '[0-9]+' | head -n1)
-            count=${count:-0}
-          fi
+          [ -n "$round_label" ] && count=${round_label#auto-round-}
           if [ "$SENDER" != "smonn[bot]" ]; then
             # A human applied the label — a fresh, human-driven request the cap must not
-            # interfere with. Clear any stale counter from a prior auto-loop and proceed
-            # without posting bookkeeping noise.
+            # interfere with. Clear any stale round label from a prior auto-loop and proceed.
             echo "Human ($SENDER) applied address-feedback; resetting the round counter."
-            [ -n "$cid" ] && gh api -X DELETE "repos/$GH_REPO/issues/comments/$cid" >/dev/null || true
+            [ -n "$round_label" ] && gh pr edit "$PR_NUMBER" --remove-label "$round_label" || true
             echo "proceed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -105,19 +104,15 @@ jobs:
             echo "Auto-address round cap reached ($count/$MAX_AUTO_ROUNDS) — escalating instead of looping."
             gh pr comment "$PR_NUMBER" --body "The automated review-fix loop ran $count round(s) without converging. Escalating for human review."
             gh pr edit "$PR_NUMBER" --add-label needs-human
+            [ -n "$round_label" ] && gh pr edit "$PR_NUMBER" --remove-label "$round_label" || true
             echo "proceed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # Advance the round: drop the old auto-round label (if any) and apply the next one.
+          # The count is surfaced to humans via the label itself and the escalation comment.
           next=$((count + 1))
-          # Record the round as a hidden marker only (no visible text) so the next
-          # bot-driven run can read it without adding a visible comment; the round count
-          # is surfaced to humans only in the escalation comment above.
-          body="${marker}${next} -->"
-          if [ -n "$cid" ]; then
-            gh api -X PATCH "repos/$GH_REPO/issues/comments/$cid" -f body="$body" >/dev/null
-          else
-            gh api -X POST "repos/$GH_REPO/issues/$PR_NUMBER/comments" -f body="$body" >/dev/null
-          fi
+          [ -n "$round_label" ] && gh pr edit "$PR_NUMBER" --remove-label "$round_label" || true
+          gh pr edit "$PR_NUMBER" --add-label "auto-round-$next"
           echo "Auto-address round $next of $MAX_AUTO_ROUNDS; proceeding."
           echo "proceed=true" >> "$GITHUB_OUTPUT"
 
