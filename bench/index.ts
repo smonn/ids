@@ -84,7 +84,7 @@ const results: Bench[] = [];
 //     OS scheduler and thermal jitter (~0.8 ms/sample floor even for a no-op)
 //     dominate variance — not statistical accuracy — so a high sample count buys
 //     nothing except wall-clock time. 300–500 samples are sufficient given
-//     compare.ts's loose 30–50% thresholds; beyond that, more samples measure
+//     compare.ts's 30% (default) and 50% (async-crypto) fail thresholds; beyond that, more samples measure
 //     the machine, not the code. Lowered from 2000 to 500.
 const SYNC_SAMPLES = 256;
 const ASYNC_SAMPLES = 500;
