@@ -27,5 +27,5 @@
     "verbatimModuleSyntax": true,
     "types": ["node"]
   },
-  "exclude": ["tsdown.config.ts", "tsdown.bench.config.ts", "vitest.config.ts"]
+  "exclude": ["tsdown.config.ts", "tsdown.bench.config.ts", "vitest.config.ts", "website"]
 }

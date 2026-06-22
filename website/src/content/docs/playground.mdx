@@ -1,0 +1,20 @@
+---
+title: Playground
+description: Generate, verify, unwrap, and inspect every @smonn/ids codec live in your browser.
+---
+
+import Playground from "../../components/playground/Playground.tsx";
+
+This playground runs the **real `@smonn/ids` library** in your browser — the
+same code published to npm, driven by WebCrypto. Keys are generated locally and
+never leave the page. Pick a codec, generate an ID, and try verifying, decrypting,
+or unwrapping it.
+
+<Playground client:only="preact" />
+
+:::note
+Keyed codecs (Signed, Opaque, Wrapped) generate a random key for you on load.
+Edit the hex key to see how a wrong key changes the outcome — the Signed and
+Wrapped codecs **reject** a wrong key, while the Opaque codec returns a
+plausible-but-wrong timestamp without erroring (it has no authentication tag).
+:::

@@ -1,5 +1,10 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "project": ["src/**/*.ts", "bench/**/*.ts"],
-  "ignoreDependencies": ["depcruise", "@prisma/client"]
+  "ignoreDependencies": ["depcruise", "@prisma/client"],
+  "workspaces": {
+    ".": {
+      "project": ["src/**/*.ts", "bench/**/*.ts"]
+    },
+    "website": {}
+  }
 }
