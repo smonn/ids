@@ -1,4 +1,7 @@
 packages:
+  # The root package (@smonn/ids) is the published library; listing it keeps
+  # changesets versioning/publishing it now that website/ makes this a monorepo.
+  - "."
   - website
 
 allowBuilds:
