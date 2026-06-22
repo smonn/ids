@@ -111,6 +111,7 @@ describe("opaque", () => {
       const id = toWireId("usr_", payload);
       const result = await usr.extractTimestamp(id);
       expect(result).toBeInstanceOf(Date);
+      expect(Number.isFinite(result.getTime())).toBe(true);
     }
   });
 
