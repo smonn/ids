@@ -917,12 +917,12 @@ input:     canonical
 
 Accepts non-canonical input (uppercase, Crockford aliases). Pass the flag that matches the codec variant used at generation — without a flag, the **Timestamp codec** is assumed.
 
-| Flag                   | Codec variant           | Env var                      | Notes                                                                                         |
-| ---------------------- | ----------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
-| _(none)_               | Timestamp codec         | —                            | Timestamp readable directly                                                                   |
-| `--opaque`             | Opaque Timestamp codec  | `IDS_KEY`                    | Wrong key yields plausible-but-wrong timestamp, not an error (see [CONTEXT.md](./CONTEXT.md)) |
-| `--reverse`            | Reverse Timestamp codec | —                            | No key required; timestamp decoded from inverted bytes                                        |
-| `--wrapped --kind <k>` | Wrapped key codec       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`, `i32`, `u64`, `i64`; prints `lookup-key`                            |
+| Flag                   | Codec variant           | Env var                      | Notes                                                                                           |
+| ---------------------- | ----------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| _(none)_               | Timestamp codec         | —                            | Timestamp readable directly                                                                     |
+| `--opaque`             | Opaque Timestamp codec  | `IDS_KEY`                    | Wrong key yields plausible-but-wrong timestamp, not an error (see [CONTEXT.md](./CONTEXT.md))   |
+| `--reverse`            | Reverse Timestamp codec | —                            | No key required; timestamp decoded from inverted bytes                                          |
+| `--wrapped --kind <k>` | Wrapped key codec       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`, `i32`, `u64`, `i64`; prints `lookup-key`                              |
 | `--signed`             | Signed Timestamp codec  | `IDS_SIGNING_KEY` (optional) | Without key: prints timestamp only. With key: adds `verification: ok` or `verification: failed` |
 
 Key format defaults to `hex` for all keyed modes; override with `--key-format hex|base64url` or the matching `_FORMAT` env var (see [Environment variables](#environment-variables) below).
