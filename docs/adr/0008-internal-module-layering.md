@@ -22,7 +22,7 @@ timestamp.ts / opaque.ts / …        ← validateBrand, registerBrand, inject d
       base32, bytes, types          ← leaves
   brand.ts, registry.ts             ← peer leaves (codec constructors only)
 
-opaque-key.ts / wrapping-key.ts / signing-key.ts   ← key-handle modules (imported by codec constructors)
+src/opaque-key.ts / src/wrapping-key.ts / src/signing-key.ts   ← key-handle modules (src/ root, not the deleted cli/ variants; imported by codec constructors)
   ↓
 key-material.ts                     ← shared key-material leaf (format/length/encode/decode)
   ↓
