@@ -65,7 +65,7 @@ A codec variant that reversibly wraps a **Lookup key** into a public ID under op
 _Avoid_: encrypt/decrypt (use wrap/unwrap), Encrypted primary key codec, Lookup key codec, bare `key` on unwrap results (use `lookupKey`).
 
 **Wrapping key**:
-Operator-supplied secret material for the **Wrapped key codec**, imported as a single opaque handle via `importWrappingKey`. One raw secret derives into AES and HMAC subkeys held inside the handle; callers configure a **Wrapping keyring** with these handles, not with subkeys or raw `CryptoKey` values. Distinct from the **Opaque key** — same encoded-format conventions (`hex`, `base64url`) but a separate secret domain; one raw secret must not silently serve both codecs without explicit import. Never embedded in an ID.
+Operator-supplied secret material for the **Wrapped key codec**, imported as a single opaque handle via `importWrappingKey`. One raw secret derives into AES and HMAC subkeys held inside the handle; callers configure a **Wrapping keyring** with these handles, not with subkeys or raw `CryptoKey` values. The raw secret is not retained after import — a SHA-256 digest of the raw bytes backs keyring duplicate-detection, and the derived subkeys are non-extractable. Distinct from the **Opaque key** — same encoded-format conventions (`hex`, `base64url`) but a separate secret domain; one raw secret must not silently serve both codecs without explicit import. Never embedded in an ID.
 _Avoid_: encryption key (too generic), master key, Opaque key (different codec).
 
 **Wrapping keyring**:
@@ -73,7 +73,7 @@ The non-empty ordered list of **Wrapping key** entries passed at codec construct
 _Avoid_: key rotation (describe caller-driven ring semantics instead), epoch (unless defined precisely), current/accepted split (the ring is one ordered list; position defines current).
 
 **Signing key**:
-An imported handle (`SigningKey`) that gates HMAC tag generation and verification in the **Signed Timestamp codec**. Obtained via `importSigningKey(bytes)` from raw material (128, 192, or 256 bits); a single HMAC-SHA-256 subkey is derived through HKDF under a distinct domain-separation label and held internally. A separate secret domain from both the **Opaque key** and the **Wrapping key** — same `hex` / `base64url` encoded-format conventions, but a distinct handle and label so one raw secret cannot silently serve another codec. Unlike the **Wrapping key**, it derives a single primitive (HMAC only — the Signed Timestamp codec performs no encryption). Never embedded in an ID.
+An imported handle (`SigningKey`) that gates HMAC tag generation and verification in the **Signed Timestamp codec**. Obtained via `importSigningKey(bytes)` from raw material (128, 192, or 256 bits); a single HMAC-SHA-256 subkey is derived through HKDF under a distinct domain-separation label and held internally. The raw secret is not retained after import — a SHA-256 digest of the raw bytes backs keyring duplicate-detection, and the derived HMAC subkey is non-extractable. A separate secret domain from both the **Opaque key** and the **Wrapping key** — same `hex` / `base64url` encoded-format conventions, but a distinct handle and label so one raw secret cannot silently serve another codec. Unlike the **Wrapping key**, it derives a single primitive (HMAC only — the Signed Timestamp codec performs no encryption). Never embedded in an ID.
 _Avoid_: HMAC key (too generic), secret, signature key, Opaque key / Wrapping key (different codecs).
 
 **Signing keyring**:
