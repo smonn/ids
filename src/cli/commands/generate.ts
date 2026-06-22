@@ -1,146 +1,52 @@
-import { createTimestampId } from "../../timestamp.js";
-import { createOpaqueTimestampId, type OpaqueKeyFormat } from "../../opaque.js";
-import { createReverseTimestampId } from "../../reverse.js";
-import { createSignedTimestampId } from "../../signed.js";
-import { codecOpts } from "../codec-options.js";
-import { formatCliError } from "../format.js";
+import { buildCodec, deriveAllowedFlags, resolveVariant } from "../dispatch.js";
 import { parseCount, splitFlags, unsupportedFlagForCommand } from "../flags.js";
-import { isKeyFormatError } from "../key-io.js";
-import { loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
-import { loadSigningKey, parseSigningKeyFormat } from "../signing-key.js";
-import type { SigningKeyFormat } from "../../signed.js";
 import type { RunOpts } from "../types.js";
+import { generatePolicy } from "../variants.js";
 
-export function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
-  const { flags, values, positionals, errors } = splitFlags(
-    args,
-    new Set(["--count", "-c", "--bits", "--key-format", "--kind"]),
+type WithGenerate = { generate(): string | Promise<string> };
+
+export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
+  const allowedFlags = deriveAllowedFlags(generatePolicy);
+  const selectorFlags = new Set(
+    generatePolicy.selectable.map((v) => v.flag).filter((f): f is string => f !== undefined),
   );
-  const unsupported = unsupportedFlagForCommand(
-    "generate",
-    flags,
-    new Set(["--count", "-c", "--opaque", "--reverse", "--signed", "--key-format"]),
-  );
+  const valueFlags = new Set([...allowedFlags].filter((f) => !selectorFlags.has(f)));
+  const { flags, values, positionals, errors } = splitFlags(args, valueFlags);
+  const unsupported = unsupportedFlagForCommand("generate", flags, allowedFlags);
   if (unsupported !== undefined) {
     opts.stderr(unsupported + "\n");
-    return Promise.resolve(1);
+    return 1;
   }
   if (errors[0] !== undefined) {
     opts.stderr(errors[0] + "\n");
-    return Promise.resolve(1);
+    return 1;
   }
   const extra = positionals[1];
   if (extra !== undefined) {
     opts.stderr(`unexpected argument: ${extra}\n`);
-    return Promise.resolve(1);
+    return 1;
   }
   const [brand] = positionals;
   const count = parseCount(values);
   if (typeof count === "string") {
     opts.stderr(count + "\n");
-    return Promise.resolve(1);
+    return 1;
   }
-  const opaque = flags.has("--opaque");
-  const reverse = flags.has("--reverse");
-  const signed = flags.has("--signed");
-  if (reverse && opaque) {
-    opts.stderr("cannot use --reverse and --opaque together\n");
-    return Promise.resolve(1);
+  const variant = resolveVariant(generatePolicy, flags);
+  if (typeof variant === "string") {
+    opts.stderr(variant + "\n");
+    return 1;
   }
-  if (signed && opaque) {
-    opts.stderr("cannot use --signed and --opaque together\n");
-    return Promise.resolve(1);
-  }
-  if (signed && reverse) {
-    opts.stderr("cannot use --signed and --reverse together\n");
-    return Promise.resolve(1);
-  }
-  if (!opaque && !signed && flags.has("--key-format")) {
+  if (variant.key === undefined && flags.has("--key-format")) {
     opts.stderr("--key-format requires --opaque or --signed\n");
-    return Promise.resolve(1);
-  }
-  if (opaque) {
-    const format = parseOpaqueKeyFormat(values, opts);
-    if (isKeyFormatError(format)) {
-      opts.stderr(format + "\n");
-      return Promise.resolve(1);
-    }
-    return runOpaqueGenerate(brand ?? "", count, format, opts);
-  }
-  if (signed) {
-    const format = parseSigningKeyFormat(values, opts);
-    if (isKeyFormatError(format)) {
-      opts.stderr(format + "\n");
-      return Promise.resolve(1);
-    }
-    return runSignedGenerate(brand ?? "", count, format, opts);
-  }
-  if (reverse) {
-    let codec;
-    try {
-      codec = createReverseTimestampId(brand ?? "", codecOpts(opts));
-    } catch (err) {
-      opts.stderr(formatCliError(err) + "\n");
-      return Promise.resolve(1);
-    }
-    for (let i = 0; i < count; i++) opts.stdout(codec.generate() + "\n");
-    return Promise.resolve(0);
-  }
-  let codec;
-  try {
-    codec = createTimestampId(brand ?? "", codecOpts(opts));
-  } catch (err) {
-    opts.stderr(formatCliError(err) + "\n");
-    return Promise.resolve(1);
-  }
-  for (let i = 0; i < count; i++) opts.stdout(codec.generate() + "\n");
-  return Promise.resolve(0);
-}
-
-async function runOpaqueGenerate(
-  brand: string,
-  count: number,
-  format: OpaqueKeyFormat,
-  opts: RunOpts,
-): Promise<number> {
-  const keyResult = await loadOpaqueKey(opts, format);
-  if (typeof keyResult === "string") {
-    opts.stderr(keyResult + "\n");
     return 1;
   }
-  let codec;
-  try {
-    codec = createOpaqueTimestampId(brand, { key: keyResult, ...codecOpts(opts) });
-  } catch (err) {
-    opts.stderr(formatCliError(err) + "\n");
+  const codec = await buildCodec(variant, brand ?? "", values, opts);
+  if (typeof codec === "string") {
+    opts.stderr(codec + "\n");
     return 1;
   }
-  for (let i = 0; i < count; i++) opts.stdout((await codec.generate()) + "\n");
-  return 0;
-}
-
-async function runSignedGenerate(
-  brand: string,
-  count: number,
-  format: SigningKeyFormat,
-  opts: RunOpts,
-): Promise<number> {
-  const keyResult = await loadSigningKey(opts, format);
-  if (typeof keyResult === "string") {
-    opts.stderr(keyResult + "\n");
-    return 1;
-  }
-  let codec;
-  try {
-    codec = createSignedTimestampId(brand, {
-      keys: [keyResult],
-      allowDuplicateBrand: true,
-      ...codecOpts(opts),
-    });
-  } catch (err) {
-    opts.stderr(formatCliError(err) + "\n");
-    return 1;
-  }
-  for (let i = 0; i < count; i++) opts.stdout((await codec.generate()) + "\n");
+  const genCodec = codec as unknown as WithGenerate;
+  for (let i = 0; i < count; i++) opts.stdout((await genCodec.generate()) + "\n");
   return 0;
 }
