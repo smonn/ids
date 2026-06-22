@@ -41,8 +41,12 @@ export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<n
     opts.stderr(format + "\n");
     return Promise.resolve(1);
   }
+  if (variant.key === undefined) {
+    opts.stderr("internal: keygen policy variant has no key facet\n");
+    return Promise.resolve(1);
+  }
   const bytes = new Uint8Array(bits / 8);
   crypto.getRandomValues(bytes);
-  opts.stdout(variant.key!.encode(bytes, format) + "\n");
+  opts.stdout(variant.key.encode(bytes, format) + "\n");
   return Promise.resolve(0);
 }
