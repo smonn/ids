@@ -38,8 +38,7 @@ export type IdTransform<Brand extends string> = {
 /**
  * Creates a read/write transform pair for use with Prisma's `$extends` extension model.
  *
- * Works with any codec variant exposing `safeParse` (TimestampCodec,
- * OpaqueTimestampCodec, ReverseTimestampCodec, WrappedKeyCodec).
+ * Works with any codec variant exposing `safeParse`.
  *
  * **Prisma casting caveat:** Prisma's `$extends` result component can add
  * typed computed accessors to model instances, but cannot retroactively
