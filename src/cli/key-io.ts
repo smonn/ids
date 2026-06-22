@@ -1,5 +1,59 @@
+import type { RunOpts } from "./types.js";
+
 export type KeyFormat = "hex" | "base64url";
+
+export type KeyFacet<K> = {
+  envVar: string;
+  formatEnvVar: string;
+  // Not yet consumed by any helper here; the keygen-delegation chunk wires it.
+  encode: (bytes: Uint8Array, format: KeyFormat) => string;
+  decode: (raw: string, format: KeyFormat) => Uint8Array;
+  import: (bytes: Uint8Array) => K | Promise<K>;
+};
 
 export function isKeyFormatError(result: KeyFormat | string): result is string {
   return result !== "hex" && result !== "base64url";
+}
+
+function parseKeyFormatFlag(values: Map<string, string>): KeyFormat | string | undefined {
+  const fromFlag = values.get("--key-format");
+  if (fromFlag === undefined) return undefined;
+  if (fromFlag === "") return "--key-format requires a value";
+  if (fromFlag === "hex" || fromFlag === "base64url") return fromFlag;
+  return `--key-format must be hex or base64url, got '${fromFlag}'`;
+}
+
+export function parseKeyFormatFromFlag(values: Map<string, string>): KeyFormat | string {
+  const fromFlag = parseKeyFormatFlag(values);
+  if (fromFlag === undefined) return "hex";
+  return fromFlag;
+}
+
+export function parseKeyFormat(
+  values: Map<string, string>,
+  opts: RunOpts,
+  facet: Pick<KeyFacet<unknown>, "formatEnvVar">,
+): KeyFormat | string {
+  const fromFlag = parseKeyFormatFlag(values);
+  if (fromFlag !== undefined) return fromFlag;
+  const env = opts.env ?? process.env;
+  const fromEnv = env[facet.formatEnvVar];
+  if (fromEnv === undefined || fromEnv === "") return "hex";
+  if (fromEnv === "hex" || fromEnv === "base64url") return fromEnv;
+  return `${facet.formatEnvVar} must be hex or base64url, got '${fromEnv}'`;
+}
+
+export async function loadKey<K>(
+  opts: RunOpts,
+  format: KeyFormat,
+  facet: Pick<KeyFacet<K>, "envVar" | "decode" | "import">,
+): Promise<K | string> {
+  const env = opts.env ?? process.env;
+  const raw = env[facet.envVar];
+  if (raw === undefined || raw === "") return `missing ${facet.envVar} environment variable`;
+  try {
+    return await facet.import(facet.decode(raw, format));
+  } catch (err) {
+    return (err as Error).message;
+  }
 }
