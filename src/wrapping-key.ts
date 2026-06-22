@@ -30,7 +30,7 @@ export type WrappingKey = {
 };
 
 type WrappingKeyInternals = {
-  rawBytes: Uint8Array;
+  keyDigest: Uint8Array;
   aesKey: CryptoKey;
   hmacKey: CryptoKey;
 };
@@ -54,11 +54,14 @@ const internals = new WeakMap<WrappingKey, WrappingKeyInternals>();
  */
 export async function importWrappingKey(bytes: Uint8Array): Promise<WrappingKey> {
   assertValidKeyMaterialByteLength(bytes.length, "wrapping");
-  const aesKey = await deriveAesKey(bytes);
-  const hmacKey = await deriveHmacKey(bytes);
+  const [aesKey, hmacKey, digestBuffer] = await Promise.all([
+    deriveAesKey(bytes),
+    deriveHmacKey(bytes),
+    crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>),
+  ]);
   const key = Object.freeze({}) as WrappingKey;
   internals.set(key, {
-    rawBytes: bytes.slice(),
+    keyDigest: new Uint8Array(digestBuffer),
     aesKey,
     hmacKey,
   });
@@ -91,12 +94,11 @@ export function decodeWrappingKey(encoded: string, format: WrappingKeyFormat): U
  * not leak the position of the first differing byte through a timing side channel.
  */
 export function wrappingKeysEqual(a: WrappingKey, b: WrappingKey): boolean {
-  const aInternals = getWrappingKeyInternals(a);
-  const bInternals = getWrappingKeyInternals(b);
-  if (aInternals.rawBytes.length !== bInternals.rawBytes.length) return false;
+  const aDigest = getWrappingKeyInternals(a).keyDigest;
+  const bDigest = getWrappingKeyInternals(b).keyDigest;
   let diff = 0;
-  for (let i = 0; i < aInternals.rawBytes.length; i++) {
-    diff |= aInternals.rawBytes[i]! ^ bInternals.rawBytes[i]!;
+  for (let i = 0; i < aDigest.length; i++) {
+    diff |= aDigest[i]! ^ bDigest[i]!;
   }
   return diff === 0;
 }
