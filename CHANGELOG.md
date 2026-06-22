@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 0.9.1
+
+### Patch Changes
+
+- 8d7a65d: fix(cli): unify inspect --signed verification contract — stdout always carries the report, stderr carries the diagnostic, exit code carries pass/fail; missing and malformed keys now exit 1 with `verification: unavailable` instead of silently exiting 0.
+
 ## 0.9.0
 
 ### Minor Changes
