@@ -9,6 +9,7 @@ const timestampBase32Length: number = Math.ceil((timestampByteLength * 8) / 5);
 /** Write the timestamp in big-endian; encoded via mod-256 to avoid 32-bit bitwise coercion. */
 export function writeTimestamp(ms: number, buffer: Uint8Array): void {
   if (Number.isNaN(ms)) throw new Error("timestamp is not a number");
+  if (!Number.isInteger(ms)) throw new Error("timestamp is not an integer");
   if (ms < 0) throw new Error("timestamp is negative");
   if (ms >= 2 ** (timestampByteLength * 8)) {
     throw new Error("timestamp exceeds 48-bit range");
