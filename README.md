@@ -905,7 +905,7 @@ Brand-agnostic subcommands, no install required. Run `npx @smonn/ids --help` for
 
 ### `inspect` (`i`)
 
-Decode an ID and print brand, timestamp, canonical form, and whether the input was already canonical.
+Decode an ID and print brand, timestamp (or lookup key), canonical form, and whether the input was already canonical.
 
 ```bash
 $ npx @smonn/ids inspect usr_01h7b3k9rqxn1cw3p9r8t2sgkz
@@ -915,13 +915,34 @@ canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkz
 input:     canonical
 ```
 
-Accepts non-canonical input (uppercase, Crockford aliases). Assumes the **Timestamp codec** — if the brand uses the **Opaque Timestamp codec**, pass `--opaque` and set `IDS_KEY` (below); otherwise the timestamp line is meaningless garbage.
+Accepts non-canonical input (uppercase, Crockford aliases). Pass the flag that matches the codec variant used at generation — without a flag, the **Timestamp codec** is assumed.
+
+| Flag                   | Codec variant     | Env var                      | Notes                                                                             |
+| ---------------------- | ----------------- | ---------------------------- | --------------------------------------------------------------------------------- |
+| _(none)_               | Timestamp         | —                            | Timestamp readable directly                                                       |
+| `--opaque`             | Opaque Timestamp  | `IDS_KEY`                    | Wrong key yields plausible-but-wrong timestamp, not an error                      |
+| `--reverse`            | Reverse Timestamp | —                            | No key required; timestamp decoded from inverted bytes                            |
+| `--wrapped --kind <k>` | Wrapped key       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`, `i32`, `u64`, `i64`; prints `lookup_key`                |
+| `--signed`             | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Without key: prints timestamp only. With key: adds `verification: ok` or `failed` |
+
+Key format defaults to `hex` for all keyed modes; override with `--key-format hex|base64url` or the matching `_FORMAT` env var (see [Environment variables](#environment-variables) below).
 
 ```bash
+# Opaque Timestamp (IDS_KEY required):
 IDS_KEY=<hex-or-base64url-key> npx @smonn/ids inspect inv_… --opaque
-```
 
-Prints the decrypted timestamp **assuming `IDS_KEY` matches the key used at generation** — a well-formed but wrong key yields a plausible but incorrect timestamp, not an error (see [CONTEXT.md](./CONTEXT.md)).
+# Wrapped key (IDS_WRAPPING_KEY and --kind required):
+IDS_WRAPPING_KEY=<hex-or-base64url-key> npx @smonn/ids inspect item_… --wrapped --kind u64
+
+# Reverse Timestamp (no key):
+npx @smonn/ids inspect feed_… --reverse
+
+# Signed Timestamp — timestamp only (no key):
+npx @smonn/ids inspect evt_… --signed
+
+# Signed Timestamp — with verification:
+IDS_SIGNING_KEY=<hex-or-base64url-key> npx @smonn/ids inspect evt_… --signed
+```
 
 ### `generate` (`g`)
 
@@ -934,15 +955,29 @@ usr_…
 usr_…
 ```
 
-Flags: `--count` / `-c N` (default 1, max 10000). Uses the Timestamp codec unless `--opaque` is set.
+Flags: `--count` / `-c N` (default 1, max 10000). Uses the Timestamp codec unless a mode flag is set.
+
+| Flag        | Codec variant     | Env var           |
+| ----------- | ----------------- | ----------------- |
+| _(none)_    | Timestamp         | —                 |
+| `--opaque`  | Opaque Timestamp  | `IDS_KEY`         |
+| `--reverse` | Reverse Timestamp | —                 |
+| `--signed`  | Signed Timestamp  | `IDS_SIGNING_KEY` |
 
 ```bash
+# Opaque Timestamp:
 IDS_KEY=<hex-or-base64url-key> npx @smonn/ids generate inv --opaque --count 2
+
+# Reverse Timestamp (newest-first sort order):
+npx @smonn/ids generate feed --reverse --count 5
+
+# Signed Timestamp:
+IDS_SIGNING_KEY=<hex-or-base64url-key> npx @smonn/ids generate evt --signed
 ```
 
 ### `keygen` (`k`)
 
-Emit a random Opaque key to stdout (a secret — do not log or commit). Default: 256-bit hex.
+Emit a random key to stdout — for use with `importOpaqueKey`, `importWrappingKey`, or `importSigningKey` (a secret — do not log or commit). Default: 256-bit hex for the Opaque key domain.
 
 ```bash
 $ npx @smonn/ids keygen
@@ -952,15 +987,36 @@ $ npx @smonn/ids keygen --bits 128 --key-format base64url
 AbCdEf…
 ```
 
-Flags: `--bits 128|192|256` (default 256), `--key-format hex|base64url` (default `hex`). `IDS_KEY_FORMAT` does not affect `keygen` — only `--key-format` on the command line. Output round-trips through `decodeOpaqueKey` / `importOpaqueKey`.
+| Flag        | Key domain | Env var            | Import function     |
+| ----------- | ---------- | ------------------ | ------------------- |
+| _(none)_    | Opaque     | `IDS_KEY`          | `importOpaqueKey`   |
+| `--wrapped` | Wrapping   | `IDS_WRAPPING_KEY` | `importWrappingKey` |
+| `--signed`  | Signing    | `IDS_SIGNING_KEY`  | `importSigningKey`  |
 
-### Opaque mode (`--opaque`)
+Flags: `--bits 128|192|256` (default 256), `--key-format hex|base64url` (default `hex`). Key-format env vars do not affect `keygen` — only `--key-format` on the command line.
 
-`generate --opaque` and `inspect --opaque` read the AES key from the `IDS_KEY` environment variable — not from argv (argv leaks via `ps` and shell history). Missing or malformed `IDS_KEY` prints a clear stderr message and exits non-zero.
+```bash
+# Wrapping key:
+npx @smonn/ids keygen --wrapped
 
-Key format defaults to `hex`; override per-invocation with `--key-format` or set `IDS_KEY_FORMAT=hex|base64url` for a session default. `--key-format` on the command line wins over `IDS_KEY_FORMAT`.
+# Signing key (base64url):
+npx @smonn/ids keygen --signed --key-format base64url
+```
 
-Invalid input prints the parse error to stderr and exits non-zero.
+### Environment variables
+
+All keyed modes read secrets from environment variables — not from argv (argv leaks via `ps` and shell history). Missing or malformed key env vars print a clear stderr message and exit non-zero. Invalid input prints the parse error to stderr and exits non-zero.
+
+| Env var                   | Used by                       | Default format |
+| ------------------------- | ----------------------------- | -------------- |
+| `IDS_KEY`                 | `--opaque`                    | `hex`          |
+| `IDS_KEY_FORMAT`          | `--opaque` (format override)  | —              |
+| `IDS_WRAPPING_KEY`        | `--wrapped`                   | `hex`          |
+| `IDS_WRAPPING_KEY_FORMAT` | `--wrapped` (format override) | —              |
+| `IDS_SIGNING_KEY`         | `--signed`                    | `hex`          |
+| `IDS_SIGNING_KEY_FORMAT`  | `--signed` (format override)  | —              |
+
+Key format defaults to `hex` for all modes; override per-invocation with `--key-format hex|base64url` or set the matching `_FORMAT` env var for a session default. `--key-format` on the command line wins over the env var. Key-format env vars do not affect `keygen` output — only `--key-format` applies there.
 
 ## Design
 
