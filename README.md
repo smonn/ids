@@ -987,7 +987,7 @@ $ npx @smonn/ids keygen --bits 128 --key-format base64url
 AbCdEf…
 ```
 
-| Flag        | Key domain | Env var            | Import function     |
+| Flag        | Key domain | Intended for       | Import function     |
 | ----------- | ---------- | ------------------ | ------------------- |
 | _(none)_    | Opaque     | `IDS_KEY`          | `importOpaqueKey`   |
 | `--wrapped` | Wrapping   | `IDS_WRAPPING_KEY` | `importWrappingKey` |
