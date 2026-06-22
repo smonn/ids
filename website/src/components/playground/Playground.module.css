@@ -1,0 +1,122 @@
+.playground {
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-block: 1rem;
+  background: var(--sl-color-black);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.tab,
+.tabActive {
+  font-size: var(--sl-text-sm);
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--sl-color-gray-5);
+  background: transparent;
+  color: var(--sl-color-gray-2);
+  cursor: pointer;
+}
+
+.tabActive {
+  background: var(--sl-color-accent-low);
+  border-color: var(--sl-color-accent);
+  color: var(--sl-color-white);
+}
+
+.blurb {
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+  margin: 0 0 1rem;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--sl-text-sm);
+}
+
+.field > span {
+  color: var(--sl-color-gray-2);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.row input,
+.field input,
+.field select {
+  flex: 1 1 16rem;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--sl-color-gray-5);
+  background: var(--sl-color-gray-6);
+  color: var(--sl-color-white);
+}
+
+.mono {
+  font-family: var(--sl-font-mono);
+  font-size: var(--sl-text-code);
+}
+
+button {
+  font-size: var(--sl-text-sm);
+  padding: 0.4rem 0.85rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--sl-color-accent);
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-white);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hint {
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-gray-3);
+  margin: 0;
+}
+
+.ok,
+.err {
+  display: block;
+  font-family: var(--sl-font-mono);
+  font-size: var(--sl-text-code);
+  word-break: break-all;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.4rem;
+  border: 1px solid transparent;
+}
+
+.ok {
+  background: var(--sl-color-green-low);
+  border-color: var(--sl-color-green);
+  color: var(--sl-color-green-high);
+}
+
+.err {
+  background: var(--sl-color-red-low);
+  border-color: var(--sl-color-red);
+  color: var(--sl-color-red-high);
+}
