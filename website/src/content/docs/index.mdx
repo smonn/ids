@@ -1,0 +1,43 @@
+---
+title: "@smonn/ids"
+description: Public-facing branded IDs for TypeScript apps — type-safe, sortable, and codec-pluggable.
+template: splash
+hero:
+  tagline: Public-facing branded IDs for TypeScript apps. Type-safe, sortable, and codec-pluggable.
+  actions:
+    - text: Quickstart
+      link: /quickstart/
+      icon: right-arrow
+      variant: primary
+    - text: Try the playground
+      link: /playground/
+      icon: rocket
+    - text: View on GitHub
+      link: https://github.com/smonn/ids
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkz`: a three-letter brand, an
+underscore, then 26 Crockford base32 characters of payload.
+
+<CardGrid stagger>
+  <Card title="Branded & type-safe" icon="approve-check">
+    `Id<"usr">` and `Id<"org">` are nominally distinct — the type system catches
+    a `UserId` passed where an `OrgId` was needed.
+  </Card>
+  <Card title="Sortable by time" icon="seti:clock">
+    The payload leads with a 48-bit millisecond timestamp, so `ORDER BY id`
+    sorts by creation time. No separate `created_at` column needed.
+  </Card>
+  <Card title="Five codecs" icon="puzzle">
+    Plaintext, newest-first, signed (tamper-evident), opaque (encrypted), and
+    wrapped-key — all sharing one wire shape.
+  </Card>
+  <Card title="Run it live" icon="rocket">
+    The [playground](/playground/) runs the real library in your browser —
+    generate, verify, unwrap, and inspect every codec.
+  </Card>
+</CardGrid>

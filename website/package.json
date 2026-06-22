@@ -1,0 +1,24 @@
+{
+  "name": "@smonn/ids-website",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/preact": "^5.1.5",
+    "@astrojs/starlight": "^0.40.0",
+    "@smonn/ids": "workspace:*",
+    "astro": "^6.4.8",
+    "preact": "^10.29.2"
+  },
+  "devDependencies": {
+    "starlight-typedoc": "^0.23.0",
+    "typedoc": "^0.28.19",
+    "typedoc-plugin-markdown": "^4.12.0"
+  }
+}

@@ -1,3 +1,10 @@
+packages:
+  - website
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+
 # Dependency vulnerability remediation overrides.
 # All entries pin transitive, dev-only dependencies to patched releases.
 overrides:
