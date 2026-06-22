@@ -17,6 +17,7 @@ import {
   type OpaqueTimestampOptions,
 } from "./opaque.js";
 import type { Id, JsonSchema, ParseResult } from "./types.js";
+import { toWireId } from "./wire/envelope.js";
 
 describe("opaque", () => {
   // Recreates codecs for the same brand across tests; brand-registry warnings
@@ -100,6 +101,18 @@ describe("opaque", () => {
     const recovered = await b.extractTimestamp(id);
     expect(recovered).toBeInstanceOf(Date);
     expect(Number.isFinite(recovered.getTime())).toBe(true);
+  });
+
+  it("extractTimestamp never throws on 100 random canonical ids (decrypt-never-throws invariant)", async () => {
+    const key = await importOpaqueKey(new Uint8Array(16));
+    const usr = createOpaqueTimestampId("usr", { key });
+    for (let i = 0; i < 100; i++) {
+      const payload = crypto.getRandomValues(new Uint8Array(16));
+      const id = toWireId("usr_", payload);
+      const result = await usr.extractTimestamp(id);
+      expect(result).toBeInstanceOf(Date);
+      expect(Number.isFinite(result.getTime())).toBe(true);
+    }
   });
 
   it("generate() output matches the canonical wire pattern", async () => {
