@@ -920,7 +920,7 @@ Accepts non-canonical input (uppercase, Crockford aliases). Pass the flag that m
 | Flag                   | Codec variant     | Env var                      | Notes                                                                             |
 | ---------------------- | ----------------- | ---------------------------- | --------------------------------------------------------------------------------- |
 | _(none)_               | Timestamp         | —                            | Timestamp readable directly                                                       |
-| `--opaque`             | Opaque Timestamp  | `IDS_KEY`                    | Wrong key yields plausible-but-wrong timestamp, not an error                      |
+| `--opaque`             | Opaque Timestamp  | `IDS_KEY`                    | Wrong key yields plausible-but-wrong timestamp, not an error (see [CONTEXT.md](./CONTEXT.md)) |
 | `--reverse`            | Reverse Timestamp | —                            | No key required; timestamp decoded from inverted bytes                            |
 | `--wrapped --kind <k>` | Wrapped key codec | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`, `i32`, `u64`, `i64`; prints `lookup_key`                |
 | `--signed`             | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Without key: prints timestamp only. With key: adds `verification: ok` or `failed` |
