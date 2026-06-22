@@ -80,12 +80,14 @@ const results: Bench[] = [];
 //     (measured run-to-run drift <1%), so SYNC_SAMPLES stays low — each extra
 //     sample is 4096 real calls, and these ops are the entire wall-clock cost.
 //   - Async crypto ops (opaque.* / wrapped.* / signed.*) are NOT batched: mitata
-//     runs one real call per sample (~70–250µs each). They want a high count to
-//     tame the µs-scale scheduler/thermal jitter that dominates their variance,
-//     and it stays cheap precisely because there is no ×4096 batch — 2000 samples
-//     is ~0.2–0.5s per op, not minutes. Pair with compare.ts's tiered thresholds.
+//     runs one real call per sample (~70–250µs each). On a shared CI runner,
+//     OS scheduler and thermal jitter (~0.8 ms/sample floor even for a no-op)
+//     dominate variance — not statistical accuracy — so a high sample count buys
+//     nothing except wall-clock time. 300–500 samples are sufficient given
+//     compare.ts's loose 30–50% thresholds; beyond that, more samples measure
+//     the machine, not the code. Lowered from 2000 to 500.
 const SYNC_SAMPLES = 256;
-const ASYNC_SAMPLES = 2000;
+const ASYNC_SAMPLES = 500;
 const syncOpts = { min_samples: SYNC_SAMPLES, max_samples: SYNC_SAMPLES } as const;
 const asyncOpts = { min_samples: ASYNC_SAMPLES, max_samples: ASYNC_SAMPLES } as const;
 
