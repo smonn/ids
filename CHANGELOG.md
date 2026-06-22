@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 0.9.2
+
+### Patch Changes
+
+- 81bdcee: Documentation: launch the docs site at [ids.smonn.se](https://ids.smonn.se) with an interactive playground covering all five codecs, and slim the README to a landing page that links into the site. No runtime or API changes.
+
 ## 0.9.1
 
 ### Patch Changes
