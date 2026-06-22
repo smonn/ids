@@ -21,6 +21,7 @@ import {
   importWrappingKey,
   type WrappingKey,
 } from "../wrapped.js";
+import type { IdCodec } from "../adapter-types.js";
 import { codecOpts } from "./codec-options.js";
 import { isKindError, parseKind } from "./flags.js";
 import { formatCliError } from "./format.js";
@@ -37,7 +38,7 @@ export type Descriptor = {
     opts: RunOpts,
     key?: unknown,
     values?: Map<string, string>,
-  ) => object | string;
+  ) => IdCodec<string> | string;
   inspectMode: InspectMode;
   extraFlags?: readonly string[];
 };

@@ -1,3 +1,4 @@
+import type { IdCodec } from "../adapter-types.js";
 import { isKeyFormatError, loadKey, parseKeyFormat } from "./key-io.js";
 import type { RunOpts } from "./types.js";
 import { conflictPriorityOrder, type Descriptor, type Policy } from "./variants.js";
@@ -30,7 +31,7 @@ export async function buildCodec(
   brand: string,
   values: Map<string, string>,
   opts: RunOpts,
-): Promise<object | string> {
+): Promise<IdCodec<string> | string> {
   let key: unknown;
   if (variant.key !== undefined) {
     const format = parseKeyFormat(values, opts, variant.key);
