@@ -132,7 +132,6 @@ export const signedVariant: Descriptor = {
     try {
       return createSignedTimestampId(brand, {
         keys: [key as SigningKey],
-        allowDuplicateBrand: true,
         ...codecOpts(opts),
       });
     } catch (err) {
