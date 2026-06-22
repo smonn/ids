@@ -69,6 +69,18 @@ describe("drizzle", () => {
     expect((err as IdsError).cause).toBe("invalid_base32");
   });
 
+  it("rejects a non-string value from DB", () => {
+    let err: unknown;
+    try {
+      users.id.mapFromDriverValue(null as unknown as string);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("not_string");
+  });
+
   it("IdColumnCodec accepts any codec variant with safeParse", () => {
     // structural type check: TimestampCodec satisfies IdColumnCodec<Brand>
     expectTypeOf(usr).toMatchTypeOf<IdColumnCodec<"usr">>();
