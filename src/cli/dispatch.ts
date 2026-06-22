@@ -1,7 +1,12 @@
 import type { IdCodec } from "../adapter-types.js";
 import { isKeyFormatError, loadKey, parseKeyFormat } from "./key-io.js";
 import type { RunOpts } from "./types.js";
-import { conflictPriorityOrder, type Descriptor, type Policy } from "./variants.js";
+import {
+  conflictPriorityOrder,
+  type Descriptor,
+  type GeneratorDescriptor,
+  type Policy,
+} from "./variants.js";
 
 export function deriveAllowedFlags(policy: Policy): Set<string> {
   const flags = new Set<string>(policy.intrinsicFlags);
@@ -17,21 +22,37 @@ export function deriveAllowedFlags(policy: Policy): Set<string> {
   return flags;
 }
 
-export function resolveVariant(policy: Policy, flags: Set<string>): Descriptor | string {
+export function resolveVariant<D extends Descriptor>(
+  policy: Policy<D>,
+  flags: Set<string>,
+): D | string {
+  const selectable = new Set<Descriptor>(policy.selectable);
   const selected = conflictPriorityOrder.filter(
-    (v) => policy.selectable.includes(v) && v.flag !== undefined && flags.has(v.flag),
-  );
+    (v) => selectable.has(v) && v.flag !== undefined && flags.has(v.flag),
+  ) as D[];
   if (selected.length === 0) return policy.default;
   if (selected.length === 1) return selected[0]!;
   return `cannot use ${selected[0]!.flag} and ${selected[1]!.flag} together`;
 }
 
 export async function buildCodec(
+  variant: GeneratorDescriptor,
+  brand: string,
+  values: Map<string, string>,
+  opts: RunOpts,
+): Promise<(IdCodec<string> & { generate(): string | Promise<string> }) | string>;
+export async function buildCodec(
   variant: Descriptor,
   brand: string,
   values: Map<string, string>,
   opts: RunOpts,
-): Promise<(IdCodec<string> & { generate(): string | Promise<string> }) | string> {
+): Promise<IdCodec<string> | string>;
+export async function buildCodec(
+  variant: Descriptor,
+  brand: string,
+  values: Map<string, string>,
+  opts: RunOpts,
+): Promise<(IdCodec<string> & { generate?(): string | Promise<string> }) | string> {
   let key: unknown;
   if (variant.key !== undefined) {
     const format = parseKeyFormat(values, opts, variant.key);
@@ -40,7 +61,5 @@ export async function buildCodec(
     if (typeof keyResult === "string") return keyResult;
     key = keyResult;
   }
-  return variant.construct(brand, opts, key, values) as
-    | (IdCodec<string> & { generate(): string | Promise<string> })
-    | string;
+  return variant.construct(brand, opts, key, values);
 }
