@@ -87,12 +87,36 @@ describe("id", () => {
     expect(() => usr.generate()).toThrow();
   });
 
+  it("rejects Infinity timestamp", () => {
+    const usr = createTimestampId("usr", {
+      now: () => Infinity,
+      rng: () => {},
+    });
+    expect(() => usr.generate()).toThrow();
+  });
+
   it("rejects pre-epoch timestamps", () => {
     const usr = createTimestampId("usr", {
       now: () => -1,
       rng: () => {},
     });
     expect(() => usr.generate()).toThrow();
+  });
+
+  it("rejects -Infinity timestamp", () => {
+    const usr = createTimestampId("usr", {
+      now: () => -Infinity,
+      rng: () => {},
+    });
+    expect(() => usr.generate()).toThrow();
+  });
+
+  it("rejects non-integer timestamps", () => {
+    const usr = createTimestampId("usr", {
+      now: () => 1234.75,
+      rng: () => {},
+    });
+    expect(() => usr.generate()).toThrow("timestamp is not an integer");
   });
 
   it("handles maximal random bytes", () => {
