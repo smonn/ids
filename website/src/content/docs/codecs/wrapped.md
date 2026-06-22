@@ -27,11 +27,11 @@ The 32-bit kinds (`u32`, `i32`) use safe JavaScript `number` values. The 64-bit
 kinds (`u64`, `i64`) always use `bigint` — even when the magnitude would fit in a
 `number` — to prevent silent truncation or sign erasure.
 
-| Kind | JS type | Range |
-| --- | --- | --- |
-| `u32` | `number` | `[0, 4294967295]` |
-| `i32` | `number` | `[-2147483648, 2147483647]` |
-| `u64` | `bigint` | `[0n, 18446744073709551615n]` |
+| Kind  | JS type  | Range                                           |
+| ----- | -------- | ----------------------------------------------- |
+| `u32` | `number` | `[0, 4294967295]`                               |
+| `i32` | `number` | `[-2147483648, 2147483647]`                     |
+| `u64` | `bigint` | `[0n, 18446744073709551615n]`                   |
 | `i64` | `bigint` | `[-9223372036854775808n, 9223372036854775807n]` |
 
 ```ts

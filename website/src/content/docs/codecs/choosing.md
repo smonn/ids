@@ -6,13 +6,13 @@ description: Pick the right @smonn/ids codec variant for sortability, confidenti
 All five codecs share the same `<brand>_<26 chars>` wire shape but make
 different trade-offs. Pick by what you need from the payload.
 
-| Codec | Import | Sort direction | Key required | Timestamp extractable | Range query support |
-| --- | --- | --- | --- | --- | --- |
-| [Timestamp](/codecs/timestamp/) | `@smonn/ids` | Ascending (oldest-first) | No | Always (plaintext) | `minIdForTime(t_old)` → `maxIdForTime(t_new)` |
-| [Reverse Timestamp](/codecs/reverse/) | `@smonn/ids/reverse` | Descending (newest-first) | No | Always (plaintext) | `minIdForTime(t_new)` → `maxIdForTime(t_old)` (bounds flipped) |
-| [Signed Timestamp](/codecs/signed/) | `@smonn/ids/signed` | Ascending (oldest-first) | Yes (signing key) | Always (plaintext) | `minIdForTime(t_old)` → `maxIdForTime(t_new)` (sentinels carry no valid tag) |
-| [Opaque Timestamp](/codecs/opaque/) | `@smonn/ids/opaque` | None (encrypted) | Yes (AES key) | With key only | None — encrypted payloads do not sort by time |
-| [Wrapped key](/codecs/wrapped/) | `@smonn/ids/wrapped` | None | Yes (wrapping key) | N/A — not timestamp-family | None |
+| Codec                                 | Import               | Sort direction            | Key required       | Timestamp extractable      | Range query support                                                          |
+| ------------------------------------- | -------------------- | ------------------------- | ------------------ | -------------------------- | ---------------------------------------------------------------------------- |
+| [Timestamp](/codecs/timestamp/)       | `@smonn/ids`         | Ascending (oldest-first)  | No                 | Always (plaintext)         | `minIdForTime(t_old)` → `maxIdForTime(t_new)`                                |
+| [Reverse Timestamp](/codecs/reverse/) | `@smonn/ids/reverse` | Descending (newest-first) | No                 | Always (plaintext)         | `minIdForTime(t_new)` → `maxIdForTime(t_old)` (bounds flipped)               |
+| [Signed Timestamp](/codecs/signed/)   | `@smonn/ids/signed`  | Ascending (oldest-first)  | Yes (signing key)  | Always (plaintext)         | `minIdForTime(t_old)` → `maxIdForTime(t_new)` (sentinels carry no valid tag) |
+| [Opaque Timestamp](/codecs/opaque/)   | `@smonn/ids/opaque`  | None (encrypted)          | Yes (AES key)      | With key only              | None — encrypted payloads do not sort by time                                |
+| [Wrapped key](/codecs/wrapped/)       | `@smonn/ids/wrapped` | None                      | Yes (wrapping key) | N/A — not timestamp-family | None                                                                         |
 
 ## Decision guide
 

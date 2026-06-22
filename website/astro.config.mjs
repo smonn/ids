@@ -27,9 +27,7 @@ export default defineConfig({
       title: "@smonn/ids",
       description:
         "Public-facing branded IDs for TypeScript apps — type-safe, sortable, and codec-pluggable.",
-      social: [
-        { icon: "github", label: "GitHub", href: "https://github.com/smonn/ids" },
-      ],
+      social: [{ icon: "github", label: "GitHub", href: "https://github.com/smonn/ids" }],
       editLink: {
         baseUrl: "https://github.com/smonn/ids/edit/main/website/",
       },

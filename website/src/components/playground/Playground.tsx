@@ -28,9 +28,7 @@ type Outcome = { kind: "ok"; text: string } | { kind: "err"; text: string } | nu
 
 function OutcomeLine({ outcome }: { outcome: Outcome }) {
   if (!outcome) return null;
-  return (
-    <output class={outcome.kind === "ok" ? styles.ok : styles.err}>{outcome.text}</output>
-  );
+  return <output class={outcome.kind === "ok" ? styles.ok : styles.err}>{outcome.text}</output>;
 }
 
 function Row({ children }: { children: ComponentChildren }) {
@@ -38,13 +36,7 @@ function Row({ children }: { children: ComponentChildren }) {
 }
 
 /** Editable hex key with a "generate" button. Source of truth is the hex string. */
-function KeyField({
-  value,
-  onInput,
-}: {
-  value: string;
-  onInput: (hex: string) => void;
-}) {
+function KeyField({ value, onInput }: { value: string; onInput: (hex: string) => void }) {
   return (
     <label class={styles.field}>
       <span>Key (hex)</span>
@@ -262,8 +254,8 @@ function OpaquePanel() {
         </button>
       </Row>
       <p class={styles.hint}>
-        Edit the key and extract again — a wrong key yields a plausible but wrong time, never
-        an error.
+        Edit the key and extract again — a wrong key yields a plausible but wrong time, never an
+        error.
       </p>
       <OutcomeLine outcome={out} />
     </div>

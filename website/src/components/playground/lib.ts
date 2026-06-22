@@ -88,6 +88,5 @@ export {
   importOpaqueKey,
   importSigningKey,
   importWrappingKey,
-  isIdsError,
   type WrappedKind,
 };

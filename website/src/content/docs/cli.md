@@ -23,13 +23,13 @@ Accepts non-canonical input (uppercase, Crockford aliases). Pass the flag that
 matches the codec used at generation — without a flag, the **Timestamp codec** is
 assumed.
 
-| Flag | Codec variant | Env var | Notes |
-| --- | --- | --- | --- |
-| _(none)_ | Timestamp | — | Timestamp readable directly |
-| `--opaque` | Opaque Timestamp | `IDS_KEY` | Wrong key yields a plausible-but-wrong timestamp, not an error |
-| `--reverse` | Reverse Timestamp | — | No key; timestamp decoded from inverted bytes |
-| `--wrapped --kind <k>` | Wrapped key | `IDS_WRAPPING_KEY` | `--kind` required: `u32`/`i32`/`u64`/`i64`; prints `lookup-key` |
-| `--signed` | Signed Timestamp | `IDS_SIGNING_KEY` (optional) | Without key: timestamp only. With key: adds `verification: ok`/`failed` |
+| Flag                   | Codec variant     | Env var                      | Notes                                                                   |
+| ---------------------- | ----------------- | ---------------------------- | ----------------------------------------------------------------------- |
+| _(none)_               | Timestamp         | —                            | Timestamp readable directly                                             |
+| `--opaque`             | Opaque Timestamp  | `IDS_KEY`                    | Wrong key yields a plausible-but-wrong timestamp, not an error          |
+| `--reverse`            | Reverse Timestamp | —                            | No key; timestamp decoded from inverted bytes                           |
+| `--wrapped --kind <k>` | Wrapped key       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`/`i32`/`u64`/`i64`; prints `lookup-key`         |
+| `--signed`             | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Without key: timestamp only. With key: adds `verification: ok`/`failed` |
 
 ```bash
 # Opaque Timestamp (IDS_KEY required):
@@ -72,11 +72,11 @@ $ npx @smonn/ids keygen --wrapped --bits 128 --key-format base64url
 AbCdEf…
 ```
 
-| Flag | Key domain | Intended for | Import function |
-| --- | --- | --- | --- |
-| _(none)_ | Opaque | `IDS_KEY` | `importOpaqueKey` |
-| `--wrapped` | Wrapping | `IDS_WRAPPING_KEY` | `importWrappingKey` |
-| `--signed` | Signing | `IDS_SIGNING_KEY` | `importSigningKey` |
+| Flag        | Key domain | Intended for       | Import function     |
+| ----------- | ---------- | ------------------ | ------------------- |
+| _(none)_    | Opaque     | `IDS_KEY`          | `importOpaqueKey`   |
+| `--wrapped` | Wrapping   | `IDS_WRAPPING_KEY` | `importWrappingKey` |
+| `--signed`  | Signing    | `IDS_SIGNING_KEY`  | `importSigningKey`  |
 
 Flags: `--bits 128|192|256` (default 256), `--key-format hex|base64url` (default
 `hex`).
@@ -87,14 +87,14 @@ All keyed modes read secrets from environment variables — **not from argv**
 (argv leaks via `ps` and shell history). Missing or malformed key env vars print
 a clear stderr message and exit non-zero.
 
-| Env var | Used by | Default format |
-| --- | --- | --- |
-| `IDS_KEY` | `--opaque` | `hex` |
-| `IDS_KEY_FORMAT` | `--opaque` (format override) | — |
-| `IDS_WRAPPING_KEY` | `--wrapped` | `hex` |
-| `IDS_WRAPPING_KEY_FORMAT` | `--wrapped` (format override) | — |
-| `IDS_SIGNING_KEY` | `--signed` | `hex` |
-| `IDS_SIGNING_KEY_FORMAT` | `--signed` (format override) | — |
+| Env var                   | Used by                       | Default format |
+| ------------------------- | ----------------------------- | -------------- |
+| `IDS_KEY`                 | `--opaque`                    | `hex`          |
+| `IDS_KEY_FORMAT`          | `--opaque` (format override)  | —              |
+| `IDS_WRAPPING_KEY`        | `--wrapped`                   | `hex`          |
+| `IDS_WRAPPING_KEY_FORMAT` | `--wrapped` (format override) | —              |
+| `IDS_SIGNING_KEY`         | `--signed`                    | `hex`          |
+| `IDS_SIGNING_KEY_FORMAT`  | `--signed` (format override)  | —              |
 
 Key format defaults to `hex`; override per-invocation with `--key-format` or set
 the matching `_FORMAT` env var for a session default. `--key-format` on the

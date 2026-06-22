@@ -14,6 +14,10 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# Least privilege by default; the deploy job widens this for itself.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
