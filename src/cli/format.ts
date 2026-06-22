@@ -66,7 +66,7 @@ export function formatInspectOutput(result: InspectOutput): string {
   ].join("\n");
 }
 
-export function describeInputForm(input: string, canonical: Id<string>): string {
+function describeInputForm(input: string, canonical: Id<string>): string {
   if (input === canonical) return "canonical";
   const notes: string[] = [];
   if (input !== input.toLowerCase()) notes.push("was uppercase");
@@ -81,7 +81,7 @@ const msPerDay = 24 * msPerHour;
 const daysPerMonth = 30.44;
 const monthsPerYear = 12;
 
-export function formatRelative(thenMs: number, nowMs: number): string {
+function formatRelative(thenMs: number, nowMs: number): string {
   const diff = nowMs - thenMs;
   const abs = Math.abs(diff);
   const suffix = diff < 0 ? "from now" : "ago";

@@ -31,6 +31,8 @@ jobs:
 
       - run: pnpm depcruise
 
+      - run: pnpm knip
+
       - run: pnpm fmt:check
 
       - run: pnpm typecheck
