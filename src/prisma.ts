@@ -1,5 +1,5 @@
 import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
-import type { IdColumnCodec } from "./adapter-types.js";
+import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
 import type { Id } from "./types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -74,13 +74,7 @@ export type IdTransform<Brand extends string> = {
 export function idField<Brand extends string>(codec: IdColumnCodec<Brand>): IdTransform<Brand> {
   return {
     read(value: unknown): Id<Brand> {
-      const result = codec.safeParse(value);
-      if (!result.ok) {
-        throw new IdsError("invalid_id", `invalid ID from database: ${result.error}`, {
-          cause: result.error,
-        });
-      }
-      return result.id;
+      return readIdColumn(codec, value);
     },
     write(value: Id<Brand>): string {
       return value;
