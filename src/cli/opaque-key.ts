@@ -4,7 +4,7 @@ import {
   type OpaqueKey,
   type OpaqueKeyFormat,
 } from "../opaque.js";
-import { loadKey, parseKeyFormat, parseKeyFormatFromFlag } from "./key-io.js";
+import { loadKey, parseKeyFormat } from "./key-io.js";
 import type { RunOpts } from "./types.js";
 
 const opaqueFacet = {
@@ -13,10 +13,6 @@ const opaqueFacet = {
   decode: decodeOpaqueKey,
   import: importOpaqueKey,
 };
-
-export function parseKeygenFormat(values: Map<string, string>): OpaqueKeyFormat | string {
-  return parseKeyFormatFromFlag(values);
-}
 
 export function parseOpaqueKeyFormat(
   values: Map<string, string>,
