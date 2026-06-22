@@ -17,7 +17,8 @@ import {
   unsupportedFlagForCommand,
   type WrappedKindValue,
 } from "../flags.js";
-import { isKeyFormatError, loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
+import { isKeyFormatError } from "../key-io.js";
+import { loadOpaqueKey, parseOpaqueKeyFormat } from "../opaque-key.js";
 import { loadSigningKey, parseSigningKeyFormat } from "../signing-key.js";
 import type { SigningKeyFormat } from "../../signed.js";
 import { loadWrappingKey, parseWrappingKeyFormat } from "../wrapping-key.js";

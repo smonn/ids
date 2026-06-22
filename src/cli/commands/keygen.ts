@@ -2,7 +2,8 @@ import { encodeOpaqueKey } from "../../opaque.js";
 import { encodeSigningKey } from "../../signed.js";
 import { encodeWrappingKey } from "../../wrapped.js";
 import { parseBits, splitFlags, unsupportedFlagForCommand } from "../flags.js";
-import { isKeyFormatError, parseKeygenFormat } from "../opaque-key.js";
+import { isKeyFormatError } from "../key-io.js";
+import { parseKeygenFormat } from "../opaque-key.js";
 import type { RunOpts } from "../types.js";
 
 export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {

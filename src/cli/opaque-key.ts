@@ -6,10 +6,6 @@ import {
 } from "../opaque.js";
 import type { RunOpts } from "./types.js";
 
-export function isKeyFormatError(result: OpaqueKeyFormat | string): result is string {
-  return result !== "hex" && result !== "base64url";
-}
-
 function parseKeyFormatFlag(values: Map<string, string>): OpaqueKeyFormat | string | undefined {
   const fromFlag = values.get("--key-format");
   if (fromFlag === undefined) return undefined;
