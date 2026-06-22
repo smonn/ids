@@ -13,13 +13,12 @@ function splitFlagToken(arg: string): { flag: string; inlineValue: string | unde
   return { flag: arg.slice(0, eq), inlineValue: arg.slice(eq + 1) };
 }
 
-export function splitFlags(args: ReadonlyArray<string>): ParsedFlags {
+export function splitFlags(args: ReadonlyArray<string>, valueFlags: Set<string>): ParsedFlags {
   const flags = new Set<string>();
   const values = new Map<string, string>();
   const positionals: string[] = [];
   const errors: string[] = [];
   const seenFlags = new Set<string>();
-  const valueFlags = new Set(["--count", "-c", "--bits", "--key-format", "--kind"]);
   const addFlag = (flag: string) => {
     const canonical = canonicalFlag(flag);
     if (seenFlags.has(canonical)) errors.push(`duplicate flag: ${canonical}`);
@@ -29,16 +28,6 @@ export function splitFlags(args: ReadonlyArray<string>): ParsedFlags {
   for (let i = 0; i < args.length; i++) {
     const raw = args[i]!;
     const { flag, inlineValue } = splitFlagToken(raw);
-    if (
-      flag === "--opaque" ||
-      flag === "--wrapped" ||
-      flag === "--reverse" ||
-      flag === "--signed"
-    ) {
-      addFlag(flag);
-      if (inlineValue !== undefined) errors.push(`flag does not take a value: ${flag}`);
-      continue;
-    }
     if (valueFlags.has(flag)) {
       if (inlineValue !== undefined) {
         addFlag(flag);
@@ -58,6 +47,7 @@ export function splitFlags(args: ReadonlyArray<string>): ParsedFlags {
     }
     if (flag.startsWith("-")) {
       addFlag(flag);
+      if (inlineValue !== undefined) errors.push(`flag does not take a value: ${flag}`);
       continue;
     }
     positionals.push(raw);
