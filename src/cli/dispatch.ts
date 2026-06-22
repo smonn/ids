@@ -26,10 +26,10 @@ export function resolveVariant<D extends Descriptor>(
   policy: Policy<D>,
   flags: Set<string>,
 ): D | string {
-  const selectable = new Set<Descriptor>(policy.selectable);
   const selected = conflictPriorityOrder.filter(
-    (v) => selectable.has(v) && v.flag !== undefined && flags.has(v.flag),
-  ) as D[];
+    (v): v is D =>
+      policy.selectable.some((d) => d === v) && v.flag !== undefined && flags.has(v.flag),
+  );
   if (selected.length === 0) return policy.default;
   if (selected.length === 1) return selected[0]!;
   return `cannot use ${selected[0]!.flag} and ${selected[1]!.flag} together`;
