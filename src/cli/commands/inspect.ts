@@ -283,15 +283,18 @@ async function runSignedInspect(
   const timestamp = structCodec.extractTimestamp(canonical);
   const nowMs = (opts.now ?? Date.now)();
 
-  const env = opts.env ?? process.env;
-  const rawKey = env.IDS_SIGNING_KEY;
-  if (rawKey === undefined) {
-    opts.stdout(formatSignedInspectOutput({ brand, timestamp, canonical, input, nowMs }));
-    return 0;
-  }
-
   const keyResult = await loadSigningKey(opts, format);
   if (typeof keyResult === "string") {
+    opts.stdout(
+      formatSignedInspectOutput({
+        brand,
+        timestamp,
+        canonical,
+        input,
+        nowMs,
+        verification: "unavailable",
+      }),
+    );
     opts.stderr(keyResult + "\n");
     return 1;
   }
@@ -320,6 +323,7 @@ async function runSignedInspect(
         verification: "failed",
       }),
     );
+    opts.stderr("verification_failed: verification failed\n");
     return 1;
   }
   opts.stdout(
