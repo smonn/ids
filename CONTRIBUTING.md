@@ -50,10 +50,11 @@ pnpm typecheck         # tsc --noEmit
 pnpm lint              # oxlint
 pnpm fmt:check         # oxfmt --check
 pnpm depcruise         # dependency layer rules (ADR-0008)
+pnpm knip              # unused exports and dependencies
 pnpm build             # tsdown
 ```
 
-Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, and `pnpm depcruise` before opening a PR.
+Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, `pnpm depcruise`, and `pnpm knip` before opening a PR.
 
 ## Style
 
