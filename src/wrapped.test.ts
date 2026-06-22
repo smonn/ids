@@ -61,6 +61,17 @@ describe("wrapped", () => {
     });
   });
 
+  it("safeUnwrap never throws on 100 random canonical ids (decrypt-never-throws invariant)", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    for (let i = 0; i < 100; i++) {
+      const payload = crypto.getRandomValues(new Uint8Array(16));
+      const id = toWireId("inv_", payload);
+      const result = await inv.safeUnwrap(id);
+      expect(result.ok).toBe(false);
+    }
+  });
+
   it("safeUnwrap rejects tokens wrapped for a different integer kind", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0xaa));
     const u32 = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
