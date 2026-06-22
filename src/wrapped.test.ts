@@ -68,7 +68,7 @@ describe("wrapped", () => {
       const payload = crypto.getRandomValues(new Uint8Array(16));
       const id = toWireId("inv_", payload);
       const result = await inv.safeUnwrap(id);
-      expect(result.ok).toBe(false);
+      expect(result).toMatchObject({ ok: false, error: "verification_failed" });
     }
   });
 
