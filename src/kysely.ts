@@ -1,9 +1,9 @@
 import type { ColumnType } from "kysely";
 import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
-import type { IdColumnCodec } from "./drizzle.js";
+import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
 import type { Id } from "./types.js";
 
-export type { IdColumnCodec } from "./drizzle.js";
+export type { IdColumnCodec } from "./adapter-types.js";
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };
 
@@ -62,13 +62,7 @@ export function idColumn<Brand extends string>(
       return value;
     },
     fromDriver(value: string): Id<Brand> {
-      const result = codec.safeParse(value);
-      if (!result.ok) {
-        throw new IdsError("invalid_id", `invalid ID from database: ${result.error}`, {
-          cause: result.error,
-        });
-      }
-      return result.id;
+      return readIdColumn(codec, value);
     },
   };
 }
