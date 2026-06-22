@@ -87,17 +87,17 @@ describe("id", () => {
     expect(() => usr.generate()).toThrow();
   });
 
-  it("rejects Infinity timestamp", () => {
+  it("rejects pre-epoch timestamps", () => {
     const usr = createTimestampId("usr", {
-      now: () => Infinity,
+      now: () => -1,
       rng: () => {},
     });
     expect(() => usr.generate()).toThrow();
   });
 
-  it("rejects pre-epoch timestamps", () => {
+  it("rejects Infinity timestamp", () => {
     const usr = createTimestampId("usr", {
-      now: () => -1,
+      now: () => Infinity,
       rng: () => {},
     });
     expect(() => usr.generate()).toThrow();
