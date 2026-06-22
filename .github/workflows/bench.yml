@@ -72,14 +72,24 @@ jobs:
       - name: Bench PR head
         run: pnpm bench > /tmp/pr.json
 
+      - name: Restore base bench cache
+        id: base-cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: /tmp/base.json
+          key: bench-base-${{ github.event.pull_request.base.sha }}
+
       - name: Add base worktree
+        if: steps.base-cache.outputs.cache-hit != 'true'
         run: git worktree add ../base ${{ github.event.pull_request.base.sha }}
 
       - name: Install base deps
+        if: steps.base-cache.outputs.cache-hit != 'true'
         working-directory: ../base
         run: pnpm install --frozen-lockfile
 
       - name: Bench base
+        if: steps.base-cache.outputs.cache-hit != 'true'
         working-directory: ../base
         run: |
           if grep -q '"bench"' package.json; then
