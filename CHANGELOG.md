@@ -1,5 +1,15 @@
 # @smonn/ids
 
+## 0.9.0
+
+### Minor Changes
+
+- c8b7d28: Add CLI support for the Signed Timestamp codec via `--signed` flag on `keygen`, `generate`, and `inspect`.
+
+### Patch Changes
+
+- 586953e: Fix: `is()` and `safeParse()` now reject non-canonical trailing-bit variants (final base32 char must have zero low 2 bits).
+
 ## 0.8.0
 
 ### Minor Changes
