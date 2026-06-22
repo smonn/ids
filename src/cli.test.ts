@@ -1700,7 +1700,7 @@ describe("cli generate --signed", () => {
 });
 
 describe("cli inspect --signed", () => {
-  it("without IDS_SIGNING_KEY: decodes the timestamp and exits 0 (structural-only)", async () => {
+  it("without IDS_SIGNING_KEY: exits 1 with verification: unavailable", async () => {
     const key = await importSigningKey(testSigningKeyBytes);
     const fixed = new Date("2026-05-28T12:00:00Z");
     const usr = createSignedTimestampId("usr", {
@@ -1714,12 +1714,12 @@ describe("cli inspect --signed", () => {
       env: {},
       now: () => new Date("2026-06-01T00:00:00Z").getTime(),
     });
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("missing IDS_SIGNING_KEY environment variable\n");
     expect(result.stdout).toContain("brand:     usr");
     expect(result.stdout).toContain("timestamp: 2026-05-28T12:00:00.000Z");
     expect(result.stdout).toContain(`canonical: ${id}`);
-    expect(result.stdout).not.toContain("verification:");
+    expect(result.stdout).toContain("verification: unavailable");
   });
 
   it("with correct IDS_SIGNING_KEY: prints verification: ok and exits 0", async () => {
@@ -1761,7 +1761,7 @@ describe("cli inspect --signed", () => {
       now: () => new Date("2026-06-01T00:00:00Z").getTime(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toContain("verification_failed");
     expect(result.stdout).toContain("timestamp: 2026-05-28T12:00:00.000Z");
     expect(result.stdout).toContain("verification: failed");
   });
@@ -1841,12 +1841,12 @@ describe("cli inspect --signed", () => {
     expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
   });
 
-  it("routes empty IDS_SIGNING_KEY through loadSigningKey (exits 1 with error)", async () => {
+  it("routes empty IDS_SIGNING_KEY through loadSigningKey (exits 1 with verification: unavailable)", async () => {
     const result = await runCapture(["inspect", "usr_00000000000000000000000000", "--signed"], {
       env: { IDS_SIGNING_KEY: "" },
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stdout).toBe("");
+    expect(result.stdout).toContain("verification: unavailable");
     expect(result.stderr).toBe("missing IDS_SIGNING_KEY environment variable\n");
   });
 
@@ -1855,7 +1855,7 @@ describe("cli inspect --signed", () => {
       env: { IDS_SIGNING_KEY: "not-hex!" },
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stdout).toBe("");
+    expect(result.stdout).toContain("verification: unavailable");
     expect(result.stderr).toMatch(/invalid hex key/);
   });
 
