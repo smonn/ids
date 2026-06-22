@@ -31,7 +31,7 @@ export async function buildCodec(
   brand: string,
   values: Map<string, string>,
   opts: RunOpts,
-): Promise<IdCodec<string> | string> {
+): Promise<(IdCodec<string> & { generate(): string | Promise<string> }) | string> {
   let key: unknown;
   if (variant.key !== undefined) {
     const format = parseKeyFormat(values, opts, variant.key);
@@ -40,5 +40,7 @@ export async function buildCodec(
     if (typeof keyResult === "string") return keyResult;
     key = keyResult;
   }
-  return variant.construct(brand, opts, key, values);
+  return variant.construct(brand, opts, key, values) as
+    | (IdCodec<string> & { generate(): string | Promise<string> })
+    | string;
 }

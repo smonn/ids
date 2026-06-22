@@ -287,6 +287,23 @@ describe("buildCodec", () => {
     expect(typeof result).toBe("object");
     expect(result).not.toBeNull();
   });
+
+  it("codec branch exposes generate() without a cast (timestamp)", async () => {
+    const codec = await buildCodec(timestampVariant, "tst", new Map(), makeOpts());
+    if (typeof codec === "string") throw new Error("expected codec object");
+    const id = await codec.generate();
+    expect(typeof id).toBe("string");
+    expect(id).toMatch(/^tst_/);
+  });
+
+  it("codec branch exposes generate() without a cast (opaque, async)", async () => {
+    const opts = makeOpts({ IDS_KEY: testOpaqueHex });
+    const codec = await buildCodec(opaqueVariant, "tst", new Map(), opts);
+    if (typeof codec === "string") throw new Error("expected codec object");
+    const id = await codec.generate();
+    expect(typeof id).toBe("string");
+    expect(id).toMatch(/^tst_/);
+  });
 });
 
 describe("resolveVariant descriptor type guard", () => {

@@ -3,8 +3,6 @@ import { parseCount, splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import type { RunOpts } from "../types.js";
 import { generatePolicy } from "../variants.js";
 
-type WithGenerate = { generate(): string | Promise<string> };
-
 export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
   const allowedFlags = deriveAllowedFlags(generatePolicy);
   const selectorFlags = new Set(
@@ -46,7 +44,6 @@ export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): P
     opts.stderr(codec + "\n");
     return 1;
   }
-  const genCodec = codec as unknown as WithGenerate;
-  for (let i = 0; i < count; i++) opts.stdout((await genCodec.generate()) + "\n");
+  for (let i = 0; i < count; i++) opts.stdout((await codec.generate()) + "\n");
   return 0;
 }
