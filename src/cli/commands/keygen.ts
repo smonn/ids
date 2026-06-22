@@ -41,6 +41,7 @@ export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<n
     opts.stderr(format + "\n");
     return Promise.resolve(1);
   }
+  /* v8 ignore next 4 -- defensive guard; all keygenPolicy variants have key defined */
   if (variant.key === undefined) {
     opts.stderr("internal: keygen policy variant has no key facet\n");
     return Promise.resolve(1);
