@@ -6,8 +6,13 @@ import { keygenPolicy } from "../variants.js";
 
 export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
   const allowedFlags = deriveAllowedFlags(keygenPolicy);
+  const variantExtraFlags = new Set(keygenPolicy.selectable.flatMap((v) => v.extraFlags ?? []));
   const { flags, values, positionals, errors } = splitFlags(args, allowedFlags);
-  const unsupported = unsupportedFlagForCommand("keygen", flags, allowedFlags);
+  const unsupported = unsupportedFlagForCommand(
+    "keygen",
+    flags,
+    new Set([...allowedFlags].filter((f) => !variantExtraFlags.has(f))),
+  );
   if (unsupported !== undefined) {
     opts.stderr(unsupported + "\n");
     return Promise.resolve(1);

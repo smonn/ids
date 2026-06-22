@@ -770,6 +770,13 @@ describe("cli", () => {
       expect(result.stderr).toBe("unsupported flag for keygen: --opaque\n");
     });
 
+    it("rejects --kind, which is not applicable to key generation", async () => {
+      const result = await runCapture(["keygen", "--kind", "u32"]);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("unsupported flag for keygen: --kind\n");
+    });
+
     it("rejects unknown flags", async () => {
       const result = await runCapture(["keygen", "--bogus"]);
       expect(result.exitCode).toBe(1);
