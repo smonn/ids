@@ -59,7 +59,7 @@
     "kysely": "^0.29.2",
     "mitata": "1.0.34",
     "oxfmt": "0.55.0",
-    "oxlint": "1.69.0",
+    "oxlint": "1.70.0",
     "tsdown": "0.22.3",
     "typescript": "6.0.3",
     "vitest": "4.1.8"
