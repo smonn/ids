@@ -105,7 +105,7 @@ try {
 | `empty_keyring`           | the wrapping keyring is empty                   | `createWrappedKeyId({ keys })`                            | Supply at least one `WrappingKey`          |
 | `duplicate_keyring_entry` | two keyring entries share the same raw secret   | `createWrappedKeyId({ keys })`                            | Deduplicate the key list                   |
 | `invalid_lookup_key`      | lookup key is out of range or the wrong JS type | `wrap(lookupKey)`                                         | Check the kind's range and JS type         |
-| `verification_failed`     | no keyring entry verifies the payload tag       | `unwrap(id)`                                              | Check keyring; tamper or wrong key         |
+| `verification_failed`     | no keyring entry verifies the payload tag       | `unwrap(id)`, `verify(id)`                                | Check keyring; tamper or wrong key         |
 | `invalid_id`              | string is not a valid ID for this brand         | `parse()`, ORM adapter read paths                         | Use `safeParse()` for untrusted input      |
 
 `invalid_id` carries the originating `ParseError` string on `cause` — check `err.cause` for `"not_string"`, `"invalid_prefix"`, or `"invalid_base32"` when you need to distinguish the failure mode.
