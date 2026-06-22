@@ -35,9 +35,9 @@ adapter-types.ts                    ← shared web-adapter type hub
 types.ts / error.ts                 ← leaves
 ```
 
-`drizzle.ts` imports `readIdColumn` and `IdColumnCodec` from `adapter-types.ts`. `prisma.ts` and `kysely.ts` still inline the read guard.
+`drizzle.ts`, `prisma.ts`, and `kysely.ts` all import `readIdColumn` (and `IdColumnCodec`) from `adapter-types.ts` directly.
 
-`kysely.ts` imports `IdColumnCodec` as a type from `drizzle.ts` (permitted by the `kysely-adapter-no-internals` depcruise rule, which explicitly allowlists `drizzle` in the kysely path). Keeping `kysely.ts` unchanged was a non-goal in #183; rather than pulling `IdColumnCodec` out of `drizzle.ts` into a shared module, the deliberate decision was to let `kysely.ts` borrow the type from its existing home. This is a stable trade-off: if the Kysely adapter ever diverges from the Drizzle type surface, the depcruise rule signals the coupling that must be resolved at that point.
+`kysely.ts` imports `readIdColumn` and `IdColumnCodec` directly from `adapter-types.ts` (not via `drizzle.ts`). Routing through `drizzle.ts` was explicitly rejected: `readIdColumn` is a value (not erased at compile time), so importing it from `drizzle.ts` would pull `drizzle-orm` into the kysely adapter's module graph, forcing `@smonn/ids/kysely` consumers to install `drizzle-orm`. The `kysely-adapter-no-internals` depcruise rule reflects this: `drizzle` is no longer in the allowlist — only `types`, `error`, and `adapter-types`.
 
 Codec constructors import **`wire/codec-shell`** separately from **`layouts/<variant>`** — the diagram shows two composition edges, not a single chain through layouts into all of `wire/`.
 
@@ -53,17 +53,17 @@ Each `layouts/<variant>.ts` exports a single binder — `createTimestampLayoutOp
 
 ### Responsibilities
 
-| Module                    | Role                                                                                                                                                                                                                                            |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wire/invariants.ts`      | Shared wire constants (`payloadByteLength`, `payloadBase32Length`, `base32CharClass`)                                                                                                                                                           |
-| `wire/parse.ts`           | Canonical normalization at the boundary (`safeParse`, `is`); Standard Schema validate                                                                                                                                                           |
-| `wire/envelope.ts`        | Payload ↔ base32; `toWireId` / `payloadBytesFromId` (trust-the-type)                                                                                                                                                                            |
-| `wire/timestamp-bytes.ts` | 6-byte big-endian ms read/write; partial base32 suffix decode for timestamp extraction                                                                                                                                                          |
-| `wire/codec-shell.ts`     | `wireMethods(prefix)` — wire surface shared by all variants                                                                                                                                                                                     |
-| `layouts/timestamp.ts`    | `createTimestampLayoutOps` — scratch buffer, generate/extract/min/max/exampleWireId                                                                                                                                                             |
-| `layouts/opaque.ts`       | `createOpaqueLayoutOps` — AES-CBC encrypt/decrypt; builds plaintext via `wire/timestamp-bytes`                                                                                                                                                  |
-| `key-material.ts`         | Key-material leaf — shared format/length validation, hex/base64url encode/decode, and keyring non-emptiness/duplicate-entry assertion helpers, all parameterized by noun; imported only by `opaque-key.ts`, `wrapping-key.ts`, `signing-key.ts` |
-| `adapter-types.ts`        | Shared web-adapter type hub — exports `IdParamFailure` discriminated union and the shared read helper `readIdColumn`; imported only by `express.ts`, `fastify.ts`, `hono.ts`, and `drizzle.ts`; imports from `types.ts` and `error.ts`          |
+| Module                    | Role                                                                                                                                                                                                                                                        |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wire/invariants.ts`      | Shared wire constants (`payloadByteLength`, `payloadBase32Length`, `base32CharClass`)                                                                                                                                                                       |
+| `wire/parse.ts`           | Canonical normalization at the boundary (`safeParse`, `is`); Standard Schema validate                                                                                                                                                                       |
+| `wire/envelope.ts`        | Payload ↔ base32; `toWireId` / `payloadBytesFromId` (trust-the-type)                                                                                                                                                                                        |
+| `wire/timestamp-bytes.ts` | 6-byte big-endian ms read/write; partial base32 suffix decode for timestamp extraction                                                                                                                                                                      |
+| `wire/codec-shell.ts`     | `wireMethods(prefix)` — wire surface shared by all variants                                                                                                                                                                                                 |
+| `layouts/timestamp.ts`    | `createTimestampLayoutOps` — scratch buffer, generate/extract/min/max/exampleWireId                                                                                                                                                                         |
+| `layouts/opaque.ts`       | `createOpaqueLayoutOps` — AES-CBC encrypt/decrypt; builds plaintext via `wire/timestamp-bytes`                                                                                                                                                              |
+| `key-material.ts`         | Key-material leaf — shared format/length validation, hex/base64url encode/decode, and keyring non-emptiness/duplicate-entry assertion helpers, all parameterized by noun; imported only by `opaque-key.ts`, `wrapping-key.ts`, `signing-key.ts`             |
+| `adapter-types.ts`        | Shared web-adapter type hub — exports `IdParamFailure` discriminated union and the shared read helper `readIdColumn`; imported by `express.ts`, `fastify.ts`, `hono.ts`, `drizzle.ts`, `prisma.ts`, and `kysely.ts`; imports from `types.ts` and `error.ts` |
 
 ## Consequences
 

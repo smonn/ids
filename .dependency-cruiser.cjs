@@ -42,11 +42,11 @@ module.exports = {
       name: "kysely-adapter-no-internals",
       severity: "error",
       comment:
-        "kysely adapter may import only types, error surface, and the drizzle adapter from @smonn/ids internals; adapter-types is reachable transitively via drizzle (kysely imports IdColumnCodec from drizzle, which re-exports it from adapter-types) — this transitive path is intentional",
+        "kysely adapter may import only types, error surface, and adapter-types from @smonn/ids internals; kysely imports readIdColumn and IdColumnCodec directly from adapter-types (not via drizzle) to avoid pulling drizzle-orm into the kysely adapter's module graph",
       from: { path: "^src/kysely\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/(types|drizzle|error)\\.ts$",
+        pathNot: "^src/(types|error|adapter-types)\\.ts$",
       },
     },
     {
