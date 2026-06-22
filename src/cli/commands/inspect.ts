@@ -1,5 +1,6 @@
 import { createTimestampId } from "../../timestamp.js";
 import type { Id, StandardSchemaProps } from "../../types.js";
+import type { SafeVerifyResult } from "../../signed.js";
 import { codecOpts } from "../codec-options.js";
 import { buildCodec, deriveAllowedFlags, resolveVariant } from "../dispatch.js";
 import {
@@ -18,8 +19,7 @@ type WithValidate = { "~standard": StandardSchemaProps<string> };
 type WithExtractTimestamp = { extractTimestamp(id: Id<string>): Date };
 type WithAsyncExtractTimestamp = { extractTimestamp(id: Id<string>): Promise<Date> };
 type WithUnwrap = { unwrap(id: Id<string>): Promise<number | bigint> };
-type SafeVerifyResult = { ok: false; error: string } | { ok: true; id: Id<string> };
-type WithSafeVerify = { safeVerify(id: string): Promise<SafeVerifyResult> };
+type WithSafeVerify = { safeVerify(id: string): Promise<SafeVerifyResult<string>> };
 
 export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
   const allowedFlags = deriveAllowedFlags(inspectPolicy);
