@@ -48,7 +48,7 @@
   "devDependencies": {
     "@changesets/cli": "2.31.0",
     "@types/express": "^5.0.6",
-    "@types/node": "25.9.3",
+    "@types/node": "26.0.0",
     "@vitest/coverage-v8": "4.1.8",
     "dependency-cruiser": "17.4.3",
     "drizzle-orm": "^0.45.2",
@@ -59,10 +59,10 @@
     "kysely": "^0.29.2",
     "mitata": "1.0.34",
     "oxfmt": "0.55.0",
-    "oxlint": "1.69.0",
-    "tsdown": "0.22.2",
+    "oxlint": "1.70.0",
+    "tsdown": "0.22.3",
     "typescript": "6.0.3",
-    "vitest": "4.1.8"
+    "vitest": "4.1.9"
   },
   "peerDependencies": {
     "@prisma/client": ">=5.0.0",

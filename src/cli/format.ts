@@ -10,7 +10,7 @@ type InspectOutput = {
 };
 
 type SignedInspectOutput = InspectOutput & {
-  verification?: "ok" | "failed";
+  verification: "ok" | "failed" | "unavailable";
 };
 
 type WrappedInspectOutput = {
@@ -46,10 +46,8 @@ export function formatSignedInspectOutput(result: SignedInspectOutput): string {
     `brand:     ${result.brand}`,
     `timestamp: ${result.timestamp.toISOString()} (${relative})`,
   ];
-  if (result.verification !== undefined) {
-    // "verification:" is the spec-mandated key name; the extra chars vs. other labels are intentional.
-    lines.push(`verification: ${result.verification}`);
-  }
+  // "verification:" is the spec-mandated key name; the extra chars vs. other labels are intentional.
+  lines.push(`verification: ${result.verification}`);
   lines.push(`canonical: ${result.canonical}`, `input:     ${inputLine}`, "");
   return lines.join("\n");
 }

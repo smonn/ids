@@ -1018,6 +1018,23 @@ All keyed modes read secrets from environment variables — not from argv (argv 
 
 Key format defaults to `hex` for all modes; override per-invocation with `--key-format hex|base64url` or set the matching `_FORMAT` env var for a session default. `--key-format` on the command line wins over the env var. Key-format env vars do not affect `keygen` output — only `--key-format` applies there.
 
+### Signed mode (`--signed`)
+
+`generate --signed` and `inspect --signed` read the HMAC signing key from `IDS_SIGNING_KEY` — not from argv.
+
+`inspect --signed` always emits a full timestamp report on stdout and carries a `verification:` line with a three-value verdict:
+
+| Case          | stdout                               | stderr                                         | exit |
+| ------------- | ------------------------------------ | ---------------------------------------------- | ---- |
+| Correct key   | report + `verification: ok`          | —                                              | 0    |
+| Tag mismatch  | report + `verification: failed`      | `verification_failed: <message>`               | 1    |
+| Key missing   | report + `verification: unavailable` | `missing IDS_SIGNING_KEY environment variable` | 1    |
+| Key malformed | report + `verification: unavailable` | specific key diagnostic                        | 1    |
+
+The timestamp is always readable (Signed Timestamp IDs carry a plaintext timestamp), so `inspect` without `--signed` also decodes it — but without verification.
+
+Key format defaults to `hex`; override with `--key-format` or `IDS_SIGNING_KEY_FORMAT`. `--key-format` wins over the environment variable.
+
 ## Design
 
 - [`CONTEXT.md`](./CONTEXT.md) — glossary of the project's vocabulary

@@ -12,6 +12,8 @@ export type SigningKeyFormat = "hex" | "base64url";
 
 const hmacInfo = new TextEncoder().encode("ids/signed-timestamp/hmac");
 
+const SHA256_DIGEST_BYTES = 32;
+
 declare const signingKeyBrand: unique symbol;
 
 /**
@@ -31,7 +33,7 @@ export type SigningKey = {
 };
 
 type SigningKeyInternals = {
-  rawBytes: Uint8Array;
+  keyDigest: Uint8Array;
   hmacKey: CryptoKey;
 };
 
@@ -50,9 +52,12 @@ const internals = new WeakMap<SigningKey, SigningKeyInternals>();
  */
 export async function importSigningKey(bytes: Uint8Array): Promise<SigningKey> {
   assertValidKeyMaterialByteLength(bytes.length, "signing");
-  const hmacKey = await deriveHmacKey(bytes);
+  const [hmacKey, digestBuffer] = await Promise.all([
+    deriveHmacKey(bytes),
+    crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>),
+  ]);
   const key = Object.freeze({}) as SigningKey;
-  internals.set(key, { rawBytes: bytes.slice(), hmacKey });
+  internals.set(key, { keyDigest: new Uint8Array(digestBuffer), hmacKey });
   return key;
 }
 
@@ -89,12 +94,11 @@ export function decodeSigningKey(encoded: string, format: SigningKeyFormat): Uin
  * not leak the position of the first differing byte through a timing side channel.
  */
 export function signingKeysEqual(a: SigningKey, b: SigningKey): boolean {
-  const aBytes = getSigningKeyInternals(a).rawBytes;
-  const bBytes = getSigningKeyInternals(b).rawBytes;
-  if (aBytes.length !== bBytes.length) return false;
+  const aDigest = getSigningKeyInternals(a).keyDigest;
+  const bDigest = getSigningKeyInternals(b).keyDigest;
   let diff = 0;
-  for (let i = 0; i < aBytes.length; i++) {
-    diff |= aBytes[i]! ^ bBytes[i]!;
+  for (let i = 0; i < SHA256_DIGEST_BYTES; i++) {
+    diff |= aDigest[i]! ^ bDigest[i]!;
   }
   return diff === 0;
 }
