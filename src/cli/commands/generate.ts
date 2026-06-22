@@ -12,7 +12,10 @@ import type { SigningKeyFormat } from "../../signed.js";
 import type { RunOpts } from "../types.js";
 
 export function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
-  const { flags, values, positionals, errors } = splitFlags(args);
+  const { flags, values, positionals, errors } = splitFlags(
+    args,
+    new Set(["--count", "-c", "--bits", "--key-format", "--kind"]),
+  );
   const unsupported = unsupportedFlagForCommand(
     "generate",
     flags,

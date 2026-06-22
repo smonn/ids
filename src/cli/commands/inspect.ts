@@ -26,7 +26,10 @@ import type { RunOpts } from "../types.js";
 import { usage } from "../usage.js";
 
 export function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
-  const { flags, values, positionals, errors } = splitFlags(args);
+  const { flags, values, positionals, errors } = splitFlags(
+    args,
+    new Set(["--count", "-c", "--bits", "--key-format", "--kind"]),
+  );
   const unsupported = unsupportedFlagForCommand(
     "inspect",
     flags,

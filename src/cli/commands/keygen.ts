@@ -7,7 +7,10 @@ import { parseKeygenFormat } from "../opaque-key.js";
 import type { RunOpts } from "../types.js";
 
 export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
-  const { flags, values, positionals, errors } = splitFlags(args);
+  const { flags, values, positionals, errors } = splitFlags(
+    args,
+    new Set(["--count", "-c", "--bits", "--key-format", "--kind"]),
+  );
   const unsupported = unsupportedFlagForCommand(
     "keygen",
     flags,
