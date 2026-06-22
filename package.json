@@ -62,7 +62,7 @@
     "oxlint": "1.69.0",
     "tsdown": "0.22.3",
     "typescript": "6.0.3",
-    "vitest": "4.1.8"
+    "vitest": "4.1.9"
   },
   "peerDependencies": {
     "@prisma/client": ">=5.0.0",
