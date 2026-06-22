@@ -12,6 +12,8 @@ export type SigningKeyFormat = "hex" | "base64url";
 
 const hmacInfo = new TextEncoder().encode("ids/signed-timestamp/hmac");
 
+const SHA256_DIGEST_BYTES = 32;
+
 declare const signingKeyBrand: unique symbol;
 
 /**
@@ -95,7 +97,7 @@ export function signingKeysEqual(a: SigningKey, b: SigningKey): boolean {
   const aDigest = getSigningKeyInternals(a).keyDigest;
   const bDigest = getSigningKeyInternals(b).keyDigest;
   let diff = 0;
-  for (let i = 0; i < aDigest.length; i++) {
+  for (let i = 0; i < SHA256_DIGEST_BYTES; i++) {
     diff |= aDigest[i]! ^ bDigest[i]!;
   }
   return diff === 0;

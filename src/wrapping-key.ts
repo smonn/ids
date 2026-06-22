@@ -13,6 +13,8 @@ export type WrappingKeyFormat = "hex" | "base64url";
 const aesInfo = new TextEncoder().encode("@smonn/ids/wrapped/aes/v1");
 const hmacInfo = new TextEncoder().encode("@smonn/ids/wrapped/hmac/v1");
 
+const SHA256_DIGEST_BYTES = 32;
+
 declare const wrappingKeyBrand: unique symbol;
 
 /**
@@ -97,7 +99,7 @@ export function wrappingKeysEqual(a: WrappingKey, b: WrappingKey): boolean {
   const aDigest = getWrappingKeyInternals(a).keyDigest;
   const bDigest = getWrappingKeyInternals(b).keyDigest;
   let diff = 0;
-  for (let i = 0; i < aDigest.length; i++) {
+  for (let i = 0; i < SHA256_DIGEST_BYTES; i++) {
     diff |= aDigest[i]! ^ bDigest[i]!;
   }
   return diff === 0;
