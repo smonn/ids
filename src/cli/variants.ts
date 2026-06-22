@@ -38,18 +38,33 @@ export type Descriptor = {
     opts: RunOpts,
     key?: unknown,
     values?: Map<string, string>,
-  ) => IdCodec<string> | string;
+  ) => (IdCodec<string> & { generate?(): string | Promise<string> }) | string;
   inspectMode: InspectMode;
   extraFlags?: readonly string[];
 };
 
-export type Policy = {
-  default: Descriptor;
-  selectable: readonly Descriptor[];
+export type GeneratorDescriptor = {
+  flag?: string;
+  key?: KeyFacet<unknown>;
+  construct: (
+    brand: string,
+    opts: RunOpts,
+    key?: unknown,
+    values?: Map<string, string>,
+  ) => (IdCodec<string> & { generate(): string | Promise<string> }) | string;
+  inspectMode: InspectMode;
+  extraFlags?: readonly string[];
+};
+
+export type Policy<D extends Descriptor = Descriptor> = {
+  default: D;
+  selectable: readonly D[];
   intrinsicFlags: readonly string[];
 };
 
-export const timestampVariant: Descriptor = {
+export type GeneratePolicy = Policy<GeneratorDescriptor>;
+
+export const timestampVariant: GeneratorDescriptor = {
   inspectMode: "readable",
   construct(brand, opts) {
     try {
@@ -60,7 +75,7 @@ export const timestampVariant: Descriptor = {
   },
 };
 
-export const opaqueVariant: Descriptor = {
+export const opaqueVariant: GeneratorDescriptor = {
   flag: "--opaque",
   key: {
     envVar: "IDS_KEY",
@@ -79,7 +94,7 @@ export const opaqueVariant: Descriptor = {
   },
 };
 
-export const reverseVariant: Descriptor = {
+export const reverseVariant: GeneratorDescriptor = {
   flag: "--reverse",
   inspectMode: "readable",
   construct(brand, opts) {
@@ -118,7 +133,7 @@ export const wrappedVariant: Descriptor = {
   },
 };
 
-export const signedVariant: Descriptor = {
+export const signedVariant: GeneratorDescriptor = {
   flag: "--signed",
   key: {
     envVar: "IDS_SIGNING_KEY",
@@ -150,7 +165,7 @@ export const conflictPriorityOrder: readonly Descriptor[] = [
   opaqueVariant,
 ];
 
-export const generatePolicy: Policy = {
+export const generatePolicy: GeneratePolicy = {
   default: timestampVariant,
   selectable: [opaqueVariant, reverseVariant, signedVariant],
   intrinsicFlags: ["--count", "-c"],
