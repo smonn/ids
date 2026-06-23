@@ -27,10 +27,22 @@ export default defineConfig({
       title: "@smonn/ids",
       description:
         "Public-facing branded IDs for TypeScript apps — type-safe, sortable, and codec-pluggable.",
+      logo: { src: "./src/assets/logo.svg", alt: "@smonn/ids" },
+      favicon: "/favicon.svg",
+      customCss: ["./src/styles/custom.css"],
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/smonn/ids" }],
       editLink: {
         baseUrl: "https://github.com/smonn/ids/edit/main/website/",
       },
+      // Social-card metadata. Starlight emits og:title/og:description per page;
+      // a single shared og:image (1200x630) covers link previews everywhere.
+      head: [
+        { tag: "meta", attrs: { property: "og:image", content: "https://ids.smonn.se/og.png" } },
+        { tag: "meta", attrs: { property: "og:image:width", content: "1200" } },
+        { tag: "meta", attrs: { property: "og:image:height", content: "630" } },
+        { tag: "meta", attrs: { name: "twitter:card", content: "summary_large_image" } },
+        { tag: "meta", attrs: { name: "twitter:image", content: "https://ids.smonn.se/og.png" } },
+      ],
       plugins: [
         starlightTypeDoc({
           entryPoints,

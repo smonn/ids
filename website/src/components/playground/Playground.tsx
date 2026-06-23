@@ -357,25 +357,53 @@ export default function Playground() {
 
   return (
     <div class={styles.playground} not-content>
-      <div class={styles.tabs} role="tablist">
-        {CODECS.map((c) => (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={c.id === codec}
-            class={c.id === codec ? styles.tabActive : styles.tab}
-            onClick={() => setCodec(c.id)}
-          >
-            {c.label}
-          </button>
-        ))}
+      <div class={styles.tabs} role="tablist" aria-label="Codec">
+        {CODECS.map((c, i) => {
+          const selected = c.id === codec;
+          return (
+            <button
+              type="button"
+              role="tab"
+              id={`pg-tab-${c.id}`}
+              aria-selected={selected}
+              aria-controls={`pg-panel-${c.id}`}
+              tabIndex={selected ? 0 : -1}
+              class={selected ? styles.tabActive : styles.tab}
+              onClick={() => setCodec(c.id)}
+              onKeyDown={(e) => {
+                // Roving-tabindex arrow navigation per the WAI-ARIA tabs pattern.
+                const last = CODECS.length - 1;
+                let next = i;
+                if (e.key === "ArrowRight" || e.key === "ArrowDown") next = i === last ? 0 : i + 1;
+                else if (e.key === "ArrowLeft" || e.key === "ArrowUp")
+                  next = i === 0 ? last : i - 1;
+                else if (e.key === "Home") next = 0;
+                else if (e.key === "End") next = last;
+                else return;
+                e.preventDefault();
+                const target = CODECS[next];
+                setCodec(target.id);
+                document.getElementById(`pg-tab-${target.id}`)?.focus();
+              }}
+            >
+              {c.label}
+            </button>
+          );
+        })}
       </div>
-      <p class={styles.blurb}>{active.blurb}</p>
-      {codec === "timestamp" && <PlainPanel codec="timestamp" />}
-      {codec === "reverse" && <PlainPanel codec="reverse" />}
-      {codec === "signed" && <SignedPanel />}
-      {codec === "opaque" && <OpaquePanel />}
-      {codec === "wrapped" && <WrappedPanel />}
+      <div
+        role="tabpanel"
+        id={`pg-panel-${codec}`}
+        aria-labelledby={`pg-tab-${codec}`}
+        tabIndex={0}
+      >
+        <p class={styles.blurb}>{active.blurb}</p>
+        {codec === "timestamp" && <PlainPanel codec="timestamp" />}
+        {codec === "reverse" && <PlainPanel codec="reverse" />}
+        {codec === "signed" && <SignedPanel />}
+        {codec === "opaque" && <OpaquePanel />}
+        {codec === "wrapped" && <WrappedPanel />}
+      </div>
     </div>
   );
 }
