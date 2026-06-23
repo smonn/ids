@@ -69,6 +69,7 @@
 .field select {
   min-width: 0;
   padding: 0.4rem 0.55rem;
+  line-height: 1.75;
   border-radius: 0.4rem;
   border: 1px solid var(--sl-color-gray-5);
   background: var(--sl-color-gray-6);
