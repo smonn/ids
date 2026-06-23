@@ -15,7 +15,8 @@ export type IdsErrorCode =
   | "duplicate_keyring_entry"
   | "invalid_lookup_key"
   | "verification_failed"
-  | "invalid_id";
+  | "invalid_id"
+  | "invalid_namespace";
 
 /**
  * The single error class thrown by caller-reachable public failures.

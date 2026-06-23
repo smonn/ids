@@ -7,6 +7,7 @@ export default defineConfig({
     reverse: "src/reverse.ts",
     signed: "src/signed.ts",
     wrapped: "src/wrapped.ts",
+    digest: "src/digest.ts",
     drizzle: "src/drizzle.ts",
     hono: "src/hono.ts",
     kysely: "src/kysely.ts",
