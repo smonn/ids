@@ -171,8 +171,7 @@ export const digestVariant: GeneratorDescriptor = {
     decode: decodeDigestKey,
     import: importDigestKey,
   },
-  // Digest is one-way: no timestamp and no reverse path. inspectMode is set to
-  // "readable" as a required field, but digestVariant is intentionally omitted
+  // inspectMode is required by GeneratorDescriptor but digestVariant is intentionally omitted
   // from inspectPolicy.selectable — inspect --digest is unsupported by design.
   inspectMode: "readable",
   extraFlags: ["--ns"],
