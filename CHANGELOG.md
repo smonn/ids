@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 0.9.4
+
+### Patch Changes
+
+- 9561df7: docs: fix playground field sizing, codec tab alignment, and home card grid on the docs site
+
 ## 0.9.3
 
 ### Patch Changes
