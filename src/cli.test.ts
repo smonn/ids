@@ -2035,6 +2035,20 @@ describe("cli keygen --digest", () => {
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("cannot use");
   });
+
+  it("rejects --ns with --digest (generate-only flag)", async () => {
+    const result = await runCapture(["keygen", "--digest", "--ns", "foo"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("unsupported flag for keygen: --ns\n");
+  });
+
+  it("rejects --ns before --digest (flag order does not matter)", async () => {
+    const result = await runCapture(["keygen", "--ns", "foo", "--digest"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("unsupported flag for keygen: --ns\n");
+  });
 });
 
 describe("cli generate --digest", () => {
