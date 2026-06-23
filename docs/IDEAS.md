@@ -15,9 +15,10 @@ different invariants.
   [ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md).
 - ~~**`createSignedTimestampId(brand, {keys})`**~~ — shipped. See [ADR-0012](./adr/0012-signed-timestamp-construction.md).
   Glossary: **Signed Timestamp codec**, **Signing key**, **Signing keyring** in [CONTEXT.md](../CONTEXT.md).
-- **`createDigestId(brand, {ns, key})`** — one-way deterministic digest of caller material.
-  Same material gives the same public ID; the material cannot be recovered from the ID.
-  For idempotency keys, content-addressed records, and stable public pseudonyms.
+- ~~**`createDigestId(brand, {ns, key})`**~~ — accepted design: see [ADR-0017](./adr/0017-digest-codec-construction.md).
+  One-way deterministic keyed digest of caller material; same material gives the same public ID,
+  material is unrecoverable. Single key, no keyring; `ns` is required domain separation.
+  Glossary: **Digest codec**, **Digest key**, **Namespace** in [CONTEXT.md](../CONTEXT.md).
 - ~~**`createReverseTimestampId(brand)`**~~ — shipped. See [ADR-0010](./adr/0010-reverse-timestamp-inversion.md).
   Bitwise-inverted timestamp bytes; lexicographic order = newest first. For KV stores where descending range scans are awkward.
 - **`createWrappedKeyId(brand, {kind, keys})`** — reversible verified wrapping of a
