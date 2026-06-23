@@ -22,6 +22,9 @@ const entryPoints = [
 
 export default defineConfig({
   site: "https://ids.smonn.se",
+  redirects: {
+    "/api/": "/api/readme/",
+  },
   integrations: [
     starlight({
       title: "@smonn/ids",
