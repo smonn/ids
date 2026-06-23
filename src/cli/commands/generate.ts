@@ -3,6 +3,21 @@ import { parseCount, splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import type { RunOpts } from "../types.js";
 import { generatePolicy } from "../variants.js";
 
+let stdinCache: Promise<string> | undefined;
+/* v8 ignore next 12 -- reads from process.stdin; not exercised in unit tests, only in the real binary */
+function readProcessStdin(): Promise<string> {
+  if (stdinCache === undefined) {
+    stdinCache = new Promise<string>((resolve) => {
+      const chunks: string[] = [];
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", (chunk: string) => chunks.push(chunk));
+      process.stdin.on("end", () => resolve(chunks.join("")));
+      process.stdin.resume();
+    });
+  }
+  return stdinCache;
+}
+
 export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
   const allowedFlags = deriveAllowedFlags(generatePolicy);
   const selectorFlags = new Set(
@@ -36,10 +51,11 @@ export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): P
     return 1;
   }
   if (variant.key === undefined && flags.has("--key-format")) {
-    opts.stderr("--key-format requires --opaque or --signed\n");
+    opts.stderr("--key-format requires --opaque, --signed, or --digest\n");
     return 1;
   }
-  const codec = await buildCodec(variant, brand ?? "", values, opts);
+  const optsWithStdin: RunOpts = { ...opts, readStdin: opts.readStdin ?? readProcessStdin };
+  const codec = await buildCodec(variant, brand ?? "", values, optsWithStdin);
   if (typeof codec === "string") {
     opts.stderr(codec + "\n");
     return 1;

@@ -14,6 +14,7 @@ import {
   decodeWrappingKey,
 } from "./wrapped.js";
 import { createReverseTimestampId } from "./reverse.js";
+import { encodeDigestKey } from "./digest.js";
 import { run } from "./cli.js";
 import { IdsError } from "./error.js";
 import { formatCliError } from "./cli/format.js";
@@ -733,11 +734,11 @@ describe("cli", () => {
       expect(result.stdout).toBe(`${expected}\n`);
     });
 
-    it("rejects --key-format without --opaque or --signed", async () => {
+    it("rejects --key-format without --opaque, --signed, or --digest", async () => {
       const result = await runCapture(["generate", "usr", "--key-format", "base64url"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("--key-format requires --opaque or --signed\n");
+      expect(result.stderr).toBe("--key-format requires --opaque, --signed, or --digest\n");
     });
 
     it("rejects duplicate --key-format flags", async () => {
@@ -896,10 +897,12 @@ describe("cli", () => {
       expect(result.stdout).toBe(`${expected}\n`);
     });
 
-    it("keygen preamble covers all three key types", async () => {
+    it("keygen preamble covers all four key types", async () => {
       const result = await runCapture(["--help"]);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("importOpaqueKey, importWrappingKey, or importSigningKey");
+      expect(result.stdout).toContain(
+        "importOpaqueKey, importWrappingKey, importSigningKey, or importDigestKey",
+      );
     });
   });
 });
@@ -1632,11 +1635,11 @@ describe("cli generate --signed", () => {
     expect(result.stdout).toBe(`${expected}\n`);
   });
 
-  it("rejects --key-format without --signed or --opaque for generate", async () => {
+  it("rejects --key-format without --signed, --opaque, or --digest for generate", async () => {
     const result = await runCapture(["generate", "usr", "--key-format", "base64url"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("--key-format requires --opaque or --signed\n");
+    expect(result.stderr).toBe("--key-format requires --opaque, --signed, or --digest\n");
   });
 
   it("rejects an invalid IDS_SIGNING_KEY_FORMAT", async () => {
@@ -1964,5 +1967,212 @@ describe("cli inspect --signed", () => {
       if (previous === undefined) delete process.env.IDS_SIGNING_KEY;
       else process.env.IDS_SIGNING_KEY = previous;
     }
+  });
+});
+
+const testDigestKeyBytes = new Uint8Array(32).fill(0xde);
+const testDigestKeyHex = encodeDigestKey(testDigestKeyBytes, "hex");
+const testDigestKeyBase64url = encodeDigestKey(testDigestKeyBytes, "base64url");
+
+async function runCaptureWithStdin(
+  argv: string[],
+  stdinContent: string,
+  opts: {
+    env?: Readonly<Record<string, string | undefined>>;
+  } = {},
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  let stdout = "";
+  let stderr = "";
+  const exitCode = await run({
+    argv,
+    stdout: (s) => {
+      stdout += s;
+    },
+    stderr: (s) => {
+      stderr += s;
+    },
+    readStdin: () => Promise.resolve(stdinContent),
+    ...(opts.env !== undefined ? { env: opts.env } : {}),
+  });
+  return { stdout, stderr, exitCode };
+}
+
+describe("cli keygen --digest", () => {
+  it("emits a 256-bit hex digest key by default", async () => {
+    const result = await runCapture(["keygen", "--digest"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("emits a 128-bit hex digest key with --bits 128", async () => {
+    const result = await runCapture(["keygen", "--digest", "--bits", "128"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trim()).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it("emits a 256-bit base64url digest key with --key-format base64url", async () => {
+    const result = await runCapture(["keygen", "--digest", "--key-format", "base64url"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    // base64url 256-bit key is 43 chars (ceil(256/6))
+    expect(result.stdout.trim()).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  });
+
+  it("conflicts: --digest and --signed → error", async () => {
+    const result = await runCapture(["keygen", "--digest", "--signed"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("cannot use");
+    expect(result.stderr).toContain("--digest");
+    expect(result.stderr).toContain("--signed");
+  });
+
+  it("conflicts: --digest and --wrapped → error", async () => {
+    const result = await runCapture(["keygen", "--digest", "--wrapped"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("cannot use");
+  });
+});
+
+describe("cli generate --digest", () => {
+  it("generates a deterministic ID from stdin material", async () => {
+    const result = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout"],
+      "order-123",
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trim()).toMatch(/^idk_[0-9a-hjkmnp-tv-z]{26}$/);
+  });
+
+  it("produces the same ID for the same material + ns + key (determinism)", async () => {
+    const material = "order-123";
+    const run1 = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout"],
+      material,
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    const run2 = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout"],
+      material,
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    expect(run1.exitCode).toBe(0);
+    expect(run2.exitCode).toBe(0);
+    expect(run1.stdout).toBe(run2.stdout);
+  });
+
+  it("produces different IDs for different namespaces with the same material", async () => {
+    const material = "order-123";
+    const run1 = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout"],
+      material,
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    const run2 = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "invoices"],
+      material,
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    expect(run1.exitCode).toBe(0);
+    expect(run2.exitCode).toBe(0);
+    expect(run1.stdout).not.toBe(run2.stdout);
+  });
+
+  it("accepts base64url key format via --key-format", async () => {
+    const result = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout", "--key-format", "base64url"],
+      "order-123",
+      { env: { IDS_DIGEST_KEY: testDigestKeyBase64url } },
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trim()).toMatch(/^idk_[0-9a-hjkmnp-tv-z]{26}$/);
+  });
+
+  it("rejects missing IDS_DIGEST_KEY → exit 1, stderr mentions IDS_DIGEST_KEY", async () => {
+    const result = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout"],
+      "order-123",
+      { env: {} },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("IDS_DIGEST_KEY");
+  });
+
+  it("rejects missing --ns → exit 1, stderr mentions --ns", async () => {
+    const result = await runCaptureWithStdin(["generate", "idk", "--digest"], "order-123", {
+      env: { IDS_DIGEST_KEY: testDigestKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("--ns");
+  });
+
+  it("rejects --ns without value → exit 1, error message", async () => {
+    const result = await runCaptureWithStdin(["generate", "idk", "--digest", "--ns"], "order-123", {
+      env: { IDS_DIGEST_KEY: testDigestKeyHex },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("--ns");
+  });
+
+  it("rejects malformed IDS_DIGEST_KEY → exit 1, error on stderr", async () => {
+    const result = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout"],
+      "order-123",
+      { env: { IDS_DIGEST_KEY: "not-valid-hex!!!" } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBeTruthy();
+  });
+
+  it("conflicts: --digest and --signed → exit 1", async () => {
+    const result = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--signed"],
+      "order-123",
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("cannot use");
+  });
+
+  it("conflicts: --digest and --opaque → exit 1", async () => {
+    const result = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--opaque"],
+      "order-123",
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("cannot use");
+  });
+
+  it("conflicts: --digest and --reverse → exit 1", async () => {
+    const result = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--reverse"],
+      "order-123",
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("cannot use");
+  });
+});
+
+describe("cli inspect --digest (unsupported, one-way)", () => {
+  it("rejects --digest flag on inspect with a clear error", async () => {
+    const result = await runCapture(["inspect", "idk_00000000000000000000000000", "--digest"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("--digest");
   });
 });

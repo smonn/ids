@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildCodec, deriveAllowedFlags, resolveVariant } from "./dispatch.js";
 import {
+  digestVariant,
   generatePolicy,
   inspectPolicy,
   keygenPolicy,
@@ -12,6 +13,7 @@ import {
   type Descriptor,
   type Policy,
 } from "./variants.js";
+import { encodeDigestKey } from "../digest.js";
 import { encodeOpaqueKey } from "../opaque.js";
 import { encodeSigningKey } from "../signed.js";
 import { encodeWrappingKey } from "../wrapped.js";
@@ -21,6 +23,7 @@ const testKeyBytes = new Uint8Array(32).fill(0xab);
 const testOpaqueHex = encodeOpaqueKey(testKeyBytes, "hex");
 const testSigningHex = encodeSigningKey(testKeyBytes, "hex");
 const testWrappingHex = encodeWrappingKey(testKeyBytes, "hex");
+const testDigestHex = encodeDigestKey(testKeyBytes, "hex");
 
 function makeOpts(env: Record<string, string> = {}): RunOpts {
   return {
@@ -88,13 +91,21 @@ describe("deriveAllowedFlags", () => {
     expect(flags.has("--kind")).toBe(true);
   });
 
-  it("keygen policy derives --wrapped, --signed, --bits, --key-format, --kind", () => {
+  it("keygen policy derives --wrapped, --signed, --digest, --bits, --key-format, --kind, --ns", () => {
     const flags = deriveAllowedFlags(keygenPolicy);
     expect(flags.has("--wrapped")).toBe(true);
     expect(flags.has("--signed")).toBe(true);
+    expect(flags.has("--digest")).toBe(true);
     expect(flags.has("--bits")).toBe(true);
     expect(flags.has("--key-format")).toBe(true);
     expect(flags.has("--kind")).toBe(true);
+    expect(flags.has("--ns")).toBe(true);
+  });
+
+  it("generate policy includes --digest and --ns", () => {
+    const flags = deriveAllowedFlags(generatePolicy);
+    expect(flags.has("--digest")).toBe(true);
+    expect(flags.has("--ns")).toBe(true);
   });
 
   it("includes --key-format when the default variant is keyed", () => {
@@ -209,6 +220,41 @@ describe("resolveVariant", () => {
     // first two present in that order: reverse(1), wrapped(2) → "reverse and wrapped"
     expect(result).toBe("cannot use --reverse and --wrapped together");
   });
+
+  it("returns digest variant from generate policy when --digest present", () => {
+    const result = resolveVariant(generatePolicy, new Set(["--digest"]));
+    expect(result).toBe(digestVariant);
+  });
+
+  it("returns digest variant from keygen policy when --digest present", () => {
+    const result = resolveVariant(keygenPolicy, new Set(["--digest"]));
+    expect(result).toBe(digestVariant);
+  });
+
+  it("conflicts: signed + digest (generate) → 'cannot use --signed and --digest together'", () => {
+    const result = resolveVariant(generatePolicy, new Set(["--signed", "--digest"]));
+    expect(result).toBe("cannot use --signed and --digest together");
+  });
+
+  it("conflicts: digest + reverse (generate) → 'cannot use --digest and --reverse together'", () => {
+    const result = resolveVariant(generatePolicy, new Set(["--digest", "--reverse"]));
+    expect(result).toBe("cannot use --digest and --reverse together");
+  });
+
+  it("conflicts: digest + opaque (generate) → 'cannot use --digest and --opaque together'", () => {
+    const result = resolveVariant(generatePolicy, new Set(["--digest", "--opaque"]));
+    expect(result).toBe("cannot use --digest and --opaque together");
+  });
+
+  it("conflicts: signed + digest (keygen) → 'cannot use --signed and --digest together'", () => {
+    const result = resolveVariant(keygenPolicy, new Set(["--signed", "--digest"]));
+    expect(result).toBe("cannot use --signed and --digest together");
+  });
+
+  it("conflicts: digest + wrapped (keygen) → 'cannot use --digest and --wrapped together'", () => {
+    const result = resolveVariant(keygenPolicy, new Set(["--digest", "--wrapped"]));
+    expect(result).toBe("cannot use --digest and --wrapped together");
+  });
 });
 
 describe("buildCodec", () => {
@@ -303,6 +349,45 @@ describe("buildCodec", () => {
     const id = await codec.generate();
     expect(typeof id).toBe("string");
     expect(id).toMatch(/^tst_/);
+  });
+
+  it("returns digest codec when env key and --ns are present", async () => {
+    const opts = makeOpts({ IDS_DIGEST_KEY: testDigestHex });
+    const values = new Map([["--ns", "checkout"]]);
+    const result = await buildCodec(digestVariant, "tst", values, opts);
+    expect(typeof result).toBe("object");
+    expect(result).not.toBeNull();
+  });
+
+  it("returns error string for digest codec when --ns is missing", async () => {
+    const opts = makeOpts({ IDS_DIGEST_KEY: testDigestHex });
+    const result = await buildCodec(digestVariant, "tst", new Map(), opts);
+    expect(typeof result).toBe("string");
+    expect(result as string).toBe("--ns is required with --digest");
+  });
+
+  it("returns error string for digest codec when IDS_DIGEST_KEY is missing", async () => {
+    const values = new Map([["--ns", "checkout"]]);
+    const result = await buildCodec(digestVariant, "tst", values, makeOpts({}));
+    expect(typeof result).toBe("string");
+    expect(result as string).toContain("IDS_DIGEST_KEY");
+  });
+
+  it("digest codec generate() is deterministic via readStdin", async () => {
+    const opts = {
+      ...makeOpts({ IDS_DIGEST_KEY: testDigestHex }),
+      readStdin: () => Promise.resolve("hello"),
+    };
+    const values = new Map([["--ns", "test"]]);
+    const codec1 = await buildCodec(digestVariant, "tst", values, opts);
+    const codec2 = await buildCodec(digestVariant, "tst", values, opts);
+    if (typeof codec1 === "string" || typeof codec2 === "string") {
+      throw new Error("expected codec objects");
+    }
+    const id1 = await codec1.generate();
+    const id2 = await codec2.generate();
+    expect(id1).toBe(id2);
+    expect(id1).toMatch(/^tst_/);
   });
 });
 
