@@ -4,7 +4,7 @@ import {
   encodeKeyMaterial,
 } from "./key-material.js";
 
-/** Wire encoding for digest operator secret bytes (not Crockford base32). */
+/** Wire encoding for digest operator key material (not Crockford base32). */
 export type DigestKeyFormat = "hex" | "base64url";
 
 const hmacInfo = new TextEncoder().encode("ids/digest/hmac");
@@ -12,7 +12,7 @@ const hmacInfo = new TextEncoder().encode("ids/digest/hmac");
 declare const digestKeyBrand: unique symbol;
 
 /**
- * Opaque imported handle for one operator digest secret.
+ * Opaque imported handle for one operator Digest key.
  *
  * Holds a single HMAC-SHA-256 key derived via HKDF under the domain-separation
  * label `ids/digest/hmac`. The underlying `CryptoKey` is held internally and

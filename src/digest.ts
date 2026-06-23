@@ -39,7 +39,7 @@ export type DigestOptions = {
 /**
  * Codec returned by {@link createDigestId}.
  *
- * Maps caller **material** to a stable public ID under one operator secret:
+ * Maps caller **material** to a stable public ID under one **Digest key**:
  * the same material always yields the same ID, and the material cannot be
  * recovered from the ID (**equality leakage** is the intended property).
  *

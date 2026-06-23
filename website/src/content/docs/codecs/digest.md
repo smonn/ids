@@ -4,7 +4,7 @@ description: Map caller material to a stable public branded ID — same material
 ---
 
 The Digest codec maps caller **material** to a stable public ID under one
-operator secret. The same material always yields the same ID; the material
+**Digest key**. The same material always yields the same ID; the material
 cannot be recovered from the ID. It is designed for **idempotency keys**,
 **content-addressed records**, and **stable public pseudonyms**.
 
