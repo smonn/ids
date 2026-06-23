@@ -20,6 +20,7 @@
     "./reverse": "./dist/reverse.mjs",
     "./signed": "./dist/signed.mjs",
     "./wrapped": "./dist/wrapped.mjs",
+    "./digest": "./dist/digest.mjs",
     "./drizzle": "./dist/drizzle.mjs",
     "./hono": "./dist/hono.mjs",
     "./kysely": "./dist/kysely.mjs",

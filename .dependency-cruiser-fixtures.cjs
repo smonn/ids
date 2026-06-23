@@ -32,7 +32,7 @@ module.exports = {
       severity: "error",
       from: { path: "^test/fixtures/depcruise/wire" },
       to: {
-        path: "^src/(timestamp|opaque|reverse|wrapped|signed|drizzle|kysely|cli|registry)\\.ts$",
+        path: "^src/(timestamp|opaque|reverse|wrapped|signed|digest|drizzle|kysely|cli|registry)\\.ts$",
       },
     },
     {
@@ -127,7 +127,7 @@ module.exports = {
       name: "codec-constructors-wire-codec-shell-only",
       severity: "error",
       from: {
-        path: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed)\\.ts$",
+        path: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
       },
       to: { path: "^src/wire", pathNot: "^src/wire/codec-shell" },
     },
@@ -137,7 +137,7 @@ module.exports = {
       comment: "only codec constructors may import layouts",
       from: {
         path: "^test/fixtures/depcruise",
-        pathNot: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed)\\.ts$",
+        pathNot: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
       },
       to: { path: "^src/layouts" },
     },
@@ -146,7 +146,7 @@ module.exports = {
       severity: "error",
       from: { path: "^test/fixtures/depcruise/layouts" },
       to: {
-        path: "^src/(timestamp|opaque|reverse|wrapped|signed|cli|registry)\\.ts$",
+        path: "^src/(timestamp|opaque|reverse|wrapped|signed|digest|cli|registry)\\.ts$",
       },
     },
     {
@@ -178,7 +178,7 @@ module.exports = {
       name: "codec-constructors-no-base32",
       severity: "error",
       from: {
-        path: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed)\\.ts$",
+        path: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
       },
       to: { path: "^src/base32" },
     },
@@ -200,7 +200,7 @@ module.exports = {
       comment: "only codec constructors may import brand",
       from: {
         path: "^test/fixtures/depcruise",
-        pathNot: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed)\\.ts$",
+        pathNot: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
       },
       to: { path: "^src/brand" },
     },
@@ -209,7 +209,7 @@ module.exports = {
       severity: "error",
       from: {
         path: "^test/fixtures/depcruise",
-        pathNot: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed)\\.ts$",
+        pathNot: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
       },
       to: { path: "^src/registry" },
     },
@@ -227,10 +227,10 @@ module.exports = {
       name: "key-material-leaf-restricted",
       severity: "error",
       comment:
-        "key-material is a leaf importable only by the three key-handle modules (opaque-key, wrapping-key, signing-key)",
+        "key-material is a leaf importable only by the four key-handle modules (opaque-key, wrapping-key, signing-key, digest-key)",
       from: {
         path: "^test/fixtures/depcruise.*\\.ts$",
-        pathNot: "^test/fixtures/depcruise/(opaque-key|wrapping-key|signing-key)\\.ts$",
+        pathNot: "^test/fixtures/depcruise/(opaque-key|wrapping-key|signing-key|digest-key)\\.ts$",
       },
       to: { path: "^src/key-material\\.ts$" },
     },
