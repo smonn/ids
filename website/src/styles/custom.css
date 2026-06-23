@@ -12,3 +12,22 @@
   --sl-color-accent: #4f46e5;
   --sl-color-accent-high: #312e81;
 }
+
+/* Center the splash hero when no image fills the right column (desktop only). */
+@media (min-width: 50rem) {
+  .hero:not(:has(> img, > .hero-html)) {
+    grid-template-columns: 1fr;
+  }
+
+  .hero:not(:has(> img, > .hero-html)) .stack {
+    text-align: center;
+  }
+
+  .hero:not(:has(> img, > .hero-html)) .copy {
+    align-items: center;
+  }
+
+  .hero:not(:has(> img, > .hero-html)) .actions {
+    justify-content: center;
+  }
+}
