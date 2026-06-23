@@ -5,6 +5,7 @@ import { createOpaqueTimestampId, importOpaqueKey } from "../src/opaque.js";
 import { createReverseTimestampId } from "../src/reverse.js";
 import { createWrappedKeyId, importWrappingKey } from "../src/wrapped.js";
 import { createSignedTimestampId, importSigningKey } from "../src/signed.js";
+import { createDigestId, importDigestKey } from "../src/digest.js";
 import type { Id } from "../src/types.js";
 
 const usr = createTimestampId("usr");
@@ -34,6 +35,10 @@ const signingKey = await importSigningKey(new Uint8Array(32));
 const sgn = createSignedTimestampId("sgn", { keys: [signingKey] });
 const signedId = await sgn.generate();
 
+// Pre-import the digest key once; bench measures steady-state HMAC cost, not key import.
+const digestKey = await importDigestKey(new Uint8Array(32));
+const dgst = createDigestId("dgs", { ns: "bench", key: digestKey });
+
 type Case =
   | { name: string; fn: () => unknown; async?: false }
   | { name: string; fn: () => Promise<unknown>; async: true };
@@ -57,6 +62,8 @@ const cases: Case[] = [
   // signed.* use HMAC-SHA-256 on the hot path; same async-crypto variance handling as opaque.* / wrapped.*
   { name: "signed.generate", fn: () => sgn.generate(), async: true },
   { name: "signed.verify", fn: () => sgn.verify(signedId), async: true },
+  // digest.* uses HMAC-SHA-256 async crypto; same async-bench variance handling as opaque.* / wrapped.* / signed.*
+  { name: "digest.digest", fn: () => dgst.digest("bench-material"), async: true },
 ];
 
 type Bench = {
