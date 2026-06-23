@@ -54,14 +54,20 @@ usr_…
 usr_…
 ```
 
-Flags: `--count` / `-c N` (default 1, max 10000). Uses the Timestamp codec unless
-a mode flag (`--opaque`, `--reverse`, `--signed`) is set; keyed modes read the
-same env vars as `inspect`.
+| Flag                 | Codec variant     | Env var           | Notes                                                                                                                      |
+| -------------------- | ----------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| _(none)_             | Timestamp         | —                 | Default; one ID per `--count`                                                                                              |
+| `--opaque`           | Opaque Timestamp  | `IDS_KEY`         | Same env var and format rules as `inspect --opaque`                                                                        |
+| `--reverse`          | Reverse Timestamp | —                 | Newest-first sort order                                                                                                    |
+| `--signed`           | Signed Timestamp  | `IDS_SIGNING_KEY` | Same env var and format rules as `inspect --signed`                                                                        |
+| `--digest --ns <ns>` | Digest            | `IDS_DIGEST_KEY`  | Reads material from stdin; `--ns` (non-secret namespace) required. Same `(material, ns, key)` always produces the same ID. |
+
+Flags: `--count` / `-c N` (default 1, max 10000); `--key-format hex|base64url`.
 
 ## `keygen` (`k`)
 
 Emit a random key to stdout — for use with `importOpaqueKey`,
-`importWrappingKey`, or `importSigningKey`. **A secret — do not log or commit.**
+`importWrappingKey`, `importSigningKey`, or `importDigestKey`. **A secret — do not log or commit.**
 Default: 256-bit hex for the Opaque key domain.
 
 ```bash
@@ -77,6 +83,7 @@ AbCdEf…
 | _(none)_    | Opaque     | `IDS_KEY`          | `importOpaqueKey`   |
 | `--wrapped` | Wrapping   | `IDS_WRAPPING_KEY` | `importWrappingKey` |
 | `--signed`  | Signing    | `IDS_SIGNING_KEY`  | `importSigningKey`  |
+| `--digest`  | Digest     | `IDS_DIGEST_KEY`   | `importDigestKey`   |
 
 Flags: `--bits 128|192|256` (default 256), `--key-format hex|base64url` (default
 `hex`).
@@ -95,6 +102,8 @@ a clear stderr message and exit non-zero.
 | `IDS_WRAPPING_KEY_FORMAT` | `--wrapped` (format override) | —              |
 | `IDS_SIGNING_KEY`         | `--signed`                    | `hex`          |
 | `IDS_SIGNING_KEY_FORMAT`  | `--signed` (format override)  | —              |
+| `IDS_DIGEST_KEY`          | `--digest`                    | `hex`          |
+| `IDS_DIGEST_KEY_FORMAT`   | `--digest` (format override)  | —              |
 
 Key format defaults to `hex`; override per-invocation with `--key-format` or set
 the matching `_FORMAT` env var for a session default. `--key-format` on the
