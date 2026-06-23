@@ -34,11 +34,11 @@ There is **no reverse method** — no `unwrap`, `verify`, or `extractTimestamp`.
 The codec is one-way by definition. To check whether material matches a known
 ID, re-digest the material and compare IDs directly.
 
-## The `ns` domain separator
+## The `ns` namespace
 
 `ns` is a **required**, non-empty, construction-time string mixed into every
 digest. The same material under a different `ns` yields a completely different
-ID, so one key can serve multiple unlinkable domains without any correlation:
+ID, so one key can serve multiple unlinkable namespaces without any correlation:
 
 ```ts
 const emailIds = createDigestId("uid", { ns: "email-pseudonym", key });

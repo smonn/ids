@@ -22,8 +22,8 @@ export { decodeDigestKey, encodeDigestKey, importDigestKey, type DigestKey, type
  */
 export type DigestOptions = {
   /**
-   * Non-secret, required domain separator. The same material under a different
-   * `ns` yields a different ID, so one key can serve multiple unlinkable domains.
+   * Non-secret, required namespace. The same material under a different
+   * `ns` yields a different ID, so one key can serve multiple unlinkable namespaces.
    * Must be non-empty and not whitespace-only.
    */
   ns: string;
@@ -72,9 +72,9 @@ export type DigestCodec<Brand extends string> = {
 /**
  * Construct a {@link DigestCodec} for `brand`.
  *
- * `opts.ns` is the required domain separator — the same material under a
+ * `opts.ns` is the required namespace — the same material under a
  * different `ns` yields a different ID. `opts.key` is the single operator
- * digest key; there is no keyring.
+ * Digest key; there is no keyring.
  *
  * @example
  * ```ts
