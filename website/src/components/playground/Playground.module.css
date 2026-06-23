@@ -15,6 +15,10 @@
 
 .tab,
 .tabActive {
+  /* margin:0 overrides Starlight's global `* + *` content spacing, which would
+     otherwise give every tab but the first a 1rem top margin and, under the
+     flex row's stretch, make the first tab taller than the rest. */
+  margin: 0;
   font-size: var(--sl-text-sm);
   padding: 0.35rem 0.7rem;
   border-radius: 0.4rem;
@@ -63,13 +67,22 @@
 .row input,
 .field input,
 .field select {
-  flex: 1 1 16rem;
   min-width: 0;
   padding: 0.4rem 0.55rem;
   border-radius: 0.4rem;
   border: 1px solid var(--sl-color-gray-5);
   background: var(--sl-color-gray-6);
   color: var(--sl-color-white);
+}
+
+/* Only the row-nested key input shares its line with the Generate button and
+   needs to flex. A `flex` shorthand here would set flex-basis on the main axis,
+   but for inputs that are direct children of the column-direction `.field` that
+   basis becomes the *height* — which blew every brand/ID/select up to 16rem
+   tall. Scope the flex to the row context so column fields keep auto height. */
+.row input,
+.row select {
+  flex: 1 1 16rem;
 }
 
 .mono {

@@ -23,7 +23,7 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkz`: a three-letter brand, an
 underscore, then 26 Crockford base32 characters of payload.
 
-<CardGrid stagger>
+<CardGrid>
   <Card title="Branded & type-safe" icon="approve-check">
     `Id<"usr">` and `Id<"org">` are nominally distinct — the type system catches
     a `UserId` passed where an `OrgId` was needed.
