@@ -54,7 +54,7 @@ commitment.
 | Signed Timestamp  | `@smonn/ids/signed`  | Ascending (oldest-first)  | Yes (signing key)  | Always (plaintext)         |
 | Opaque Timestamp  | `@smonn/ids/opaque`  | None (encrypted)          | Yes (AES key)      | With key only              |
 | Wrapped key       | `@smonn/ids/wrapped` | None                      | Yes (wrapping key) | N/A — not timestamp-family |
-| Digest            | `@smonn/ids/digest`  | None                      | Yes (digest key)   | N/A                        |
+| Digest            | `@smonn/ids/digest`  | None                      | Yes (digest key)   | N/A — not timestamp-family |
 
 - **Newest-first scans** on forward-only KV stores → [Reverse Timestamp](https://ids.smonn.se/codecs/reverse/)
 - **Tamper-evident share links** verified without a DB lookup → [Signed Timestamp](https://ids.smonn.se/codecs/signed/) (integrity)
