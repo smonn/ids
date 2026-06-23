@@ -36,7 +36,7 @@ assumed.
 IDS_KEY=<hex-or-base64url-key> npx @smonn/ids inspect inv_… --opaque
 
 # Wrapped key (IDS_WRAPPING_KEY and --kind required):
-IDS_WRAPPING_KEY=<hex-or-base64url-key> npx @smonn/ids inspect item_… --wrapped --kind u64
+IDS_WRAPPING_KEY=<hex-or-base64url-key> npx @smonn/ids inspect ord_… --wrapped --kind u64
 
 # Signed Timestamp — with verification:
 IDS_SIGNING_KEY=<hex-or-base64url-key> npx @smonn/ids inspect evt_… --signed

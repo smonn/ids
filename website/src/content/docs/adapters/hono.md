@@ -16,6 +16,9 @@ import { idParam } from "@smonn/ids/hono";
 import { createTimestampId } from "@smonn/ids";
 
 const usr = createTimestampId("usr");
+const org = createTimestampId("org");
+const thing = createTimestampId("thg");
+const handler = (c) => c.json({ ok: true });
 
 // Default: throws HTTPException → app.onError handles rendering
 app.get("/users/:id", idParam("id", usr), (c) => {

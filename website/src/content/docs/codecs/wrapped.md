@@ -13,9 +13,9 @@ import { createWrappedKeyId, importWrappingKey } from "@smonn/ids/wrapped";
 
 const key = await importWrappingKey(new Uint8Array(32));
 
-const u32Ids = createWrappedKeyId("inv", { kind: "u32", keys: [key] });
-const id = await u32Ids.wrap(42); // number → Id<"inv">
-const lookupKey = await u32Ids.unwrap(id); // → 42 (number)
+const invoices = createWrappedKeyId("inv", { kind: "u32", keys: [key] });
+const id = await invoices.wrap(42); // number → Id<"inv">
+const lookupKey = await invoices.unwrap(id); // → 42 (number)
 ```
 
 `wrap`, `unwrap`, and `safeUnwrap` are **async** (WebCrypto). `is`, `parse`, and
