@@ -5,18 +5,22 @@ import {
   type CodecId,
   WRAPPED_KINDS,
   type WrappedKind,
+  createDigestId,
   createOpaqueTimestampId,
   createReverseTimestampId,
   createSignedTimestampId,
   createTimestampId,
   createWrappedKeyId,
+  decodeDigestKey,
   decodeOpaqueKey,
   decodeSigningKey,
   decodeWrappingKey,
   describeError,
+  encodeDigestKey,
   encodeOpaqueKey,
   encodeSigningKey,
   encodeWrappingKey,
+  importDigestKey,
   importOpaqueKey,
   importSigningKey,
   importWrappingKey,
@@ -351,6 +355,74 @@ function WrappedPanel() {
   );
 }
 
+// --- Digest -----------------------------------------------------------------
+
+function DigestPanel() {
+  const [brand, setBrand] = useState("ref");
+  const [ns, setNs] = useState("example");
+  const [keyHex, setKeyHex] = useState(() => encodeDigestKey(randomKeyBytes(), "hex"));
+  const [material, setMaterial] = useState("");
+  const [out, setOut] = useState<Outcome>(null);
+
+  const digest = async () => {
+    try {
+      const key = await importDigestKey(decodeDigestKey(keyHex, "hex"));
+      const c = createDigestId(brand, { ns, key, allowDuplicateBrand: true });
+      const id = await c.digest(material);
+      setOut({ kind: "ok", text: id });
+    } catch (err) {
+      setOut({ kind: "err", text: describeError(err) });
+    }
+  };
+
+  return (
+    <div class={styles.panel}>
+      <BrandField value={brand} onInput={setBrand} />
+      <label class={styles.field}>
+        <span>Namespace (ns)</span>
+        <input
+          class={styles.mono}
+          value={ns}
+          spellcheck={false}
+          onInput={(e) => setNs((e.target as HTMLInputElement).value)}
+        />
+      </label>
+      <label class={styles.field}>
+        <span>Key (hex)</span>
+        <Row>
+          <input
+            class={styles.mono}
+            value={keyHex}
+            spellcheck={false}
+            onInput={(e) => setKeyHex((e.target as HTMLInputElement).value.trim())}
+          />
+          <button type="button" onClick={() => setKeyHex(encodeDigestKey(randomKeyBytes(), "hex"))}>
+            Generate key
+          </button>
+        </Row>
+      </label>
+      <label class={styles.field}>
+        <span>Material</span>
+        <input
+          value={material}
+          spellcheck={false}
+          onInput={(e) => setMaterial((e.target as HTMLInputElement).value)}
+        />
+      </label>
+      <Row>
+        <button type="button" onClick={digest}>
+          Digest
+        </button>
+      </Row>
+      <p class={styles.hint}>
+        The same material, key, and ns always produce the same ID. The material cannot be recovered
+        from the ID.
+      </p>
+      <OutcomeLine outcome={out} />
+    </div>
+  );
+}
+
 export default function Playground() {
   const [codec, setCodec] = useState<CodecId>("timestamp");
   const active = useMemo(() => CODECS.find((c) => c.id === codec)!, [codec]);
@@ -403,6 +475,7 @@ export default function Playground() {
         {codec === "signed" && <SignedPanel />}
         {codec === "opaque" && <OpaquePanel />}
         {codec === "wrapped" && <WrappedPanel />}
+        {codec === "digest" && <DigestPanel />}
       </div>
     </div>
   );
