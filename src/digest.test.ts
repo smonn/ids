@@ -222,25 +222,37 @@ describe("createDigestId", () => {
   it("safeParse() normalises aliases: o→0, i→1, l→1", async () => {
     const key = await makeKey();
     const idk = createDigestId("idk", { ns: "checkout", key, allowDuplicateBrand: true });
-    const id = await idk.digest("test");
-    // Replace a char in the payload with a Crockford alias and confirm normalization
-    const payload = id.slice(4);
-    const aliased =
-      "idk_" +
-      payload.replace(/[0-9a-hjkmnp-tv-z]/, (c) => {
-        if (c === "0") return "o";
-        if (c === "1") return "i";
-        return c;
-      });
-    const result = idk.safeParse(aliased);
-    if (result.ok) {
-      // Successfully normalised — the canonical form is the original id
-      expect(result.id.startsWith("idk_")).toBe(true);
-      expect(idk.is(result.id)).toBe(true);
-    } else {
-      // No alias char found; still valid parse
-      expect(result).toBeDefined();
+
+    // Scan digests until we find payloads containing each needed canonical char
+    let idWith0 = "";
+    let idWith1 = "";
+    for (let i = 0; i < 100; i++) {
+      const id = await idk.digest(`alias-search-${i}`);
+      const payload = id.slice(4);
+      if (!idWith0 && payload.includes("0")) idWith0 = id;
+      if (!idWith1 && payload.includes("1")) idWith1 = id;
+      if (idWith0 && idWith1) break;
     }
+    expect(idWith0).toBeTruthy();
+    expect(idWith1).toBeTruthy();
+
+    // o→0
+    const withO = "idk_" + idWith0.slice(4).replace("0", "o");
+    const rO = idk.safeParse(withO);
+    expect(rO.ok).toBe(true);
+    if (rO.ok) expect(rO.id).toBe(idWith0);
+
+    // i→1
+    const withI = "idk_" + idWith1.slice(4).replace("1", "i");
+    const rI = idk.safeParse(withI);
+    expect(rI.ok).toBe(true);
+    if (rI.ok) expect(rI.id).toBe(idWith1);
+
+    // l→1
+    const withL = "idk_" + idWith1.slice(4).replace("1", "l");
+    const rL = idk.safeParse(withL);
+    expect(rL.ok).toBe(true);
+    if (rL.ok) expect(rL.id).toBe(idWith1);
   });
 
   it("safeParse() rejects non-zero padding bits as invalid_base32", async () => {
