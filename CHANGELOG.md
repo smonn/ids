@@ -1,5 +1,14 @@
 # @smonn/ids
 
+## 0.9.3
+
+### Patch Changes
+
+- e724772: Docs: fix undefined identifiers in the Wrapped key (`invoices`) and Hono
+  adapter (`org`/`thing`/`handler`) examples, and align the CLI `--wrapped`
+  inspect example brand with the wrapped-codec docs (`ord_…`). Documentation
+  only — no runtime changes; the release exists to redeploy ids.smonn.se.
+
 ## 0.9.2
 
 ### Patch Changes
