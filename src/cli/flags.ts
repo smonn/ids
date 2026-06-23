@@ -65,6 +65,8 @@ const knownFlags = new Set([
   "--wrapped",
   "--reverse",
   "--signed",
+  "--digest",
+  "--ns",
   "--kind",
   "--key-format",
   "--count",
@@ -121,4 +123,15 @@ export function parseKind(values: Map<string, string>): WrappedKindValue | strin
 
 export function isKindError(result: WrappedKindValue | string): result is string {
   return result !== "u32" && result !== "i32" && result !== "u64" && result !== "i64";
+}
+
+export function parseNs(values: Map<string, string>): string | undefined {
+  const raw = values.get("--ns");
+  if (raw === undefined) return undefined;
+  if (raw === "") return "--ns requires a value";
+  return raw;
+}
+
+export function isNsError(result: string): boolean {
+  return result === "--ns requires a value";
 }

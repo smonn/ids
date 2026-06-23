@@ -1,4 +1,11 @@
 import {
+  createDigestId,
+  decodeDigestKey,
+  encodeDigestKey,
+  importDigestKey,
+  type DigestKey,
+} from "../digest.js";
+import {
   createOpaqueTimestampId,
   decodeOpaqueKey,
   encodeOpaqueKey,
@@ -23,7 +30,7 @@ import {
 } from "../wrapped.js";
 import type { IdCodec } from "../adapter-types.js";
 import { codecOpts } from "./codec-options.js";
-import { isKindError, parseKind } from "./flags.js";
+import { isKindError, isNsError, parseKind, parseNs } from "./flags.js";
 import { formatCliError } from "./format.js";
 import type { KeyFacet } from "./key-io.js";
 import type { RunOpts } from "./types.js";
@@ -155,11 +162,45 @@ export const signedVariant: GeneratorDescriptor = {
   },
 };
 
+export const digestVariant: GeneratorDescriptor = {
+  flag: "--digest",
+  key: {
+    envVar: "IDS_DIGEST_KEY",
+    formatEnvVar: "IDS_DIGEST_KEY_FORMAT",
+    encode: encodeDigestKey,
+    decode: decodeDigestKey,
+    import: importDigestKey,
+  },
+  // Digest is one-way: no timestamp and no reverse path. inspectMode is set to
+  // "readable" as a required field, but digestVariant is intentionally omitted
+  // from inspectPolicy.selectable — inspect --digest is unsupported by design.
+  inspectMode: "readable",
+  extraFlags: ["--ns"],
+  construct(brand, opts, key, values) {
+    const ns = parseNs(values ?? new Map());
+    if (ns === undefined) return "--ns is required with --digest";
+    if (isNsError(ns)) return ns;
+    try {
+      const codec = createDigestId(brand, { ns, key: key as DigestKey, allowDuplicateBrand: true });
+      return {
+        safeParse: (v: unknown) => codec.safeParse(v),
+        generate(): Promise<string> {
+          const reader = opts.readStdin ?? (() => Promise.resolve(""));
+          return reader().then((material) => codec.digest(material));
+        },
+      };
+    } catch (err) {
+      return formatCliError(err);
+    }
+  },
+};
+
 // Determines which flag name appears first in "cannot use --A and --B together"
 // messages when two selectable variant flags conflict. Signed always leads;
-// remaining three follow registry insertion order (reverse, wrapped, opaque).
+// remaining follow registry insertion order (digest, reverse, wrapped, opaque).
 export const conflictPriorityOrder: readonly Descriptor[] = [
   signedVariant,
+  digestVariant,
   reverseVariant,
   wrappedVariant,
   opaqueVariant,
@@ -167,7 +208,7 @@ export const conflictPriorityOrder: readonly Descriptor[] = [
 
 export const generatePolicy: GeneratePolicy = {
   default: timestampVariant,
-  selectable: [opaqueVariant, reverseVariant, signedVariant],
+  selectable: [opaqueVariant, reverseVariant, signedVariant, digestVariant],
   intrinsicFlags: ["--count", "-c"],
 };
 
@@ -179,6 +220,6 @@ export const inspectPolicy: Policy = {
 
 export const keygenPolicy: Policy = {
   default: opaqueVariant,
-  selectable: [wrappedVariant, signedVariant],
+  selectable: [wrappedVariant, signedVariant, digestVariant],
   intrinsicFlags: ["--bits"],
 };
