@@ -3,7 +3,7 @@ title: Choosing a codec
 description: Pick the right @smonn/ids codec variant for sortability, confidentiality, or integrity.
 ---
 
-All five codecs share the same `<brand>_<26 chars>` wire shape but make
+All six codecs share the same `<brand>_<26 chars>` wire shape but make
 different trade-offs. Pick by what you need from the payload.
 
 | Codec                                 | Import               | Sort direction            | Key required       | Timestamp extractable      | Range query support                                                          |
@@ -13,6 +13,7 @@ different trade-offs. Pick by what you need from the payload.
 | [Signed Timestamp](/codecs/signed/)   | `@smonn/ids/signed`  | Ascending (oldest-first)  | Yes (signing key)  | Always (plaintext)         | `minIdForTime(t_old)` → `maxIdForTime(t_new)` (sentinels carry no valid tag) |
 | [Opaque Timestamp](/codecs/opaque/)   | `@smonn/ids/opaque`  | None (encrypted)          | Yes (AES key)      | With key only              | None — encrypted payloads do not sort by time                                |
 | [Wrapped key](/codecs/wrapped/)       | `@smonn/ids/wrapped` | None                      | Yes (wrapping key) | N/A — not timestamp-family | None                                                                         |
+| [Digest](/codecs/digest/)             | `@smonn/ids/digest`  | None                      | Yes (digest key)   | N/A                        | None                                                                         |
 
 ## Decision guide
 
@@ -21,6 +22,7 @@ different trade-offs. Pick by what you need from the payload.
 - **Tamper-evident share links you verify without a DB lookup** → **Signed Timestamp** (integrity).
 - **IDs that must not leak creation time** (invoice/signup IDs) → **Opaque Timestamp** (confidentiality).
 - **A public handle for an internal integer PK** → **Wrapped key**.
+- **Idempotency keys, content-addressed records, or stable public pseudonyms** → **Digest**.
 
 Signed and Opaque sit on opposite security axes: Signed adds **integrity**
 (a verifiable HMAC tag, timestamp stays readable); Opaque adds
