@@ -91,7 +91,7 @@
   font-size: var(--sl-text-code);
 }
 
-button {
+.panel button {
   font-size: var(--sl-text-sm);
   padding: 0.4rem 0.85rem;
   border-radius: 0.4rem;
@@ -101,7 +101,7 @@ button {
   cursor: pointer;
 }
 
-button:disabled {
+.panel button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
