@@ -181,7 +181,7 @@ for Wrapped/Signed, none for Opaque).
 
 > **Correction (2026-06-24):** `opaque.ts` and `wrapped.ts` were relocated by the [ADR-0018](./0018-by-feature-codec-slices.md) slice refactor; they now live at `src/codecs/opaque/layout.ts` and `src/codecs/wrapped/layout.ts`.
 
-## Field re-layouts at 20 bytes (free upgrades)
+## Field re-layouts at 20 bytes — and which are actually load-bearing
 
 | codec               | today (16 B)                  | proposed (20 B)             | effect         |
 | ------------------- | ----------------------------- | --------------------------- | -------------- |
@@ -189,6 +189,48 @@ for Wrapped/Signed, none for Opaque).
 | Signed              | `ts6 ‖ rand5 ‖ tag5` (40-bit) | `ts6 ‖ rand6 ‖ tag8`        | 64-bit tag     |
 | Wrapped             | `lane8 ‖ tag8` (64-bit tag)   | `lane8 ‖ tag12`             | 96-bit tag     |
 | Opaque              | `ts6 ‖ rand10`, single-block  | `ts6 ‖ rand14`, Feistel-PRP | 112-bit random |
+| **Digest**          | `digest16` (128-bit truncation) | `digest20`                | **160-bit digest** |
+
+> **Added (2026-06-24).** The Digest codec ([ADR-0017](./0017-digest-codec-construction.md))
+> postdates this ADR and was missing from the table. Its entire payload is a truncated
+> `HMAC(key, brand ‖ ns ‖ material)` — no timestamp, no random field — so 20 bytes widens the
+> digest itself, `128 → 160` bits. This row turns out to carry the only load-bearing benefit; the
+> rest do not, per the promise lens below.
+
+### What the advertised promise makes of each upgrade
+
+Calling these "free upgrades" overstates them. Weighed against each codec's _advertised promise_,
+the entropy/tag gains are margin on axes that are already adequate — **except one**:
+
+- **Timestamp / Reverse — margin.** These are public **entity** IDs, always persisted under a
+  unique index, so a same-ms collision is a caught insert error with vast headroom already (80-bit
+  random clears ~277k IDs/s/brand at 1e-9/yr). 112 bits changes nothing observable.
+- **Signed — margin in the common case** (stored grant row → caught), load-bearing only at the
+  storeless high-volume tail (see the decision-crux section above).
+- **Wrapped — no benefit.** Deterministic, so it has no collision axis at all; its 64-bit tag is
+  online-only and already astronomically strong (~585k yr per forgery at 10⁶ verify/s). The lane
+  that holds the wrapped key does **not** grow. 96-bit tag buys nothing the promise needs.
+- **Opaque — no benefit.** Its promise is **confidentiality**, which is orthogonal to random-tail
+  width; hiding the timestamp rests on the keyed permutation, not entropy. More random bits do not
+  strengthen the promise.
+- **Digest — the lone genuine strengthening.** A Digest collision _is_ the failure of its whole
+  reason to exist (two distinct inputs → one content-address / idempotency key / pseudonym), and it
+  is the worst-severity regime by construction: **deterministic** (no regenerate-to-escape) and
+  **silent** (lookups are keyed by the digest, nothing backstops it). Collision resistance is purely
+  the truncation width — birthday `2⁶⁴ → 2⁸⁰` (128 → 160 bits). Content-addressing convention leans
+  ≥160 bits (Git chose 160 then 256 deliberately); 128-bit Digest sits at the low end of that norm,
+  and 20 bytes brings it to parity. _Magnitude caveat:_ 128 bits still holds <1e-9 accidental
+  collisions to ~8 × 10¹⁴ distinct inputs, so this is load-bearing only at extreme content-address
+  scale — but it is the one place running at the low end of the convention is genuinely undesirable.
+
+**The cost lands where the benefit is absent.** The two codecs that must pay for 20 bytes — Opaque
+and Wrapped, the AES codecs that trade the single-block strip trick for the new Feistel PRP and its
+review burden — are exactly the two that gain nothing from it. The one codec whose promise the width
+genuinely serves, Digest, is HMAC-only and would widen **for free** (no new crypto). So the honest
+v1 framing is: _the load-bearing case for 20 bytes is Digest's content-address collision resistance,
+and taking it means imposing a net-new wide-block PRP on two unrelated codecs to widen a third that
+needs no crypto change at all._ Whether Git-grade Digest resistance is worth that coupling is the
+real decision.
 
 ## Considered options
 
@@ -213,8 +255,10 @@ for Wrapped/Signed, none for Opaque).
   pre-v1; would not be post-v1. Changeset would be **major**.
 - `payloadByteLength = 20`, `payloadBase32Length = 32` (exact); **`base32FinalCharClass` is
   deleted** and the ADR-0003 padding-bit amendment is reverted — no surplus bits exist.
-- Field re-layouts deliver free upgrades: Timestamp/Reverse random 80→112 bits, Signed tag
-  40→64 bits, Wrapped tag 64→96 bits.
+- Field re-layouts: Timestamp/Reverse random 80→112, Signed tag 40→64, Wrapped tag 64→96, **Digest
+  128→160**. Per the promise lens above these are mostly margin (caught-collision or already-strong
+  online-only tags); the one load-bearing gain is Digest's content-address collision resistance, and
+  it accrues to the only codec needing no crypto change.
 - A new internal wide-block-PRP module under `wire/` (or `layouts/`), requiring its own
   security review. [ADR-0004](./0004-aes-cbc-strip-trick.md) would be marked **superseded**
   and [ADR-0002](./0002-payload-layout.md) rewritten for the new length.
