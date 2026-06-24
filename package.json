@@ -81,13 +81,13 @@
     "drizzle-orm": {
       "optional": true
     },
-    "graphql": {
-      "optional": true
-    },
     "express": {
       "optional": true
     },
     "fastify": {
+      "optional": true
+    },
+    "graphql": {
       "optional": true
     },
     "hono": {
