@@ -60,6 +60,7 @@ Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, `pnpm depcruis
 
 - **Don't mock the clock or RNG.** Inject them via `TimestampOptions` (`now`, `rng`) — see the existing tests for how.
 - **New exports → update the API surface section in [`README.md`](./README.md).**
+- **New ORM adapter → also update the `IdCodec` and `Error code` enumeration entries in [`CONTEXT.md`](./CONTEXT.md)** to include the new adapter subpath (IdCodec entry) and its read adapter name (Error code entry).
 - **Document only shipped behavior.** A PR's `README` / `CONTEXT.md` / ADR edits describe behavior implemented in that same PR — never pre-document a sibling issue's work or an unmerged design. Adding a new export to the API-surface list is in scope; documenting how it _behaves_ waits for the PR that ships that behavior.
 - **New domain concept → add a glossary entry to [`CONTEXT.md`](./CONTEXT.md)**, including any synonyms you want future contributors to avoid.
 - **New design decision that's hard to reverse, surprising without context, and the result of a real trade-off → add a new ADR** under `docs/adr/`, numbered sequentially. See [`docs/adr/ADR-FORMAT.md`](./docs/adr/ADR-FORMAT.md) for ADR authoring conventions, including how to annotate stale claims in shipped ADRs with correction notes.
