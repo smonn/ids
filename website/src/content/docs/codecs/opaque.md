@@ -65,7 +65,7 @@ The [CLI](/cli/) `keygen` command emits keys in this format.
 
 ## `generateAt` validation
 
-`generateAt(date)` rejects invalid input and throws:
+`generateAt(date)` rejects invalid input and throws a plain `Error` (not an `IdsError`):
 
 - **negative timestamp** — `date.getTime() < 0`
 - **timestamp exceeds 48-bit range** — `date.getTime() >= 2 ** 48`
