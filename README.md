@@ -8,7 +8,7 @@ Public-facing branded IDs for TypeScript apps. Type-safe, sortable, and codec-pl
 pnpm add @smonn/ids
 ```
 
-Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkz`: a three-letter brand, an
+Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkw`: a three-letter brand, an
 underscore, then 26 Crockford base32 characters of payload. The default
 Timestamp codec encodes a 48-bit millisecond Unix timestamp followed by 80
 random bits — the same byte layout as a [ULID](https://github.com/ulid/spec).
@@ -21,7 +21,7 @@ import { type Id, createTimestampId } from "@smonn/ids";
 const users = createTimestampId("usr");
 
 // Generate — sortable by creation time via ORDER BY id
-const id = users.generate(); // "usr_01h7b3k9rqxn4cw3p9r8t2sgkz"
+const id = users.generate(); // "usr_01h7b3k9rqxn4cw3p9r8t2sgkw"
 
 // Branded: Id<"usr"> and Id<"org"> are not interchangeable
 function loadUser(id: Id<"usr">) {
@@ -29,9 +29,9 @@ function loadUser(id: Id<"usr">) {
 }
 
 // Validate untrusted input — lenient in, canonical out
-const r = users.safeParse("USR_01H7B3K9RQXN1CW3P9R8T2SGKZ");
+const r = users.safeParse("USR_01H7B3K9RQXN1CW3P9R8T2SGKW");
 if (r.ok) {
-  r.id; // "usr_01h7b3k9rqxn1cw3p9r8t2sgkz" as Id<"usr">
+  r.id; // "usr_01h7b3k9rqxn1cw3p9r8t2sgkw" as Id<"usr">
 }
 ```
 
