@@ -152,8 +152,9 @@ const users = createTimestampId("usr", {
 users.generate(); // deterministic output
 ```
 
-`rng` writes random bytes into the provided target (a 10-byte view into the
-codec's persistent buffer), so a custom RNG never allocates.
+`rng` writes random bytes into the provided target (a view sized for the
+codec's random tail — 10 bytes for the Timestamp and Reverse Timestamp codecs,
+5 bytes for the Signed Timestamp codec), so a custom RNG never allocates.
 
 ## Catch a double-registered brand
 
