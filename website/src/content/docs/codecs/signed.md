@@ -180,14 +180,4 @@ try {
 }
 ```
 
-For construction or key-import errors:
-
-```ts
-try {
-  const codec = createSignedTimestampId("shr", { keys: [] as never });
-} catch (err) {
-  if (isIdsError(err)) {
-    console.error(err.code); // "empty_keyring"
-  }
-}
-```
+Construction and key-import errors are thrown synchronously. For example, passing an empty `keys` array throws immediately with code `empty_keyring`.
