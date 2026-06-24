@@ -109,7 +109,7 @@ invoices.toJsonSchema();
 ```
 
 The `pattern` matches the canonical form only (same strings that `is()` accepts
-and `generate()` / `wrap()` produce).
+and `wrap()` produces).
 
 **`~standard`** implements [Standard Schema v1](https://standardschema.dev/),
 allowing the codec to slot into any validator-aware library (Zod, Valibot,
