@@ -1,20 +1,34 @@
 name: Rebase agent PRs on demand
 
 # Rebase is opt-in per PR, never automatic. Apply the `needs-rebase` label to an
-# open agent PR and this merges the latest `main` into its branch — resolving any
-# conflicts with Claude — then pushes, which re-runs the branch's CI.
+# open agent PR (or run this workflow manually with the PR number) and it merges the
+# latest `main` into the branch — resolving any conflicts with Claude — then pushes,
+# which re-runs the branch's CI.
 #
 # There is deliberately NO rebase on every push to `main`, and NO plain
 # `gh pr update-branch` auto-merge of behind-but-clean branches: a maintainer
 # decides when to refresh a branch by applying the label. The label is removed at
 # the start of the run so it can be re-applied to trigger again.
+#
+# The `workflow_dispatch` trigger is a reliable fallback for the same maintainer
+# action: a `labeled` webhook can be silently dropped when the label is added by a
+# token that doesn't emit triggering events (e.g. the default GITHUB_TOKEN inside
+# Actions), so dispatching by PR number always works even when the label trigger
+# doesn't fire. It's still maintainer-gated — only users with write access can
+# dispatch — and applies the exact same open/same-repo/agent-branch scope gate.
 
 on:
   pull_request:
     types: [labeled]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to rebase
+        required: true
+        type: string
 
 concurrency:
-  group: rebase-${{ github.event.pull_request.number }}
+  group: rebase-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
   cancel-in-progress: false
 
 permissions:
@@ -23,28 +37,23 @@ permissions:
 
 jobs:
   resolve:
-    # Only the `needs-rebase` label, on an OPEN same-repo agent branch. This job
-    # checks out and executes the branch's code (install + the CI gate), so it must
-    # never run on a fork's code with our secrets — hence the same-repo head check.
-    # Labels can only be applied by users with write access, so the trigger is
-    # implicitly maintainer-gated.
+    # Run on a manual dispatch, or when the `needs-rebase` label lands on an OPEN
+    # same-repo agent branch. This job checks out and executes the branch's code
+    # (install + the CI gate), so it must never run on a fork's code with our secrets
+    # — hence the same-repo head check. Labels can only be applied by users with write
+    # access, and workflow_dispatch likewise requires write access, so both triggers
+    # are implicitly maintainer-gated. The dispatch path can't evaluate head ref/state
+    # in this job-level `if` (there's no pull_request payload), so it re-applies the
+    # identical scope gate in the "Resolve the target PR" step below, before checkout.
     if: >-
-      github.event.label.name == 'needs-rebase' &&
-      github.event.pull_request.state == 'open' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      startsWith(github.event.pull_request.head.ref, 'agent/issue-')
+      github.event_name == 'workflow_dispatch' ||
+      ( github.event.label.name == 'needs-rebase' &&
+        github.event.pull_request.state == 'open' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        startsWith(github.event.pull_request.head.ref, 'agent/issue-') )
     runs-on: ubuntu-latest
     environment: automation
     timeout-minutes: 30
-    env:
-      PR_NUMBER: ${{ github.event.pull_request.number }}
-      # head.ref is PR-author-controlled; only ever used through this env var in
-      # run: steps (never interpolated into a shell) so a crafted branch name can't
-      # inject. The startsWith gate above also constrains it to agent/issue-*.
-      BRANCH: ${{ github.event.pull_request.head.ref }}
-      # Pin the checkout to the commit that carried the label, not the moving branch
-      # ref, to close the TOCTOU window (mirrors address-review.yml).
-      EVENT_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Generate GitHub App token
         id: app-token
@@ -58,20 +67,76 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
+      - name: Resolve the target PR (number, branch, head SHA) and re-check scope
+        # Normalise the two triggers into one set of outputs. The labeled event carries
+        # the PR payload directly; workflow_dispatch carries only a number, so we look
+        # the rest up with `gh` and re-assert the SAME open/same-repo/agent-branch gate
+        # the job `if` applies to the labeled path — before any branch code is checked
+        # out, so a fork or non-agent PR number can never reach the install/CI steps.
+        id: pr
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          THIS_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          # Populated on the labeled event; empty on workflow_dispatch.
+          EV_NUMBER: ${{ github.event.pull_request.number }}
+          EV_BRANCH: ${{ github.event.pull_request.head.ref }}
+          EV_SHA: ${{ github.event.pull_request.head.sha }}
+          EV_STATE: ${{ github.event.pull_request.state }}
+          EV_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          # workflow_dispatch input.
+          INPUT_PR: ${{ github.event.inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            number="$INPUT_PR"
+            info=$(gh pr view "$number" --json headRefName,headRefOid,state,headRepository,headRepositoryOwner)
+            branch=$(echo "$info" | jq -r .headRefName)
+            sha=$(echo "$info" | jq -r .headRefOid)
+            state=$(echo "$info" | jq -r '.state | ascii_downcase')
+            head_repo=$(echo "$info" | jq -r '.headRepositoryOwner.login + "/" + .headRepository.name')
+          else
+            number="$EV_NUMBER"
+            branch="$EV_BRANCH"
+            sha="$EV_SHA"
+            state=$(echo "$EV_STATE" | tr '[:upper:]' '[:lower:]')
+            head_repo="$EV_HEAD_REPO"
+          fi
+          case "$branch" in agent/issue-*) ok_branch=true ;; *) ok_branch=false ;; esac
+          if [ "$state" != "open" ] || [ "$head_repo" != "$THIS_REPO" ] || [ "$ok_branch" != "true" ]; then
+            echo "::error::PR #$number is out of scope for rebase (state=$state head_repo=$head_repo branch=$branch). Only OPEN same-repo agent/issue-* PRs are eligible."
+            exit 1
+          fi
+          {
+            echo "number=$number"
+            echo "branch=$branch"
+            echo "sha=$sha"
+          } >> "$GITHUB_OUTPUT"
+          echo "Rebasing PR #$number (branch $branch at ${sha:0:7})."
+
       - name: Remove the needs-rebase label (so it can be re-applied)
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: gh pr edit "$PR_NUMBER" --remove-label needs-rebase || true
 
       - name: Checkout the labelled commit (pinned SHA, not the branch ref)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ env.EVENT_SHA }}
+          # Pin the checkout to the commit we resolved above, not the moving branch ref,
+          # to close the TOCTOU window (mirrors address-review.yml).
+          ref: ${{ steps.pr.outputs.sha }}
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git identity and working branch
+        env:
+          # head.ref is PR-author-controlled; only ever used through this env var in
+          # run: steps (never interpolated into a shell) so a crafted branch name can't
+          # inject. The scope gate above also constrains it to agent/issue-*.
+          BRANCH: ${{ steps.pr.outputs.branch }}
         run: |
           git config user.name "smonn[bot]"
           git config user.email "110314539+smonn[bot]@users.noreply.github.com"
@@ -125,14 +190,14 @@ jobs:
           prompt: |
             /resolving-merge-conflicts
 
-            You are bringing PR #${{ env.PR_NUMBER }} of ${{ github.repository }} up to
-            date with `main`. The PR branch `${{ env.BRANCH }}` is checked out; an
+            You are bringing PR #${{ steps.pr.outputs.number }} of ${{ github.repository }} up to
+            date with `main`. The PR branch `${{ steps.pr.outputs.branch }}` is checked out; an
             authenticated `gh` CLI and a push-capable git remote are available. Use the
             `resolving-merge-conflicts` skill (invoked above) for the methodology —
             preserve both intents faithfully, never `--abort`, never weaken or delete
             tests — with these repo specifics:
 
-            - START the merge: read the PR intent (`gh pr view ${{ env.PR_NUMBER }}
+            - START the merge: read the PR intent (`gh pr view ${{ steps.pr.outputs.number }}
               --json title,body`), then `git fetch origin main` and `git merge
               origin/main`. If `main` is already an ancestor (nothing to merge), there
               is nothing to do — say so and STOP without pushing.
@@ -141,7 +206,7 @@ jobs:
               lint` && `pnpm depcruise` && `pnpm fmt:check` && `pnpm typecheck` &&
               `pnpm test:coverage` && `pnpm build`. All must pass.
             - FINISH by committing the merge (keep the merge commit; do NOT force-push
-              or rebase history) and pushing to `${{ env.BRANCH }}` with a plain `git
+              or rebase history) and pushing to `${{ steps.pr.outputs.branch }}` with a plain `git
               push`. The branch is checked out at the commit that carried the label, so
               if the push is rejected because the branch has since advanced, do NOT
               force — post a PR comment saying the branch moved and the rebase needs a
@@ -151,12 +216,14 @@ jobs:
               — main changed the feature out from under this PR, or resolving would
               require reopening a CLOSED design decision — do NOT push; post a PR
               comment explaining the situation and run `gh pr edit
-              ${{ env.PR_NUMBER }} --add-label needs-human`.
+              ${{ steps.pr.outputs.number }} --add-label needs-human`.
 
       - name: Verify the branch is no longer conflicting
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          BRANCH: ${{ steps.pr.outputs.branch }}
         run: |
           labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
           if echo "$labels" | grep -qx 'needs-human'; then
@@ -181,6 +248,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
           labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
           if echo "$labels" | grep -qx 'needs-human'; then
