@@ -25,7 +25,7 @@ export const users = pgTable("users", {
 
 `idColumn(codec)` works with any codec variant — any codec that exposes
 `safeParse` satisfies the required interface (Timestamp, Opaque Timestamp,
-Reverse Timestamp, Signed Timestamp, Wrapped Key, and Digest codecs all qualify).
+Reverse Timestamp, Signed Timestamp, Wrapped key, and Digest codecs all qualify).
 
 - **Write path:** `Id<Brand>` is already canonical, so it is passed to the
   driver unchanged.
