@@ -36,7 +36,7 @@ export function idScalar<Brand extends string>(
   return new GraphQLScalarType<Id<Brand>, string>({
     name: config.name,
     description: config.description,
-    serialize: (value) => value as Id<Brand>,
+    serialize: (value) => value as string,
     parseValue: parse,
     parseLiteral: (ast: ValueNode) => {
       if (ast.kind !== Kind.STRING) {
