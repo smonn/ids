@@ -188,5 +188,12 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
       );
       return 0;
     }
+    /* v8 ignore next 5 -- defensive: digestVariant is the only "unsupported" variant and it is
+       excluded from inspectPolicy.selectable, so resolveVariant can never return it here. The
+       branch exists for TypeScript exhaustiveness. */
+    case "unsupported": {
+      opts.stderr("unsupported flag for inspect: --digest\n");
+      return 1;
+    }
   }
 }

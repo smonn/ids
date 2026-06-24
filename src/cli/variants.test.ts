@@ -265,8 +265,8 @@ describe("digestVariant", () => {
     expect(decoded).toEqual(testKeyBytes);
   });
 
-  it("has readable inspectMode", () => {
-    expect(digestVariant.inspectMode).toBe("readable");
+  it("has unsupported inspectMode", () => {
+    expect(digestVariant.inspectMode).toBe("unsupported");
   });
 
   it("has --ns in extraFlags", () => {
