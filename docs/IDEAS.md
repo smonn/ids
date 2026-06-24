@@ -120,6 +120,20 @@ primitive). It also yields free upgrades — Timestamp/Reverse random 80 → 112
 pure quality/entropy change whose breaking cost is best amortised in a deliberate v1
 breaking-change batch rather than shipped on its own.
 
+## Undecided
+
+Deliberately left open by an ADR — no proposal, no rejection, revisited only if a concrete
+consumer appears.
+
+- **Sync keyed codec.** The keyed codecs (Opaque Timestamp, Signed Timestamp, Digest,
+  Wrapped key) have async key-dependent methods because WebCrypto's `SubtleCrypto` — the only
+  cross-runtime crypto API — is async-only. A sync variant would require bundling a pure-JS
+  AES/HMAC implementation (~5–10KB per algorithm, ongoing review burden), rejected in
+  [ADR-0006](./adr/0006-async-keyed-codec-contract.md) for lack of a compelling consumer. The
+  async contract was designed so this stays reversible: async signatures accept sync
+  implementations under the same Promise contract, so a sync keyed codec can be added later
+  without breaking the existing API. Nothing to decide until someone needs it.
+
 ## Explicitly rejected
 
 - **Monotonic intra-ms ordering.** See ADR-0002 — non-goal for public-facing IDs.
