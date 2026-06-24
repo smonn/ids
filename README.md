@@ -43,7 +43,7 @@ JSON Schema.
 
 ## Choosing a codec
 
-All five codecs share the same `<brand>_<26 chars>` wire shape but make different
+All six codecs share the same `<brand>_<26 chars>` wire shape but make different
 trade-offs. They are wire-indistinguishable, so codec choice is a per-brand
 commitment.
 
@@ -54,11 +54,13 @@ commitment.
 | Signed Timestamp  | `@smonn/ids/signed`  | Ascending (oldest-first)  | Yes (signing key)  | Always (plaintext)         |
 | Opaque Timestamp  | `@smonn/ids/opaque`  | None (encrypted)          | Yes (AES key)      | With key only              |
 | Wrapped key       | `@smonn/ids/wrapped` | None                      | Yes (wrapping key) | N/A — not timestamp-family |
+| Digest            | `@smonn/ids/digest`  | None                      | Yes (digest key)   | N/A — not timestamp-family |
 
 - **Newest-first scans** on forward-only KV stores → [Reverse Timestamp](https://ids.smonn.se/codecs/reverse/)
 - **Tamper-evident share links** verified without a DB lookup → [Signed Timestamp](https://ids.smonn.se/codecs/signed/) (integrity)
 - **IDs that must not leak creation time** → [Opaque Timestamp](https://ids.smonn.se/codecs/opaque/) (confidentiality)
 - **A public handle for an internal integer PK** → [Wrapped key](https://ids.smonn.se/codecs/wrapped/)
+- **Idempotency keys, content-addressed records, or stable public pseudonyms** → [Digest](https://ids.smonn.se/codecs/digest/)
 
 Try them all live in the [playground](https://ids.smonn.se/playground/).
 

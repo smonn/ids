@@ -1,10 +1,18 @@
 name: Docs
 
-# Deploy the documentation site (ids.smonn.se) per release, so the live site
-# always matches the published npm version. Changesets publishes a GitHub
-# Release on each version bump, which fires the `release: published` event.
-# `workflow_dispatch` allows a manual redeploy without cutting a release.
+# Deploy the documentation site (ids.smonn.se) on three triggers:
+#   1. push to main touching website/** or src/** — deploys docs and site fixes
+#      immediately on merge, without waiting for an npm release. Note: changes
+#      to src/** may temporarily expose API-reference docs for unreleased main;
+#      this is the accepted trade-off.
+#   2. release: published — ensures the live site reflects every npm release.
+#   3. workflow_dispatch — allows a manual redeploy at any time.
 on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "src/**"
   release:
     types: [published]
   workflow_dispatch:

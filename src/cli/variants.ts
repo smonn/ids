@@ -35,7 +35,7 @@ import { formatCliError } from "./format.js";
 import type { KeyFacet } from "./key-io.js";
 import type { RunOpts } from "./types.js";
 
-type InspectMode = "readable" | "keyed-readable" | "unwrap" | "verify";
+type InspectMode = "readable" | "keyed-readable" | "unwrap" | "verify" | "unsupported";
 
 export type Descriptor = {
   flag?: string;
@@ -171,9 +171,9 @@ export const digestVariant: GeneratorDescriptor = {
     decode: decodeDigestKey,
     import: importDigestKey,
   },
-  // inspectMode is required by GeneratorDescriptor but digestVariant is intentionally omitted
-  // from inspectPolicy.selectable — inspect --digest is unsupported by design.
-  inspectMode: "readable",
+  // Digest is one-way: inspect --digest is unsupported by design, so digestVariant is omitted
+  // from inspectPolicy.selectable. "unsupported" documents that there is no inspect path.
+  inspectMode: "unsupported",
   extraFlags: ["--ns"],
   construct(brand, opts, key, values) {
     const ns = parseNs(values ?? new Map());

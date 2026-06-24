@@ -3,6 +3,12 @@
 // browser via WebCrypto — nothing is mocked or stubbed.
 import { isIdsError } from "@smonn/ids";
 import {
+  createDigestId,
+  decodeDigestKey,
+  encodeDigestKey,
+  importDigestKey,
+} from "@smonn/ids/digest";
+import {
   createOpaqueTimestampId,
   decodeOpaqueKey,
   encodeOpaqueKey,
@@ -24,7 +30,7 @@ import {
   type WrappedKind,
 } from "@smonn/ids/wrapped";
 
-export type CodecId = "timestamp" | "reverse" | "signed" | "opaque" | "wrapped";
+export type CodecId = "timestamp" | "reverse" | "signed" | "opaque" | "wrapped" | "digest";
 
 export const CODECS: { id: CodecId; label: string; keyed: boolean; blurb: string }[] = [
   {
@@ -57,6 +63,12 @@ export const CODECS: { id: CodecId; label: string; keyed: boolean; blurb: string
     keyed: true,
     blurb: "Wrap a u32/i32/u64/i64 lookup key into a verifiable public ID.",
   },
+  {
+    id: "digest",
+    label: "Digest",
+    keyed: true,
+    blurb: "Map caller material to a stable public ID. One-way — the material can't be recovered.",
+  },
 ];
 
 export const WRAPPED_KINDS: WrappedKind[] = ["u32", "i32", "u64", "i64"];
@@ -74,17 +86,21 @@ export function describeError(err: unknown): string {
 }
 
 export {
+  createDigestId,
   createOpaqueTimestampId,
   createReverseTimestampId,
   createSignedTimestampId,
   createTimestampId,
   createWrappedKeyId,
+  decodeDigestKey,
   decodeOpaqueKey,
   decodeSigningKey,
   decodeWrappingKey,
+  encodeDigestKey,
   encodeOpaqueKey,
   encodeSigningKey,
   encodeWrappingKey,
+  importDigestKey,
   importOpaqueKey,
   importSigningKey,
   importWrappingKey,
