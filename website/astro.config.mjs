@@ -20,6 +20,9 @@ const entryPoints = [
   "../src/adapters/hono.ts",
   "../src/adapters/kysely.ts",
   "../src/adapters/prisma.ts",
+  "../src/adapters/typeorm.ts",
+  "../src/adapters/graphql.ts",
+  "../src/adapters/nestjs.ts",
 ];
 
 export default defineConfig({
@@ -88,9 +91,12 @@ export default defineConfig({
             { label: "Hono", link: "/adapters/hono/" },
             { label: "Express", link: "/adapters/express/" },
             { label: "Fastify", link: "/adapters/fastify/" },
+            { label: "NestJS", link: "/adapters/nestjs/" },
             { label: "Drizzle", link: "/adapters/drizzle/" },
             { label: "Kysely", link: "/adapters/kysely/" },
             { label: "Prisma", link: "/adapters/prisma/" },
+            { label: "TypeORM", link: "/adapters/typeorm/" },
+            { label: "GraphQL", link: "/adapters/graphql/" },
           ],
         },
         { label: "CLI", link: "/cli/" },
