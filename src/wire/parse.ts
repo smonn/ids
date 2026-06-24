@@ -1,4 +1,4 @@
-import { alphabet } from "../base32.js";
+import { alphabet } from "./base32.js";
 import type { Id, ParseError, ParseResult, Prefix } from "../types.js";
 import { base32FinalCharClass, payloadBase32Length } from "./invariants.js";
 

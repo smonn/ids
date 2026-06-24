@@ -1,4 +1,4 @@
-import { decodeBase32, encodeBase32 } from "../base32.js";
+import { decodeBase32, encodeBase32 } from "./base32.js";
 import type { Id, Prefix } from "../types.js";
 
 /** Encodes a 16-byte payload as lowercase Crockford base32 (26 chars). */

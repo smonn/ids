@@ -67,18 +67,10 @@ const cases = [
     fixture: "test/fixtures/depcruise/layouts/bad-wire.ts",
     rule: "layouts-wire-imports-allowlist",
   },
-  {
-    fixture: "test/fixtures/depcruise/layouts/no-base32.ts",
-    rule: "layouts-no-base32",
-  },
   // codec constructors
   {
     fixture: "test/fixtures/depcruise/timestamp.ts",
     rule: "codec-constructors-wire-codec-shell-only",
-  },
-  {
-    fixture: "test/fixtures/depcruise/opaque.ts",
-    rule: "codec-constructors-no-base32",
   },
   {
     fixture: "test/fixtures/depcruise/non-codec.ts",

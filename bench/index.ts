@@ -1,5 +1,5 @@
 import { do_not_optimize, measure } from "mitata";
-import { decodeBase32, encodeBase32 } from "../src/base32.js";
+import { decodeBase32, encodeBase32 } from "../src/wire/base32.js";
 import { createTimestampId } from "../src/timestamp.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../src/opaque.js";
 import { createReverseTimestampId } from "../src/reverse.js";
