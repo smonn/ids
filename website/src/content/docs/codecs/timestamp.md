@@ -26,8 +26,9 @@ Schema, JSON Schema, deterministic injection, and the duplicate-brand check — 
 lowercase, aliases resolved. The **26th character** is additionally restricted
 to `[048cgmrw]` — the 8 alphabet values whose low 2 bits are zero, satisfying
 the 130→128-bit padding constraint for a 16-byte payload. A string whose final
-character falls outside that set is rejected as `invalid_base32` by
-`safeParse`/`parse`/`is`.
+character falls outside that set is invalid: `safeParse` returns
+`{ ok: false, error: 'invalid_base32' }`; `parse` throws `IdsError`
+(`code: 'invalid_id'`, `cause: 'invalid_base32'`); `is` returns `false`.
 
 ```ts
 users.safeParse("usr_01h7b3k9rqxn1cw3p9r8t2sgkw"); // canonical
