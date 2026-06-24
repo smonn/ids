@@ -25,11 +25,20 @@ assumed.
 
 | Flag                   | Codec variant     | Env var                      | Notes                                                                                                              |
 | ---------------------- | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| _(none)_               | Timestamp         | —                            | Timestamp readable directly                                                                                        |
+| _(none)_               | Timestamp         | —                            | Timestamp readable directly; always prints a note to stderr (see below)                                            |
 | `--opaque`             | Opaque Timestamp  | `IDS_KEY`                    | Wrong key yields a plausible-but-wrong timestamp, not an error; always prints a note to stderr (see below)         |
-| `--reverse`            | Reverse Timestamp | —                            | No key; timestamp decoded from inverted bytes                                                                      |
+| `--reverse`            | Reverse Timestamp | —                            | No key; timestamp decoded from inverted bytes; always prints a note to stderr (see below)                          |
 | `--wrapped --kind <k>` | Wrapped key       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`/`i32`/`u64`/`i64`; prints `lookup-key`                                                    |
 | `--signed`             | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Three verification states (see below); `failed` and `unavailable` exit 1 and write to stderr in addition to stdout |
+
+The bare path (no codec flag) and `--reverse` both read the timestamp as
+plaintext. Since Opaque-encoded IDs are wire-indistinguishable from plaintext
+Timestamp IDs, these paths always write a note to stderr warning that the
+timestamp is meaningless if the ID was Opaque-encoded:
+
+```
+note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY
+```
 
 ```bash
 # Opaque Timestamp (IDS_KEY required):

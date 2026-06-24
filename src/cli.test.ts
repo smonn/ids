@@ -262,7 +262,6 @@ describe("cli", () => {
         now: () => new Date("2026-06-01T00:00:00Z").getTime(),
       });
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toBe("");
       expect(result.stdout).toBe(
         [
           "brand:     usr",
@@ -272,6 +271,18 @@ describe("cli", () => {
           "",
         ].join("\n"),
       );
+    });
+
+    it("warns on the bare readable path that the timestamp is meaningless for Opaque IDs", async () => {
+      const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw"], {
+        now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe(
+        "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY\n",
+      );
+      // stdout contract unchanged: same fields, same format
+      expect(result.stdout).toContain("timestamp: 1983-05-27T10:24:22.469Z");
     });
 
     it("--opaque without IDS_KEY exits 1", async () => {
@@ -1361,7 +1372,9 @@ describe("cli inspect --reverse", () => {
       now: () => new Date("2026-06-01T00:00:00Z").getTime(),
     });
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toBe(
+      "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY\n",
+    );
     expect(result.stdout).toContain("brand:     usr");
     expect(result.stdout).toContain(`timestamp: ${expectedTimestamp}`);
     expect(result.stdout).toContain(`canonical: ${id}`);

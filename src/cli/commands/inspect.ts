@@ -129,6 +129,9 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
         canonical!,
       );
       const nowMs = (opts.now ?? Date.now)();
+      opts.stderr(
+        "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY\n",
+      );
       opts.stdout(formatInspectOutput({ brand, timestamp, canonical: canonical!, input, nowMs }));
       return 0;
     }
