@@ -18,7 +18,7 @@ const usr = createTimestampId("usr");
 
 // Default: throws IdParamError → setErrorHandler renders it
 fastify.get("/users/:id", { preHandler: idParam("id", usr) }, (request, reply) => {
-  const id = request.params.id; // Id<"usr">, canonical
+  const id = request.params.id; // string (compile-time); Id<"usr"> at runtime after preHandler
 });
 
 // Error handler receives the typed error
