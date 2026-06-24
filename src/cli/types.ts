@@ -1,4 +1,4 @@
-import type { TimestampOptions } from "../timestamp.js";
+import type { TimestampOptions } from "../codecs/timestamp/index.js";
 
 export type RunOpts = {
   argv: ReadonlyArray<string>;

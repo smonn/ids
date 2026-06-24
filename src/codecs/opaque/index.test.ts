@@ -9,15 +9,15 @@ import {
   it,
   vi,
 } from "vitest";
-import { createTimestampId } from "./timestamp.js";
+import { createTimestampId } from "../timestamp/index.js";
 import {
   createOpaqueTimestampId,
   importOpaqueKey,
   type OpaqueKey,
   type OpaqueTimestampOptions,
-} from "./opaque.js";
-import type { Id, JsonSchema, ParseResult } from "./types.js";
-import { toWireId } from "./wire/envelope.js";
+} from "./index.js";
+import type { Id, JsonSchema, ParseResult } from "../../types.js";
+import { toWireId } from "../../wire/envelope.js";
 
 describe("opaque", () => {
   // Recreates codecs for the same brand across tests; brand-registry warnings

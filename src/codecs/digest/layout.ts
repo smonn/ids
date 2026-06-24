@@ -1,6 +1,6 @@
-import type { Id, Prefix } from "../types.js";
-import { toWireId } from "../wire/envelope.js";
-import { payloadBase32Length, payloadByteLength } from "../wire/invariants.js";
+import type { Id, Prefix } from "../../types.js";
+import { toWireId } from "../../wire/envelope.js";
+import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 
 const encoder = new TextEncoder();
 

@@ -1,20 +1,20 @@
-import { validateBrand } from "./codecs/_kernel/brand.js";
-import { createOpaqueLayoutOps } from "./layouts/opaque.js";
-import { getOpaqueKeyCryptoKey, type OpaqueKey } from "./opaque-key.js";
-import { registerBrand } from "./codecs/_kernel/registry.js";
-import { defaultRng } from "./codecs/_kernel/rng.js";
-import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
-import { wireMethods } from "./wire/codec-shell.js";
+import { validateBrand } from "../_kernel/brand.js";
+import { createOpaqueLayoutOps } from "./layout.js";
+import { getOpaqueKeyCryptoKey, type OpaqueKey } from "./key.js";
+import { registerBrand } from "../_kernel/registry.js";
+import { defaultRng } from "../_kernel/rng.js";
+import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../../types.js";
+import { wireMethods } from "../../wire/codec-shell.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
-export { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
+export { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
 export {
   decodeOpaqueKey,
   encodeOpaqueKey,
   importOpaqueKey,
   type OpaqueKey,
   type OpaqueKeyFormat,
-} from "./opaque-key.js";
+} from "./key.js";
 
 /**
  * Configuration options for an Opaque Timestamp codec instance.

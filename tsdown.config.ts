@@ -3,11 +3,11 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   entry: {
     index: "src/index.ts",
-    opaque: "src/opaque.ts",
-    reverse: "src/reverse.ts",
-    signed: "src/signed.ts",
-    wrapped: "src/wrapped.ts",
-    digest: "src/digest.ts",
+    opaque: "src/codecs/opaque/index.ts",
+    reverse: "src/codecs/reverse/index.ts",
+    signed: "src/codecs/signed/index.ts",
+    wrapped: "src/codecs/wrapped/index.ts",
+    digest: "src/codecs/digest/index.ts",
     drizzle: "src/drizzle.ts",
     hono: "src/hono.ts",
     kysely: "src/kysely.ts",

@@ -1,9 +1,9 @@
-import { validateBrand } from "./codecs/_kernel/brand.js";
-import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
-import { createDigestLayoutOps } from "./layouts/digest.js";
-import { registerBrand } from "./codecs/_kernel/registry.js";
-import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
-import { wireMethods } from "./wire/codec-shell.js";
+import { validateBrand } from "../_kernel/brand.js";
+import { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
+import { createDigestLayoutOps } from "./layout.js";
+import { registerBrand } from "../_kernel/registry.js";
+import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../../types.js";
+import { wireMethods } from "../../wire/codec-shell.js";
 import {
   decodeDigestKey,
   encodeDigestKey,
@@ -11,7 +11,7 @@ import {
   importDigestKey,
   type DigestKey,
   type DigestKeyFormat,
-} from "./digest-key.js";
+} from "./key.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };

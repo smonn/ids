@@ -1,7 +1,7 @@
-import { validateBrand } from "./codecs/_kernel/brand.js";
-import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
-import { createWrappedLayoutOps } from "./layouts/wrapped.js";
-import { registerBrand } from "./codecs/_kernel/registry.js";
+import { validateBrand } from "../_kernel/brand.js";
+import { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
+import { createWrappedLayoutOps } from "./layout.js";
+import { registerBrand } from "../_kernel/registry.js";
 import type {
   Id,
   JsonSchema,
@@ -9,8 +9,8 @@ import type {
   ParseResult,
   Prefix,
   StandardSchemaProps,
-} from "./types.js";
-import { wireMethods } from "./wire/codec-shell.js";
+} from "../../types.js";
+import { wireMethods } from "../../wire/codec-shell.js";
 import {
   assertValidKeyring,
   decodeWrappingKey,
@@ -20,7 +20,7 @@ import {
   type WrappingKey,
   type WrappingKeyFormat,
   wrappingKeysEqual,
-} from "./wrapping-key.js";
+} from "./key.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };

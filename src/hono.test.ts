@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { idParam } from "./hono.js";
-import { createOpaqueTimestampId, importOpaqueKey } from "./opaque.js";
-import { createTimestampId } from "./timestamp.js";
+import { createOpaqueTimestampId, importOpaqueKey } from "./codecs/opaque/index.js";
+import { createTimestampId } from "./codecs/timestamp/index.js";
 
 describe("idParam", () => {
   let warnSilencer: ReturnType<typeof vi.spyOn>;

@@ -9,9 +9,10 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { decodeBase32, encodeBase32 } from "./wire/base32.js";
-import { createTimestampId, IdsError, isIdsError, type TimestampOptions } from "./index.js";
-import type { Id, JsonSchema } from "./types.js";
+import { decodeBase32, encodeBase32 } from "../../wire/base32.js";
+import { createTimestampId, type TimestampOptions } from "./index.js";
+import { IdsError, isIdsError } from "../../error.js";
+import type { Id, JsonSchema } from "../../types.js";
 
 describe("id", () => {
   // These tests recreate many codecs for the same brand. That's intentional —

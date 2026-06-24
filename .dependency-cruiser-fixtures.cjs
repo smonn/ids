@@ -25,14 +25,14 @@ module.exports = {
       severity: "error",
       comment: "wire layer must not depend on layouts",
       from: { path: "^test/fixtures/depcruise/wire" },
-      to: { path: "^src/layouts" },
+      to: { path: "^src/codecs/(timestamp|reverse|signed|opaque|wrapped|digest)/layout\\.ts$" },
     },
     {
       name: "wire-no-shell",
       severity: "error",
       from: { path: "^test/fixtures/depcruise/wire" },
       to: {
-        path: "^src/(timestamp|opaque|reverse|wrapped|signed|digest|drizzle|kysely|cli|registry)\\.ts$",
+        path: "^src/codecs/(timestamp|opaque|reverse|wrapped|signed|digest)/index\\.ts$|^src/(drizzle|kysely)\\.ts$|^src/cli/index\\.ts$",
       },
     },
     {
@@ -139,14 +139,14 @@ module.exports = {
         path: "^test/fixtures/depcruise",
         pathNot: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
       },
-      to: { path: "^src/layouts" },
+      to: { path: "^src/codecs/(timestamp|reverse|signed|opaque|wrapped|digest)/layout\\.ts$" },
     },
     {
       name: "layouts-no-shell",
       severity: "error",
       from: { path: "^test/fixtures/depcruise/layouts" },
       to: {
-        path: "^src/(timestamp|opaque|reverse|wrapped|signed|digest|cli|registry)\\.ts$",
+        path: "^src/codecs/(timestamp|opaque|reverse|wrapped|signed|digest)/index\\.ts$|^src/cli/index\\.ts$",
       },
     },
     {
@@ -154,7 +154,7 @@ module.exports = {
       severity: "error",
       comment: "layouts must not import sibling layout modules",
       from: { path: "^test/fixtures/depcruise/layouts" },
-      to: { path: "^src/layouts" },
+      to: { path: "^src/codecs/(timestamp|reverse|signed|opaque|wrapped|digest)/layout\\.ts$" },
     },
     {
       name: "layouts-wire-imports-allowlist",
@@ -171,12 +171,12 @@ module.exports = {
       name: "cli-no-internals",
       severity: "error",
       comment:
-        "CLI uses public codec entrypoints and Opaque key helpers via timestamp.ts/opaque.ts",
+        "CLI uses public codec entrypoints and Opaque key helpers via codecs/opaque/index.ts etc.",
       from: {
         path: "^(test/fixtures/depcruise/cli\\.ts|test/fixtures/depcruise/cli/)",
       },
       to: {
-        path: "^src/(wire|layouts|brand|registry|bytes|opaque-key|wrapping-key)",
+        path: "^src/wire|^src/codecs/_kernel/(brand|registry|bytes)\\.ts$|^src/codecs/(opaque/key|wrapped/key|(timestamp|reverse|signed|opaque|wrapped|digest)/layout)\\.ts$",
       },
     },
     {
@@ -212,10 +212,10 @@ module.exports = {
       name: "key-material-leaf-restricted",
       severity: "error",
       comment:
-        "key-material is a leaf importable only by the four key-handle modules (opaque-key, wrapping-key, signing-key, digest-key)",
+        "key-material is a leaf importable only by the four key-handle modules (opaque/key, wrapped/key, signed/key, digest/key)",
       from: {
         path: "^test/fixtures/depcruise.*\\.ts$",
-        pathNot: "^test/fixtures/depcruise/(opaque-key|wrapping-key|signing-key|digest-key)\\.ts$",
+        pathNot: "^test/fixtures/depcruise/codecs/(opaque|wrapped|signed|digest)/key\\.ts$",
       },
       to: { path: "^src/codecs/_kernel/key-material\\.ts$" },
     },

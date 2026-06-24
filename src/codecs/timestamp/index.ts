@@ -1,8 +1,8 @@
-import { validateBrand } from "./codecs/_kernel/brand.js";
-import { createTimestampLayoutOps } from "./layouts/timestamp.js";
-import { registerBrand } from "./codecs/_kernel/registry.js";
-import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
-import { wireMethods } from "./wire/codec-shell.js";
+import { validateBrand } from "../_kernel/brand.js";
+import { createTimestampLayoutOps } from "./layout.js";
+import { registerBrand } from "../_kernel/registry.js";
+import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../../types.js";
+import { wireMethods } from "../../wire/codec-shell.js";
 
 /**
  * Configuration options for a codec instance.

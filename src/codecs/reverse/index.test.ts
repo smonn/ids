@@ -1,6 +1,6 @@
 import { expect, describe, it, expectTypeOf, vi, beforeAll, afterAll } from "vitest";
-import { createReverseTimestampId } from "./reverse.js";
-import type { Id, JsonSchema } from "./types.js";
+import { createReverseTimestampId } from "./index.js";
+import type { Id, JsonSchema } from "../../types.js";
 
 describe("reverse timestamp codec", () => {
   let warnSilencer: ReturnType<typeof vi.spyOn>;

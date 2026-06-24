@@ -1,10 +1,10 @@
-import { runGenerate } from "./cli/commands/generate.js";
-import { runInspect } from "./cli/commands/inspect.js";
-import { runKeygen } from "./cli/commands/keygen.js";
-import type { CommandHandler, RunOpts } from "./cli/types.js";
-import { usage } from "./cli/usage.js";
+import { runGenerate } from "./commands/generate.js";
+import { runInspect } from "./commands/inspect.js";
+import { runKeygen } from "./commands/keygen.js";
+import type { CommandHandler, RunOpts } from "./types.js";
+import { usage } from "./usage.js";
 
-export type { RunOpts } from "./cli/types.js";
+export type { RunOpts } from "./types.js";
 
 type Command = {
   names: ReadonlyArray<string>;

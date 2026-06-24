@@ -6,7 +6,7 @@
  * idField() directly, which is the unit these tests validate.
  */
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { createTimestampId } from "./timestamp.js";
+import { createTimestampId } from "./codecs/timestamp/index.js";
 import { idField, IdsError, isIdsError, type IdColumnCodec } from "./prisma.js";
 import type { Id } from "./types.js";
 

@@ -1,21 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { createOpaqueTimestampId, importOpaqueKey } from "./opaque.js";
-import { encodeOpaqueKey, decodeOpaqueKey } from "./opaque-key.js";
+import { createOpaqueTimestampId, importOpaqueKey } from "./codecs/opaque/index.js";
+import { encodeOpaqueKey, decodeOpaqueKey } from "./codecs/opaque/key.js";
 import {
   createSignedTimestampId,
   importSigningKey,
   encodeSigningKey,
   decodeSigningKey,
-} from "./signed.js";
+} from "./codecs/signed/index.js";
 import {
   createWrappedKeyId,
   importWrappingKey,
   encodeWrappingKey,
   decodeWrappingKey,
-} from "./wrapped.js";
-import { createReverseTimestampId } from "./reverse.js";
-import { encodeDigestKey } from "./digest.js";
-import { run } from "./cli.js";
+} from "./codecs/wrapped/index.js";
+import { createReverseTimestampId } from "./codecs/reverse/index.js";
+import { encodeDigestKey } from "./codecs/digest/index.js";
+import { run } from "./cli/index.js";
 import { IdsError } from "./error.js";
 import { formatCliError } from "./cli/format.js";
 

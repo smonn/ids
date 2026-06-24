@@ -13,10 +13,10 @@ import {
   type Descriptor,
   type Policy,
 } from "./variants.js";
-import { encodeDigestKey } from "../digest.js";
-import { encodeOpaqueKey } from "../opaque.js";
-import { encodeSigningKey } from "../signed.js";
-import { encodeWrappingKey } from "../wrapped.js";
+import { encodeDigestKey } from "../codecs/digest/index.js";
+import { encodeOpaqueKey } from "../codecs/opaque/index.js";
+import { encodeSigningKey } from "../codecs/signed/index.js";
+import { encodeWrappingKey } from "../codecs/wrapped/index.js";
 import type { RunOpts } from "./types.js";
 
 const testKeyBytes = new Uint8Array(32).fill(0xab);

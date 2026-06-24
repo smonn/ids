@@ -11,8 +11,8 @@ import {
   type SigningKey,
   type SigningKeyFormat,
   type IdsErrorCode,
-} from "./signed.js";
-import type { Id } from "./types.js";
+} from "./index.js";
+import type { Id } from "../../types.js";
 
 describe("@smonn/ids/signed re-exports", () => {
   it("exports importSigningKey as a function", () => {

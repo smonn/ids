@@ -1,7 +1,11 @@
-import type { Id, Prefix } from "../types.js";
-import { payloadBytesFromId, toWireId } from "../wire/envelope.js";
-import { payloadBase32Length, payloadByteLength } from "../wire/invariants.js";
-import { readTimestampMs, timestampByteLength, writeTimestamp } from "../wire/timestamp-bytes.js";
+import type { Id, Prefix } from "../../types.js";
+import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
+import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
+import {
+  readTimestampMs,
+  timestampByteLength,
+  writeTimestamp,
+} from "../../wire/timestamp-bytes.js";
 
 const zeroIv = new Uint8Array(payloadByteLength);
 const pkcsPad = 0x10;

@@ -1,8 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { IdParamError, idParam } from "./express.js";
-import { createOpaqueTimestampId, importOpaqueKey } from "./opaque.js";
-import { createTimestampId } from "./timestamp.js";
+import { createOpaqueTimestampId, importOpaqueKey } from "./codecs/opaque/index.js";
+import { createTimestampId } from "./codecs/timestamp/index.js";
 
 function makeReq(paramName: string, value: string | undefined): Request {
   return { params: { [paramName]: value } } as unknown as Request;
