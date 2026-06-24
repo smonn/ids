@@ -1,5 +1,17 @@
 # @smonn/ids
 
+## 0.10.0
+
+### Minor Changes
+
+- 3b6dfe9: Add CLI support for the Digest codec: `ids keygen --digest` emits digest key material, `ids generate <brand> --digest --ns <ns>` reads material from stdin and produces a deterministic ID via `IDS_DIGEST_KEY`. Digest IDs are one-way; `inspect --digest` is unsupported by design.
+- 226bbbc: Add Digest codec (`@smonn/ids/digest`): one-way deterministic keyed digest that maps caller material to a stable public ID under a single operator key.
+
+### Patch Changes
+
+- fe284b2: Reject `--count N > 1` with `--digest` (exit 1, error on stderr): same material always produces the same ID.
+- 8fac997: `keygen --digest --ns <value>` now exits 1 with `unsupported flag for keygen: --ns` instead of silently ignoring the flag.
+
 ## 0.9.4
 
 ### Patch Changes
