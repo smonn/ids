@@ -101,24 +101,27 @@ the third-party lib (see `src/adapters/`, `package.json` exports, and [CONTEXT.m
 
 ## Wire payload width (16 → 20 bytes)
 
-_Proposed, deferred to v1 — see [ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md)._
+_**Rejected (2026-06-24)** — width is settled at 128 bits. See
+[ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md) (Status: Rejected) for the full
+evaluation; this entry is kept only so the question is not reopened._
 
-The shared 16-byte payload is not a multiple of 5, so 26 Crockford base32 chars carry 2
-surplus padding bits in the final character — the root of the non-canonical trailing-bit
-issue (#210). The accepted fix for #210 pins those bits to zero in the canonical form
-([ADR-0003](./adr/0003-canonical-strict-is.md)). A **structural** alternative is to widen the
-payload to **20 bytes (160 bits → exactly 32 base32 chars, no padding)**, eliminating the
-surplus bits by construction.
+The shared 16-byte payload is not a multiple of 5, so 26 Crockford base32 chars carry 2 surplus
+padding bits in the final character — the root of the non-canonical trailing-bit issue (#210). The
+permanent fix pins those bits to zero in the canonical form
+([ADR-0003](./adr/0003-canonical-strict-is.md)). Widening to 20 bytes (160 bits → 32 chars, no
+padding) was the proposed structural alternative, deferred to v1 and then **evaluated and rejected**.
 
-The open question is specifically **16 → 20** (15 bytes is rejected — it drops below the
-128-bit entropy floor). The cost is real: it invalidates every previously-issued ID across
-every codec, and because 20 bytes is not an AES block, the Opaque and Wrapped codecs' single-
-block AES strip trick ([ADR-0004](./adr/0004-aes-cbc-strip-trick.md)) must be replaced with a
-160-bit wide-block PRP (recommended: a 4-round Feistel reusing the existing single-block AES
-primitive). It also yields free upgrades — Timestamp/Reverse random 80 → 112 bits, Signed tag
-40 → 64 bits, Wrapped tag 64 → 96 bits. Because the #210 hole is already closed, this is a
-pure quality/entropy change whose breaking cost is best amortised in a deliberate v1
-breaking-change batch rather than shipped on its own.
+Why rejected, in one breath: the #210 hole is already closed, so this was only ever a quality
+change; the collision budget shows 80 random bits already clears any realistic rate (112 would only
+reach UUIDv4 parity nobody observes); under the per-codec promise lens the _only_ genuine beneficiary
+is the Digest codec, which is HMAC-only and would widen for free, while the wide-block-PRP crypto cost
+falls entirely on Opaque/Wrapped, which gain nothing; no alternative width is better (intermediate
+char counts are unreachable or still padded, and a two-AES-block / 256-bit payload is too long and
+still padded); 128 bits is the cryptographic sweet spot (payload = exactly one AES PRP, zero
+construction, shortest base32 form above the entropy floor); and the one construction that would
+"fit" base32 cleanly — FPE — is disqualified after FF3/FF3-1 were withdrawn from NIST (Feb 2025),
+leaving FF1 a monoculture unfit to anchor a permanent wire format. A sync API does not change any of
+this. **128 bits stands; 20 bytes and all other widths are rejected.**
 
 ## Undecided
 
@@ -169,3 +172,7 @@ consumer appears.
   future use case genuinely warrants it, with its own ADR and verification story.
 - **Public `@smonn/ids/wire` subpath (parse-without-codec).** See [ADR-0008](./adr/0008-internal-module-layering.md).
   Rejected for now — adapters use `codec["~standard"]`. Can ship later if a concrete adapter need appears.
+- **Changing the payload width (20 bytes / any non-128-bit length).** See
+  [ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md) (Rejected) and the **Wire payload width**
+  section above. Width is settled at 128 bits — the cryptographic and length sweet spot; #210's padding
+  bits are permanently fixed by ADR-0003's canonical form.

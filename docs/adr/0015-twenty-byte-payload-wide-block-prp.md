@@ -1,11 +1,52 @@
 # 20-byte payload: a wide-block PRP retires the base32 padding bits
 
-> **Status: Proposed — deferred to v1.** This ADR records a design that is _not_ yet
-> accepted. The live fix for the underlying security issue (#210) is the canonical-form
-> padding-bit constraint amended into [ADR-0003](./0003-canonical-strict-is.md); see
-> [ADR-0003](./0003-canonical-strict-is.md) and PR #211. The 20-byte redesign below is a
-> structural alternative that should be evaluated as part of a deliberate v1
-> breaking-change batch, not shipped in isolation. The first `##` section explains why.
+> **Status: Rejected (2026-06-24).** Originally _proposed — deferred to v1_; the v1 evaluation
+> happened and the outcome is **rejection**. The project will **stay at 128 bits / 16 bytes / 26
+> Crockford base32 chars** and reject 20 bytes and every other payload width. The #210 padding
+> bits remain permanently neutralised by the canonical-form constraint in
+> [ADR-0003](./0003-canonical-strict-is.md) — that is the fix, full stop. This ADR and the 20-byte
+> design are retained as the record of _why_ the width is settled, so the question is not reopened.
+> The decision and its reasoning are in the next section; everything after it is the supporting
+> analysis the decision rests on.
+
+## Decision (2026-06-24): stay at 128 bits, reject all other widths
+
+Width is settled at **128 bits**. 20 bytes (and 15, 18, 32, 80, …) are rejected. The chain of
+reasoning, each link detailed in a section below:
+
+1. **The benefit was never load-bearing.** The #210 hole is already closed by ADR-0003, so this
+   was only ever a quality change. The [collision budget](#the-collision-budget-what-the-random-tail-buys)
+   shows 80 random bits already clears any realistic generation rate; 112 bits only reaches UUIDv4
+   parity that no deployment observes.
+2. **The cost and the benefit point at different codecs.** Under the
+   [promise lens](#field-re-layouts-at-20-bytes--and-which-are-actually-load-bearing), the only codec
+   genuinely strengthened is **Digest** (silent, deterministic content-address collisions) — and Digest
+   is **HMAC-only**, so it would widen for free. The crypto cost (the wide-block PRP) falls entirely on
+   **Opaque** and **Wrapped**, which gain nothing. Paying for new crypto in two codecs to widen a third
+   that needs no crypto is a misaligned trade.
+3. **No alternative width is better.** [Intermediate character counts](#why-not-an-intermediate-character-count)
+   (25/27/29) are either unreachable with a whole-byte payload or still carry padding. A **two-AES-block /
+   256-bit** payload is AES-native but is 52 chars (longer than a UUID), _still_ carries 4 padding bits
+   (32 ∤ 5), and a single CBC pass over two blocks is not a strong wide-block PRP — so it solves nothing
+   and needs a construction anyway. The only length that is both whole-AES-block and zero-padding is 80
+   bytes / 128 chars — impractical.
+4. **128 bits is the cryptographic sweet spot.** It is the _only_ size where the on-wire payload is
+   exactly **one AES PRP application** (`C1 = AES_K(plaintext)` via the ADR-0004 strip trick) — zero
+   construction, the cleanest possible keyed permutation — _and_ the shortest base32 form above the
+   128-bit entropy floor. Every other size loses one or both: fractional-block sizes (160) force a
+   bespoke Feistel; whole-block sizes (256+) are too long and still padded.
+5. **The only construction that "fits" base32 cleanly is disqualified.** Format-preserving encryption
+   (FF1/FF3) is the one standardized way to encrypt directly over a radix-32 domain with no padding, but
+   FF3 and FF3-1 were **withdrawn** from NIST SP 800-38G Rev. 1 (2nd Public Draft, Feb 2025) after
+   repeated tweak-schedule breaks, leaving **FF1 a monoculture**. Binding a _permanent, un-migratable
+   wire format_ to the least-stable corner of standardized symmetric crypto — where breaks have
+   historically forced migration — is unacceptable for an ID library. See
+   [Considered options](#considered-options).
+6. **A sync API does not change any of this.** See
+   [Interaction with a possible sync keyed-codec API](#interaction-with-a-possible-sync-keyed-codec-api).
+
+Net: 128 bits is not a compromise the library is stuck with — it is the point that is simultaneously the
+cleanest crypto, the shortest ID, and adequate on entropy. The width question is closed.
 
 Pre-v1, we _could_ widen the shared wire payload from 16 to **20 bytes (160 bits → exactly
 32 Crockford base32 chars, no padding)**. Doing so would supersede the 16-byte invariant
@@ -14,7 +55,11 @@ Pre-v1, we _could_ widen the shared wire payload from 16 to **20 bytes (160 bits
 padding-bit constraint ([ADR-0003](./0003-canonical-strict-is.md) amendment, issue #210)
 unnecessary — there would be no surplus bits to constrain.
 
-## Why deferred, not accepted
+## Why it was deferred (and then rejected)
+
+> The reasoning below is what originally justified _deferral_; the fuller v1 evaluation
+> (collision budget, promise lens, alignment geometry, AES-block geometry, FPE collapse — the
+> sections that follow) hardened it into the **rejection** recorded in the Decision section above.
 
 Once the #210 fix (ADR-0003 padding-bit constraint / PR #211) lands, **the security hole
 is closed**. That removes all urgency from this change: it stops being a security fix and
@@ -32,9 +77,11 @@ larger tags). The cost/benefit then looks like this:
   once-per-lifetime move pre-v1. If we spend it, we should spend it once — batched with any
   other breaking changes we want before v1, so consumers migrate a single time.
 
-**Decision: keep the ADR-0003 padding-bit fix as the canonical resolution of #210, and
-revisit this 20-byte redesign at v1 planning** alongside the full breaking-change list. If
-the entropy bump or the structural cleanliness earns its place there, adopt it then.
+**Original deferral decision (now superseded):** keep the ADR-0003 padding-bit fix as the
+canonical resolution of #210 and revisit the 20-byte redesign at v1. That revisit is what
+produced the rejection above — the entropy bump and structural cleanliness did **not** earn
+their place once weighed against the cost, the misaligned cost/benefit across codecs, and the
+absence of any better width. ADR-0003 remains the permanent #210 fix.
 
 ## The mathematics
 
@@ -305,7 +352,16 @@ real decision.
 - **80 bytes (mod-5 ∧ mod-16) — REJECTED.** The only length keeping single-block AES _and_
   zero padding, but 128-char IDs are a non-starter.
 - **CTR-family / FPE (FF1/FF3) — REJECTED.** CTR with a fixed/derived counter degenerates or
-  risks keystream reuse (ADR-0004 already rejected the CTR family); FPE adds bundle weight.
+  risks keystream reuse (ADR-0004 already rejected the CTR family). FPE is the one standardized way
+  to encrypt directly over a radix-32 domain with zero padding at any character count — the
+  theoretically cleanest "fit base32" answer — but it is disqualified on durability, not just bundle
+  weight: **FF3 and FF3-1 were withdrawn from NIST SP 800-38G Rev. 1 (2nd Public Draft, Feb 2025)**
+  after repeated tweak-schedule breaks (Durak–Vaudenay on FF3; Beyne on FF3-1), leaving **FF1 a
+  monoculture** with scarce audited implementations (the popular libraries implement the now-withdrawn
+  FF3). Implementation is also harder to get right than a plain bit-width Feistel: round-trip tests do
+  not catch non-conformant radix/big-int arithmetic, domain size is a security parameter, and
+  constant-time base conversion is hard. Binding a permanent, un-migratable wire format to the
+  least-stable corner of standardized symmetric crypto is the opposite of what an ID library wants.
 
 ## Consequences (if adopted at v1)
 
