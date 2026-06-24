@@ -70,7 +70,7 @@ Framework and ORM adapters ship as optional subpath exports (each requires its
 own peer dependency):
 
 - **HTTP route params:** [Hono](https://ids.smonn.se/adapters/hono/), [Express](https://ids.smonn.se/adapters/express/), [Fastify](https://ids.smonn.se/adapters/fastify/) — `idParam` middleware; [NestJS](https://ids.smonn.se/adapters/nestjs/) — `ParseIdPipe`
-- **ORM columns:** [Drizzle](https://ids.smonn.se/adapters/drizzle/), [Kysely](https://ids.smonn.se/adapters/kysely/), [Prisma](https://ids.smonn.se/adapters/prisma/)
+- **ORM columns:** [Drizzle](https://ids.smonn.se/adapters/drizzle/), [Kysely](https://ids.smonn.se/adapters/kysely/), [Prisma](https://ids.smonn.se/adapters/prisma/), [TypeORM](https://ids.smonn.se/adapters/typeorm/)
 - **GraphQL:** [GraphQL](https://ids.smonn.se/adapters/graphql/) — `idScalar` custom scalar
 - **CLI:** brand-agnostic `inspect` / `generate` / `keygen` — `npx @smonn/ids --help` ([docs](https://ids.smonn.se/cli/))
 

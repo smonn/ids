@@ -27,6 +27,7 @@
     "./prisma": "./dist/prisma.mjs",
     "./express": "./dist/express.mjs",
     "./fastify": "./dist/fastify.mjs",
+    "./typeorm": "./dist/typeorm.mjs",
     "./graphql": "./dist/graphql.mjs",
     "./nestjs": "./dist/nestjs.mjs",
     "./package.json": "./package.json"
@@ -69,6 +70,7 @@
     "reflect-metadata": "^0.2.2",
     "tsdown": "0.22.3",
     "tslib": "^2.8.1",
+    "typeorm": "^1.0.0",
     "typescript": "6.0.3",
     "vitest": "4.1.9"
   },
@@ -80,7 +82,8 @@
     "fastify": ">=4.0.0",
     "graphql": ">=16.0.0",
     "hono": ">=4.0.0",
-    "kysely": ">=0.27.0"
+    "kysely": ">=0.27.0",
+    "typeorm": ">=0.3.0"
   },
   "peerDependenciesMeta": {
     "drizzle-orm": {
@@ -102,6 +105,9 @@
       "optional": true
     },
     "@prisma/client": {
+      "optional": true
+    },
+    "typeorm": {
       "optional": true
     },
     "@nestjs/common": {
