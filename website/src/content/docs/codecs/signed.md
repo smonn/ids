@@ -180,4 +180,4 @@ try {
 }
 ```
 
-Construction and key-import errors are thrown synchronously. For example, passing an empty `keys` array throws immediately with code `empty_keyring`.
+Construction errors (`createSignedTimestampId`) and `encodeSigningKey`/`decodeSigningKey` errors are thrown synchronously — for example, passing an empty `keys` array throws immediately with code `empty_keyring`. `importSigningKey` errors surface as a rejected promise — always `await` the call and catch the rejection.
