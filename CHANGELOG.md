@@ -1,5 +1,25 @@
 # @smonn/ids
 
+## 0.11.0
+
+### Minor Changes
+
+- 8bf2b1a: **Breaking (pre-1.0):** standardize the HKDF domain-separation labels across the keyed codecs onto `@smonn/ids/<subpath>/<primitive>` (unversioned). The labels change as follows:
+
+  - Signed Timestamp: `ids/signed-timestamp/hmac` → `@smonn/ids/signed/hmac`
+  - Digest: `ids/digest/hmac` → `@smonn/ids/digest/hmac`
+  - Wrapped key: `@smonn/ids/wrapped/aes/v1` → `@smonn/ids/wrapped/aes`, `@smonn/ids/wrapped/hmac/v1` → `@smonn/ids/wrapped/hmac`
+
+  These labels feed HKDF key derivation, so renaming them re-derives every subkey. **Every existing Wrapped key ID, Signed Timestamp ID, and Digest ID produced under the old labels will fail to verify/decode after upgrading.** There is no migration path or compatibility shim — callers must regenerate all keyed IDs as a hard cutover. The Opaque Timestamp codec is unaffected (it imports its AES key directly, with no HKDF label). No change to any KDF, key length, algorithm, wire format, or API beyond the label strings. See ADR-0019.
+
+- f06b49b: Replace ASCII-delimiter framing with length-prefix framing in the Wrapped key codec HMAC message. This is a wire-breaking change for pre-1.0 consumers of the Wrapped key codec: existing wrapped IDs produced before this change will fail verification after upgrading. The new framing (`len32(brand) ‖ brand ‖ len32(kind) ‖ kind ‖ lane`) makes domain separation structural rather than regex-dependent, hardening against a latent cross-domain MAC collision that could arise if the brand grammar were ever widened.
+
+### Patch Changes
+
+- 8d2243c: Align @types/node dev-dependency with engines.node >=24 floor; switch CryptoKey type annotations to webcrypto.CryptoKey.
+- 5375f3d: Hono adapter: narrow `options.status` fields from `number` to `ContentfulStatusCode`, removing the unsafe cast that let invalid HTTP status codes reach `HTTPException` unchecked.
+- b7aa9a1: Add @prisma/client devDependency and $extends result-component type assertions to the Prisma adapter test.
+
 ## 0.10.0
 
 ### Minor Changes
