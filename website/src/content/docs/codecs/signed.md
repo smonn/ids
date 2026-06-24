@@ -153,7 +153,7 @@ import { createSignedTimestampId, importSigningKey, isIdsError } from "@smonn/id
 | `empty_keyring`           | `keys` array is empty                           |
 | `duplicate_keyring_entry` | Two entries in `keys` share the same raw secret |
 
-**Key helper errors** — thrown by `importSigningKey`, `encodeSigningKey`, `decodeSigningKey`:
+**Key helper errors** — thrown by `encodeSigningKey` / `decodeSigningKey`; rejected by `importSigningKey`:
 
 | Code                   | Thrown when                                       |
 | ---------------------- | ------------------------------------------------- |
