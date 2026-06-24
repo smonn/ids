@@ -96,7 +96,7 @@ Codec constructors import **`wire/codec-shell`** only from `wire/`, and **`creat
 | `adapters/adapter-types.ts`                       | Shared web-adapter type hub — exports `IdParamFailure` discriminated union, `readIdColumn`, and `IdColumnCodec`; imports from `types.ts` and `error.ts`                                                                      |
 | `adapters/express.ts` / `fastify.ts` / `hono.ts`  | Web framework adapters                                                                                                                                                                                                       |
 | `adapters/drizzle.ts` / `prisma.ts` / `kysely.ts` | ORM adapters                                                                                                                                                                                                                 |
-| `types.ts`                                        | Root universal types — `Id<Brand>`, `ParseError`, `ParseSuccess`, etc.                                                                                                                                                       |
+| `types.ts`                                        | Root universal types — `Id<Brand>`, `ParseError`, `ParseResult`, etc.                                                                                                                                                        |
 | `error.ts`                                        | Root universal error — `IdsError`, `isIdsError`, `IdsErrorCode`                                                                                                                                                              |
 
 ## Considered Options
