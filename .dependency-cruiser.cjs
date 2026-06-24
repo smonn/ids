@@ -6,7 +6,7 @@ module.exports = {
       severity: "error",
       comment:
         "adapter-types may import only types — it must not pull in codec constructors, layouts, wire internals, or higher-layer modules",
-      from: { path: "^src/adapter-types\\.ts$" },
+      from: { path: "^src/adapters/adapter-types\\.ts$" },
       to: {
         path: "^src",
         pathNot: "^src/(types|error)\\.ts$",
@@ -24,40 +24,21 @@ module.exports = {
       severity: "error",
       from: { path: "^src/wire" },
       to: {
-        path: "^src/codecs/[^/]+/index\\.ts$|^src/(drizzle|kysely)\\.ts$|^src/cli/index\\.ts$",
+        path: "^src/codecs/[^/]+/index\\.ts$|^src/adapters/[^/]+\\.ts$|^src/cli/index\\.ts$",
       },
     },
     {
-      name: "drizzle-adapter-no-internals",
+      name: "adapters-no-internals",
       severity: "error",
       comment:
-        "drizzle adapter may import only types, error surface, and adapter-types from @smonn/ids internals",
-      from: { path: "^src/drizzle\\.ts$" },
-      to: {
-        path: "^src",
-        pathNot: "^src/(types|error|adapter-types)\\.ts$",
+        "adapters may import only types, error surface, and adapter-types from @smonn/ids internals; adapter-types is the hub (types, error only); adding a new adapter requires zero depcruise edits",
+      from: {
+        path: "^src/adapters/[^/]+\\.ts$",
+        pathNot: "^src/adapters/adapter-types\\.ts$|\\.test\\.ts$",
       },
-    },
-    {
-      name: "kysely-adapter-no-internals",
-      severity: "error",
-      comment:
-        "kysely adapter may import only types, error surface, and adapter-types from @smonn/ids internals; kysely imports readIdColumn and IdColumnCodec directly from adapter-types (not via drizzle) to avoid pulling drizzle-orm into the kysely adapter's module graph",
-      from: { path: "^src/kysely\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/(types|error|adapter-types)\\.ts$",
-      },
-    },
-    {
-      name: "prisma-adapter-no-internals",
-      severity: "error",
-      comment:
-        "prisma adapter may import only types, error surface, and adapter-types from @smonn/ids internals",
-      from: { path: "^src/prisma\\.ts$" },
-      to: {
-        path: "^src",
-        pathNot: "^src/(types|error|adapter-types)\\.ts$",
+        pathNot: "^src/(types|error)\\.ts$|^src/adapters/adapter-types\\.ts$",
       },
     },
     {

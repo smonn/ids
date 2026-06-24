@@ -1,6 +1,6 @@
 # By-feature codec slices: `codecs/<name>/`, `codecs/_kernel/`, and `wire/base32` separation
 
-Status: Proposed — implemented by #317 (codec slices + \_kernel + wire/base32 + codec depcruise) and #318 (adapters); supersedes ADR-0008 once both land.
+Status: Accepted — implemented by #317 (codec slices + \_kernel + wire/base32 + codec depcruise) and #318 (adapters); supersedes ADR-0008.
 
 ## Context
 
@@ -33,7 +33,7 @@ Reorganize `src/` into by-feature codec slices:
 
 **`adapters/`** — a peer axis at `src/adapters/` hosts the web-framework adapters (`express.ts`, `fastify.ts`, `hono.ts`), the ORM adapters (`drizzle.ts`, `prisma.ts`, `kysely.ts`), and the shared hub (`adapter-types.ts`). Adapters are a distinct ownership axis from codecs; a peer directory makes the separation structural rather than implicit.
 
-## Enforcement (live for codecs — adapters pending #318)
+## Enforcement
 
 Codec depcruise enforcement is now directory-based (implemented in #325):
 
@@ -43,7 +43,7 @@ Codec depcruise enforcement is now directory-based (implemented in #325):
 - **`_kernel` guard** (`_kernel-brand-registry-only-from-codec-constructors`) enforces that `brand` and `registry` are importable only from codec constructors.
 - **Zero depcruise edits to add a codec**: dropping `codecs/<newname>/index.ts` (and optionally `layout.ts`, `key.ts`) is sufficient — no `.dependency-cruiser.cjs` edits, no hand-maintained alternation lists. This is verified by the zero-edit proof fixture in `test/fixtures/depcruise/codecs/sample/`.
 - **Deleted rules**: `codec-constructors-no-base32` and `layouts-no-base32` were removed in earlier slices. Their constraint is structural: `base32.ts` lives under `wire/`, and codec `index.ts` files import from `_kernel/` and `wire/codec-shell` only.
-- **Adapter rules** (`adapters/`) collapse and the `Proposed → Accepted` flip for this ADR wait for #318.
+- **Adapter rules** (`adapters/`) collapse: three per-ORM rules (`drizzle-adapter-no-internals`, `kysely-adapter-no-internals`, `prisma-adapter-no-internals`) are replaced by a single directory-glob rule (`adapters-no-internals`) covering all `src/adapters/` non-hub files — adding a new adapter requires zero depcruise edits, mirroring the codec zero-edit goal.
 
 ### Adding a codec variant (zero-edit checklist)
 
@@ -123,6 +123,6 @@ This ADR supersedes [ADR-0008](./0008-internal-module-layering.md) once both #31
 The `Status:` field introduced here is a new lightweight convention for ADRs in this repository:
 
 - **`Proposed`**: The decision is recorded and agreed upon, but its implementing PRs have not yet merged. Enforcement is described as a goal, not a live constraint. A Proposed ADR may lead its implementers honestly because the `Status:` line makes the relationship explicit.
-- **`Accepted`**: Both implementing PRs (#317, #318) have merged and the new directory structure is live. The **last implementing PR to land** (#318) flips `Status: Proposed` to `Status: Accepted` in this file. (The `Superseded by: ADR-0018` header in ADR-0008 was already added in #325.)
+- **`Accepted`**: Both implementing PRs (#317, #318) have merged and the new directory structure is live. The **last implementing PR to land** (#318) flipped `Status: Proposed` to `Status: Accepted` in this file. (The `Superseded by: ADR-0018` header in ADR-0008 was already added in #325.)
 
 Future ADRs that describe a decision ahead of its code should open in `Proposed` state and follow the same lifecycle.

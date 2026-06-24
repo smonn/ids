@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { pgTable } from "drizzle-orm/pg-core";
-import { createTimestampId } from "./codecs/timestamp/index.js";
+import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idColumn, IdsError, isIdsError, type IdColumnCodec } from "./drizzle.js";
-import type { Id } from "./types.js";
+import type { Id } from "../types.js";
 
 describe("drizzle", () => {
   let warnSilencer: ReturnType<typeof vi.spyOn>;

@@ -1,7 +1,7 @@
 import { HTTPException } from "hono/http-exception";
 import type { Context, MiddlewareHandler } from "hono";
 import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
-import type { Id } from "./types.js";
+import type { Id } from "../types.js";
 
 export type { IdParamFailure };
 

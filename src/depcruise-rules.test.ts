@@ -78,20 +78,12 @@ const cases = [
   },
   // adapters
   {
-    fixture: "test/fixtures/depcruise/adapter-types.ts",
+    fixture: "test/fixtures/depcruise/adapters/adapter-types.ts",
     rule: "adapter-types-imports-allowlist",
   },
   {
-    fixture: "test/fixtures/depcruise/drizzle.ts",
-    rule: "drizzle-adapter-no-internals",
-  },
-  {
-    fixture: "test/fixtures/depcruise/kysely.ts",
-    rule: "kysely-adapter-no-internals",
-  },
-  {
-    fixture: "test/fixtures/depcruise/prisma.ts",
-    rule: "prisma-adapter-no-internals",
+    fixture: "test/fixtures/depcruise/adapters/drizzle.ts",
+    rule: "adapters-no-internals",
   },
   // CLI
   {

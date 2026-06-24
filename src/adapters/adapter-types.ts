@@ -1,5 +1,5 @@
-import { IdsError } from "./error.js";
-import type { Id, ParseError, ParseResult } from "./types.js";
+import { IdsError } from "../error.js";
+import type { Id, ParseError, ParseResult } from "../types.js";
 
 /** Discriminated failure value passed to `onError` and emitted to the framework's error handler. */
 export type IdParamFailure =

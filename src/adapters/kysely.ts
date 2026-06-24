@@ -1,7 +1,7 @@
 import type { ColumnType } from "kysely";
-import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
+import { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
-import type { Id } from "./types.js";
+import type { Id } from "../types.js";
 
 export type { IdColumnCodec } from "./adapter-types.js";
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
