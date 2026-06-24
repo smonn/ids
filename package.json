@@ -24,6 +24,7 @@
     "./drizzle": "./dist/drizzle.mjs",
     "./hono": "./dist/hono.mjs",
     "./kysely": "./dist/kysely.mjs",
+    "./mikro-orm": "./dist/mikro-orm.mjs",
     "./prisma": "./dist/prisma.mjs",
     "./express": "./dist/express.mjs",
     "./fastify": "./dist/fastify.mjs",
@@ -48,6 +49,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "2.31.0",
+    "@mikro-orm/core": "^7.1.4",
     "@prisma/client": ">=5.0.0",
     "@types/express": "^5.0.6",
     "@types/node": "24.13.2",
@@ -67,6 +69,7 @@
     "vitest": "4.1.9"
   },
   "peerDependencies": {
+    "@mikro-orm/core": ">=6.0.0",
     "@prisma/client": ">=5.0.0",
     "drizzle-orm": ">=0.30.0",
     "express": ">=4.0.0",
@@ -75,6 +78,9 @@
     "kysely": ">=0.27.0"
   },
   "peerDependenciesMeta": {
+    "@mikro-orm/core": {
+      "optional": true
+    },
     "drizzle-orm": {
       "optional": true
     },
