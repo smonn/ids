@@ -1,3 +1,4 @@
+import type { webcrypto } from "node:crypto";
 import type { Id, Prefix } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
@@ -8,8 +9,8 @@ const laneByteLength = 8;
 const tagByteLength = 8;
 
 type LayoutWrappingKey = {
-  aesKey: CryptoKey;
-  hmacKey: CryptoKey;
+  aesKey: webcrypto.CryptoKey;
+  hmacKey: webcrypto.CryptoKey;
 };
 
 type LayoutWrappedKind = "u32" | "i32" | "u64" | "i64";

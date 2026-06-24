@@ -1,3 +1,4 @@
+import type { webcrypto } from "node:crypto";
 import {
   assertValidKeyMaterialByteLength,
   decodeKeyMaterial,
@@ -15,7 +16,7 @@ declare const digestKeyBrand: unique symbol;
  * Opaque imported handle for one operator Digest key.
  *
  * Holds a single HMAC-SHA-256 key derived via HKDF under the domain-separation
- * label `@smonn/ids/digest/hmac`. The underlying `CryptoKey` is held internally and
+ * label `@smonn/ids/digest/hmac`. The underlying `webcrypto.CryptoKey` is held internally and
  * never exposed to callers. Obtain handles via {@link importDigestKey} and pass
  * them to `createDigestId` as the `key` option.
  *
@@ -32,7 +33,7 @@ export type DigestKey = {
 };
 
 type DigestKeyInternals = {
-  hmacKey: CryptoKey;
+  hmacKey: webcrypto.CryptoKey;
 };
 
 const internals = new WeakMap<DigestKey, DigestKeyInternals>();
@@ -83,19 +84,19 @@ export function decodeDigestKey(encoded: string, format: DigestKeyFormat): Uint8
 }
 
 /**
- * Returns the derived HMAC CryptoKey held inside the handle.
+ * Returns the derived HMAC webcrypto.CryptoKey held inside the handle.
  *
  * Intentional module-internal escape hatch for codec implementations.
  * Not re-exported from `@smonn/ids/digest`; external callers cannot reach this.
  */
-export function getDigestKeyHmacKey(key: DigestKey): CryptoKey {
+export function getDigestKeyHmacKey(key: DigestKey): webcrypto.CryptoKey {
   const keyInternals = internals.get(key);
   /* v8 ignore next -- defensive guard; only reachable with a forged DigestKey handle */
   if (keyInternals === undefined) throw new Error("invalid digest key");
   return keyInternals.hmacKey;
 }
 
-async function deriveHmacKey(bytes: Uint8Array): Promise<CryptoKey> {
+async function deriveHmacKey(bytes: Uint8Array): Promise<webcrypto.CryptoKey> {
   const base = await crypto.subtle.importKey(
     "raw",
     bytes as Uint8Array<ArrayBuffer>,
