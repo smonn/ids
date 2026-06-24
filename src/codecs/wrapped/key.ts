@@ -10,8 +10,8 @@ export { assertValidKeyring };
 /** Wire encoding for wrapping operator secret bytes (not Crockford base32). */
 export type WrappingKeyFormat = "hex" | "base64url";
 
-const aesInfo = new TextEncoder().encode("@smonn/ids/wrapped/aes/v1");
-const hmacInfo = new TextEncoder().encode("@smonn/ids/wrapped/hmac/v1");
+const aesInfo = new TextEncoder().encode("@smonn/ids/wrapped/aes");
+const hmacInfo = new TextEncoder().encode("@smonn/ids/wrapped/hmac");
 
 const SHA256_DIGEST_BYTES = 32;
 

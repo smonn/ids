@@ -10,7 +10,7 @@ export { assertValidKeyring };
 /** Wire encoding for signing key raw key bytes (not Crockford base32). */
 export type SigningKeyFormat = "hex" | "base64url";
 
-const hmacInfo = new TextEncoder().encode("ids/signed-timestamp/hmac");
+const hmacInfo = new TextEncoder().encode("@smonn/ids/signed/hmac");
 
 const SHA256_DIGEST_BYTES = 32;
 
@@ -20,7 +20,7 @@ declare const signingKeyBrand: unique symbol;
  * Opaque imported handle for one operator signing key.
  *
  * Holds a single HMAC-SHA-256 key derived via HKDF under the domain-separation
- * label `ids/signed-timestamp/hmac`. The underlying `CryptoKey` is held
+ * label `@smonn/ids/signed/hmac`. The underlying `CryptoKey` is held
  * internally and never exposed to callers. Obtain handles via
  * {@link importSigningKey} and pass them to `createSignedTimestampId` as the
  * `keys` signing keyring.
@@ -43,7 +43,7 @@ const internals = new WeakMap<SigningKey, SigningKeyInternals>();
  * Import raw operator key material into a {@link SigningKey} handle.
  *
  * Derives a single HMAC-SHA-256 key via HKDF under the domain-separation label
- * `ids/signed-timestamp/hmac`. Accepts 16, 24, or 32 bytes. To store or
+ * `@smonn/ids/signed/hmac`. Accepts 16, 24, or 32 bytes. To store or
  * transport key material, use {@link encodeSigningKey} / {@link decodeSigningKey}
  * (`"hex"` or `"base64url"` — not Crockford base32).
  *
