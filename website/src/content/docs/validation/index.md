@@ -68,8 +68,8 @@ const users = createTimestampId("usr");
 
 const Body = type({ userId: users });
 
-const r = Body({ userId: "USR_01H7B3K9RQXN1CW3P9R8T2SGKZ" });
-// → { userId: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz" } typed as { userId: Id<"usr"> }
+const r = Body({ userId: "USR_01H7B3K9RQXN1CW3P9R8T2SGKW" });
+// → { userId: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw" } typed as { userId: Id<"usr"> }
 ```
 
 The same pattern works with Valibot, tRPC, and any other library that reads the
