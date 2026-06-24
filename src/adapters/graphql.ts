@@ -1,6 +1,6 @@
 import { GraphQLError, GraphQLScalarType, Kind } from "graphql";
 import type { ValueNode } from "graphql";
-import type { IdColumnCodec } from "./adapter-types.js";
+import type { IdCodec } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /**
@@ -23,7 +23,7 @@ import type { Id } from "../types.js";
  * ```
  */
 export function idScalar<Brand extends string>(
-  codec: IdColumnCodec<Brand>,
+  codec: IdCodec<Brand>,
   config: { name: string; description?: string },
 ): GraphQLScalarType<Id<Brand>, string> {
   const parse = (value: unknown): Id<Brand> => {
