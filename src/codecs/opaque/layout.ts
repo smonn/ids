@@ -1,3 +1,4 @@
+import type { webcrypto } from "node:crypto";
 import type { Id, Prefix } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
@@ -17,7 +18,10 @@ function buildPlaintext(ms: number, rng: (target: Uint8Array) => void): Uint8Arr
   return plaintext;
 }
 
-async function encryptPayload(key: CryptoKey, plaintext: Uint8Array): Promise<Uint8Array> {
+async function encryptPayload(
+  key: webcrypto.CryptoKey,
+  plaintext: Uint8Array,
+): Promise<Uint8Array> {
   const encrypted = new Uint8Array(
     await crypto.subtle.encrypt(
       { name: "AES-CBC", iv: zeroIv },
@@ -31,7 +35,7 @@ async function encryptPayload(key: CryptoKey, plaintext: Uint8Array): Promise<Ui
 // AES-CBC strip-and-reconstruct decrypt (ADR-0004). The wire carries only C1
 // (16 bytes); C2 = AES_K(P2 XOR C1) where P2 is the PKCS#7 pad block (0x10×16).
 // Recompute C2 via CBC encrypt of (P2 XOR C1) with IV=0, then decrypt C1‖C2.
-async function decryptPayload(key: CryptoKey, c1: Uint8Array): Promise<Uint8Array> {
+async function decryptPayload(key: webcrypto.CryptoKey, c1: Uint8Array): Promise<Uint8Array> {
   const c2Input = new Uint8Array(payloadByteLength);
   for (let i = 0; i < payloadByteLength; i++) c2Input[i] = pkcsPad ^ c1[i]!;
   const c2Encrypted = new Uint8Array(
@@ -55,7 +59,7 @@ async function decryptPayload(key: CryptoKey, c1: Uint8Array): Promise<Uint8Arra
 
 async function extractTimestampFromId<Brand extends string>(
   prefix: Prefix<Brand>,
-  key: CryptoKey,
+  key: webcrypto.CryptoKey,
   id: Id<Brand>,
 ): Promise<Date> {
   const plaintext = await decryptPayload(key, payloadBytesFromId(prefix, id));
@@ -66,7 +70,7 @@ async function extractTimestampFromId<Brand extends string>(
  * subtle dominates this path; reuse would be safe but not worth pinning to spec detail. */
 async function generateWireId<Brand extends string>(
   prefix: Prefix<Brand>,
-  key: CryptoKey,
+  key: webcrypto.CryptoKey,
   rng: (target: Uint8Array) => void,
   ms: number,
 ): Promise<Id<Brand>> {
@@ -83,7 +87,7 @@ function schemaExample<Brand extends string>(prefix: Prefix<Brand>): string {
 /** Layout ops binder for the Opaque Timestamp variant. `extractTimestampFromId` is module-private; the binder exposes `extractTimestamp` for the codec constructor. */
 export function createOpaqueLayoutOps<Brand extends string>(
   prefix: Prefix<Brand>,
-  key: CryptoKey,
+  key: webcrypto.CryptoKey,
   rng: (target: Uint8Array) => void,
 ) {
   return {

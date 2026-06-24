@@ -1,3 +1,4 @@
+import type { webcrypto } from "node:crypto";
 import {
   assertValidKeyMaterialByteLength,
   assertValidKeyring,
@@ -21,7 +22,7 @@ declare const wrappingKeyBrand: unique symbol;
  * Opaque imported handle for one operator wrapping secret.
  *
  * Holds derived AES and HMAC subkeys internally; callers never access subkeys
- * or raw `CryptoKey` values directly. Obtain handles via {@link importWrappingKey}
+ * or raw `webcrypto.CryptoKey` values directly. Obtain handles via {@link importWrappingKey}
  * and pass them to `createWrappedKeyId` as the `keys` wrapping keyring.
  *
  * Distinct from the **Opaque key** used by `@smonn/ids/opaque` — one raw
@@ -33,13 +34,13 @@ export type WrappingKey = {
 
 type WrappingKeyInternals = {
   keyDigest: Uint8Array;
-  aesKey: CryptoKey;
-  hmacKey: CryptoKey;
+  aesKey: webcrypto.CryptoKey;
+  hmacKey: webcrypto.CryptoKey;
 };
 
 export type WrappingKeyMaterial = {
-  aesKey: CryptoKey;
-  hmacKey: CryptoKey;
+  aesKey: webcrypto.CryptoKey;
+  hmacKey: webcrypto.CryptoKey;
 };
 
 const internals = new WeakMap<WrappingKey, WrappingKeyInternals>();
@@ -121,7 +122,7 @@ function getWrappingKeyInternals(key: WrappingKey): WrappingKeyInternals {
   return keyInternals;
 }
 
-async function deriveAesKey(bytes: Uint8Array): Promise<CryptoKey> {
+async function deriveAesKey(bytes: Uint8Array): Promise<webcrypto.CryptoKey> {
   const base = await crypto.subtle.importKey(
     "raw",
     bytes as Uint8Array<ArrayBuffer>,
@@ -138,7 +139,7 @@ async function deriveAesKey(bytes: Uint8Array): Promise<CryptoKey> {
   );
 }
 
-async function deriveHmacKey(bytes: Uint8Array): Promise<CryptoKey> {
+async function deriveHmacKey(bytes: Uint8Array): Promise<webcrypto.CryptoKey> {
   const base = await crypto.subtle.importKey(
     "raw",
     bytes as Uint8Array<ArrayBuffer>,

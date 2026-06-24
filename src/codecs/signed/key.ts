@@ -1,3 +1,4 @@
+import type { webcrypto } from "node:crypto";
 import {
   assertValidKeyMaterialByteLength,
   assertValidKeyring,
@@ -20,7 +21,7 @@ declare const signingKeyBrand: unique symbol;
  * Opaque imported handle for one operator signing key.
  *
  * Holds a single HMAC-SHA-256 key derived via HKDF under the domain-separation
- * label `ids/signed-timestamp/hmac`. The underlying `CryptoKey` is held
+ * label `ids/signed-timestamp/hmac`. The underlying `webcrypto.CryptoKey` is held
  * internally and never exposed to callers. Obtain handles via
  * {@link importSigningKey} and pass them to `createSignedTimestampId` as the
  * `keys` signing keyring.
@@ -34,7 +35,7 @@ export type SigningKey = {
 
 type SigningKeyInternals = {
   keyDigest: Uint8Array;
-  hmacKey: CryptoKey;
+  hmacKey: webcrypto.CryptoKey;
 };
 
 const internals = new WeakMap<SigningKey, SigningKeyInternals>();
@@ -104,12 +105,12 @@ export function signingKeysEqual(a: SigningKey, b: SigningKey): boolean {
 }
 
 /**
- * Returns the derived HMAC CryptoKey held inside the handle.
+ * Returns the derived HMAC webcrypto.CryptoKey held inside the handle.
  *
  * Intentional module-internal escape hatch for codec implementations (e.g. `createSignedTimestampId`).
  * Not re-exported from `@smonn/ids/signed`; external callers cannot reach this.
  */
-export function getSigningKeyHmacKey(key: SigningKey): CryptoKey {
+export function getSigningKeyHmacKey(key: SigningKey): webcrypto.CryptoKey {
   return getSigningKeyInternals(key).hmacKey;
 }
 
@@ -121,7 +122,7 @@ function getSigningKeyInternals(key: SigningKey): SigningKeyInternals {
   return keyInternals;
 }
 
-async function deriveHmacKey(bytes: Uint8Array): Promise<CryptoKey> {
+async function deriveHmacKey(bytes: Uint8Array): Promise<webcrypto.CryptoKey> {
   const base = await crypto.subtle.importKey(
     "raw",
     bytes as Uint8Array<ArrayBuffer>,

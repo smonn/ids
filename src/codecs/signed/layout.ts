@@ -1,3 +1,4 @@
+import type { webcrypto } from "node:crypto";
 import type { Id, Prefix } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
@@ -14,7 +15,7 @@ const tagOffset = randomOffset + randomByteLength; // 11
 const signedContentByteLength = randomOffset + randomByteLength; // 11 (ts6 ‖ rand5)
 
 async function computeTag(
-  hmacKey: CryptoKey,
+  hmacKey: webcrypto.CryptoKey,
   brandBytes: Uint8Array,
   signedContent: Uint8Array,
 ): Promise<Uint8Array> {
@@ -39,7 +40,7 @@ export function createSignedTimestampLayoutOps<Brand extends string>(
   prefix: Prefix<Brand>,
   brand: Brand,
   rng: (target: Uint8Array) => void,
-  hmacKeys: readonly CryptoKey[],
+  hmacKeys: readonly webcrypto.CryptoKey[],
 ) {
   const signKey = hmacKeys[0]!;
   const brandBytes = new TextEncoder().encode(brand);

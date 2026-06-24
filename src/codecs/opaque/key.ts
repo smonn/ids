@@ -1,3 +1,4 @@
+import type { webcrypto } from "node:crypto";
 import {
   assertValidKeyMaterialByteLength,
   decodeKeyMaterial,
@@ -12,7 +13,7 @@ declare const opaqueKeyBrand: unique symbol;
 /**
  * Opaque imported handle for one AES key used by the Opaque Timestamp codec.
  *
- * Holds the underlying `CryptoKey` internally; callers never access it directly.
+ * Holds the underlying `webcrypto.CryptoKey` internally; callers never access it directly.
  * Obtain handles via {@link importOpaqueKey} and pass them to
  * `createOpaqueTimestampId` as the `key` option.
  *
@@ -23,7 +24,7 @@ export type OpaqueKey = {
   readonly [opaqueKeyBrand]: "OpaqueKey";
 };
 
-const opaqueKeyInternals = new WeakMap<OpaqueKey, CryptoKey>();
+const opaqueKeyInternals = new WeakMap<OpaqueKey, webcrypto.CryptoKey>();
 
 /**
  * Imports raw AES key bytes into an {@link OpaqueKey} handle for the Opaque
@@ -49,7 +50,7 @@ export async function importOpaqueKey(bytes: Uint8Array): Promise<OpaqueKey> {
   return key;
 }
 
-export function getOpaqueKeyCryptoKey(key: OpaqueKey): CryptoKey {
+export function getOpaqueKeyCryptoKey(key: OpaqueKey): webcrypto.CryptoKey {
   const cryptoKey = opaqueKeyInternals.get(key);
   if (cryptoKey === undefined) {
     throw new Error("invalid opaque key");

@@ -1,3 +1,4 @@
+import type { webcrypto } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
   createWrappedKeyId,
@@ -505,7 +506,7 @@ async function nonCanonicalI32Id(
 }
 
 async function hmacTag(
-  hmacKey: CryptoKey,
+  hmacKey: webcrypto.CryptoKey,
   brand: "inv",
   kind: "u32" | "i32",
   lane: Uint8Array,

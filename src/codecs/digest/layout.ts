@@ -1,3 +1,4 @@
+import type { webcrypto } from "node:crypto";
 import type { Id, Prefix } from "../../types.js";
 import { toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
@@ -35,7 +36,7 @@ export function createDigestLayoutOps<Brand extends string>(
   prefix: Prefix<Brand>,
   brand: Brand,
   ns: string,
-  hmacKey: CryptoKey,
+  hmacKey: webcrypto.CryptoKey,
 ) {
   const brandBytes = encoder.encode(brand);
   const nsBytes = encoder.encode(ns);
