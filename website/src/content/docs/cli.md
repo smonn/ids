@@ -23,24 +23,55 @@ Accepts non-canonical input (uppercase, Crockford aliases). Pass the flag that
 matches the codec used at generation — without a flag, the **Timestamp codec** is
 assumed.
 
-| Flag                   | Codec variant     | Env var                      | Notes                                                                   |
-| ---------------------- | ----------------- | ---------------------------- | ----------------------------------------------------------------------- |
-| _(none)_               | Timestamp         | —                            | Timestamp readable directly                                             |
-| `--opaque`             | Opaque Timestamp  | `IDS_KEY`                    | Wrong key yields a plausible-but-wrong timestamp, not an error          |
-| `--reverse`            | Reverse Timestamp | —                            | No key; timestamp decoded from inverted bytes                           |
-| `--wrapped --kind <k>` | Wrapped key       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`/`i32`/`u64`/`i64`; prints `lookup-key`         |
-| `--signed`             | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Without key: timestamp only. With key: adds `verification: ok`/`failed` |
+| Flag                   | Codec variant     | Env var                      | Notes                                                                                                              |
+| ---------------------- | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| _(none)_               | Timestamp         | —                            | Timestamp readable directly                                                                                        |
+| `--opaque`             | Opaque Timestamp  | `IDS_KEY`                    | Wrong key yields a plausible-but-wrong timestamp, not an error; always prints a note to stderr (see below)         |
+| `--reverse`            | Reverse Timestamp | —                            | No key; timestamp decoded from inverted bytes                                                                      |
+| `--wrapped --kind <k>` | Wrapped key       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`/`i32`/`u64`/`i64`; prints `lookup-key`                                                    |
+| `--signed`             | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Three verification states (see below); `failed` and `unavailable` exit 1 and write to stderr in addition to stdout |
 
 ```bash
 # Opaque Timestamp (IDS_KEY required):
 IDS_KEY=<hex-or-base64url-key> npx @smonn/ids inspect inv_… --opaque
+```
 
+`--opaque` always writes a note to stderr regardless of whether the key is correct:
+
+```
+note: timestamp assumes IDS_KEY matches the key used at generation; a wrong key yields a plausible but incorrect timestamp
+```
+
+```bash
 # Wrapped key (IDS_WRAPPING_KEY and --kind required):
 IDS_WRAPPING_KEY=<hex-or-base64url-key> npx @smonn/ids inspect ord_… --wrapped --kind u64
+```
 
+`--wrapped` output uses four labels:
+
+```
+brand:      ord
+lookup-key: 12345
+canonical:  ord_…
+input:      canonical
+```
+
+```bash
 # Signed Timestamp — with verification:
 IDS_SIGNING_KEY=<hex-or-base64url-key> npx @smonn/ids inspect evt_… --signed
 ```
+
+`--signed` has three verification outcomes:
+
+| State         | stdout                                  | stderr                                             | Exit |
+| ------------- | --------------------------------------- | -------------------------------------------------- | ---- |
+| `ok`          | output with `verification: ok`          | —                                                  | 0    |
+| `failed`      | output with `verification: failed`      | `verification_failed: verification failed`         | 1    |
+| `unavailable` | output with `verification: unavailable` | key diagnostic (e.g. `IDS_SIGNING_KEY is not set`) | 1    |
+
+The `unavailable` state occurs when `IDS_SIGNING_KEY` is absent or malformed — the
+timestamp is still printed to stdout (it is readable without the key), but
+verification cannot be performed.
 
 ## `generate` (`g`)
 
@@ -63,6 +94,13 @@ usr_…
 | `--digest --ns <ns>` | Digest            | `IDS_DIGEST_KEY`  | Reads material from stdin; `--ns` (non-secret namespace) required. Key format set by `IDS_DIGEST_KEY_FORMAT` or `--key-format`. Same `(material, ns, key)` always produces the same ID. `--count N > 1` is rejected: same material always produces the same ID. |
 
 Flags: `--count` / `-c N` (default 1, max 10000); `--key-format hex|base64url`.
+
+Digest IDs are derived from stdin material — pipe the input directly:
+
+```bash
+$ echo "user@example.com" | IDS_DIGEST_KEY=<hex-or-base64url-key> npx @smonn/ids generate ref --digest --ns emails
+ref_…
+```
 
 ## `keygen` (`k`)
 
@@ -109,3 +147,23 @@ Key format defaults to `hex`; override per-invocation with `--key-format` or set
 the matching `_FORMAT` env var for a session default. `--key-format` on the
 command line wins. Key-format env vars do not affect `keygen` — only
 `--key-format` applies there.
+
+## Error behavior
+
+### Mutually exclusive codec-selector flags
+
+Codec-selector flags (`--opaque`, `--reverse`, `--wrapped`, `--signed`, `--digest`) are
+mutually exclusive. Combining any two exits 1 and prints to stderr:
+
+```
+cannot use --signed and --opaque together
+```
+
+### Flag errors
+
+| Situation                                   | stderr message                                                                       | Exit |
+| ------------------------------------------- | ------------------------------------------------------------------------------------ | ---- |
+| Unknown flag                                | `unsupported flag: <flag>`                                                           | 1    |
+| Known flag not supported by this subcommand | `unsupported flag for <cmd>: <flag>`                                                 | 1    |
+| Same flag passed more than once             | `duplicate flag: <flag>`                                                             | 1    |
+| `--digest` with `--count N > 1`             | `--count N > 1 is rejected with --digest: same material always produces the same ID` | 1    |
