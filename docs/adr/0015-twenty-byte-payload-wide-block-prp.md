@@ -106,13 +106,13 @@ instead of jumping 26 → 32? Because the wire carries a **byte-array** payload 
 codecs ([ADR-0007](./0007-wire-indistinguishable-codec-variants.md)), and whole-byte payloads only
 land on certain char counts. `chars = ⌈8·bytes/5⌉`, so the reachable lengths above today are:
 
-| bytes | bits | chars | padding bits | vs. today (128-bit) |
-| ----- | ---- | ----- | ------------ | ------------------- |
-| 16    | 128  | 26    | 2            | today               |
-| 17    | 136  | 28    | 4            | more padding        |
-| **18** | **144** | **29** | **1**     | **smallest nonzero padding** |
-| 19    | 152  | 31    | 3            | more padding        |
-| 20    | 160  | 32    | 0            | clean ✓             |
+| bytes  | bits    | chars  | padding bits | vs. today (128-bit)          |
+| ------ | ------- | ------ | ------------ | ---------------------------- |
+| 16     | 128     | 26     | 2            | today                        |
+| 17     | 136     | 28     | 4            | more padding                 |
+| **18** | **144** | **29** | **1**        | **smallest nonzero padding** |
+| 19     | 152     | 31     | 3            | more padding                 |
+| 20     | 160     | 32     | 0            | clean ✓                      |
 
 Two consequences fall out:
 
@@ -150,18 +150,18 @@ bound gives `p ≈ n² / 2^(r+1)`. Going 80 → 112 multiplies the random space 
 
 | IDs in one ms | (≈ IDs/sec) | r = 80 (today) | r = 112 (20-byte) |
 | ------------- | ----------- | -------------- | ----------------- |
-| 1,000         | 1 M/s       | 4.1 × 10⁻¹⁹     | 9.6 × 10⁻²⁹        |
-| 10,000        | 10 M/s      | 4.1 × 10⁻¹⁷     | 9.6 × 10⁻²⁷        |
-| 100,000       | 100 M/s     | 4.1 × 10⁻¹⁵     | 9.6 × 10⁻²⁵        |
-| 1,000,000     | 1 B/s       | 4.1 × 10⁻¹³     | 9.6 × 10⁻²³        |
+| 1,000         | 1 M/s       | 4.1 × 10⁻¹⁹    | 9.6 × 10⁻²⁹       |
+| 10,000        | 10 M/s      | 4.1 × 10⁻¹⁷    | 9.6 × 10⁻²⁷       |
+| 100,000       | 100 M/s     | 4.1 × 10⁻¹⁵    | 9.6 × 10⁻²⁵       |
+| 1,000,000     | 1 B/s       | 4.1 × 10⁻¹³    | 9.6 × 10⁻²³       |
 
 The decision-useful framing is the **sustained generation rate that keeps the summed annual
 collision probability under a fixed budget** (here, ≤ 1-in-10⁹ per year, across the ~3.15 ×
 10¹⁰ ms in a year):
 
-| random tail       | sustained rate under 1e-9 / year     |
-| ----------------- | ------------------------------------ |
-| **r = 80 (today)** | ~277 IDs/ms ≈ **277,000 IDs/sec**   |
+| random tail           | sustained rate under 1e-9 / year      |
+| --------------------- | ------------------------------------- |
+| **r = 80 (today)**    | ~277 IDs/ms ≈ **277,000 IDs/sec**     |
 | **r = 112 (20-byte)** | ~18 M IDs/ms ≈ **18 billion IDs/sec** |
 
 At 80 bits the budget is ~277k IDs/sec _sustained on a single brand for a year_ — high, but a
@@ -288,13 +288,13 @@ the 20-byte crypto to a hand-rolled one.
 
 ## Field re-layouts at 20 bytes — and which are actually load-bearing
 
-| codec               | today (16 B)                  | proposed (20 B)             | effect         |
-| ------------------- | ----------------------------- | --------------------------- | -------------- |
-| Timestamp / Reverse | `ts6 ‖ rand10` (80-bit rand)  | `ts6 ‖ rand14`              | 112-bit random |
-| Signed              | `ts6 ‖ rand5 ‖ tag5` (40-bit) | `ts6 ‖ rand6 ‖ tag8`        | 64-bit tag     |
-| Wrapped             | `lane8 ‖ tag8` (64-bit tag)   | `lane8 ‖ tag12`             | 96-bit tag     |
-| Opaque              | `ts6 ‖ rand10`, single-block  | `ts6 ‖ rand14`, Feistel-PRP | 112-bit random |
-| **Digest**          | `digest16` (128-bit truncation) | `digest20`                | **160-bit digest** |
+| codec               | today (16 B)                    | proposed (20 B)             | effect             |
+| ------------------- | ------------------------------- | --------------------------- | ------------------ |
+| Timestamp / Reverse | `ts6 ‖ rand10` (80-bit rand)    | `ts6 ‖ rand14`              | 112-bit random     |
+| Signed              | `ts6 ‖ rand5 ‖ tag5` (40-bit)   | `ts6 ‖ rand6 ‖ tag8`        | 64-bit tag         |
+| Wrapped             | `lane8 ‖ tag8` (64-bit tag)     | `lane8 ‖ tag12`             | 96-bit tag         |
+| Opaque              | `ts6 ‖ rand10`, single-block    | `ts6 ‖ rand14`, Feistel-PRP | 112-bit random     |
+| **Digest**          | `digest16` (128-bit truncation) | `digest20`                  | **160-bit digest** |
 
 > **Added (2026-06-24).** The Digest codec ([ADR-0017](./0017-digest-codec-construction.md))
 > postdates this ADR and was missing from the table. Its entire payload is a truncated
