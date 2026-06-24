@@ -196,7 +196,7 @@ users.toJsonSchema();
 //   type: "string",
 //   pattern: "^usr_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$",
 //   description: "Branded ID for 'usr'",
-//   example: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
+//   example: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw",
 // }
 ```
 
