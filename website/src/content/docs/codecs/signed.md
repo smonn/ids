@@ -102,8 +102,8 @@ const ts = shares.extractTimestamp(result.id);
 Import signing key material via `importSigningKey(bytes)` from raw bytes (16,
 24, or 32 bytes). `SigningKey` is an **opaque frozen object** — the underlying
 `CryptoKey` is held in a module-internal `WeakMap` and is never exposed to
-callers. This prevents key extraction from handles passed across module
-boundaries.
+callers. This prevents raw-secret retention in the JS heap from undermining
+the non-extractable `CryptoKey` design.
 
 Signing-key material is a **separate secret domain** from Opaque and Wrapping
 keys — same `hex` / `base64url` encoding conventions, but a distinct `SigningKey`
