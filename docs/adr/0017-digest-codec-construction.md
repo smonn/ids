@@ -1,5 +1,7 @@
 # Digest codec: one-way keyed deterministic digest, single key, no keyring
 
+> **Note (superseded in part).** The HKDF domain-separation label named here (`ids/digest/hmac`) was renamed to `@smonn/ids/digest/hmac` by [ADR-0019](./0019-hkdf-label-namespace.md). The construction below is otherwise unchanged.
+
 The **Digest codec** maps caller **material** to a stable public ID under one operator secret: the same material always yields the same ID, and the material cannot be recovered from the ID. It is the **irreversible** counterpart to the **Wrapped key codec** ([ADR-0009](./0009-wrapped-key-compact-construction.md)) — same deterministic keyed family, opposite capability (one-way vs. reversible). Constructed via `createDigestId(brand, { ns, key })` on `@smonn/ids/digest` ([ADR-0005](./0005-codec-variant-subpath-exports.md)). It serves idempotency keys, content-addressed records, and stable public pseudonyms.
 
 This is the design-acceptance gate (issue [#101](https://github.com/smonn/ids/issues/101), modeled on the [#60](https://github.com/smonn/ids/issues/60) → [#61](https://github.com/smonn/ids/issues/61) Wrapped key precedent and [ADR-0012](./0012-signed-timestamp-construction.md)); implementation is a separate follow-up.

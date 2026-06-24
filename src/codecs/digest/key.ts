@@ -8,7 +8,7 @@ import {
 /** Wire encoding for digest operator key material (not Crockford base32). */
 export type DigestKeyFormat = "hex" | "base64url";
 
-const hmacInfo = new TextEncoder().encode("ids/digest/hmac");
+const hmacInfo = new TextEncoder().encode("@smonn/ids/digest/hmac");
 
 declare const digestKeyBrand: unique symbol;
 
@@ -16,7 +16,7 @@ declare const digestKeyBrand: unique symbol;
  * Opaque imported handle for one operator Digest key.
  *
  * Holds a single HMAC-SHA-256 key derived via HKDF under the domain-separation
- * label `ids/digest/hmac`. The underlying `webcrypto.CryptoKey` is held internally and
+ * label `@smonn/ids/digest/hmac`. The underlying `webcrypto.CryptoKey` is held internally and
  * never exposed to callers. Obtain handles via {@link importDigestKey} and pass
  * them to `createDigestId` as the `key` option.
  *
@@ -42,7 +42,7 @@ const internals = new WeakMap<DigestKey, DigestKeyInternals>();
  * Import raw operator key material into a {@link DigestKey} handle.
  *
  * Derives a single HMAC-SHA-256 key via HKDF under the domain-separation label
- * `ids/digest/hmac`. Accepts 16, 24, or 32 bytes. To store or transport key
+ * `@smonn/ids/digest/hmac`. Accepts 16, 24, or 32 bytes. To store or transport key
  * material, use {@link encodeDigestKey} / {@link decodeDigestKey}
  * (`"hex"` or `"base64url"` — not Crockford base32).
  *
