@@ -80,6 +80,7 @@ export default defineConfig({
             { label: "Digest", link: "/codecs/digest/" },
           ],
         },
+        { label: "Validation", link: "/validation/" },
         { label: "Playground", link: "/playground/" },
         {
           label: "Adapters",
