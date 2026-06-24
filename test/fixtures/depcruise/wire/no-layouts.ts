@@ -1,1 +1,1 @@
-import "../../../../src/layouts/timestamp.js";
+import "../../../../src/codecs/timestamp/layout.js";

@@ -8,10 +8,10 @@ import {
   isIdsError,
   type UnwrapResult,
   type WrappedKeyCodec,
-} from "./wrapped.js";
-import { getWrappingKeyMaterial, type WrappingKey } from "./wrapping-key.js";
-import type { Id } from "./types.js";
-import { toWireId } from "./wire/envelope.js";
+} from "./index.js";
+import { getWrappingKeyMaterial, type WrappingKey } from "./key.js";
+import type { Id } from "../../types.js";
+import { toWireId } from "../../wire/envelope.js";
 
 const payloadByteLength = 16;
 const tagByteLength = 8;

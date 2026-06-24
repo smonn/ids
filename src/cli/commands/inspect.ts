@@ -1,6 +1,6 @@
-import { createTimestampId } from "../../timestamp.js";
+import { createTimestampId } from "../../codecs/timestamp/index.js";
 import type { Id, StandardSchemaProps } from "../../types.js";
-import type { SafeVerifyResult } from "../../signed.js";
+import type { SafeVerifyResult } from "../../codecs/signed/index.js";
 import { codecOpts } from "../codec-options.js";
 import { buildCodec, deriveAllowedFlags, resolveVariant } from "../dispatch.js";
 import {

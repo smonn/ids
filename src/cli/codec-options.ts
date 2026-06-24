@@ -1,4 +1,4 @@
-import type { TimestampOptions } from "../timestamp.js";
+import type { TimestampOptions } from "../codecs/timestamp/index.js";
 import type { RunOpts } from "./types.js";
 
 export function codecOpts(opts: RunOpts): Partial<TimestampOptions> {

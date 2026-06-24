@@ -1,1 +1,1 @@
-import "../../../../src/timestamp.js";
+import "../../../../src/codecs/timestamp/index.js";

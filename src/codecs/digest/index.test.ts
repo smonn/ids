@@ -10,8 +10,8 @@ import {
   type DigestKey,
   type DigestKeyFormat,
   type IdsErrorCode,
-} from "./digest.js";
-import type { Id } from "./types.js";
+} from "./index.js";
+import type { Id } from "../../types.js";
 
 describe("@smonn/ids/digest re-exports", () => {
   it("exports importDigestKey as a function", () => {

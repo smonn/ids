@@ -7,10 +7,10 @@ import {
   signingKeysEqual,
   type SigningKey,
   type SigningKeyFormat,
-} from "./signing-key.js";
-import { importWrappingKey, getWrappingKeyMaterial } from "./wrapping-key.js";
-import { importOpaqueKey, getOpaqueKeyCryptoKey } from "./opaque-key.js";
-import { isIdsError, type IdsErrorCode } from "./error.js";
+} from "./key.js";
+import { importWrappingKey, getWrappingKeyMaterial } from "../wrapped/key.js";
+import { importOpaqueKey, getOpaqueKeyCryptoKey } from "../opaque/key.js";
+import { isIdsError, type IdsErrorCode } from "../../error.js";
 
 const bytes16 = new Uint8Array(16).map((_, i) => i);
 const bytes24 = new Uint8Array(24).map((_, i) => i);

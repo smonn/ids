@@ -11,10 +11,10 @@ import {
   timestampVariant,
   wrappedVariant,
 } from "./variants.js";
-import { importDigestKey } from "../digest.js";
-import { importOpaqueKey } from "../opaque.js";
-import { importSigningKey } from "../signed.js";
-import { importWrappingKey } from "../wrapped.js";
+import { importDigestKey } from "../codecs/digest/index.js";
+import { importOpaqueKey } from "../codecs/opaque/index.js";
+import { importSigningKey } from "../codecs/signed/index.js";
+import { importWrappingKey } from "../codecs/wrapped/index.js";
 import type { RunOpts } from "./types.js";
 
 const testKeyBytes = new Uint8Array(32).fill(0xab);

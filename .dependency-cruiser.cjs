@@ -17,14 +17,14 @@ module.exports = {
       severity: "error",
       comment: "wire layer must not depend on layouts",
       from: { path: "^src/wire" },
-      to: { path: "^src/layouts" },
+      to: { path: "^src/codecs/(timestamp|reverse|signed|opaque|wrapped|digest)/layout\\.ts$" },
     },
     {
       name: "wire-no-shell",
       severity: "error",
       from: { path: "^src/wire" },
       to: {
-        path: "^src/(timestamp|opaque|reverse|wrapped|signed|digest|drizzle|kysely|cli|registry)\\.ts$",
+        path: "^src/codecs/(timestamp|opaque|reverse|wrapped|signed|digest)/index\\.ts$|^src/(drizzle|kysely)\\.ts$|^src/cli/index\\.ts$",
       },
     },
     {
@@ -116,7 +116,7 @@ module.exports = {
     {
       name: "codec-constructors-wire-codec-shell-only",
       severity: "error",
-      from: { path: "^src/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$" },
+      from: { path: "^src/codecs/(timestamp|opaque|reverse|wrapped|signed|digest)/index\\.ts$" },
       to: { path: "^src/wire", pathNot: "^src/wire/codec-shell" },
     },
     {
@@ -125,29 +125,31 @@ module.exports = {
       comment: "only codec constructors may import layouts",
       from: {
         path: "^src",
-        pathNot: "^src/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
+        pathNot: "^src/codecs/(timestamp|opaque|reverse|wrapped|signed|digest)/index\\.ts$",
       },
-      to: { path: "^src/layouts" },
+      to: { path: "^src/codecs/(timestamp|reverse|signed|opaque|wrapped|digest)/layout\\.ts$" },
     },
     {
       name: "layouts-no-shell",
       severity: "error",
-      from: { path: "^src/layouts" },
-      to: { path: "^src/(timestamp|opaque|reverse|wrapped|signed|digest|cli|registry)\\.ts$" },
+      from: { path: "^src/codecs/(timestamp|reverse|signed|opaque|wrapped|digest)/layout\\.ts$" },
+      to: {
+        path: "^src/codecs/(timestamp|opaque|reverse|wrapped|signed|digest)/index\\.ts$|^src/cli/index\\.ts$",
+      },
     },
     {
       name: "layouts-no-sibling-layouts",
       severity: "error",
       comment: "layouts must not import sibling layout modules",
-      from: { path: "^src/layouts" },
-      to: { path: "^src/layouts" },
+      from: { path: "^src/codecs/(timestamp|reverse|signed|opaque|wrapped|digest)/layout\\.ts$" },
+      to: { path: "^src/codecs/(timestamp|reverse|signed|opaque|wrapped|digest)/layout\\.ts$" },
     },
     {
       name: "layouts-wire-imports-allowlist",
       severity: "error",
       comment:
         "layouts may import wire/envelope, wire/invariants, wire/timestamp-bytes, and types only",
-      from: { path: "^src/layouts" },
+      from: { path: "^src/codecs/(timestamp|reverse|signed|opaque|wrapped|digest)/layout\\.ts$" },
       to: {
         path: "^src",
         pathNot: "^src/(wire/(envelope|invariants|timestamp-bytes)|types)\\.ts$",
@@ -157,10 +159,10 @@ module.exports = {
       name: "cli-no-internals",
       severity: "error",
       comment:
-        "CLI uses public codec entrypoints and Opaque key helpers via timestamp.ts/opaque.ts",
-      from: { path: "^(src/cli\\.ts|src/cli/|bin/cli\\.ts$)" },
+        "CLI uses public codec entrypoints and Opaque key helpers via codecs/opaque/index.ts etc.",
+      from: { path: "^(src/cli/|bin/cli\\.ts$)" },
       to: {
-        path: "^src/(wire|layouts|codecs/_kernel/brand|codecs/_kernel/registry|codecs/_kernel/bytes|opaque-key|wrapping-key)",
+        path: "^src/wire|^src/codecs/_kernel/(brand|registry|bytes)\\.ts$|^src/codecs/(opaque/key|wrapped/key|(timestamp|reverse|signed|opaque|wrapped|digest)/layout)\\.ts$",
       },
     },
     {
@@ -169,7 +171,7 @@ module.exports = {
       comment: "only codec constructors may import brand",
       from: {
         path: "^src",
-        pathNot: "^src/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
+        pathNot: "^src/codecs/(timestamp|opaque|reverse|wrapped|signed|digest)/index\\.ts$",
       },
       to: { path: "^src/codecs/_kernel/brand" },
     },
@@ -178,7 +180,7 @@ module.exports = {
       severity: "error",
       from: {
         path: "^src",
-        pathNot: "^src/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
+        pathNot: "^src/codecs/(timestamp|opaque|reverse|wrapped|signed|digest)/index\\.ts$",
       },
       to: { path: "^src/codecs/_kernel/registry" },
     },
@@ -192,10 +194,10 @@ module.exports = {
       name: "key-material-leaf-restricted",
       severity: "error",
       comment:
-        "key-material is a leaf importable only by the four key-handle modules (opaque-key, wrapping-key, signing-key, digest-key)",
+        "key-material is a leaf importable only by the four key-handle modules (opaque/key, wrapped/key, signed/key, digest/key)",
       from: {
         path: "^src.*\\.ts$",
-        pathNot: "^src/(opaque-key|wrapping-key|signing-key|digest-key)\\.ts$",
+        pathNot: "^src/codecs/(opaque|wrapped|signed|digest)/key\\.ts$",
       },
       to: { path: "^src/codecs/_kernel/key-material\\.ts$" },
     },

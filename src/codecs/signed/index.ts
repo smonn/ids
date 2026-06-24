@@ -1,8 +1,8 @@
-import { validateBrand } from "./codecs/_kernel/brand.js";
-import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
-import { createSignedTimestampLayoutOps } from "./layouts/signed-timestamp.js";
-import { registerBrand } from "./codecs/_kernel/registry.js";
-import { defaultRng } from "./codecs/_kernel/rng.js";
+import { validateBrand } from "../_kernel/brand.js";
+import { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
+import { createSignedTimestampLayoutOps } from "./layout.js";
+import { registerBrand } from "../_kernel/registry.js";
+import { defaultRng } from "../_kernel/rng.js";
 import type {
   Id,
   JsonSchema,
@@ -10,8 +10,8 @@ import type {
   ParseResult,
   Prefix,
   StandardSchemaProps,
-} from "./types.js";
-import { wireMethods } from "./wire/codec-shell.js";
+} from "../../types.js";
+import { wireMethods } from "../../wire/codec-shell.js";
 import {
   assertValidKeyring,
   decodeSigningKey,
@@ -21,7 +21,7 @@ import {
   signingKeysEqual,
   type SigningKey,
   type SigningKeyFormat,
-} from "./signing-key.js";
+} from "./key.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };

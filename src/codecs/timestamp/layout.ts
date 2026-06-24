@@ -1,11 +1,11 @@
-import type { Id, Prefix } from "../types.js";
-import { toWireId } from "../wire/envelope.js";
-import { payloadByteLength } from "../wire/invariants.js";
+import type { Id, Prefix } from "../../types.js";
+import { toWireId } from "../../wire/envelope.js";
+import { payloadByteLength } from "../../wire/invariants.js";
 import {
   readTimestampMsFromBase32Suffix,
   timestampByteLength,
   writeTimestamp,
-} from "../wire/timestamp-bytes.js";
+} from "../../wire/timestamp-bytes.js";
 
 const randomByteLength: number = payloadByteLength - timestampByteLength;
 

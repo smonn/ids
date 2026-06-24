@@ -1,12 +1,12 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { IdsError, isIdsError } from "./error.js";
+import { IdsError, isIdsError } from "../../error.js";
 import {
   decodeOpaqueKey,
   encodeOpaqueKey,
   getOpaqueKeyCryptoKey,
   importOpaqueKey,
   type OpaqueKey,
-} from "./opaque-key.js";
+} from "./key.js";
 
 describe("opaque-key", () => {
   const bytes16 = new Uint8Array(16).map((_, i) => i);

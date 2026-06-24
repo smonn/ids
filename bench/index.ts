@@ -1,11 +1,11 @@
 import { do_not_optimize, measure } from "mitata";
 import { decodeBase32, encodeBase32 } from "../src/wire/base32.js";
-import { createTimestampId } from "../src/timestamp.js";
-import { createOpaqueTimestampId, importOpaqueKey } from "../src/opaque.js";
-import { createReverseTimestampId } from "../src/reverse.js";
-import { createWrappedKeyId, importWrappingKey } from "../src/wrapped.js";
-import { createSignedTimestampId, importSigningKey } from "../src/signed.js";
-import { createDigestId, importDigestKey } from "../src/digest.js";
+import { createTimestampId } from "../src/codecs/timestamp/index.js";
+import { createOpaqueTimestampId, importOpaqueKey } from "../src/codecs/opaque/index.js";
+import { createReverseTimestampId } from "../src/codecs/reverse/index.js";
+import { createWrappedKeyId, importWrappingKey } from "../src/codecs/wrapped/index.js";
+import { createSignedTimestampId, importSigningKey } from "../src/codecs/signed/index.js";
+import { createDigestId, importDigestKey } from "../src/codecs/digest/index.js";
 import type { Id } from "../src/types.js";
 
 const usr = createTimestampId("usr");

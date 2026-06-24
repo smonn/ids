@@ -2,10 +2,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { IdParamError, idParam } from "./fastify.js";
 import type { IdParamFailure } from "./fastify.js";
-import { createOpaqueTimestampId, importOpaqueKey } from "./opaque.js";
-import { createReverseTimestampId } from "./reverse.js";
-import { createTimestampId } from "./timestamp.js";
-import { createWrappedKeyId, importWrappingKey } from "./wrapped.js";
+import { createOpaqueTimestampId, importOpaqueKey } from "./codecs/opaque/index.js";
+import { createReverseTimestampId } from "./codecs/reverse/index.js";
+import { createTimestampId } from "./codecs/timestamp/index.js";
+import { createWrappedKeyId, importWrappingKey } from "./codecs/wrapped/index.js";
 
 type MockRequest = {
   params: Record<string, unknown>;

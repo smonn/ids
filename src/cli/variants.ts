@@ -4,30 +4,30 @@ import {
   encodeDigestKey,
   importDigestKey,
   type DigestKey,
-} from "../digest.js";
+} from "../codecs/digest/index.js";
 import {
   createOpaqueTimestampId,
   decodeOpaqueKey,
   encodeOpaqueKey,
   importOpaqueKey,
   type OpaqueKey,
-} from "../opaque.js";
-import { createReverseTimestampId } from "../reverse.js";
+} from "../codecs/opaque/index.js";
+import { createReverseTimestampId } from "../codecs/reverse/index.js";
 import {
   createSignedTimestampId,
   decodeSigningKey,
   encodeSigningKey,
   importSigningKey,
   type SigningKey,
-} from "../signed.js";
-import { createTimestampId } from "../timestamp.js";
+} from "../codecs/signed/index.js";
+import { createTimestampId } from "../codecs/timestamp/index.js";
 import {
   createWrappedKeyId,
   decodeWrappingKey,
   encodeWrappingKey,
   importWrappingKey,
   type WrappingKey,
-} from "../wrapped.js";
+} from "../codecs/wrapped/index.js";
 import type { IdCodec } from "../adapter-types.js";
 import { codecOpts } from "./codec-options.js";
 import { isKindError, isNsError, parseKind, parseNs } from "./flags.js";

@@ -3,7 +3,7 @@ import {
   assertValidKeyring,
   decodeKeyMaterial,
   encodeKeyMaterial,
-} from "./codecs/_kernel/key-material.js";
+} from "../_kernel/key-material.js";
 
 export { assertValidKeyring };
 
