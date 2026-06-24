@@ -152,14 +152,14 @@ error-code reference see [#328](https://github.com/smonn/ids/issues/328).
 import { isIdsError } from "@smonn/ids/wrapped";
 ```
 
-| Code                      | Thrown by                                         |
-| ------------------------- | ------------------------------------------------- |
-| `invalid_kind`            | `createWrappedKeyId` — kind not `u32/i32/u64/i64` |
-| `empty_keyring`           | `createWrappedKeyId` — `keys` array is empty      |
-| `duplicate_keyring_entry` | `createWrappedKeyId` — two entries share a secret |
-| `invalid_lookup_key`      | `wrap` — key out of range or wrong JS type        |
-| `verification_failed`     | `unwrap` — no keyring entry matches the tag       |
-| `invalid_id`              | `parse` — string is not a valid ID for the brand  |
+| Code                      | Surfaced by                                                       |
+| ------------------------- | ----------------------------------------------------------------- |
+| `invalid_kind`            | `createWrappedKeyId` — kind not `u32/i32/u64/i64`                |
+| `empty_keyring`           | `createWrappedKeyId` — `keys` array is empty                     |
+| `duplicate_keyring_entry` | `createWrappedKeyId` — two entries share a secret                |
+| `invalid_lookup_key`      | `wrap` — key out of range or wrong JS type                       |
+| `verification_failed`     | `unwrap` throws; also returned as `result.error` by `safeUnwrap` |
+| `invalid_id`              | `parse` — string is not a valid ID for the brand                 |
 
 ```ts
 try {
