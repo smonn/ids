@@ -73,7 +73,7 @@ renaming or removing one is breaking.
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `invalid_brand`           | Brand passed to a codec constructor is not exactly three lowercase `a–z` characters                                                      |
 | `invalid_namespace`       | `ns` passed to the Digest codec constructor is empty or whitespace-only                                                                  |
-| `invalid_key_format`      | Declared format is not `"hex"` or `"base64url"`                                                                                           |
+| `invalid_key_format`      | Declared format is not `"hex"` or `"base64url"`                                                                                          |
 | `invalid_key_encoding`    | Encoded key string is malformed for its declared format (bad hex digits, bad base64url)                                                  |
 | `invalid_key_length`      | Raw key bytes passed to an `import*Key` function are not 16, 24, or 32 bytes                                                             |
 | `invalid_kind`            | `kind` passed to the Wrapped key codec constructor is not `"u32"`, `"i32"`, `"u64"`, or `"i64"`                                          |
