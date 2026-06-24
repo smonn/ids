@@ -23,6 +23,7 @@ export function usage(): string {
     "      --ns <ns> is required: the namespace domain separator (non-secret, non-empty).",
     "      Reads the digest key from IDS_DIGEST_KEY (hex by default; IDS_DIGEST_KEY_FORMAT or --key-format).",
     "      Same material + ns + key always produces the same ID. Digest IDs are one-way.",
+    "      --count N > 1 is rejected: same material always produces the same ID.",
     "  keygen, k [--wrapped] [--signed] [--digest] [--bits 128|192|256] [--key-format hex|base64url]",
     "    Emit a random key for importOpaqueKey, importWrappingKey, importSigningKey, or importDigestKey (stdout only).",
     "    --wrapped emits a wrapping key for importWrappingKey instead (IDS_WRAPPING_KEY).",

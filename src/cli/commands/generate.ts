@@ -54,6 +54,12 @@ export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): P
     opts.stderr("--key-format requires --opaque, --signed, or --digest\n");
     return 1;
   }
+  if (flags.has("--digest") && count > 1) {
+    opts.stderr(
+      "--count N > 1 is rejected with --digest: same material always produces the same ID\n",
+    );
+    return 1;
+  }
   const optsWithStdin: RunOpts = { ...opts, readStdin: opts.readStdin ?? readProcessStdin };
   const codec = await buildCodec(variant, brand ?? "", values, optsWithStdin);
   if (typeof codec === "string") {

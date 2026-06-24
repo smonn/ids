@@ -54,13 +54,13 @@ usr_…
 usr_…
 ```
 
-| Flag                 | Codec variant     | Env var           | Notes                                                                                                                                                                                   |
-| -------------------- | ----------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| _(none)_             | Timestamp         | —                 | Default; one ID per `--count`                                                                                                                                                           |
-| `--opaque`           | Opaque Timestamp  | `IDS_KEY`         | Same env var and format rules as `inspect --opaque`                                                                                                                                     |
-| `--reverse`          | Reverse Timestamp | —                 | Newest-first sort order                                                                                                                                                                 |
-| `--signed`           | Signed Timestamp  | `IDS_SIGNING_KEY` | Same env var and format rules as `inspect --signed`                                                                                                                                     |
-| `--digest --ns <ns>` | Digest            | `IDS_DIGEST_KEY`  | Reads material from stdin; `--ns` (non-secret namespace) required. Key format set by `IDS_DIGEST_KEY_FORMAT` or `--key-format`. Same `(material, ns, key)` always produces the same ID. |
+| Flag                 | Codec variant     | Env var           | Notes                                                                                                                                                                                                                                                           |
+| -------------------- | ----------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| _(none)_             | Timestamp         | —                 | Default; one ID per `--count`                                                                                                                                                                                                                                   |
+| `--opaque`           | Opaque Timestamp  | `IDS_KEY`         | Same env var and format rules as `inspect --opaque`                                                                                                                                                                                                             |
+| `--reverse`          | Reverse Timestamp | —                 | Newest-first sort order                                                                                                                                                                                                                                         |
+| `--signed`           | Signed Timestamp  | `IDS_SIGNING_KEY` | Same env var and format rules as `inspect --signed`                                                                                                                                                                                                             |
+| `--digest --ns <ns>` | Digest            | `IDS_DIGEST_KEY`  | Reads material from stdin; `--ns` (non-secret namespace) required. Key format set by `IDS_DIGEST_KEY_FORMAT` or `--key-format`. Same `(material, ns, key)` always produces the same ID. `--count N > 1` is rejected: same material always produces the same ID. |
 
 Flags: `--count` / `-c N` (default 1, max 10000); `--key-format hex|base64url`.
 
