@@ -79,7 +79,7 @@ renaming or removing one is breaking.
 | `invalid_kind`            | `kind` passed to the Wrapped key codec constructor is not `"u32"`, `"i32"`, `"u64"`, or `"i64"`                                          |
 | `empty_keyring`           | `keys` array passed to a keyed codec constructor contains zero entries                                                                   |
 | `duplicate_keyring_entry` | `keys` array passed to a keyed codec constructor contains two entries backed by the same raw secret                                      |
-| `invalid_lookup_key`      | Value passed to `wrap()` is out of range, is the wrong JS type, or is negative zero for the configured `kind`                            |
+| `invalid_lookup_key`      | Value passed to `wrap()` is out of range, is the wrong JS type, or is negative zero (`u32`/`i32` only)                                   |
 | `verification_failed`     | No keyring entry's tag matches the payload — thrown by `unwrap()` / `verify()`, returned as a string by `safeUnwrap()` / `safeVerify()`  |
 | `invalid_id`              | String is not a structurally valid ID for the brand — thrown by `parse()` and ORM adapter read paths; `err.cause` holds the `ParseError` |
 
