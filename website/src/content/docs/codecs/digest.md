@@ -101,7 +101,7 @@ re-derived and back-filled.
 ## Key handling
 
 `importDigestKey` is **async**. Import digest key material from raw bytes
-(16, 24, or 32 raw bytes — fed to HKDF to derive an HMAC-SHA-256 key):
+(16 / 24 / 32 raw bytes — fed to HKDF to derive an HMAC-SHA-256 key):
 
 ```ts
 import { importDigestKey, encodeDigestKey, decodeDigestKey } from "@smonn/ids/digest";
