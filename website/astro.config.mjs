@@ -94,6 +94,7 @@ export default defineConfig({
           ],
         },
         { label: "CLI", link: "/cli/" },
+        { label: "Error handling", link: "/errors/" },
         typeDocSidebarGroup,
       ],
     }),
