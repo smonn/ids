@@ -78,6 +78,7 @@ export default defineConfig({
             { label: "Wrapped key", link: "/codecs/wrapped/" },
           ],
         },
+        { label: "Validation", link: "/validation/" },
         { label: "Playground", link: "/playground/" },
         {
           label: "Adapters",
