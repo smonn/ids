@@ -33,8 +33,8 @@ fastify.setErrorHandler((err, request, reply) => {
 
 **`--strictFunctionTypes` note:** `idParam` returns a hook typed as
 `(request: FastifyRequest<{ Params: Record<string, Id<Brand>> }>, reply: FastifyReply) => Promise<void>`.
-Assigning it directly to a `preHandler` slot (as above) is safe — Fastify's
-method-signature bivariance applies. If you instead store the hook in a
+Assigning it directly to a `preHandler` slot is safe — TypeScript's
+method-signature bivariance applies to Fastify's `preHandler` slot definition. If you instead store the hook in a
 locally-annotated variable typed as the bare
 `(request: FastifyRequest, reply: FastifyReply) => Promise<void>`,
 TypeScript will report an error under `--strictFunctionTypes` because function
