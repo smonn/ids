@@ -33,3 +33,25 @@ export const users = pgTable("users", {
   ([ADR-0003](https://github.com/smonn/ids/blob/main/docs/adr/0003-canonical-strict-is.md)),
   but `safeParse` is a safe boundary for stale non-canonical values. An
   unrecognised value throws at read time so corrupt data surfaces immediately.
+
+## Error handling
+
+The read path throws `IdsError` with code `"invalid_id"` when the stored value does not parse
+as a valid `Id<Brand>`. The underlying `ParseError` is attached as `err.cause`. Catch and
+narrow using `isIdsError`:
+
+```ts
+import { idColumn, isIdsError } from "@smonn/ids/drizzle";
+
+try {
+  // query that triggers a read through idColumn
+} catch (err) {
+  if (isIdsError(err) && err.code === "invalid_id") {
+    // err.cause is the ParseError returned by safeParse
+  }
+}
+```
+
+`IdsError`, `isIdsError`, and `IdsErrorCode` are re-exported from `@smonn/ids/drizzle` — no
+separate import from `"@smonn/ids"` is needed. For the full list of `IdsErrorCode` values, see
+the error-code reference.

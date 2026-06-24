@@ -43,6 +43,28 @@ await xprisma.user.create({ data: { id: userIdField.write(usr.generate()), name:
 - **Read path:** values are normalised via `codec.safeParse()`. An unrecognised
   value throws at read time so corrupt data surfaces immediately.
 
+## Error handling
+
+The read path throws `IdsError` with code `"invalid_id"` when the stored value does not parse
+as a valid `Id<Brand>`. The underlying `ParseError` is attached as `err.cause`. Catch and
+narrow using `isIdsError`:
+
+```ts
+import { idField, isIdsError } from "@smonn/ids/prisma";
+
+try {
+  const id = userIdField.read(user.id);
+} catch (err) {
+  if (isIdsError(err) && err.code === "invalid_id") {
+    // err.cause is the ParseError returned by safeParse
+  }
+}
+```
+
+`IdsError`, `isIdsError`, and `IdsErrorCode` are re-exported from `@smonn/ids/prisma` — no
+separate import from `"@smonn/ids"` is needed. For the full list of `IdsErrorCode` values, see
+the error-code reference.
+
 :::caution[Prisma casting caveat]
 Prisma's `$extends` result component can add typed computed accessors but cannot
 retroactively re-type an existing schema field at the Prisma Client level. The
