@@ -71,6 +71,7 @@ own peer dependency):
 
 - **HTTP route params:** [Hono](https://ids.smonn.se/adapters/hono/), [Express](https://ids.smonn.se/adapters/express/), [Fastify](https://ids.smonn.se/adapters/fastify/) — `idParam` middleware
 - **ORM columns:** [Drizzle](https://ids.smonn.se/adapters/drizzle/), [Kysely](https://ids.smonn.se/adapters/kysely/), [Prisma](https://ids.smonn.se/adapters/prisma/)
+- **GraphQL:** [GraphQL](https://ids.smonn.se/adapters/graphql/) — `idScalar` custom scalar
 - **CLI:** brand-agnostic `inspect` / `generate` / `keygen` — `npx @smonn/ids --help` ([docs](https://ids.smonn.se/cli/))
 
 Every codec also implements [Standard Schema v1](https://standardschema.dev/), so
