@@ -14,6 +14,7 @@ export default defineConfig({
     prisma: "src/adapters/prisma.ts",
     express: "src/adapters/express.ts",
     fastify: "src/adapters/fastify.ts",
+    nestjs: "src/adapters/nestjs.ts",
     cli: "bin/cli.ts",
   },
   dts: {
