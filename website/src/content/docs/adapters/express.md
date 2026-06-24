@@ -15,6 +15,8 @@ import { idParam, IdParamError } from "@smonn/ids/express";
 import { createTimestampId } from "@smonn/ids";
 
 const usr = createTimestampId("usr");
+const org = createTimestampId("org");
+const handler = (req, res) => res.json({ ok: true });
 
 // Default: calls next(err) with an IdParamError → error-handling middleware renders it
 app.get("/users/:id", idParam("id", usr), (req, res) => {

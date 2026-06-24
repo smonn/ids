@@ -17,13 +17,9 @@ import { createTimestampId } from "@smonn/ids";
 const usr = createTimestampId("usr");
 
 // Default: throws IdParamError → setErrorHandler renders it
-fastify.get<{ Params: { id: string } }>(
-  "/users/:id",
-  { preHandler: idParam("id", usr) },
-  (request, reply) => {
-    const id = request.params.id; // string; cast with `as Id<"usr">` if needed
-  },
-);
+fastify.get("/users/:id", { preHandler: idParam("id", usr) }, (request, reply) => {
+  const id = request.params.id; // Id<"usr">, canonical
+});
 
 // Error handler receives the typed error
 fastify.setErrorHandler((err, request, reply) => {
@@ -34,6 +30,16 @@ fastify.setErrorHandler((err, request, reply) => {
   reply.send(err);
 });
 ```
+
+**`--strictFunctionTypes` note:** `idParam` returns a hook typed as
+`(request: FastifyRequest<{ Params: Record<string, Id<Brand>> }>, reply: FastifyReply) => Promise<void>`.
+Assigning it directly to a `preHandler` slot is safe — TypeScript's
+method-signature bivariance applies to Fastify's `preHandler` slot definition. If you instead store the hook in a
+locally-annotated variable typed as the bare
+`(request: FastifyRequest, reply: FastifyReply) => Promise<void>`,
+TypeScript will report an error under `--strictFunctionTypes` because function
+parameter types are contravariant. Avoid the explicit annotation and let
+TypeScript infer, or use `preHandler` slot assignment directly.
 
 - **Default error channel:** on failure the adapter throws `IdParamError`
   carrying `statusCode` and `reason` — Fastify's `setErrorHandler` controls
