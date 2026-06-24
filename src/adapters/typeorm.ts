@@ -29,13 +29,13 @@ export type { IdColumnCodec };
  * import { idTransformer } from "@smonn/ids/typeorm";
  * import { createTimestampId } from "@smonn/ids";
  * import type { Id } from "@smonn/ids";
- * import { Column, Entity, PrimaryColumn } from "typeorm";
+ * import { Column, Entity } from "typeorm";
  *
  * const usr = createTimestampId("usr");
  *
  * @Entity()
  * class User {
- *   @PrimaryColumn({ type: "text", transformer: idTransformer(usr) })
+ *   @Column({ type: "text", transformer: idTransformer(usr) })
  *   id!: Id<"usr">;
  * }
  * ```
