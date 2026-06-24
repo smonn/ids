@@ -35,7 +35,7 @@ Use `isIdsError(value)` to test whether a caught value is an `IdsError`. Do
 not use bare `instanceof` — it silently fails when the package is loaded more
 than once in the same process (the ESM + CJS dual-package hazard).
 
-`isIdsError` is re-exported from every package entry point:
+`isIdsError` is re-exported from every codec and ORM adapter entry point:
 
 - `@smonn/ids`
 - `@smonn/ids/opaque`
@@ -43,6 +43,9 @@ than once in the same process (the ESM + CJS dual-package hazard).
 - `@smonn/ids/signed`
 - `@smonn/ids/wrapped`
 - `@smonn/ids/digest`
+- `@smonn/ids/drizzle`
+- `@smonn/ids/kysely`
+- `@smonn/ids/prisma`
 
 ```ts
 import { isIdsError } from "@smonn/ids";
