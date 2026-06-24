@@ -32,9 +32,9 @@ underscore, then 26 Crockford base32 characters of payload.
     The payload leads with a 48-bit millisecond timestamp, so `ORDER BY id`
     sorts by creation time. No separate `created_at` column needed.
   </Card>
-  <Card title="Five codecs" icon="puzzle">
-    Plaintext, newest-first, signed (tamper-evident), opaque (encrypted), and
-    wrapped-key — all sharing one wire shape.
+  <Card title="Six codecs" icon="puzzle">
+    Plaintext, newest-first, signed (tamper-evident), opaque (encrypted),
+    wrapped-key, and digest (one-way keyed hash) — all sharing one wire shape.
   </Card>
   <Card title="Run it live" icon="rocket">
     The [playground](/playground/) runs the real library in your browser —

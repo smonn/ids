@@ -8,6 +8,7 @@ import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
 // straight from these source files' types, so it can never drift from the code.
 const entryPoints = [
   "../src/index.ts",
+  "../src/digest.ts",
   "../src/opaque.ts",
   "../src/reverse.ts",
   "../src/signed.ts",
@@ -76,6 +77,7 @@ export default defineConfig({
             { label: "Signed Timestamp", link: "/codecs/signed/" },
             { label: "Opaque Timestamp", link: "/codecs/opaque/" },
             { label: "Wrapped key", link: "/codecs/wrapped/" },
+            { label: "Digest", link: "/codecs/digest/" },
           ],
         },
         { label: "Playground", link: "/playground/" },
