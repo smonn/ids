@@ -31,6 +31,18 @@ A 40-bit (5-byte) tag puts online forgery at ≈ `2⁻⁴⁰` per attempt — at
 
 **False-accept bound.** With a **Signing keyring** of `n` entries, an attacker's per-`verify` success probability is ≈ `n / 2⁴⁰` (one trial per keyring entry). Small rings stay correctness-grade — this mirrors the Wrapped key codec's `keyring_size / 2⁶⁴`, scaled to the narrower tag.
 
+> **Refinement (2026-06-24, cross-ref [ADR-0015](./0015-twenty-byte-payload-wide-block-prp.md)).**
+> The per-millisecond birthday figure above is correct, but accumulated over a year the **random
+> field — not the tag — is the tighter axis.** At ~1,000 IDs/s sustained on one brand, 40-bit
+> random expects ~1.4 × 10⁻² same-ms collisions/year, whereas one online tag forgery needs years
+> of `verify`-endpoint saturation (~10¹² failing calls at `2⁻⁴⁰` each). The 40 / 40 split still
+> stands: collisions are usually caught by a UNIQUE index on the backing store (demoting them to a
+> regenerate-and-retry), and the random field cannot be widened inside 16 bytes without dropping
+> the tag below the 32-bit floor ADR-0009 rejected. But framing collisions as the "safe" axis holds
+> only **under a unique-index backstop** — for stateless high-volume verification the random field
+> is the constraint (40-bit random covers only ~8 IDs/s/brand at a stringent collision bar). That
+> asymmetry is the crux ADR-0015 weighs for the 20-byte width.
+
 ## Key handling
 
 A distinct **Signing key** handle, imported via `importSigningKey(bytes)` from raw material (16 / 24 / 32 bytes), holds a single HMAC-SHA-256 key derived through HKDF under the domain-separation label `ids/signed-timestamp/hmac`.

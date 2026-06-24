@@ -104,6 +104,53 @@ not "80 is unsafe" but "112 retires the collision-rate conversation from the doc
 the way UUIDv4 and KSUID users never have it." (The Signed/Wrapped tag-width changes below are a
 separate _forgery_-resistance budget, not collision resistance, and are not modelled here.)
 
+## Decision crux: the Signed random field, not the tag, forces the width
+
+The budget above covers the plaintext Timestamp/Reverse tail (80 → 112). The Signed codec splits
+its 80-bit tail two ways — `ts6 ‖ rand5 ‖ tag5` (40 random / 40 tag,
+[ADR-0012](./0012-signed-timestamp-construction.md)) — and that split is where the 20-byte
+question is actually decided. Worked against realistic sustained load on one brand, both axes
+land opposite to intuition:
+
+- **The 40-bit tag is not thin.** Forgery is online-only — the signing key never leaves the
+  server, so there is no offline brute force — succeeding at `n / 2⁴⁰` per live `verify`. One
+  forgery needs ~10¹² failing requests, i.e. **years of endpoint saturation** even at 10⁴–10⁶
+  verify/s, and a forged tag only proves "minted by the key," not a capability. 40 bits clears
+  the bar twice over.
+- **The 40-bit random field is the binding constraint.** Same-millisecond collisions accumulate
+  over a year: at ~1,000 IDs/s on one brand, 40-bit random expects **~1.4 × 10⁻² collisions/year**
+  — far closer to the edge than the tag's "years per forgery."
+
+Inside 16 bytes the tail is zero-sum, so **no re-budget fixes this**: growing the tag shrinks the
+already-tight random field, and the only collision-favouring split (48 random / 32 tag) reuses
+the 32-bit tag width [ADR-0009](./0009-wrapped-key-compact-construction.md) rejected as too weak.
+20 bytes is the only construction that relieves the tight axis without robbing the tag
+(`ts6 ‖ rand6 ‖ tag8` → 48 random / 64 tag, both widened at once).
+
+Whether that relief is load-bearing turns on a single severity question — and crucially **not**
+the one the codec's headline framing first suggests. Signed is advertised for share links
+_verified without a DB lookup_, but that describes stateless **authenticity** (no round-trip to
+check the tag); it is independent of whether a **persisted, unique-indexed row** exists to catch a
+collision:
+
+- **Persisted, unique-indexed ID** — the common share-link shape: a stored grant/share row with a
+  target, expiry, and revocation state. A collision is a caught insert error → regenerate. The
+  lenient bar applies; 40-bit random comfortably serves ~835 IDs/s/brand, and **20 bytes is pure
+  margin: stay at 16.** Verifying the tag statelessly does not change this — the row still
+  backstops collisions.
+- **Genuinely storeless signed capability** — the tag alone is the authorization, nothing
+  persisted. A collision is silent; the stringent bar applies and 40-bit random covers only ~8
+  IDs/s/brand. **That profile — storeless _and_ high single-brand volume — is the lone
+  load-bearing reason to take the width change at v1.**
+
+So the v1 decision reduces to: _does the Signed codec promise correctness for storeless,
+high-volume single-brand use?_ The dominant advertised use — a share link backed by a stored grant
+— lands on the **first** bullet, so the realistic answer is usually "no, collisions are caught."
+That makes the 20-byte collision relief **non-load-bearing for most Signed deployments**, forcing
+the width only at the storeless high-volume tail. The Signed random field is still the _only_ axis
+that could force it — neither the tag nor the plaintext-Timestamp entropy can — but the codec's own
+suggested use places most of its weight on the side where 16 bytes already suffices.
+
 ## The crypto cost: a 160-bit permutation replaces single-block AES
 
 Two codecs rely on the payload being exactly one 128-bit AES block (ADR-0004): **Opaque**
