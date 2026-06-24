@@ -93,11 +93,29 @@ function readLane<K extends LayoutWrappedKind>(
   return value as LayoutLookupKey<K> | null;
 }
 
+function writeLen32(value: number, target: Uint8Array, offset: number): void {
+  target[offset] = (value >>> 24) & 0xff;
+  target[offset + 1] = (value >>> 16) & 0xff;
+  target[offset + 2] = (value >>> 8) & 0xff;
+  target[offset + 3] = value & 0xff;
+}
+
 function hmacMessage(brand: string, kind: LayoutWrappedKind, lane: Uint8Array): Uint8Array {
-  const prefix = new TextEncoder().encode(`${brand}:${kind}:`);
-  const message = new Uint8Array(prefix.length + lane.length);
-  message.set(prefix, 0);
-  message.set(lane, prefix.length);
+  const encoder = new TextEncoder();
+  const brandBytes = encoder.encode(brand);
+  const kindBytes = encoder.encode(kind);
+  const msgLen = 4 + brandBytes.length + 4 + kindBytes.length + lane.length;
+  const message = new Uint8Array(msgLen);
+  let offset = 0;
+  writeLen32(brandBytes.length, message, offset);
+  offset += 4;
+  message.set(brandBytes, offset);
+  offset += brandBytes.length;
+  writeLen32(kindBytes.length, message, offset);
+  offset += 4;
+  message.set(kindBytes, offset);
+  offset += kindBytes.length;
+  message.set(lane, offset);
   return message;
 }
 

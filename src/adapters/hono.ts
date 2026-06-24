@@ -1,4 +1,5 @@
 import { HTTPException } from "hono/http-exception";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Context, MiddlewareHandler } from "hono";
 import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
 import type { Id } from "../types.js";
@@ -16,7 +17,7 @@ export type IdParamOptions = {
    * Remap the default HTTP status for a failure reason without a full handler.
    * e.g. `{ brand_mismatch: 400 }` treats both failure kinds as 400.
    */
-  status?: { brand_mismatch?: number; malformed?: number };
+  status?: { brand_mismatch?: ContentfulStatusCode; malformed?: ContentfulStatusCode };
 };
 
 /**
@@ -70,7 +71,8 @@ export function idParam<ParamKey extends string, Brand extends string>(
       if (options?.onError) {
         return options.onError(failure, c);
       }
-      throw new HTTPException(failure.status as ConstructorParameters<typeof HTTPException>[0]);
+      const defaultStatus: ContentfulStatusCode = failure.reason === "brand_mismatch" ? 404 : 400;
+      throw new HTTPException(options?.status?.[failure.reason] ?? defaultStatus);
     }
     c.set(paramName, result.id);
     await next();

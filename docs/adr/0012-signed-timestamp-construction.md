@@ -59,14 +59,14 @@ This gives signed share links a rotation story out of the box, and is the authen
 
 ## How it differs from the other keyed codecs
 
-|               | Signed Timestamp           | Opaque Timestamp                | Wrapped key                         |
-| ------------- | -------------------------- | ------------------------------- | ----------------------------------- |
-| Security goal | integrity (tamper-evident) | confidentiality (hide the time) | reversible tokenization + integrity |
-| Timestamp     | readable, sortable         | encrypted, not readable         | n/a (not timestamp-family)          |
-| Crypto        | HMAC tag, no encryption    | AES-CBC, no auth tag            | AES block + 64-bit HMAC tag         |
-| Payload       | `ts6 ‖ rand5 ‖ tag5`       | encrypted `ts6 ‖ rand10`        | `enc(lane8 ‖ tag8)`                 |
-| Verifies?     | yes (`verify`)             | no (decrypt never throws)       | yes (`unwrap`)                      |
-| Wrong key     | tag mismatch → rejected    | plausible garbage timestamp     | tag mismatch → rejected             |
+|               | Signed Timestamp           | Opaque Timestamp                                                                                      | Wrapped key                         |
+| ------------- | -------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Security goal | integrity (tamper-evident) | confidentiality (hide the time)                                                                       | reversible tokenization + integrity |
+| Timestamp     | readable, sortable         | encrypted, not readable                                                                               | n/a (not timestamp-family)          |
+| Crypto        | HMAC tag, no encryption    | AES-CBC, no auth tag                                                                                  | AES block + 64-bit HMAC tag         |
+| Payload       | `ts6 ‖ rand5 ‖ tag5`       | encrypted `ts6 ‖ rand10`                                                                              | `enc(lane8 ‖ tag8)`                 |
+| Verifies?     | yes (`verify`)             | no (wrong key never throws; no padding oracle; SubtleCrypto call can throw under abnormal conditions) | yes (`unwrap`)                      |
+| Wrong key     | tag mismatch → rejected    | plausible garbage timestamp                                                                           | tag mismatch → rejected             |
 
 It is **wire-indistinguishable** from the Timestamp, Reverse Timestamp, and Opaque Timestamp codecs ([ADR-0007](./0007-wire-indistinguishable-codec-variants.md)): the wire shape is `<brand>_` + 26 base32 chars over a 16-byte payload. An operator must know which variant a brand uses; the brand registry warns on cross-codec reuse in dev.
 
