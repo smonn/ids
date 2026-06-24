@@ -20,6 +20,57 @@ const id = await invoices.generate(); // "inv_…", timestamp not extractable wi
 await invoices.extractTimestamp(id); // Date — same key required
 ```
 
+> **Important — unauthenticated decryption:** `extractTimestamp` **never throws**
+> on a wrong or tampered key. A mismatched key decrypts silently to a plausible
+> but incorrect `Date`. This is the opposite of the [Signed codec](/codecs/signed/),
+> whose `verify` throws `verification_failed` on tag mismatch. If you need
+> tamper-evident IDs, use the Signed codec instead.
+
+## `importOpaqueKey`
+
+`importOpaqueKey(bytes)` is **async** and returns an opaque `OpaqueKey` handle —
+not a raw `CryptoKey`. The underlying `CryptoKey` is held internally and is never
+exposed to callers.
+
+Accepts **16, 24, or 32 bytes** (AES-128, AES-192, or AES-256):
+
+```ts
+const key128 = await importOpaqueKey(new Uint8Array(16)); // AES-128
+const key192 = await importOpaqueKey(new Uint8Array(24)); // AES-192
+const key256 = await importOpaqueKey(new Uint8Array(32)); // AES-256
+```
+
+Any other byte length throws `invalid_key_length`.
+
+## Storing key material
+
+`encodeOpaqueKey` / `decodeOpaqueKey` round-trip raw bytes to and from `hex` or
+`base64url` strings for storage in env vars or secret managers. The `format`
+argument is **required** and must match between encode and decode:
+
+```ts
+import { encodeOpaqueKey, decodeOpaqueKey, importOpaqueKey } from "@smonn/ids/opaque";
+
+const raw = new Uint8Array(32); // 32 bytes of key material
+const encoded = encodeOpaqueKey(raw, "hex"); // "0000…" (64 hex chars)
+const decoded = decodeOpaqueKey(encoded, "hex"); // back to Uint8Array
+// decoded is identical to raw
+
+// base64url is also valid:
+const b64 = encodeOpaqueKey(raw, "base64url");
+const raw2 = decodeOpaqueKey(b64, "base64url");
+```
+
+The [CLI](/cli/) `keygen` command emits keys in this format.
+
+## `generateAt` validation
+
+`generateAt(date)` rejects invalid input and throws:
+
+- **negative timestamp** — `date.getTime() < 0`
+- **timestamp exceeds 48-bit range** — `date.getTime() >= 2 ** 48`
+- **`Invalid Date`** — `date.getTime()` is `NaN`
+
 ## Differences from the Timestamp codec
 
 - **Async key-dependent methods.** WebCrypto is async-only, so `generate`,
@@ -34,9 +85,6 @@ await invoices.extractTimestamp(id); // Date — same key required
 Encryption is AES-CBC with a zero IV — deliberately safe here because the
 plaintext already carries 80 bits of entropy per ID
 ([ADR-0004](https://github.com/smonn/ids/blob/main/docs/adr/0004-aes-cbc-strip-trick.md)).
-To store key material, `encodeOpaqueKey` / `decodeOpaqueKey` round-trip raw
-bytes in `hex` or `base64url`. The [CLI](/cli/) `keygen` command emits keys in
-this format.
 
 ## Rotating the Opaque key
 
@@ -49,9 +97,19 @@ IDs' timestamps.
 Because the payload is unauthenticated and carries no key id, the library
 **cannot** trial a ring to pick the right key — a wrong key yields a plausible
 but wrong timestamp, never an error. You hold one codec per _key epoch_ and
-select it from your own records:
+select it from your own records.
+
+When two codec instances share the same brand (as in the multi-epoch pattern
+below), pass `allowDuplicateBrand: true` on every instance after the first. This
+suppresses the dev-only cross-codec warning that fires when multiple codec
+instances register the same brand — a warning that normally signals a mistake,
+but here is intentional:
 
 ```ts
+// Import raw key bytes and produce OpaqueKey handles first.
+const keyV1 = await importOpaqueKey(new Uint8Array(16).fill(0x01)); // retired key
+const keyV2 = await importOpaqueKey(new Uint8Array(16).fill(0x02)); // current key
+
 // One codec instance per key epoch. You — not the library — track which epoch
 // minted each ID. The epoch CANNOT be read from the ID itself.
 const codecs = new Map([
