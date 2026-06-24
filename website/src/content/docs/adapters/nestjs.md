@@ -13,7 +13,7 @@ pnpm add @nestjs/common
 
 ```ts
 import { ParseIdPipe } from "@smonn/ids/nestjs";
-import { createTimestampId } from "@smonn/ids";
+import { type Id, createTimestampId } from "@smonn/ids";
 import { Controller, Get, Param } from "@nestjs/common";
 
 const usr = createTimestampId("usr");
