@@ -12,7 +12,7 @@ divergences](https://github.com/smonn/ids/blob/main/docs/adr/0002-payload-layout
 import { createTimestampId } from "@smonn/ids";
 
 const users = createTimestampId("usr");
-const id = users.generate(); // "usr_01h7b3k9rqxn4cw3p9r8t2sgkz"
+const id = users.generate(); // "usr_01h7b3k9rqxn4cw3p9r8t2sgkw"
 ```
 
 Most of the behavior on this page — lenient parsing, error handling, Standard
@@ -168,8 +168,8 @@ import { type } from "arktype";
 
 const Body = type({ userId: users });
 
-const r = Body({ userId: "USR_01H7B3K9RQXN1CW3P9R8T2SGKZ" });
-// → { userId: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz" } typed as Id<"usr">
+const r = Body({ userId: "USR_01H7B3K9RQXN1CW3P9R8T2SGKW" });
+// → { userId: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw" } typed as Id<"usr">
 ```
 
 `validate` is synchronous, wraps `safeParse`, and returns the canonical
