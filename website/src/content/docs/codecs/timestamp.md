@@ -23,7 +23,11 @@ Schema, JSON Schema, deterministic injection, and the duplicate-brand check — 
 
 `safeParse` accepts mixed case and the Crockford-spec visual aliases
 (`o → 0`, `i → 1`, `l → 1`), and always returns the **canonical form** —
-lowercase, aliases resolved:
+lowercase, aliases resolved. The **26th character** is additionally restricted
+to `[048cgmrw]` — the 8 alphabet values whose low 2 bits are zero, satisfying
+the 130→128-bit padding constraint for a 16-byte payload. A string whose final
+character falls outside that set is rejected as `invalid_base32` by
+`safeParse`/`parse`/`is`.
 
 ```ts
 users.safeParse("usr_01h7b3k9rqxn1cw3p9r8t2sgkz"); // canonical
@@ -93,6 +97,12 @@ The first 6 bytes of the payload are a big-endian millisecond Unix timestamp, so
 users.extractTimestamp(id); // Date
 ```
 
+:::note
+`extractTimestamp` trusts the branded `Id<Brand>` type — it does no
+validation of its own. Pass untrusted strings through `safeParse`/`parse`
+first (see [ADR-0002](https://github.com/smonn/ids/blob/main/docs/adr/0002-payload-layout.md)).
+:::
+
 For time-range queries, `minIdForTime(date)` and `maxIdForTime(date)` build
 synthetic IDs at the tight lower and upper bounds of a given millisecond — same
 timestamp bytes, random portion all `0x00` (min) or all `0xFF` (max):
@@ -115,8 +125,10 @@ users.extractTimestamp(id); // → 2024-03-15T12:00:00.000Z
 const ids = oldRows.map((r) => users.generateAt(extractTime(r)));
 ```
 
-All three validate the date exactly like `generate()` — pre-epoch, past the
-48-bit ceiling, or an `Invalid Date` throws.
+All four validate the date exactly like `generate()`. The following cases throw
+a plain `Error` (not `IdsError`): a non-number timestamp (`NaN`), a non-integer
+(e.g. a float), a negative value (pre-epoch), a value past the 48-bit ceiling
+(`>= 2^48` ms), or an `Invalid Date`.
 
 :::caution
 Two IDs generated in the same millisecond have independent random tails and do
@@ -182,7 +194,7 @@ const r = Body({ userId: "USR_01H7B3K9RQXN1CW3P9R8T2SGKZ" });
 users.toJsonSchema();
 // {
 //   type: "string",
-//   pattern: "^usr_[0-9a-hjkmnp-tv-z]{26}$",
+//   pattern: "^usr_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$",
 //   description: "Branded ID for 'usr'",
 //   example: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz",
 // }
