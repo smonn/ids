@@ -8,7 +8,7 @@ If that's a leak you can't accept — invoice IDs revealing billing cadence,
 signup IDs revealing acquisition velocity — the Opaque Timestamp codec keeps the
 same `<brand>_<26 chars>` wire shape but **AES-encrypts the payload** under a key
 you supply. This adds **confidentiality, not integrity** — the opposite axis
-from the [Signed codec](/codecs/signed/).
+from the [Signed Timestamp codec](/codecs/signed/).
 
 ```ts
 import { createOpaqueTimestampId, importOpaqueKey } from "@smonn/ids/opaque";
