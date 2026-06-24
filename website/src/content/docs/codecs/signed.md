@@ -161,13 +161,13 @@ import { createSignedTimestampId, importSigningKey, isIdsError } from "@smonn/id
 | `empty_keyring`           | `keys` array is empty                           |
 | `duplicate_keyring_entry` | Two entries in `keys` share the same raw secret |
 
-**Key helper errors** — thrown by `encodeSigningKey` / `decodeSigningKey`; rejected by `importSigningKey`:
+**Key helper errors**:
 
-| Code                   | Thrown when                                       |
-| ---------------------- | ------------------------------------------------- |
-| `invalid_key_length`   | Raw key bytes are not 16, 24, or 32 bytes         |
-| `invalid_key_format`   | `format` argument is not `"hex"` or `"base64url"` |
-| `invalid_key_encoding` | Encoded string is malformed for its format        |
+| Code                   | Thrown when                                       | Function                                                               |
+| ---------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| `invalid_key_length`   | Raw key bytes are not 16, 24, or 32 bytes         | `encodeSigningKey`, `decodeSigningKey`; rejected by `importSigningKey` |
+| `invalid_key_format`   | `format` argument is not `"hex"` or `"base64url"` | `encodeSigningKey`, `decodeSigningKey`                                 |
+| `invalid_key_encoding` | Encoded string is malformed for its format        | `decodeSigningKey`                                                     |
 
 **Verification error** — thrown by `verify`:
 
@@ -188,4 +188,4 @@ try {
 }
 ```
 
-Construction errors (`createSignedTimestampId`) and `encodeSigningKey`/`decodeSigningKey` errors are thrown synchronously — for example, passing an empty `keys` array throws immediately with code `empty_keyring`. `importSigningKey` errors surface as a rejected promise — always `await` the call and catch the rejection.
+Construction errors (`createSignedTimestampId`) and `encodeSigningKey`/`decodeSigningKey` errors are thrown synchronously — for example, passing an empty `keys` array throws immediately with code `empty_keyring`. `importSigningKey` rejects with `invalid_key_length` only — always `await` the call and catch the rejection.
