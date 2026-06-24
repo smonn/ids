@@ -510,10 +510,25 @@ async function hmacTag(
   kind: "u32" | "i32",
   lane: Uint8Array,
 ): Promise<Uint8Array> {
-  const label = new TextEncoder().encode(`${brand}:${kind}:`);
-  const message = new Uint8Array(label.length + lane.length);
-  message.set(label, 0);
-  message.set(lane, label.length);
+  const encoder = new TextEncoder();
+  const brandBytes = encoder.encode(brand);
+  const kindBytes = encoder.encode(kind);
+  const msgLen = 4 + brandBytes.length + 4 + kindBytes.length + lane.length;
+  const message = new Uint8Array(msgLen);
+  let offset = 0;
+  const writeLen32 = (v: number) => {
+    message[offset++] = (v >>> 24) & 0xff;
+    message[offset++] = (v >>> 16) & 0xff;
+    message[offset++] = (v >>> 8) & 0xff;
+    message[offset++] = v & 0xff;
+  };
+  writeLen32(brandBytes.length);
+  message.set(brandBytes, offset);
+  offset += brandBytes.length;
+  writeLen32(kindBytes.length);
+  message.set(kindBytes, offset);
+  offset += kindBytes.length;
+  message.set(lane, offset);
   const signature = new Uint8Array(
     await crypto.subtle.sign("HMAC", hmacKey, message as Uint8Array<ArrayBuffer>),
   );
