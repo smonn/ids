@@ -152,8 +152,8 @@ error-code reference see [#328](https://github.com/smonn/ids/issues/328).
 import { isIdsError } from "@smonn/ids/wrapped";
 ```
 
-| Code                      | Surfaced by                                                       |
-| ------------------------- | ----------------------------------------------------------------- |
+| Code                      | Surfaced by                                                      |
+| ------------------------- | ---------------------------------------------------------------- |
 | `invalid_kind`            | `createWrappedKeyId` — kind not `u32/i32/u64/i64`                |
 | `empty_keyring`           | `createWrappedKeyId` — `keys` array is empty                     |
 | `duplicate_keyring_entry` | `createWrappedKeyId` — two entries share a secret                |
