@@ -216,6 +216,29 @@ for Wrapped/Signed, none for Opaque).
 
 > **Correction (2026-06-24):** `opaque.ts` and `wrapped.ts` were relocated by the [ADR-0018](./0018-by-feature-codec-slices.md) slice refactor; they now live at `src/codecs/opaque/layout.ts` and `src/codecs/wrapped/layout.ts`.
 
+### Interaction with a possible sync keyed-codec API
+
+A sync keyed-codec variant (the **Sync keyed codec** idea in [IDEAS.md](../IDEAS.md), deferred by
+[ADR-0006](./0006-async-keyed-codec-contract.md)) would pull in a pure-JS AES/HMAC dependency — and
+it is tempting to think that discounts this Feistel ("we'd have a crypto lib anyway"). It does not:
+
+- **The "no new dependency" pro above is contingent, not load-bearing.** If a pure-JS crypto dep
+  ever enters for sync, that argument simply dissolves — neutral either way.
+- **The only real improvement would be a standardized wide-block / FPE primitive (e.g. FF1)**
+  shipped by that dep, replacing this hand-rolled Feistel and softening the "net-new bespoke crypto"
+  objection. But the obvious sync libs provide AES modes and HMAC, **not** audited FPE; an unvetted
+  FF1/FF3 package is worse than a reviewed Feistel on a trusted AES. So this upside is not bankable.
+- **Sync makes 20 bytes marginally _more_ expensive, not less.** Once both async (WebCrypto) and sync
+  (pure-JS) backends exist, the keyed construction lives in both — the wide-block Feistel ×2 instead
+  of today's simpler single-block strip trick ×2. The 16→20 crypto delta is paid twice.
+- **The one load-bearing 20-byte benefit (Digest) is independent of all this.** Digest is HMAC-only:
+  a 160-bit digest is just a longer truncation, needs no wide-block PRP, and is the _easy_ sync case.
+
+These are different kinds of change — sync is additive and non-breaking, 20 bytes is a hard v1 break —
+so they should not be batched. If both ever happen, sequence sync first (driven by a real consumer)
+and let the chosen library reveal whether a standardized PRP is actually available before committing
+the 20-byte crypto to a hand-rolled one.
+
 ## Field re-layouts at 20 bytes — and which are actually load-bearing
 
 | codec               | today (16 B)                  | proposed (20 B)             | effect         |

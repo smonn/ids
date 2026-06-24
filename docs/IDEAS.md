@@ -145,6 +145,14 @@ consumer appears.
   async contract was designed so this stays reversible: async signatures accept sync
   implementations under the same Promise contract, so a sync keyed codec can be added later
   without breaking the existing API. Nothing to decide until someone needs it.
+  **Interaction with the 20-byte width ([ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md)):**
+  pulling in a pure-JS crypto dep for sync does _not_ discount the 20-byte wide-block Feistel —
+  it would have to live in both the WebCrypto and pure-JS backends (the wide-block PRP ×2), and the
+  one load-bearing 20-byte benefit (Digest) is HMAC-only and independent of any AES primitive. Sync
+  is additive and non-breaking; 20 bytes is a hard v1 break — keep them unbatched, and if both
+  happen, do sync first so the chosen library can reveal whether a standardized PRP (FF1-style) is
+  available before the 20-byte crypto is committed to a hand-rolled one. See ADR-0015's
+  "Interaction with a possible sync keyed-codec API."
 
 ## Explicitly rejected
 
