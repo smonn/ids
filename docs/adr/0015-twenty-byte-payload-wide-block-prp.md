@@ -56,9 +56,11 @@ bits — and the `base32FinalCharClass` constant — disappear entirely.
 
 Two codecs rely on the payload being exactly one 128-bit AES block (ADR-0004): **Opaque**
 (`layouts/opaque.ts`) and **Wrapped** (`layouts/wrapped.ts`). The Signed codec is HMAC-only
-and adapts trivially. 20 bytes is 1.25 AES blocks; the only length that is both mod-5 and a
-whole number of AES blocks is `lcm(5, 16) = 80` bytes (128 chars — impractical). So a mod-5
-payload necessarily abandons the single-block strip trick.
+and adapts trivially.
+
+> **Correction (2026-06-24):** The [ADR-0018](./0018-by-feature-codec-slices.md) slice refactor retired the `layouts/` directory. These files now live at `src/codecs/opaque/layout.ts` and `src/codecs/wrapped/layout.ts`.
+
+20 bytes is 1.25 AES blocks; the only length that is both mod-5 and a whole number of AES blocks is `lcm(5, 16) = 80` bytes (128 chars — impractical). So a mod-5 payload necessarily abandons the single-block strip trick.
 
 Both AES codecs are deterministic by design (Wrapped maps a lookup key to a stable ID;
 Opaque accepts determinism per ADR-0004), and a randomised/AEAD construction still does not
@@ -70,7 +72,7 @@ fit in 20 bytes — a safe nonce (~96 bits) plus ciphertext leaves too little ro
 160-bit block into two 80-bit (10-byte) halves; the round function is
 `first80bits(AES_K(roundIndex ‖ R ‖ pad))`, computed with the existing
 "AES-CBC, IV=0, take the first 16 bytes" single-block primitive already used in
-`opaque.ts` / `wrapped.ts`. Four rounds give a Luby–Rackoff strong PRP. This is the direct
+`opaque.ts` / `wrapped.ts` (now `src/codecs/opaque/layout.ts` and `src/codecs/wrapped/layout.ts` per [ADR-0018](./0018-by-feature-codec-slices.md)). Four rounds give a Luby–Rackoff strong PRP. This is the direct
 generalisation of ADR-0004's "128-bit permutation under the key" to 160 bits, reusing the
 same primitive with no new dependency or bundle weight. Cost: 4 SubtleCrypto calls per
 encrypt/decrypt (vs. 1/2 today), sequential within a Feistel — acceptable for these
@@ -115,5 +117,8 @@ for Wrapped/Signed, none for Opaque).
 - A new internal wide-block-PRP module under `wire/` (or `layouts/`), requiring its own
   security review. [ADR-0004](./0004-aes-cbc-strip-trick.md) would be marked **superseded**
   and [ADR-0002](./0002-payload-layout.md) rewritten for the new length.
+
+  > **Correction (2026-06-24):** The `layouts/` directory was retired by [ADR-0018](./0018-by-feature-codec-slices.md). Under the current structure a wide-block-PRP module would live at `src/codecs/<name>/layout.ts` (or a shared `wire/` module), not under a `layouts/` directory.
+
 - **No code, wire, or `CONTEXT.md` change ships from this ADR.** It records a deferred design
   decision; adoption is a separate, deliberate v1 change.

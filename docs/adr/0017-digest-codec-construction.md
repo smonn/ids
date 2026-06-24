@@ -83,9 +83,15 @@ It is **wire-indistinguishable** from every other codec ([ADR-0007](./0007-wire-
 ## Consequences
 
 - New subpath export `@smonn/ids/digest` ([ADR-0005](./0005-codec-variant-subpath-exports.md)): a new `package.json#exports` entry, a `tsdown.config.ts` entry, and `src/digest.ts`. No churn to existing variants.
+
+  > **Correction (2026-06-24):** The codec ships at `src/codecs/digest/index.ts`, not `src/digest.ts`. The [ADR-0018](./0018-by-feature-codec-slices.md) slice refactor relocated every codec constructor into `src/codecs/<name>/index.ts`.
+
 - Factory `createDigestId(brand, { ns, key, allowDuplicateBrand? })` returns `DigestCodec<Brand>`. Async: `digest(material)`. Sync: `is`, `parse`, `safeParse`, `toJsonSchema`, `~standard`. No `unwrap`, `verify`, `extractTimestamp`, `minIdForTime`, or `maxIdForTime`.
 - A distinct **Digest key** handle, imported via `importDigestKey(bytes)` from raw material (16 / 24 / 32 bytes), holds a single HMAC-SHA-256 subkey derived through HKDF under the domain-separation label `ids/digest/hmac`. Key helpers parallel Opaque / Wrapped / Signed: `importDigestKey` / `encodeDigestKey` / `decodeDigestKey`, `hex` / `base64url` formats. The label keeps the same raw bytes imported as a `DigestKey` cryptographically independent from a `SigningKey`, `WrappingKey`, or `OpaqueKey`.
 - Error codes reuse the existing union ([ADR-0011](./0011-coded-ids-error.md)): `invalid_brand`, `invalid_key_format` / `invalid_key_encoding` / `invalid_key_length`, and a new construction guard for empty `ns`. Whether empty `ns` reuses an existing code or mints one is an implementation-time call deferred to the follow-up issue; it does not reopen any decision here.
+
+  > **Correction (2026-06-24):** The deferred call resolved: `invalid_namespace` shipped as the error code for an empty or whitespace-only `ns`. It is one of the eleven stable codes frozen in [ADR-0011](./0011-coded-ids-error.md) and listed in `CONTEXT.md`.
+
 - `CONTEXT.md` promotes **Digest codec** from sketch to a concrete accepted variant and adds **Digest key** and **Namespace (`ns`)**; **Equality leakage** is generalised to cover both deterministic codecs. `docs/IDEAS.md` strikes through the `createDigestId` sketch and points here.
 - README consumer tables and the "choosing a codec variant" row are intentionally left untouched until the codec ships, mirroring [ADR-0012](./0012-signed-timestamp-construction.md), so consumers are not pointed at an unbuildable `@smonn/ids/digest` import.
 - Re-keying is an explicit breaking operator action (every ID changes), not an in-band rotation. If a future use case genuinely needs multiple live digest keys, it requires its own ADR and a verification story, because a one-way digest offers nothing to trial.
