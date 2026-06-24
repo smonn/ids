@@ -5,20 +5,22 @@ import { defineConfig } from "astro/config";
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
 
 // The published library's public entry points. The API reference is generated
-// straight from these source files' types, so it can never drift from the code.
+// straight from these source files' types. Keep this list in sync with the
+// post-ADR-0018 slice layout — TypeDoc will error on missing paths.
 const entryPoints = [
   "../src/index.ts",
-  "../src/digest.ts",
-  "../src/opaque.ts",
-  "../src/reverse.ts",
-  "../src/signed.ts",
-  "../src/wrapped.ts",
-  "../src/drizzle.ts",
-  "../src/kysely.ts",
-  "../src/prisma.ts",
-  "../src/hono.ts",
-  "../src/express.ts",
-  "../src/fastify.ts",
+  "../src/codecs/digest/index.ts",
+  "../src/codecs/opaque/index.ts",
+  "../src/codecs/reverse/index.ts",
+  "../src/codecs/signed/index.ts",
+  "../src/codecs/timestamp/index.ts",
+  "../src/codecs/wrapped/index.ts",
+  "../src/adapters/drizzle.ts",
+  "../src/adapters/express.ts",
+  "../src/adapters/fastify.ts",
+  "../src/adapters/hono.ts",
+  "../src/adapters/kysely.ts",
+  "../src/adapters/prisma.ts",
 ];
 
 export default defineConfig({
@@ -54,7 +56,6 @@ export default defineConfig({
           output: "api",
           sidebar: { label: "API reference", collapsed: true },
           typeDoc: {
-            skipErrorChecking: true,
             excludeInternal: true,
             githubPages: false,
           },
