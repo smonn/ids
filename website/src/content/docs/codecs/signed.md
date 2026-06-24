@@ -65,7 +65,10 @@ structurally validate. For untrusted input, route through `safeVerify` or
 ```ts
 // Untrusted input — use safeVerify (or safeParse then verify)
 const result = await shares.safeVerify(req.params.shareId);
-if (!result.ok) return 400;
+if (!result.ok) {
+  if (result.error === "verification_failed") return 403;
+  return 400;
+}
 // result.id is a verified Id<"shr"> — safe to use
 ```
 
