@@ -15,55 +15,41 @@ different invariants.
   [ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md).
 - ~~**`createSignedTimestampId(brand, {keys})`**~~ — shipped. See [ADR-0012](./adr/0012-signed-timestamp-construction.md).
   Glossary: **Signed Timestamp codec**, **Signing key**, **Signing keyring** in [CONTEXT.md](../CONTEXT.md).
-- ~~**`createDigestId(brand, {ns, key})`**~~ — accepted design: see [ADR-0017](./adr/0017-digest-codec-construction.md).
+- ~~**`createDigestId(brand, {ns, key})`**~~ — shipped (`@smonn/ids/digest`). See
+  [ADR-0017](./adr/0017-digest-codec-construction.md); implemented in #291, CLI support in #304.
   One-way deterministic keyed digest of caller material; same material gives the same public ID,
   material is unrecoverable. Single key, no keyring; `ns` is required domain separation.
   Glossary: **Digest codec**, **Digest key**, **Namespace** in [CONTEXT.md](../CONTEXT.md).
 - ~~**`createReverseTimestampId(brand)`**~~ — shipped. See [ADR-0010](./adr/0010-reverse-timestamp-inversion.md).
   Bitwise-inverted timestamp bytes; lexicographic order = newest first. For KV stores where descending range scans are awkward.
-- **`createWrappedKeyId(brand, {kind, keys})`** — reversible verified wrapping of a
-  storage lookup key. Accepted design: see [ADR-0009](./adr/0009-wrapped-key-compact-construction.md).
+- ~~**`createWrappedKeyId(brand, {kind, keys})`**~~ — shipped (`@smonn/ids/wrapped`).
+  Reversible verified wrapping of a storage lookup key. See
+  [ADR-0009](./adr/0009-wrapped-key-compact-construction.md); CLI support in #99.
   Glossary: **Wrapped key codec**, **Lookup key**, **Wrapping key** in [CONTEXT.md](../CONTEXT.md).
+
+### Future codec variants (unbuilt)
+
+Sibling variants the accepting ADRs left open. Each would need its own ADR before code.
+
+- **Randomized Wrapped key variant.** A sibling to the compact Wrapped key codec that spends
+  payload bits on a nonce, trading away tag strength _and_ determinism (so no equality
+  leakage). Out of scope for the compact deterministic branch — needs its own ADR and a
+  tag-budget analysis. See [ADR-0009](./adr/0009-wrapped-key-compact-construction.md)
+  (Consequences) and the **Wrapped key codec** entry in [CONTEXT.md](../CONTEXT.md).
+- **Signed Timestamp alternate tail-budget split.** A variant that divides the tail
+  differently — e.g. a larger tag where same-millisecond volume is known to be low. Needs
+  its own tag-budget analysis and ADR. See [ADR-0012](./adr/0012-signed-timestamp-construction.md).
 
 ## Wrapped key codec
 
-_Accepted and shipped — see [ADR-0009](./adr/0009-wrapped-key-compact-construction.md) and [CONTEXT.md](../CONTEXT.md)._
+_Shipped — `@smonn/ids/wrapped`. Full design lives in
+[ADR-0009](./adr/0009-wrapped-key-compact-construction.md); vocabulary in [CONTEXT.md](../CONTEXT.md)._
 
-A reversible counterpart to `createDigestId`: the caller supplies a storage lookup key,
-the codec emits a public ID, and `unwrap` recovers the lookup key before the caller hits
-storage. It keeps the shared `<brand>_` +
-26-character suffix / 16-byte payload invariant. Consequence: UUID-sized lookup keys are
-out of scope for this same-size branch because a UUID plus verification tag does not fit.
+One sub-idea from the original design remains unbuilt:
 
-- **Factory and value surface.** `createWrappedKeyId(brand, {kind, keys})`, where `kind`
-  is one of `u32`, `i32`, `u64`, or `i64`. `wrap(value)` and `unwrap(id)` are the core
-  async methods. `u32`/`i32` use `number`; `u64`/`i64` use `bigint`. The usual wire
-  methods (`is`, `parse`, `safeParse`, `toJsonSchema`, `~standard`) stay structural and
-  sync. Cryptographic verification happens in `unwrap` / `safeUnwrap`, not in `parse`.
-- **Byte layout.** Decrypting the 16-byte payload yields an 8-byte integer lane followed
-  by an 8-byte verification tag. The lane is big-endian; signed kinds use two's-complement.
-  `u32` requires zero extension into the upper 32 bits, and `i32` requires sign extension.
-  The tag is a fixed 64-bit truncation of a domain-separated HMAC over the brand, integer
-  kind, and integer lane.
-- **Verification semantics.** This is verified compact wrapping, not AEAD. `unwrap`
-  rejects unless the recomputed tag matches before any storage lookup happens;
-  `safeUnwrap` returns a non-throwing result. Wrong-key or tamper false accepts are bounded
-  by roughly `keyring_size / 2^64` per unwrap attempt.
-- **Determinism.** The same lookup key under the same current wrapping key produces the
-  same public ID. There is no randomness, nonce, or IV in the 16-byte branch; equality of
-  repeated wrapped keys is intentionally leaked rather than taking bits from the 64-bit
-  verification tag.
-- **Key material and rotation.** Import one raw operator secret into derived AES and HMAC
-  subkeys. A keyring has one current entry for `wrap` and any number of accepted entries
-  for `unwrap`; removing an old entry revokes tokens wrapped with it. Because the tag
-  verifies the decrypted lane, trial across a keyring is correctness-grade rather than
-  the Opaque Timestamp codec's timestamp-plausibility guess. A future detailed unwrap can return the matched
-  key id for observability or rewrapping while the common `unwrap` path returns only the
-  recovered value.
-- ~~**Documentation boundary.** Keep `CONTEXT.md` unchanged until this becomes current
-  project language. If the compact construction is accepted for implementation, write an
-  ADR then: it is hard to reverse, surprising without context, and the result of a real
-  16-byte-size-vs-authentication trade-off.~~ — accepted in [ADR-0009](./adr/0009-wrapped-key-compact-construction.md); glossary updated.
+- **Detailed unwrap.** A future detailed unwrap could return the matched key id (for
+  observability or rewrapping) while the common `unwrap` path returns only the recovered
+  value. Not implemented today — `unwrap` / `safeUnwrap` surface the value alone.
 
 ## Opaque key management
 
@@ -94,14 +80,15 @@ Three related threads around operating the Opaque Timestamp codec's key. Sketche
 
 ## Adapter integrations (subpath exports)
 
-If ergonomic adapters ship, they live as subpath exports inside `@smonn/ids` with
-optional peer deps on the third-party lib — not as sibling packages.
+_Shipped — all six live as subpath exports inside `@smonn/ids` with optional peer deps on
+the third-party lib (see `src/adapters/`, `package.json` exports, and [CONTEXT.md](../CONTEXT.md))._
 
-- **`@smonn/ids/<orm>`** (Drizzle / Kysely / Prisma) — column codecs that preserve
-  `Id<Brand>` through storage without per-app boilerplate.
-- **`@smonn/ids/<web>`** (Hono / Express / Fastify) — route-param middleware that
+- ~~**`@smonn/ids/<orm>`** (Drizzle / Kysely / Prisma) — column codecs that preserve
+  `Id<Brand>` through storage without per-app boilerplate.~~ — shipped (Drizzle #126,
+  Prisma #135, Kysely).
+- ~~**`@smonn/ids/<web>`** (Hono / Express / Fastify) — route-param middleware that
   validates against a codec and 404s on brand mismatch (not 400 — distinguishes
-  "wrong kind of ID" from "malformed ID").
+  "wrong kind of ID" from "malformed ID").~~ — shipped (Hono #124, Express #132, Fastify).
 
 ## Developer-facing documentation
 
@@ -133,6 +120,20 @@ primitive). It also yields free upgrades — Timestamp/Reverse random 80 → 112
 pure quality/entropy change whose breaking cost is best amortised in a deliberate v1
 breaking-change batch rather than shipped on its own.
 
+## Undecided
+
+Deliberately left open by an ADR — no proposal, no rejection, revisited only if a concrete
+consumer appears.
+
+- **Sync keyed codec.** The keyed codecs (Opaque Timestamp, Signed Timestamp, Digest,
+  Wrapped key) have async key-dependent methods because WebCrypto's `SubtleCrypto` — the only
+  cross-runtime crypto API — is async-only. A sync variant would require bundling a pure-JS
+  AES/HMAC implementation (~5–10KB per algorithm, ongoing review burden), rejected in
+  [ADR-0006](./adr/0006-async-keyed-codec-contract.md) for lack of a compelling consumer. The
+  async contract was designed so this stays reversible: async signatures accept sync
+  implementations under the same Promise contract, so a sync keyed codec can be added later
+  without breaking the existing API. Nothing to decide until someone needs it.
+
 ## Explicitly rejected
 
 - **Monotonic intra-ms ordering.** See ADR-0002 — non-goal for public-facing IDs.
@@ -141,3 +142,10 @@ breaking-change batch rather than shipped on its own.
   btree-indexed column.
 - **Migration CLI subcommand.** Replaced by `codec.generateAt(date)` — migrations
   are a 5-line user script using `generateAt` + the source format's timestamp.
+- **Digest keyring / multiple live digest keys.** See [ADR-0017](./adr/0017-digest-codec-construction.md).
+  The Digest codec's value is a stable-forever map (same material → same ID), so a keyring is
+  actively harmful — rotation would silently break idempotency and content-address stability.
+  Re-keying is an explicit breaking operator action, not in-band rotation. Only revisited if a
+  future use case genuinely warrants it, with its own ADR and verification story.
+- **Public `@smonn/ids/wire` subpath (parse-without-codec).** See [ADR-0008](./adr/0008-internal-module-layering.md).
+  Rejected for now — adapters use `codec["~standard"]`. Can ship later if a concrete adapter need appears.
