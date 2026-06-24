@@ -4,10 +4,12 @@
 
 This project is pre-1.0. Only the latest minor release receives security fixes.
 
+<!-- When a new minor is released, update the rows below: bump the ✅ row to the new minor and the ❌ row to "< <new minor>". -->
+
 | Version | Supported |
 | ------- | --------- |
-| 0.8.x   | ✅        |
-| < 0.8   | ❌        |
+| 0.10.x  | ✅        |
+| < 0.10  | ❌        |
 
 ## Reporting a Vulnerability
 
