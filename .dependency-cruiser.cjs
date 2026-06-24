@@ -185,7 +185,7 @@ module.exports = {
       name: "key-material-leaf-restricted",
       severity: "error",
       comment:
-        "key-material is a leaf importable only by the four key-handle modules (opaque/key, wrapped/key, signed/key, digest/key)",
+        "key-material is a leaf importable only by codec key-handle modules (codecs/<name>/key.ts)",
       from: {
         path: "^src.*\\.ts$",
         pathNot: "^src/codecs/[^/]+/key\\.ts$",
