@@ -56,7 +56,7 @@ export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): P
   }
   if (flags.has("--digest") && count > 1) {
     opts.stderr(
-      "--count N > 1 is not meaningful with --digest: same material always produces the same ID\n",
+      "--count N > 1 is rejected with --digest: same material always produces the same ID\n",
     );
     return 1;
   }

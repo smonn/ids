@@ -2191,7 +2191,7 @@ describe("cli generate --digest --count > 1 guard", () => {
     );
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("--count N > 1 is not meaningful with --digest");
+    expect(result.stderr).toContain("--count N > 1 is rejected with --digest");
   });
 
   it("rejects --count 2 with --digest: exit 1, error on stderr", async () => {
@@ -2202,7 +2202,7 @@ describe("cli generate --digest --count > 1 guard", () => {
     );
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("--count N > 1 is not meaningful with --digest");
+    expect(result.stderr).toContain("--count N > 1 is rejected with --digest");
   });
 
   it("accepts --count 1 with --digest: exit 0, one ID on stdout", async () => {
