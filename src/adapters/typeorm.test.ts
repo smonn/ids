@@ -11,13 +11,8 @@ describe("typeorm", () => {
 
   it("write path stores the canonical string", () => {
     const id = usr.generate();
-    expect(transformer.to(id)).toBe(id);
-  });
-
-  it("write path returns the value unchanged (identity)", () => {
-    const id = usr.generate();
     expectTypeOf(transformer.to).toBeFunction();
-    expect(transformer.to(id)).toStrictEqual(id);
+    expect(transformer.to(id)).toBe(id);
   });
 
   it("read-back returns Id<Brand>", () => {
