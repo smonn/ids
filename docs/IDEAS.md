@@ -27,6 +27,19 @@ different invariants.
   [ADR-0009](./adr/0009-wrapped-key-compact-construction.md); CLI support in #99.
   Glossary: **Wrapped key codec**, **Lookup key**, **Wrapping key** in [CONTEXT.md](../CONTEXT.md).
 
+### Future codec variants (unbuilt)
+
+Sibling variants the accepting ADRs left open. Each would need its own ADR before code.
+
+- **Randomized Wrapped key variant.** A sibling to the compact Wrapped key codec that spends
+  payload bits on a nonce, trading away tag strength _and_ determinism (so no equality
+  leakage). Out of scope for the compact deterministic branch — needs its own ADR and a
+  tag-budget analysis. See [ADR-0009](./adr/0009-wrapped-key-compact-construction.md)
+  (Consequences) and the **Wrapped key codec** entry in [CONTEXT.md](../CONTEXT.md).
+- **Signed Timestamp alternate tail-budget split.** A variant that divides the tail
+  differently — e.g. a larger tag where same-millisecond volume is known to be low. Needs
+  its own tag-budget analysis and ADR. See [ADR-0012](./adr/0012-signed-timestamp-construction.md).
+
 ## Wrapped key codec
 
 _Shipped — `@smonn/ids/wrapped`. Full design lives in
@@ -115,3 +128,10 @@ breaking-change batch rather than shipped on its own.
   btree-indexed column.
 - **Migration CLI subcommand.** Replaced by `codec.generateAt(date)` — migrations
   are a 5-line user script using `generateAt` + the source format's timestamp.
+- **Digest keyring / multiple live digest keys.** See [ADR-0017](./adr/0017-digest-codec-construction.md).
+  The Digest codec's value is a stable-forever map (same material → same ID), so a keyring is
+  actively harmful — rotation would silently break idempotency and content-address stability.
+  Re-keying is an explicit breaking operator action, not in-band rotation. Only revisited if a
+  future use case genuinely warrants it, with its own ADR and verification story.
+- **Public `@smonn/ids/wire` subpath (parse-without-codec).** See [ADR-0008](./adr/0008-internal-module-layering.md).
+  Rejected for now — adapters use `codec["~standard"]`. Can ship later if a concrete adapter need appears.
