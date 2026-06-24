@@ -98,11 +98,11 @@ const ts = shares.extractTimestamp(result.id);
 
 `createSignedTimestampId(brand, opts)` accepts:
 
-| Option                | Type                            | Default                  | Purpose                                                                                                                                   |
-| --------------------- | ------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `keys`                | `[SigningKey, ...SigningKey[]]` | _(required)_             | Non-empty ordered signing keyring                                                                                                         |
-| `now`                 | `() => number`                  | `Date.now`               | Returns the current timestamp in milliseconds; inject in tests to control time                                                            |
-| `rng`                 | `(target: Uint8Array) => void`  | `crypto.getRandomValues` | Writes 5 random bytes into `target` for the random tail; inject in tests for deterministic output                                         |
+| Option                | Type                            | Default                  | Purpose                                                                                                                                                 |
+| --------------------- | ------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `keys`                | `[SigningKey, ...SigningKey[]]` | _(required)_             | Non-empty ordered signing keyring                                                                                                                       |
+| `now`                 | `() => number`                  | `Date.now`               | Returns the current timestamp in milliseconds; inject in tests to control time                                                                          |
+| `rng`                 | `(target: Uint8Array) => void`  | `crypto.getRandomValues` | Writes 5 random bytes into `target` for the random tail; inject in tests for deterministic output                                                       |
 | `allowDuplicateBrand` | `boolean`                       | `false`                  | Silences the duplicate-brand warning in non-production environments (e.g. for holding multiple codec instances during signing keyring transition tests) |
 
 ## Key handling
