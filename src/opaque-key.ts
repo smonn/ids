@@ -2,7 +2,7 @@ import {
   assertValidKeyMaterialByteLength,
   decodeKeyMaterial,
   encodeKeyMaterial,
-} from "./key-material.js";
+} from "./codecs/_kernel/key-material.js";
 
 /** Wire encoding for opaque AES key material (not Crockford base32). */
 export type OpaqueKeyFormat = "hex" | "base64url";

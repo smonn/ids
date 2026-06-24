@@ -1,5 +1,5 @@
 import { decodeBase64Url, decodeHex, encodeBase64Url, encodeHex } from "./bytes.js";
-import { IdsError } from "./error.js";
+import { IdsError } from "../../error.js";
 
 type KeyMaterialFormat = "hex" | "base64url";
 

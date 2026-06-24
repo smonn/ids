@@ -1,8 +1,8 @@
-import { validateBrand } from "./brand.js";
+import { validateBrand } from "./codecs/_kernel/brand.js";
 import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 import { createReverseTimestampLayoutOps } from "./layouts/reverse-timestamp.js";
-import { registerBrand } from "./registry.js";
-import { defaultRng } from "./rng.js";
+import { registerBrand } from "./codecs/_kernel/registry.js";
+import { defaultRng } from "./codecs/_kernel/rng.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
 

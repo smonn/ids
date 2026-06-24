@@ -2,7 +2,7 @@ import {
   assertValidKeyMaterialByteLength,
   decodeKeyMaterial,
   encodeKeyMaterial,
-} from "./key-material.js";
+} from "./codecs/_kernel/key-material.js";
 
 /** Wire encoding for digest operator key material (not Crockford base32). */
 export type DigestKeyFormat = "hex" | "base64url";

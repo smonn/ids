@@ -187,7 +187,7 @@ module.exports = {
         path: "^test/fixtures/depcruise",
         pathNot: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
       },
-      to: { path: "^src/brand" },
+      to: { path: "^src/codecs/_kernel/brand" },
     },
     {
       name: "registry-only-from-codec-constructors",
@@ -196,13 +196,13 @@ module.exports = {
         path: "^test/fixtures/depcruise",
         pathNot: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
       },
-      to: { path: "^src/registry" },
+      to: { path: "^src/codecs/_kernel/registry" },
     },
     {
       name: "leaves-no-upward",
       severity: "error",
       from: {
-        path: "^test/fixtures/depcruise/(wire/base32|bytes|types|brand)\\.ts$",
+        path: "^test/fixtures/depcruise/(wire/base32|codecs/_kernel/bytes|types|codecs/_kernel/brand)\\.ts$",
       },
       to: {
         path: "^src/(wire|layouts|timestamp|opaque|cli|registry)",
@@ -217,16 +217,16 @@ module.exports = {
         path: "^test/fixtures/depcruise.*\\.ts$",
         pathNot: "^test/fixtures/depcruise/(opaque-key|wrapping-key|signing-key|digest-key)\\.ts$",
       },
-      to: { path: "^src/key-material\\.ts$" },
+      to: { path: "^src/codecs/_kernel/key-material\\.ts$" },
     },
     {
       name: "key-material-leaf-no-upward",
       severity: "error",
       comment: "key-material leaf may only import bytes and error",
-      from: { path: "^test/fixtures/depcruise/key-material\\.ts$" },
+      from: { path: "^test/fixtures/depcruise/codecs/_kernel/key-material\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/(bytes|error)\\.ts$",
+        pathNot: "^src/(codecs/_kernel/bytes|error)\\.ts$",
       },
     },
   ],

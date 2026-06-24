@@ -1,4 +1,4 @@
-import { IdsError } from "./error.js";
+import { IdsError } from "../../error.js";
 
 const brandPattern = /^[a-z]{3}$/;
 

@@ -1,1 +1,1 @@
-import "../../../src/registry.js";
+import "../../../src/codecs/_kernel/registry.js";

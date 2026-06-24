@@ -117,7 +117,7 @@ const cases = [
     rule: "key-material-leaf-restricted",
   },
   {
-    fixture: "test/fixtures/depcruise/key-material.ts",
+    fixture: "test/fixtures/depcruise/codecs/_kernel/key-material.ts",
     rule: "key-material-leaf-no-upward",
   },
 ];

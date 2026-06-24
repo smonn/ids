@@ -1,7 +1,7 @@
-import { validateBrand } from "./brand.js";
+import { validateBrand } from "./codecs/_kernel/brand.js";
 import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 import { createDigestLayoutOps } from "./layouts/digest.js";
-import { registerBrand } from "./registry.js";
+import { registerBrand } from "./codecs/_kernel/registry.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
 import {
