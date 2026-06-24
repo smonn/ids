@@ -63,6 +63,12 @@ Opaque and Wrapping keys — same `hex` / `base64url` encoding conventions, but 
 distinct `SigningKey` handle and HKDF label, so one raw secret cannot silently
 serve multiple codecs.
 
+`SigningKey` is an **opaque frozen object** — the underlying non-extractable
+`CryptoKey` and a SHA-256 digest of the raw import bytes are held in a
+module-internal `WeakMap` and never exposed to callers. The digest enables
+constant-time duplicate-keyring detection; neither the raw bytes nor any
+recoverable form of the secret persists after import.
+
 ```ts
 import { encodeSigningKey, decodeSigningKey } from "@smonn/ids/signed";
 
