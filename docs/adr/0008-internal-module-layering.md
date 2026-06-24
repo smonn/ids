@@ -1,5 +1,7 @@
 # Internal module layering for wire parsing, byte layouts, and the CLI boundary
 
+> **Superseded by: [ADR-0018](./0018-by-feature-codec-slices.md)** — the by-feature `codecs/<name>/` slice layout replaces the flat-root + `layouts/` structure described here. The ring diagram and responsibilities table in ADR-0018 supersede the corresponding sections below.
+
 Codec variants share wire parsing (`is`, `parse`, `safeParse`, `~standard`) but differ in byte layout and public capability surface. Internal modules are split into **`wire/`** (payload envelope, canonical parse, shared timestamp bytes, codec shell) and **`layouts/`** (per-variant 16-byte semantics). Codec constructors (`timestamp.ts`, `opaque.ts`) are thin composition roots; the CLI layer (`cli.ts` plus `cli/`) owns argv/env/stdout and constructs codecs through the **variant registry** (`cli/variants.ts` + `cli/dispatch.ts`) rather than importing each `create*Id` directly — so adding the next codec variant to the CLI only requires one registry descriptor entry. Nothing in `wire/` or `layouts/` is exported from the package.
 
 ## Considered Options

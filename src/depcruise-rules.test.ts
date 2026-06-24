@@ -56,20 +56,20 @@ const cases = [
   },
   // layouts layer
   {
-    fixture: "test/fixtures/depcruise/layouts/no-shell.ts",
+    fixture: "test/fixtures/depcruise/codecs/no-shell-layout/layout.ts",
     rule: "layouts-no-shell",
   },
   {
-    fixture: "test/fixtures/depcruise/layouts/sibling.ts",
+    fixture: "test/fixtures/depcruise/codecs/sibling-layout/layout.ts",
     rule: "layouts-no-sibling-layouts",
   },
   {
-    fixture: "test/fixtures/depcruise/layouts/bad-wire.ts",
+    fixture: "test/fixtures/depcruise/codecs/bad-wire-layout/layout.ts",
     rule: "layouts-wire-imports-allowlist",
   },
   // codec constructors
   {
-    fixture: "test/fixtures/depcruise/timestamp.ts",
+    fixture: "test/fixtures/depcruise/codecs/timestamp-violation/index.ts",
     rule: "codec-constructors-wire-codec-shell-only",
   },
   {
@@ -98,14 +98,14 @@ const cases = [
     fixture: "test/fixtures/depcruise/cli.ts",
     rule: "cli-no-internals",
   },
-  // brand / registry guards
+  // brand / registry guards (collapsed into one rule)
   {
     fixture: "test/fixtures/depcruise/non-codec-brand.ts",
-    rule: "brand-only-from-codec-constructors",
+    rule: "_kernel-brand-registry-only-from-codec-constructors",
   },
   {
     fixture: "test/fixtures/depcruise/non-codec-registry.ts",
-    rule: "registry-only-from-codec-constructors",
+    rule: "_kernel-brand-registry-only-from-codec-constructors",
   },
   // leaf guards
   {
@@ -120,6 +120,15 @@ const cases = [
     fixture: "test/fixtures/depcruise/codecs/_kernel/key-material.ts",
     rule: "key-material-leaf-no-upward",
   },
+  // codec slice rules
+  {
+    fixture: "test/fixtures/depcruise/codecs/cross-codec-violation/index.ts",
+    rule: "codec-slice-no-cross-codec-imports",
+  },
+  {
+    fixture: "test/fixtures/depcruise/codecs/filename-violation/helpers.ts",
+    rule: "codec-slice-filename-convention",
+  },
 ];
 
 describe("depcruise ring rules — negative fixtures", () => {
@@ -127,5 +136,12 @@ describe("depcruise ring rules — negative fixtures", () => {
     const { status, output } = runDepcruise(fixture);
     expect(status, `${rule}: expected non-zero exit`).not.toBe(0);
     expect(output, `${rule}: expected rule name in output`).toContain(rule);
+  });
+});
+
+describe("depcruise ring rules — zero-edit proof", () => {
+  it("a conventional codec slice (index.ts + layout.ts) trips no rule", () => {
+    const { status, output } = runDepcruise("test/fixtures/depcruise/codecs/sample");
+    expect(status, `zero-edit proof: expected exit 0 but got:\n${output}`).toBe(0);
   });
 });

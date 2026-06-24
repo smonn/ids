@@ -33,17 +33,26 @@ Reorganize `src/` into by-feature codec slices:
 
 **`adapters/`** — a peer axis at `src/adapters/` hosts the web-framework adapters (`express.ts`, `fastify.ts`, `hono.ts`), the ORM adapters (`drizzle.ts`, `prisma.ts`, `kysely.ts`), and the shared hub (`adapter-types.ts`). Adapters are a distinct ownership axis from codecs; a peer directory makes the separation structural rather than implicit.
 
-## Enforcement (goal — not yet live)
+## Enforcement (live for codecs — adapters pending #318)
 
-When #317 and #318 land, depcruise enforcement will reflect the new layout:
+Codec depcruise enforcement is now directory-based (implemented in #325):
 
-- **Directory-based codec rules** will use the `$1` group back-reference to match `codecs/$1/` paths, so new codec directories are automatically in scope — no alternation strings to update.
-- **Filename-convention guard** will enforce that each `codecs/<name>/` directory contains only the files named by the closed file convention (`index.ts`, `layout.ts`, `key.ts`, tests).
-- **Zero depcruise edits to add a codec or adapter**: dropping files into `codecs/<newname>/` or `adapters/` will be sufficient — no rule edits, no hand-maintained alternation lists.
-- **Deleted rules**: `codec-constructors-no-base32` and `layouts-no-base32` are removed. Their constraint becomes structural: `base32.ts` lives under `wire/`, and the codec `index.ts` files import from `_kernel/` and `wire/codec-shell` only — `wire/` internals remain off-limits to codec constructors.
-- **Collapsed rules**: Per-codec kernel allowlists and flat-root adapter rules collapse into a small set of directory-pattern rules covering `codecs/_kernel/` and `adapters/`.
+- **Directory-based codec rules** use the `$1` group back-reference (`dependency-cruiser@17.4.3+`) to match `codecs/$1/` paths, so new codec directories are automatically in scope — no alternation strings to update.
+- **Filename-convention guard** (`codec-slice-filename-convention`) enforces that each `codecs/<name>/` directory contains only `index.ts`, `layout.ts`, `key.ts`, or `*.test.ts`.
+- **Cross-codec isolation** (`codec-slice-no-cross-codec-imports`) prevents one codec slice from importing another; only `codecs/_kernel/` imports are allowed cross-slice.
+- **`_kernel` guard** (`_kernel-brand-registry-only-from-codec-constructors`) enforces that `brand` and `registry` are importable only from codec constructors.
+- **Zero depcruise edits to add a codec**: dropping `codecs/<newname>/index.ts` (and optionally `layout.ts`, `key.ts`) is sufficient — no `.dependency-cruiser.cjs` edits, no hand-maintained alternation lists. This is verified by the zero-edit proof fixture in `test/fixtures/depcruise/codecs/sample/`.
+- **Deleted rules**: `codec-constructors-no-base32` and `layouts-no-base32` were removed in earlier slices. Their constraint is structural: `base32.ts` lives under `wire/`, and codec `index.ts` files import from `_kernel/` and `wire/codec-shell` only.
+- **Adapter rules** (`adapters/`) collapse and the `Proposed → Accepted` flip for this ADR wait for #318.
 
-None of this is enforced until the implementing PRs (#317, #318) land.
+### Adding a codec variant (zero-edit checklist)
+
+1. Create `src/codecs/<name>/index.ts` — codec constructor (`validateBrand`, `registerBrand`, wire methods, layout ops composition).
+2. Create `src/codecs/<name>/layout.ts` — layout ops binder (`create*LayoutOps`).
+3. For keyed codecs, create `src/codecs/<name>/key.ts` — key-handle module (`import*Key`, `encode*Key`, `decode*Key`).
+4. Add a subpath export to `package.json#exports` and `tsdown.config.ts` ([ADR-0005](./0005-codec-variant-subpath-exports.md)).
+5. Register the codec variant in the CLI registry (`src/cli/variants.ts`).
+6. **No `.dependency-cruiser.cjs` edits required** — the directory-based rules cover any `codecs/<name>/` automatically.
 
 ## Module rings
 
