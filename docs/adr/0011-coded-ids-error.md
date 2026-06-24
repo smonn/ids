@@ -42,8 +42,9 @@ Because `code` carries the discrimination, message text is freed to be standardi
 | `invalid_lookup_key`      | lookup key out of range / wrong type for the kind                                    | `wrap(lookupKey)`                                | pass an in-range value of the kind's JS type    |
 | `verification_failed`     | no keyring entry verifies the payload tag                                            | `unwrap(id)`                                     | wrong/revoked key, or a tampered ID             |
 | `invalid_id`              | string isn't a valid ID for the brand (carries the `ParseError` on `cause`)          | `parse()`, prisma/drizzle/kysely read hooks      | use `safeParse`/`safeUnwrap`, or fix the source |
+| `invalid_namespace`       | ns is empty or whitespace-only                                                       | `createDigestId({ ns })` construction            | supply a non-empty, non-whitespace namespace    |
 
-All ten codes are **public stability contract**. The shape is, in TypeScript terms:
+All eleven codes are **public stability contract**. The shape is, in TypeScript terms:
 
 ```ts
 export type IdsErrorCode =
@@ -56,7 +57,8 @@ export type IdsErrorCode =
   | "duplicate_keyring_entry"
   | "invalid_lookup_key"
   | "verification_failed"
-  | "invalid_id";
+  | "invalid_id"
+  | "invalid_namespace";
 
 export class IdsError extends Error {
   readonly code: IdsErrorCode;
