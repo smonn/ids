@@ -43,7 +43,7 @@ narrow using `isIdsError`:
 import { idTransformer, isIdsError } from "@smonn/ids/typeorm";
 
 try {
-  const id = transformer.from(row.id);
+  const id = idTransformer.from(row.id);
 } catch (err) {
   if (isIdsError(err) && err.code === "invalid_id") {
     // err.cause is the ParseError returned by safeParse
