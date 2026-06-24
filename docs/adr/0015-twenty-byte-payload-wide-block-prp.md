@@ -52,6 +52,41 @@ final character — the root cause of #210. The mod-5 candidates bracketing toda
 exactly 32 chars, so `payloadBase32Length = ⌈20·8/5⌉ = 32` becomes exact and the surplus
 bits — and the `base32FinalCharClass` constant — disappear entirely.
 
+### Why not an intermediate character count?
+
+Counting in characters makes the width look like a smooth dial — why not 27, 29, or 31 chars
+instead of jumping 26 → 32? Because the wire carries a **byte-array** payload shared by all six
+codecs ([ADR-0007](./0007-wire-indistinguishable-codec-variants.md)), and whole-byte payloads only
+land on certain char counts. `chars = ⌈8·bytes/5⌉`, so the reachable lengths above today are:
+
+| bytes | bits | chars | padding bits | vs. today (128-bit) |
+| ----- | ---- | ----- | ------------ | ------------------- |
+| 16    | 128  | 26    | 2            | today               |
+| 17    | 136  | 28    | 4            | more padding        |
+| **18** | **144** | **29** | **1**     | **smallest nonzero padding** |
+| 19    | 152  | 31    | 3            | more padding        |
+| 20    | 160  | 32    | 0            | clean ✓             |
+
+Two consequences fall out:
+
+- **Odd char counts like 25 and 27 are unreachable** with a whole-byte payload: 25 bits-capacity
+  (125) is below the 128-bit floor _and_ 15.625 bytes; 27 (135 bits) sits between 16 bytes (26 ch)
+  and 17 bytes (28 ch) and corresponds to no integer byte length. Hitting them would require a
+  sub-byte payload, which breaks the block-aligned AES codecs (Opaque, Wrapped) far worse than the
+  20-byte Feistel does, for 2–7 bits of entropy the collision budget shows nobody needs.
+- **18 bytes / 29 chars is the only byte-aligned intermediate**, and the most interesting of the
+  lot: it carries just **1** padding bit (vs. today's 2) and is 3 chars shorter than 20 bytes. But
+  it still does not eliminate padding by construction — so it keeps a (smaller) `base32FinalCharClass`
+  constraint and the #210 surplus-bit machinery alive, defeating the structural point of the
+  redesign — while its 144-bit payload (112-bit Timestamp random, same as 20 bytes' headline) buys
+  nothing the 20-byte layout doesn't, and leaves no clean home for Digest's `digest` width. It is
+  strictly a worse 20 bytes: still new crypto (144 is not an AES block either), still a non-zero
+  surplus, fewer free bits.
+
+The next zero-padding, byte-aligned, above-floor length after 26 chars is therefore **32 chars / 20
+bytes, full stop** — which is why this ADR frames the decision as "16 vs 20 bytes" and never as a
+character count.
+
 ## The collision budget: what the random tail buys
 
 The base32 alignment above is about surplus _padding_ bits. The field re-layouts below
