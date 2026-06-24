@@ -27,6 +27,7 @@
     "./prisma": "./dist/prisma.mjs",
     "./express": "./dist/express.mjs",
     "./fastify": "./dist/fastify.mjs",
+    "./typeorm": "./dist/typeorm.mjs",
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -63,6 +64,7 @@
     "oxfmt": "0.55.0",
     "oxlint": "1.70.0",
     "tsdown": "0.22.3",
+    "typeorm": "^1.0.0",
     "typescript": "6.0.3",
     "vitest": "4.1.9"
   },
@@ -72,7 +74,8 @@
     "express": ">=4.0.0",
     "fastify": ">=4.0.0",
     "hono": ">=4.0.0",
-    "kysely": ">=0.27.0"
+    "kysely": ">=0.27.0",
+    "typeorm": ">=0.3.0"
   },
   "peerDependenciesMeta": {
     "drizzle-orm": {
@@ -91,6 +94,9 @@
       "optional": true
     },
     "@prisma/client": {
+      "optional": true
+    },
+    "typeorm": {
       "optional": true
     }
   },
