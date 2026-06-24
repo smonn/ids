@@ -1,11 +1,19 @@
 /**
- * Unit-level tests for the Prisma adapter — no real database required.
+ * Tests for the Prisma adapter.
  *
- * A Prisma client extension ($extends) cannot be instantiated without a real DB
- * connection. Tests exercise the read/write transform functions exported by
- * idField() directly, which is the unit these tests validate.
+ * Unit tests exercise the read/write transform functions exported by idField()
+ * directly — no live DB connection required.
+ *
+ * Integration-level type assertions import ResultFieldDefinition and ResultArgs
+ * from @prisma/client/runtime/library and verify at compile time that idField()
+ * returns a value whose shape is compatible with Prisma's $extends
+ * result-component API. No prisma generate or database connection is needed —
+ * the assertions are purely structural, surfaced via expectTypeOf at the vitest
+ * level. This mirrors how drizzle.test.ts imports pgTable to validate column
+ * types without a live DB.
  */
 import { describe, expect, expectTypeOf, it } from "vitest";
+import type { ResultArgs, ResultFieldDefinition } from "@prisma/client/runtime/library";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idField, IdsError, isIdsError, type IdColumnCodec } from "./prisma.js";
 import type { Id } from "../types.js";
@@ -78,5 +86,33 @@ describe("prisma", () => {
     expect(isIdsError(err)).toBe(true);
     expect((err as IdsError).code).toBe("invalid_id");
     expect((err as IdsError).cause).toBe("not_string");
+  });
+
+  it("idField result field satisfies Prisma ResultFieldDefinition $extends compute shape", () => {
+    // Mirrors how drizzle.test.ts uses pgTable to validate column types:
+    // this verifies that idField.read fits the compute slot of a Prisma
+    // $extends result component without requiring prisma generate or a DB.
+    const resultField = {
+      needs: { id: true },
+      compute: (model: { id: unknown }) => transform.read(model.id),
+    } satisfies ResultFieldDefinition;
+
+    // compute(model) narrows the return type to Id<Brand>
+    expectTypeOf(resultField.compute).toMatchTypeOf<(model: { id: unknown }) => Id<"usr">>();
+  });
+
+  it("extension spec satisfies Prisma ResultArgs — the $extends result block shape", () => {
+    const resultSpec = {
+      result: {
+        user: {
+          id: {
+            needs: { id: true },
+            compute: (model: { id: unknown }) => transform.read(model.id),
+          },
+        },
+      },
+    } satisfies ResultArgs;
+
+    expectTypeOf(resultSpec.result["user"]!["id"]).toMatchTypeOf<ResultFieldDefinition>();
   });
 });

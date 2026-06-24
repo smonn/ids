@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreDependencies": ["depcruise", "@prisma/client"],
+  "ignoreDependencies": ["depcruise"],
   "workspaces": {
     ".": {
       "project": ["src/**/*.ts", "bench/**/*.ts"]

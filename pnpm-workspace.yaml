@@ -5,6 +5,7 @@ packages:
   - website
 
 allowBuilds:
+  "@prisma/client": true
   esbuild: true
   sharp: true
 
