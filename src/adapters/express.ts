@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
-import type { Id } from "./types.js";
+import type { Id } from "../types.js";
 
 export type { IdParamFailure };
 

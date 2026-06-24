@@ -28,7 +28,7 @@ import {
   importWrappingKey,
   type WrappingKey,
 } from "../codecs/wrapped/index.js";
-import type { IdCodec } from "../adapter-types.js";
+import type { IdCodec } from "../adapters/adapter-types.js";
 import { codecOpts } from "./codec-options.js";
 import { isKindError, isNsError, parseKind, parseNs } from "./flags.js";
 import { formatCliError } from "./format.js";

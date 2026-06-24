@@ -1,4 +1,4 @@
-import type { IdCodec } from "../adapter-types.js";
+import type { IdCodec } from "../adapters/adapter-types.js";
 import { isKeyFormatError, loadKey, parseKeyFormat } from "./key-io.js";
 import type { RunOpts } from "./types.js";
 import {

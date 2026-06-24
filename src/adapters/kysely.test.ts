@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it, vi, afterAll, beforeAll } from "vitest";
-import { createTimestampId } from "./codecs/timestamp/index.js";
+import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idColumn, IdsError, isIdsError, type IdColumnCodec, type IdColumnType } from "./kysely.js";
-import type { Id } from "./types.js";
+import type { Id } from "../types.js";
 import type { ColumnType } from "kysely";
 
 describe("kysely", () => {
