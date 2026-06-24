@@ -38,7 +38,7 @@ The `invalid_id` code is consistent with `parse()` — same code, same `cause` c
 
 Each web framework defines the error type its error-handling pipeline recognizes. Hono's `onError`, Express's error-handling middleware, Fastify's `setErrorHandler`, NestJS's exception filters, and GraphQL's execution engine each expect their own native error class to trigger the right response rendering, HTTP status negotiation, and logging. Using `IdsError` here would require every application's framework error handler to be explicitly aware of this library's error class to produce a correct HTTP response — coupling the application's error pipeline to a library implementation detail that has nothing to do with the framework.
 
-The `hono.ts` adapter's `HTTPException` path is already noted in ADR-0011's "What stays plain `Error`" table as "deliberately a framework error on the no-`onError` path"; this ADR generalizes that note into a principled rule for the entire transport-layer axis.
+The `hono.ts` adapter's `HTTPException` path is already noted in ADR-0011's "What stays plain `Error`" table as "deliberately a framework error on the no-`onError` path; converting it would break the adapter's contract"; this ADR generalizes that note into a principled rule for the entire transport-layer axis.
 
 ### Why ORM adapters use `IdsError`
 
