@@ -11,6 +11,6 @@ Codec variants beyond the Timestamp codec (Opaque Timestamp, and future Signed T
 ## Consequences
 
 - Shared types (`Id<Brand>`, parse types, the brand registry) stay in the main entry and are imported by each variant subpath.
-- Adding a new codec variant means a new entry in `package.json#exports`, `tsdown.config.ts`, and a new `src/<variant>.ts` — no churn to existing variants.
+- Adding a new codec variant means a new `src/codecs/<name>/` slice (`index.ts`, `layout.ts`, and optionally `key.ts`) plus a new entry in `package.json#exports` and `tsdown.config.ts` — no churn to existing variants and no `.dependency-cruiser.cjs` edits required (see [ADR-0018](./0018-by-feature-codec-slices.md)).
 - Discoverability cost: `createOpaqueTimestampId` is not surfaced by autocomplete on `@smonn/ids`. README and JSDoc on `createTimestampId` cover the pointer.
 - Establishes the precedent for adapter integrations too (see [docs/IDEAS.md](../IDEAS.md)).
