@@ -9,7 +9,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { decodeBase32, encodeBase32 } from "./base32.js";
+import { decodeBase32, encodeBase32 } from "./wire/base32.js";
 import { createTimestampId, IdsError, isIdsError, type TimestampOptions } from "./index.js";
 import type { Id, JsonSchema } from "./types.js";
 

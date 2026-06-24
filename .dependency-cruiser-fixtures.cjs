@@ -90,7 +90,7 @@ module.exports = {
       from: { path: "^test/fixtures/depcruise/wire/parse-allowlist\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/(wire/invariants|base32|types)\\.ts$",
+        pathNot: "^src/(wire/invariants|wire/base32|types)\\.ts$",
       },
     },
     {
@@ -100,7 +100,7 @@ module.exports = {
       from: { path: "^test/fixtures/depcruise/wire/envelope\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/(base32|types)\\.ts$",
+        pathNot: "^src/(wire/base32|types)\\.ts$",
       },
     },
     {
@@ -110,7 +110,7 @@ module.exports = {
       from: { path: "^test/fixtures/depcruise/wire/timestamp-bytes\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/base32\\.ts$",
+        pathNot: "^src/wire/base32\\.ts$",
       },
     },
     {
@@ -168,21 +168,6 @@ module.exports = {
       },
     },
     {
-      name: "layouts-no-base32",
-      severity: "error",
-      comment: "layouts reach base32 through wire/envelope",
-      from: { path: "^test/fixtures/depcruise/layouts" },
-      to: { path: "^src/base32" },
-    },
-    {
-      name: "codec-constructors-no-base32",
-      severity: "error",
-      from: {
-        path: "^test/fixtures/depcruise/(timestamp|opaque|reverse|wrapped|signed|digest)\\.ts$",
-      },
-      to: { path: "^src/base32" },
-    },
-    {
       name: "cli-no-internals",
       severity: "error",
       comment:
@@ -191,7 +176,7 @@ module.exports = {
         path: "^(test/fixtures/depcruise/cli\\.ts|test/fixtures/depcruise/cli/)",
       },
       to: {
-        path: "^src/(wire|layouts|brand|registry|base32|bytes|opaque-key|wrapping-key)",
+        path: "^src/(wire|layouts|brand|registry|bytes|opaque-key|wrapping-key)",
       },
     },
     {
@@ -217,7 +202,7 @@ module.exports = {
       name: "leaves-no-upward",
       severity: "error",
       from: {
-        path: "^test/fixtures/depcruise/(base32|bytes|types|brand)\\.ts$",
+        path: "^test/fixtures/depcruise/(wire/base32|bytes|types|brand)\\.ts$",
       },
       to: {
         path: "^src/(wire|layouts|timestamp|opaque|cli|registry)",
