@@ -30,10 +30,10 @@ character falls outside that set is rejected as `invalid_base32` by
 `safeParse`/`parse`/`is`.
 
 ```ts
-users.safeParse("usr_01h7b3k9rqxn1cw3p9r8t2sgkz"); // canonical
-users.safeParse("USR_01H7B3K9RQXN1CW3P9R8T2SGKZ"); // uppercase
-users.safeParse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkz"); // o, I, l aliased
-// → { ok: true, id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkz" } for all three
+users.safeParse("usr_01h7b3k9rqxn1cw3p9r8t2sgkw"); // canonical
+users.safeParse("USR_01H7B3K9RQXN1CW3P9R8T2SGKW"); // uppercase
+users.safeParse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkw"); // o, I, l aliased
+// → { ok: true, id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw" } for all three
 ```
 
 Equality checks on canonical strings work as expected. For untrusted input,
