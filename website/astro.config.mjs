@@ -4,8 +4,7 @@ import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
 
-// The published library's public entry points. The API reference is generated
-// straight from these source files' types. Keep this list in sync with the
+// The published library's public entry points. Keep this list in sync with the
 // post-ADR-0018 slice layout — TypeDoc will error on missing paths.
 const entryPoints = [
   "../src/index.ts",
