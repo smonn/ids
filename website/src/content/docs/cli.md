@@ -63,11 +63,11 @@ IDS_SIGNING_KEY=<hex-or-base64url-key> npx @smonn/ids inspect evt_… --signed
 
 `--signed` has three verification outcomes:
 
-| State         | stdout                                  | stderr                                             | Exit |
-| ------------- | --------------------------------------- | -------------------------------------------------- | ---- |
-| `ok`          | output with `verification: ok`          | —                                                  | 0    |
-| `failed`      | output with `verification: failed`      | `verification_failed: verification failed`         | 1    |
-| `unavailable` | output with `verification: unavailable` | key diagnostic (e.g. `IDS_SIGNING_KEY is not set`) | 1    |
+| State         | stdout                                  | stderr                                                        | Exit |
+| ------------- | --------------------------------------- | ------------------------------------------------------------- | ---- |
+| `ok`          | output with `verification: ok`          | —                                                             | 0    |
+| `failed`      | output with `verification: failed`      | `verification_failed: <message>` (message is non-contractual) | 1    |
+| `unavailable` | output with `verification: unavailable` | key diagnostic (e.g. `IDS_SIGNING_KEY is not set`)            | 1    |
 
 The `unavailable` state occurs when `IDS_SIGNING_KEY` is absent or malformed — the
 timestamp is still printed to stdout (it is readable without the key), but
