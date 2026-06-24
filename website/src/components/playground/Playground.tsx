@@ -5,18 +5,22 @@ import {
   type CodecId,
   WRAPPED_KINDS,
   type WrappedKind,
+  createDigestId,
   createOpaqueTimestampId,
   createReverseTimestampId,
   createSignedTimestampId,
   createTimestampId,
   createWrappedKeyId,
+  decodeDigestKey,
   decodeOpaqueKey,
   decodeSigningKey,
   decodeWrappingKey,
   describeError,
+  encodeDigestKey,
   encodeOpaqueKey,
   encodeSigningKey,
   encodeWrappingKey,
+  importDigestKey,
   importOpaqueKey,
   importSigningKey,
   importWrappingKey,
@@ -351,6 +355,66 @@ function WrappedPanel() {
   );
 }
 
+// --- Digest -----------------------------------------------------------------
+
+function DigestPanel() {
+  const [brand, setBrand] = useState("idk");
+  const [ns, setNs] = useState("checkout");
+  const [keyHex, setKeyHex] = useState(() => encodeDigestKey(randomKeyBytes(), "hex"));
+  const [material, setMaterial] = useState("order-ref-123");
+  const [out, setOut] = useState<Outcome>(null);
+
+  const makeCodec = async () => {
+    const key = await importDigestKey(decodeDigestKey(keyHex, "hex"));
+    return createDigestId(brand, { ns, key, allowDuplicateBrand: true });
+  };
+
+  const digest = async () => {
+    try {
+      const c = await makeCodec();
+      const id = await c.digest(material);
+      setOut({ kind: "ok", text: id });
+    } catch (err) {
+      setOut({ kind: "err", text: describeError(err) });
+    }
+  };
+
+  return (
+    <div class={styles.panel}>
+      <BrandField value={brand} onInput={setBrand} />
+      <label class={styles.field}>
+        <span>Namespace (ns)</span>
+        <input
+          class={styles.mono}
+          value={ns}
+          spellcheck={false}
+          onInput={(e) => setNs((e.target as HTMLInputElement).value.trim())}
+        />
+      </label>
+      <KeyField value={keyHex} onInput={setKeyHex} />
+      <label class={styles.field}>
+        <span>Material to digest</span>
+        <input
+          class={styles.mono}
+          value={material}
+          spellcheck={false}
+          onInput={(e) => setMaterial((e.target as HTMLInputElement).value)}
+        />
+      </label>
+      <Row>
+        <button type="button" onClick={digest} disabled={!material}>
+          Digest
+        </button>
+      </Row>
+      <p class={styles.hint}>
+        Digest the same material again — you get the same ID. The codec is one-way: there is no
+        extract, verify, or unwrap, and the material cannot be recovered from the ID.
+      </p>
+      <OutcomeLine outcome={out} />
+    </div>
+  );
+}
+
 export default function Playground() {
   const [codec, setCodec] = useState<CodecId>("timestamp");
   const active = useMemo(() => CODECS.find((c) => c.id === codec)!, [codec]);
@@ -403,6 +467,7 @@ export default function Playground() {
         {codec === "signed" && <SignedPanel />}
         {codec === "opaque" && <OpaquePanel />}
         {codec === "wrapped" && <WrappedPanel />}
+        {codec === "digest" && <DigestPanel />}
       </div>
     </div>
   );

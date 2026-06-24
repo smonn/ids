@@ -40,13 +40,18 @@ const FAIL_THRESHOLD_WRAPPED = FAIL_THRESHOLD_OPAQUE;
 // runners for the same reason as opaque.* and wrapped.*. Same 50% threshold applied.
 const FAIL_THRESHOLD_SIGNED = FAIL_THRESHOLD_OPAQUE;
 
+// digest.* operations use HMAC-SHA-256 async crypto whose p50 swings on shared CI
+// runners for the same reason as opaque.* / wrapped.* / signed.*. Same 50% threshold.
+const FAIL_THRESHOLD_DIGEST = FAIL_THRESHOLD_OPAQUE;
+
 /** Returns the blocking fail threshold for the given bench name.
- * opaque.*, wrapped.*, and signed.* benches get a higher threshold due to async crypto variance on shared CI runners.
+ * opaque.*, wrapped.*, signed.*, and digest.* benches get a higher threshold due to async crypto variance on shared CI runners.
  */
 export function failThreshold(name: string): number {
   if (name.startsWith("opaque.")) return FAIL_THRESHOLD_OPAQUE;
   if (name.startsWith("wrapped.")) return FAIL_THRESHOLD_WRAPPED;
   if (name.startsWith("signed.")) return FAIL_THRESHOLD_SIGNED;
+  if (name.startsWith("digest.")) return FAIL_THRESHOLD_DIGEST;
   return FAIL_THRESHOLD_DEFAULT;
 }
 
@@ -124,7 +129,7 @@ if (process.argv[1] === __filename) {
     lines.push("## Benchmarks");
     lines.push("");
     lines.push(
-      `Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}, blocking +${pct(FAIL_THRESHOLD_DEFAULT)} (opaque.* / wrapped.* / signed.* +${pct(FAIL_THRESHOLD_OPAQUE)}). Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
+      `Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}, blocking +${pct(FAIL_THRESHOLD_DEFAULT)} (opaque.* / wrapped.* / signed.* / digest.* +${pct(FAIL_THRESHOLD_OPAQUE)}). Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
     );
     lines.push("");
     lines.push("| Bench | Base p50 | PR p50 | Δ p50 | PR throughput | Notes |");
