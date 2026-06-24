@@ -125,7 +125,7 @@ users.extractTimestamp(id); // → 2024-03-15T12:00:00.000Z
 const ids = oldRows.map((r) => users.generateAt(extractTime(r)));
 ```
 
-All four validate the date exactly like `generate()`. The following cases throw
+All three validate the date exactly like `generate()`. The following cases throw
 a plain `Error` (not `IdsError`): a non-integer timestamp (NaN, Infinity, or a
 float), a negative value (pre-epoch), a value past the 48-bit ceiling
 (`>= 2^48` ms), or an `Invalid Date`.
