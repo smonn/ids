@@ -125,6 +125,18 @@ breaking-change batch rather than shipped on its own.
 Deliberately left open by an ADR — no proposal, no rejection, revisited only if a concrete
 consumer appears.
 
+- **Opaque codec via HKDF (uniform key-derivation model).** Unlike the other keyed codecs, the
+  Opaque Timestamp codec imports the operator's 16/24/32 raw bytes **directly** as the AES-CBC key
+  (`importOpaqueKey`, no HKDF), because an AES-128/192/256 key is exactly what the operator hands it —
+  raw import is the conventional, correct construction, and opaque is already cryptographically
+  independent of the HKDF codecs precisely because its key is the raw bytes rather than an HKDF output.
+  Routing opaque through a labelled HKDF (`@smonn/ids/opaque/aes`) would buy only **uniformity** ("every
+  keyed codec derives via a labelled HKDF, no exceptions") plus marginal domain separation against an
+  *external* system reusing the same secret as raw AES — not a load-bearing security gain. It would be a
+  breaking change (re-derives every Opaque ID), so the cheapest moment to fold it in is alongside another
+  keyed-codec break. Deliberately left **undecided** while standardizing the HKDF label namespace (#388,
+  ADR-0019): that issue keeps opaque out of scope and documents the asymmetry as principled. Revisit only
+  if the no-exceptions uniform model becomes a goal; it would need its own ADR.
 - **Sync keyed codec.** The keyed codecs (Opaque Timestamp, Signed Timestamp, Digest,
   Wrapped key) have async key-dependent methods because WebCrypto's `SubtleCrypto` — the only
   cross-runtime crypto API — is async-only. A sync variant would require bundling a pure-JS
