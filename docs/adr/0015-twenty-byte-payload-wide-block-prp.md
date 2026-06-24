@@ -72,13 +72,15 @@ fit in 20 bytes — a safe nonce (~96 bits) plus ciphertext leaves too little ro
 160-bit block into two 80-bit (10-byte) halves; the round function is
 `first80bits(AES_K(roundIndex ‖ R ‖ pad))`, computed with the existing
 "AES-CBC, IV=0, take the first 16 bytes" single-block primitive already used in
-`opaque.ts` / `wrapped.ts` (now `src/codecs/opaque/layout.ts` and `src/codecs/wrapped/layout.ts` per [ADR-0018](./0018-by-feature-codec-slices.md)). Four rounds give a Luby–Rackoff strong PRP. This is the direct
+`opaque.ts` / `wrapped.ts`. Four rounds give a Luby–Rackoff strong PRP. This is the direct
 generalisation of ADR-0004's "128-bit permutation under the key" to 160 bits, reusing the
 same primitive with no new dependency or bundle weight. Cost: 4 SubtleCrypto calls per
 encrypt/decrypt (vs. 1/2 today), sequential within a Feistel — acceptable for these
 explicitly low-throughput async codecs. The determinism + high-entropy-plaintext IND-CPA
 argument from ADR-0004 carries over unchanged; integrity stays where it belongs (HMAC tag
 for Wrapped/Signed, none for Opaque).
+
+> **Correction (2026-06-24):** `opaque.ts` and `wrapped.ts` were relocated by the [ADR-0018](./0018-by-feature-codec-slices.md) slice refactor; they now live at `src/codecs/opaque/layout.ts` and `src/codecs/wrapped/layout.ts`.
 
 ## Field re-layouts at 20 bytes (free upgrades)
 
