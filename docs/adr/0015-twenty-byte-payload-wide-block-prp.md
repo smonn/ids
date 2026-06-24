@@ -52,6 +52,58 @@ final character — the root cause of #210. The mod-5 candidates bracketing toda
 exactly 32 chars, so `payloadBase32Length = ⌈20·8/5⌉ = 32` becomes exact and the surplus
 bits — and the `base32FinalCharClass` constant — disappear entirely.
 
+## The collision budget: what the random tail buys
+
+The base32 alignment above is about surplus _padding_ bits. The field re-layouts below
+also move the _entropy_ floor: the Timestamp and Reverse codecs' random tail grows
+**80 → 112 bits** (`rand10 → rand14`). This section quantifies that, because the
+entropy bump — not the padding cleanup — is the load-bearing reason to take the redesign at
+v1, and the ADR otherwise asserts it without a number.
+
+Collisions only matter **within one timestamp bucket**: two IDs with different plaintext
+48-bit millisecond timestamps cannot collide, so all collision resistance rests on the random
+tail drawn _per millisecond_. For `r` random bits and `n` IDs in one bucket, the birthday
+bound gives `p ≈ n² / 2^(r+1)`. Going 80 → 112 multiplies the random space by `2³² ≈ 4.3 ×
+10⁹`, dividing per-bucket collision probability by that same factor at any fixed load:
+
+| IDs in one ms | (≈ IDs/sec) | r = 80 (today) | r = 112 (20-byte) |
+| ------------- | ----------- | -------------- | ----------------- |
+| 1,000         | 1 M/s       | 4.1 × 10⁻¹⁹     | 9.6 × 10⁻²⁹        |
+| 10,000        | 10 M/s      | 4.1 × 10⁻¹⁷     | 9.6 × 10⁻²⁷        |
+| 100,000       | 100 M/s     | 4.1 × 10⁻¹⁵     | 9.6 × 10⁻²⁵        |
+| 1,000,000     | 1 B/s       | 4.1 × 10⁻¹³     | 9.6 × 10⁻²³        |
+
+The decision-useful framing is the **sustained generation rate that keeps the summed annual
+collision probability under a fixed budget** (here, ≤ 1-in-10⁹ per year, across the ~3.15 ×
+10¹⁰ ms in a year):
+
+| random tail       | sustained rate under 1e-9 / year     |
+| ----------------- | ------------------------------------ |
+| **r = 80 (today)** | ~277 IDs/ms ≈ **277,000 IDs/sec**   |
+| **r = 112 (20-byte)** | ~18 M IDs/ms ≈ **18 billion IDs/sec** |
+
+At 80 bits the budget is ~277k IDs/sec _sustained on a single brand for a year_ — high, but a
+large multi-tenant system at peak can approach it. At 112 bits it is ~18 billion/sec, past any
+real-world generator. The upgrade converts "a bound you could theoretically hit" into "a bound
+nobody hits."
+
+**Where this lands vs. prior art.** Normalising for time resolution (millisecond buckets are
+worth ~10 bits over the 1-second buckets KSUID uses), in per-second-bucket-equivalent terms:
+today's tail is `80 + 10 ≈ 90` effective bits; the 20-byte tail is `112 + 10 ≈ 122` — essentially
+[UUIDv4](https://www.rfc-editor.org/rfc/rfc9562) parity (122 random bits) and within ~6 bits of
+[KSUID](https://github.com/segmentio/ksuid)'s 128 — but in a 32-char string rather than KSUID's
+27 base62 or UUID's 36 hex. KSUID itself needs 128 random bits precisely because its 1-second
+bucket is ~1000× coarser than a millisecond one; finer resolution is why ULID (and this codec)
+get away with less. The 20-byte width buys UUIDv4-grade collision resistance while staying
+shorter than both.
+
+**This is a comfort/margin upgrade, not a fix.** Reaching 1e-9/year at 80 bits takes ~277k
+IDs/sec sustained for a year — so 80 bits is not a live problem, exactly as the security
+analysis concludes the padding hole is already closed. The strongest argument for the bump is
+not "80 is unsafe" but "112 retires the collision-rate conversation from the docs permanently,
+the way UUIDv4 and KSUID users never have it." (The Signed/Wrapped tag-width changes below are a
+separate _forgery_-resistance budget, not collision resistance, and are not modelled here.)
+
 ## The crypto cost: a 160-bit permutation replaces single-block AES
 
 Two codecs rely on the payload being exactly one 128-bit AES block (ADR-0004): **Opaque**
