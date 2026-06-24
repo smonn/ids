@@ -51,17 +51,71 @@ tag mismatch.
 
 :::note[False-accept bound]
 With a signing keyring of `n` entries, an attacker's per-`verify` success
-probability is approximately `n / 2⁴⁰`. Verification is online-only — the
-signing key lives server-side, so offline guessing is not possible.
+probability is approximately `n / 2⁴⁰`. Verification is online-only **when the
+signing key stays server-side** — that is an operational assumption, not a codec
+guarantee; the codec HMAC-verifies regardless of where the key lives.
 :::
+
+## `verify` and `extractTimestamp` trust contracts
+
+`verify(id: Id<Brand>)` trusts the `Id<Brand>` static type and does not
+structurally validate. For untrusted input, route through `safeVerify` or
+`safeParse` first:
+
+```ts
+// Untrusted input — use safeVerify (or safeParse then verify)
+const result = await shares.safeVerify(req.params.shareId);
+if (!result.ok) {
+  if (result.error === "verification_failed") return 403;
+  return 400;
+}
+// result.id is a verified Id<"shr"> — safe to use
+```
+
+```ts
+// Already-typed Id<"shr"> — verify trusts the type
+const id = await shares.generate(); // or from a prior safeParse / safeVerify
+await shares.verify(id); // throws IdsError verification_failed on tag mismatch
+```
+
+`extractTimestamp(id: Id<Brand>)` reads the **plaintext timestamp bytes without
+verifying the HMAC tag**. A tampered ID returns a timestamp without raising an
+error — the decoded bytes are structurally valid milliseconds regardless of
+integrity. Always verify first if the source is untrusted:
+
+```ts
+const result = await shares.safeVerify(req.params.shareId);
+if (!result.ok) {
+  if (result.error === "verification_failed") return 403;
+  return 400;
+}
+
+// Safe: id was verified before extractTimestamp is called
+const ts = shares.extractTimestamp(result.id);
+```
+
+## Constructor options
+
+`createSignedTimestampId(brand, opts)` accepts:
+
+| Option                | Type                            | Default                  | Purpose                                                                                                                                                 |
+| --------------------- | ------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `keys`                | `[SigningKey, ...SigningKey[]]` | _(required)_             | Non-empty ordered signing keyring                                                                                                                       |
+| `now`                 | `() => number`                  | `Date.now`               | Returns the current timestamp in milliseconds; inject in tests to control time                                                                          |
+| `rng`                 | `(target: Uint8Array) => void`  | `crypto.getRandomValues` | Writes 5 random bytes into `target` for the random tail; inject in tests for deterministic output                                                       |
+| `allowDuplicateBrand` | `boolean`                       | `false`                  | Silences the duplicate-brand warning in non-production environments (e.g. for holding multiple codec instances during signing keyring transition tests) |
 
 ## Key handling
 
 Import signing key material via `importSigningKey(bytes)` from raw bytes (16,
-24, or 32 bytes). Signing-key material is a **separate secret domain** from
-Opaque and Wrapping keys — same `hex` / `base64url` encoding conventions, but a
-distinct `SigningKey` handle and HKDF label, so one raw secret cannot silently
-serve multiple codecs.
+24, or 32 bytes). `SigningKey` is an **opaque handle** — the underlying non-extractable `CryptoKey`
+and a SHA-256 digest of the raw import bytes are held in a module-internal
+`WeakMap` and never exposed to callers. The digest backs constant-time
+duplicate-keyring detection; the raw bytes are not retained after import.
+
+Signing-key material is a **separate secret domain** from Opaque and Wrapping
+keys — same `hex` / `base64url` encoding conventions, but a distinct `SigningKey`
+handle and HKDF label, so one raw secret cannot silently serve multiple codecs.
 
 `SigningKey` is an **opaque frozen object** — the underlying non-extractable
 `CryptoKey` and a SHA-256 digest of the raw import bytes are held in a
@@ -96,3 +150,48 @@ await rotated.generate(); // signs with newKey
 Sentinels from `minIdForTime` / `maxIdForTime` carry no valid HMAC tag — they
 exist only for indexed range scans, not as real IDs. See
 [ADR-0012](https://github.com/smonn/ids/blob/main/docs/adr/0012-signed-timestamp-construction.md).
+
+## Error handling
+
+All errors are `IdsError` instances with a stable `code` field. Use `isIdsError`
+(re-exported from `@smonn/ids/signed`) to discriminate them:
+
+```ts
+import { createSignedTimestampId, importSigningKey, isIdsError } from "@smonn/ids/signed";
+```
+
+**Construction errors** — thrown by `createSignedTimestampId`:
+
+| Code                      | Thrown when                                     |
+| ------------------------- | ----------------------------------------------- |
+| `empty_keyring`           | `keys` array is empty                           |
+| `duplicate_keyring_entry` | Two entries in `keys` share the same raw secret |
+
+**Key helper errors**:
+
+| Code                   | Thrown when                                       | Function                                                               |
+| ---------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| `invalid_key_length`   | Raw key bytes are not 16, 24, or 32 bytes         | `encodeSigningKey`, `decodeSigningKey`; rejected by `importSigningKey` |
+| `invalid_key_format`   | `format` argument is not `"hex"` or `"base64url"` | `encodeSigningKey`, `decodeSigningKey`                                 |
+| `invalid_key_encoding` | Encoded string is malformed for its format        | `decodeSigningKey`                                                     |
+
+**Verification error** — thrown by `verify`:
+
+| Code                  | Thrown when                                |
+| --------------------- | ------------------------------------------ |
+| `verification_failed` | No keyring entry's HMAC tag matches the ID |
+
+Example error-handling pattern:
+
+```ts
+try {
+  await shares.verify(id);
+} catch (err) {
+  if (isIdsError(err) && err.code === "verification_failed") {
+    // tampered ID or wrong keyring
+  }
+  throw err;
+}
+```
+
+Construction errors (`createSignedTimestampId`) and `encodeSigningKey`/`decodeSigningKey` errors are thrown synchronously — for example, passing an empty `keys` array throws immediately with code `empty_keyring`. `importSigningKey` rejects with `invalid_key_length` only — always `await` the call and catch the rejection.
