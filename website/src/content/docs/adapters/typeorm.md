@@ -41,9 +41,13 @@ narrow using `isIdsError`:
 
 ```ts
 import { idTransformer, isIdsError } from "@smonn/ids/typeorm";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+const transformer = idTransformer(usr);
 
 try {
-  const id = idTransformer.from(row.id);
+  const id = transformer.from(row.id);
 } catch (err) {
   if (isIdsError(err) && err.code === "invalid_id") {
     // err.cause is the ParseError returned by safeParse
