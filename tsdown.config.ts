@@ -15,6 +15,7 @@ export default defineConfig({
     express: "src/adapters/express.ts",
     fastify: "src/adapters/fastify.ts",
     graphql: "src/adapters/graphql.ts",
+    nestjs: "src/adapters/nestjs.ts",
     cli: "bin/cli.ts",
   },
   dts: {
