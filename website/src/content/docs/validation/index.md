@@ -124,7 +124,7 @@ See [ADR-0003](https://github.com/smonn/ids/blob/main/docs/adr/0003-canonical-st
 
 ### `example` is freshly generated per call
 
-`example` is a real, always-valid canonical ID produced by `generate()` on each
+`example` is a real, always-valid canonical ID generated on each
 `toJsonSchema()` call. It always satisfies the returned `pattern`.
 
 ### OpenAPI usage
