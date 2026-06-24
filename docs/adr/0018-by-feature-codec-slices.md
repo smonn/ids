@@ -116,13 +116,13 @@ Codec constructors import **`wire/codec-shell`** only from `wire/`, and **`creat
 
 ## Relationship to ADR-0008
 
-This ADR supersedes [ADR-0008](./0008-internal-module-layering.md) once both #317 and #318 land. ADR-0008's ring diagram and responsibilities table describe the current flat-root layout; the new ring diagram and responsibilities table above replace them. ADR-0008 itself is left untouched by this issue — neither a "Superseded by" header nor any other edit is made there until the implementing PRs land.
+This ADR supersedes [ADR-0008](./0008-internal-module-layering.md) once both #317 and #318 land. ADR-0008's ring diagram and responsibilities table describe the current flat-root layout; the new ring diagram and responsibilities table above replace them. ADR-0008's `Superseded by: ADR-0018` header was added in #325 (slice D); once #318 lands, this ADR's Status will flip to `Accepted`, completing the supersession.
 
 ## Status lifecycle
 
 The `Status:` field introduced here is a new lightweight convention for ADRs in this repository:
 
 - **`Proposed`**: The decision is recorded and agreed upon, but its implementing PRs have not yet merged. Enforcement is described as a goal, not a live constraint. A Proposed ADR may lead its implementers honestly because the `Status:` line makes the relationship explicit.
-- **`Accepted`**: Both implementing PRs (#317, #318) have merged and the new directory structure is live. The **last implementing PR to land** flips `Status: Proposed` to `Status: Accepted` in this file and adds a "Superseded by ADR-0018" header to ADR-0008.
+- **`Accepted`**: Both implementing PRs (#317, #318) have merged and the new directory structure is live. The **last implementing PR to land** (#318) flips `Status: Proposed` to `Status: Accepted` in this file. (The `Superseded by: ADR-0018` header in ADR-0008 was already added in #325.)
 
 Future ADRs that describe a decision ahead of its code should open in `Proposed` state and follow the same lifecycle.
