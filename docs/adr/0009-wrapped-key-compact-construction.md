@@ -1,5 +1,7 @@
 # Wrapped key codec: deterministic 16-byte verified compact wrapping
 
+> **Note (superseded in part).** The HKDF domain-separation labels named here (`@smonn/ids/wrapped/aes/v1`, `@smonn/ids/wrapped/hmac/v1`) were renamed to drop the `/v1` suffix by [ADR-0019](./0019-hkdf-label-namespace.md). The construction below is otherwise unchanged.
+
 The **Wrapped key codec** reversibly wraps a caller-owned integer **Lookup key** into the shared 16-byte wire payload (`<brand>_` + 26 Crockford base32 chars). The compact branch fixes the **Wrapped key byte layout** at 8 bytes of integer lane plus 8 bytes of verification tag, encrypted on the wire as a single AES block via the strip-trick from [ADR-0004](./0004-aes-cbc-strip-trick.md). Cryptographic verification happens in `unwrap` / `safeUnwrap` only — not in `parse`. This is verified compact wrapping, not AEAD.
 
 Construction:

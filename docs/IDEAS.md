@@ -132,7 +132,7 @@ consumer appears.
   independent of the HKDF codecs precisely because its key is the raw bytes rather than an HKDF output.
   Routing opaque through a labelled HKDF (`@smonn/ids/opaque/aes`) would buy only **uniformity** ("every
   keyed codec derives via a labelled HKDF, no exceptions") plus marginal domain separation against an
-  *external* system reusing the same secret as raw AES — not a load-bearing security gain. It would be a
+  _external_ system reusing the same secret as raw AES — not a load-bearing security gain. It would be a
   breaking change (re-derives every Opaque ID), so the cheapest moment to fold it in is alongside another
   keyed-codec break. Deliberately left **undecided** while standardizing the HKDF label namespace (#388,
   ADR-0019): that issue keeps opaque out of scope and documents the asymmetry as principled. Revisit only

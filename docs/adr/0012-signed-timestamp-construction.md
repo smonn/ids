@@ -1,5 +1,7 @@
 # Signed Timestamp codec: readable timestamp with a truncated-HMAC integrity tail
 
+> **Note (superseded in part).** The HKDF domain-separation label named here (`ids/signed-timestamp/hmac`) was renamed to `@smonn/ids/signed/hmac` by [ADR-0019](./0019-hkdf-label-namespace.md). The construction below is otherwise unchanged.
+
 The **Signed Timestamp codec** keeps the 6-byte millisecond timestamp **readable and sortable** like the plaintext Timestamp codec, but spends half of the 10-byte random tail on a truncated HMAC so an ID is **tamper-evident and verifiable without a database lookup**. It adds _integrity_, not confidentiality — the opposite axis from the Opaque Timestamp codec. Constructed via `createSignedTimestampId(brand, { keys })` on `@smonn/ids/signed` ([ADR-0005](./0005-codec-variant-subpath-exports.md)).
 
 This is the design-acceptance gate (issue [#100](https://github.com/smonn/ids/issues/100), modeled on the [#60](https://github.com/smonn/ids/issues/60) → [#61](https://github.com/smonn/ids/issues/61) Wrapped key precedent); implementation is the separate blocked [#106](https://github.com/smonn/ids/issues/106).

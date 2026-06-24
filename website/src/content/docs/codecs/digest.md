@@ -115,7 +115,7 @@ const key = await importDigestKey(decoded);
 
 `encodeDigestKey` / `decodeDigestKey` support `"hex"` (lowercase) and
 `"base64url"` formats. The `DigestKey` handle holds a single HMAC-SHA-256
-subkey derived via HKDF under the domain label `ids/digest/hmac` —
+subkey derived via HKDF under the domain label `@smonn/ids/digest/hmac` —
 cryptographically independent from any `OpaqueKey`, `WrappingKey`, or
 `SigningKey` derived from the same raw bytes.
 
