@@ -49,7 +49,7 @@ Any other byte length throws `invalid_key_length`.
 argument is **required** and must match between encode and decode:
 
 ```ts
-import { encodeOpaqueKey, decodeOpaqueKey, importOpaqueKey } from "@smonn/ids/opaque";
+import { encodeOpaqueKey, decodeOpaqueKey } from "@smonn/ids/opaque";
 
 const raw = new Uint8Array(32); // 32 bytes of key material
 const encoded = encodeOpaqueKey(raw, "hex"); // "0000…" (64 hex chars)
