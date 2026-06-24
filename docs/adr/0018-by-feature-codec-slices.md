@@ -57,9 +57,7 @@ codecs/<name>/index.ts                 ← validateBrand, registerBrand, inject 
         ↓
       wire/invariants.ts, wire/envelope.ts, wire/timestamp-bytes.ts, wire/parse.ts
         ↓
-      wire/base32.ts                   ← relocated from src/ root
-        ↓
-      codecs/_kernel/bytes.ts          ← leaf
+      wire/base32.ts                   ← leaf (relocated from src/ root)
 
 codecs/_kernel/
   brand.ts, registry.ts, rng.ts,
