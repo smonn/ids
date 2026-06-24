@@ -1,8 +1,8 @@
-import { validateBrand } from "./brand.js";
+import { validateBrand } from "./codecs/_kernel/brand.js";
 import { IdsError, isIdsError, type IdsErrorCode } from "./error.js";
 import { createSignedTimestampLayoutOps } from "./layouts/signed-timestamp.js";
-import { registerBrand } from "./registry.js";
-import { defaultRng } from "./rng.js";
+import { registerBrand } from "./codecs/_kernel/registry.js";
+import { defaultRng } from "./codecs/_kernel/rng.js";
 import type {
   Id,
   JsonSchema,

@@ -1,8 +1,8 @@
-import { validateBrand } from "./brand.js";
+import { validateBrand } from "./codecs/_kernel/brand.js";
 import { createOpaqueLayoutOps } from "./layouts/opaque.js";
 import { getOpaqueKeyCryptoKey, type OpaqueKey } from "./opaque-key.js";
-import { registerBrand } from "./registry.js";
-import { defaultRng } from "./rng.js";
+import { registerBrand } from "./codecs/_kernel/registry.js";
+import { defaultRng } from "./codecs/_kernel/rng.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "./types.js";
 import { wireMethods } from "./wire/codec-shell.js";
 

@@ -1,1 +1,1 @@
-import "../../../src/brand.js";
+import "../../../src/codecs/_kernel/brand.js";
