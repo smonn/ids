@@ -22,7 +22,7 @@ export type { IdColumnCodec };
  *
  * @example
  * ```ts
- * import { Property } from "@mikro-orm/core";
+ * import { PrimaryKey } from "@mikro-orm/core";
  * import { idType } from "@smonn/ids/mikro-orm";
  * import { createTimestampId } from "@smonn/ids";
  * import type { Id } from "@smonn/ids";
@@ -30,7 +30,7 @@ export type { IdColumnCodec };
  * const usr = createTimestampId("usr");
  *
  * class User {
- *   @Property({ type: idType(usr) })
+ *   @PrimaryKey({ type: idType(usr) })
  *   id!: Id<"usr">;
  * }
  * ```
