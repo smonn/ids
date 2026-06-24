@@ -202,7 +202,7 @@ module.exports = {
       name: "leaves-no-upward",
       severity: "error",
       from: {
-        path: "^test/fixtures/depcruise/(base32|bytes|types|brand)\\.ts$",
+        path: "^test/fixtures/depcruise/(wire/base32|bytes|types|brand)\\.ts$",
       },
       to: {
         path: "^src/(wire|layouts|timestamp|opaque|cli|registry)",

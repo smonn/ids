@@ -109,7 +109,7 @@ const cases = [
   },
   // leaf guards
   {
-    fixture: "test/fixtures/depcruise/base32.ts",
+    fixture: "test/fixtures/depcruise/wire/base32.ts",
     rule: "leaves-no-upward",
   },
   {
