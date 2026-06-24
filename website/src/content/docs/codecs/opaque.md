@@ -100,8 +100,8 @@ but wrong timestamp, never an error. You hold one codec per _key epoch_ and
 select it from your own records.
 
 When two codec instances share the same brand (as in the multi-epoch pattern
-below), pass `allowDuplicateBrand: true` on every instance after the first. This
-suppresses the dev-only cross-codec warning that fires when multiple codec
+below), pass `allowDuplicateBrand: true` on every non-current (retired) instance.
+This suppresses the dev-only cross-codec warning that fires when multiple codec
 instances register the same brand — a warning that normally signals a mistake,
 but here is intentional:
 
@@ -113,8 +113,8 @@ const keyV2 = await importOpaqueKey(new Uint8Array(16).fill(0x02)); // current k
 // One codec instance per key epoch. You — not the library — track which epoch
 // minted each ID. The epoch CANNOT be read from the ID itself.
 const codecs = new Map([
-  [1, createOpaqueTimestampId("inv", { key: keyV1, allowDuplicateBrand: true })],
-  [2, createOpaqueTimestampId("inv", { key: keyV2, allowDuplicateBrand: true })], // current
+  [1, createOpaqueTimestampId("inv", { key: keyV1, allowDuplicateBrand: true })], // retired
+  [2, createOpaqueTimestampId("inv", { key: keyV2 })], // current — no flag needed
 ]);
 
 const id = await codecs.get(2)!.generate(); // new IDs use the current epoch's key
