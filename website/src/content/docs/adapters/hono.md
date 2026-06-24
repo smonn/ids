@@ -44,6 +44,24 @@ app.get("/things/:id", idParam("id", thing, { status: { brand_mismatch: 400 } })
 - **`options.onError`:** when provided, the hook owns the response entirely.
 - **`options.status`:** remaps the default HTTP status for a failure reason.
 
+## `IdParamFailure` shape
+
+The `onError` callback receives an `IdParamFailure` — a discriminated union on `reason`:
+
+```ts
+type IdParamFailure =
+  | { readonly reason: "brand_mismatch"; readonly status: number }
+  | { readonly reason: "malformed"; readonly status: number };
+```
+
+- `reason: "brand_mismatch"` — the ID has a valid structure but belongs to a different brand;
+  default `status` is **404**.
+- `reason: "malformed"` — the ID is syntactically invalid; default `status` is **400**.
+- `status` reflects any override set via `options.status`, otherwise the default above.
+
+`IdParamFailure` is re-exported from `@smonn/ids/hono` — no separate import from
+`"@smonn/ids"` is needed.
+
 ## 400 vs 404 defaults
 
 - **Brand mismatch** (`invalid_prefix`) → `reason: "brand_mismatch"`, status

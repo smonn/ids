@@ -36,3 +36,25 @@ const id = usrCol.fromDriver(row.id as unknown as string);
 - **Read path:** `fromDriver` normalises the raw DB string via
   `codec.safeParse()`. An unrecognised value throws at read time so corrupt data
   surfaces immediately.
+
+## Error handling
+
+The read path throws `IdsError` with code `"invalid_id"` when the stored value does not parse
+as a valid `Id<Brand>`. The underlying `ParseError` is attached as `err.cause`. Catch and
+narrow using `isIdsError`:
+
+```ts
+import { idColumn, isIdsError } from "@smonn/ids/kysely";
+
+try {
+  const id = usrCol.fromDriver(row.id as unknown as string);
+} catch (err) {
+  if (isIdsError(err) && err.code === "invalid_id") {
+    // err.cause is the ParseError returned by safeParse
+  }
+}
+```
+
+`IdsError`, `isIdsError`, and `IdsErrorCode` are re-exported from `@smonn/ids/kysely` — no
+separate import from `"@smonn/ids"` is needed. For the full list of `IdsErrorCode` values, see
+the error-code reference.

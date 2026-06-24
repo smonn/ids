@@ -42,6 +42,24 @@ fastify.setErrorHandler((err, request, reply) => {
   does not throw.
 - **`options.status`:** remaps the default HTTP status for a failure reason.
 
+## `IdParamFailure` shape
+
+The `onError` callback receives an `IdParamFailure` — a discriminated union on `reason`:
+
+```ts
+type IdParamFailure =
+  | { readonly reason: "brand_mismatch"; readonly status: number }
+  | { readonly reason: "malformed"; readonly status: number };
+```
+
+- `reason: "brand_mismatch"` — the ID has a valid structure but belongs to a different brand;
+  default `status` is **404**.
+- `reason: "malformed"` — the ID is syntactically invalid; default `status` is **400**.
+- `status` reflects any override set via `options.status`, otherwise the default above.
+
+`IdParamFailure` is re-exported from `@smonn/ids/fastify` — no separate import from
+`"@smonn/ids"` is needed.
+
 The 400 vs 404 defaults match the [Hono](/adapters/hono/) and
 [Express](/adapters/express/) adapters: `reason: "brand_mismatch"` → 404,
 `reason: "malformed"` → 400. The canonical `Id<Brand>` is stored in
