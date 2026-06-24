@@ -68,6 +68,9 @@ const bytes = await idk.digest(new TextEncoder().encode("hello world"));
 // str === bytes — same ID
 ```
 
+Material may be any length — there is no enforced cap; HMAC streams
+arbitrary-length input, and cost scales with material size.
+
 ## Single key, no keyring
 
 The Digest codec holds exactly **one** key — there is no keyring. Two reasons:
@@ -79,12 +82,26 @@ The Digest codec holds exactly **one** key — there is no keyring. Two reasons:
   future ID for unchanged material, breaking idempotency and content-address
   stability.
 
-Re-keying is a deliberate, breaking operator action — every ID changes.
+Re-keying is a deliberate, breaking operator action — every ID changes. Any
+key change makes all previously issued IDs unreproducible; stored IDs must be
+re-derived and back-filled.
+
+## Security posture
+
+- **128-bit payload, birthday bound ≈ 2⁶⁴.** The payload is the leftmost 16
+  bytes of HMAC-SHA-256. An accidental same-ID-for-different-material collision
+  requires on the order of 2⁶⁴ distinct inputs within one `(brand, ns)` space
+  — ample for idempotency keys, content addressing, and pseudonyms.
+- **Key secrecy is load-bearing.** Without the key, an observer cannot
+  brute-force even very low-entropy material. _With_ the key, low-entropy
+  material **is** brute-forceable. The Digest codec provides confidentiality of
+  material only through key secrecy; it is not a substitute for protecting
+  low-entropy material against an adversary who holds the key.
 
 ## Key handling
 
-Import digest key material via `importDigestKey(bytes)` from raw bytes
-(16, 24, or 32 bytes — AES-128, AES-192, or AES-256 strength):
+`importDigestKey` is **async**. Import digest key material from raw bytes
+(16 / 24 / 32 raw bytes — fed to HKDF to derive an HMAC-SHA-256 key):
 
 ```ts
 import { importDigestKey, encodeDigestKey, decodeDigestKey } from "@smonn/ids/digest";
@@ -102,15 +119,16 @@ subkey derived via HKDF under the domain label `ids/digest/hmac` —
 cryptographically independent from any `OpaqueKey`, `WrappingKey`, or
 `SigningKey` derived from the same raw bytes.
 
-## Construction errors
+## Errors
 
-| Code                   | When                                                               |
-| ---------------------- | ------------------------------------------------------------------ |
-| `invalid_brand`        | Brand is not three lowercase `a–z` characters                      |
-| `invalid_namespace`    | `ns` is empty or whitespace-only                                   |
-| `invalid_key_length`   | Raw key bytes are not 16, 24, or 32 bytes                          |
-| `invalid_key_format`   | Format passed to `encode`/`decode` is not `"hex"` or `"base64url"` |
-| `invalid_key_encoding` | Encoded key string is malformed for its format                     |
+| Code                   | When                                                                                                                                                                                            |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `invalid_brand`        | Brand is not three lowercase `a–z` characters                                                                                                                                                   |
+| `invalid_namespace`    | `ns` is empty or whitespace-only                                                                                                                                                                |
+| `invalid_key_length`   | Raw key bytes are not 16, 24, or 32 bytes                                                                                                                                                       |
+| `invalid_key_format`   | Format passed to `encode`/`decode` is not `"hex"` or `"base64url"`                                                                                                                              |
+| `invalid_key_encoding` | Encoded key string is malformed for its format                                                                                                                                                  |
+| `invalid_id`           | Thrown by `parse` on structural failure; `safeParse` returns `{ ok: false, error: … }` instead of throwing. See [#328](https://github.com/smonn/ids/issues/328) for the shared error reference. |
 
 ## Wire methods (sync, no key)
 
@@ -127,6 +145,9 @@ const result = idk.safeParse(rawInput);
 `safeParse` accepts Crockford visual aliases (`o → 0`, `i → 1`, `l → 1`) and
 returns the canonical lowercase form. It rejects IDs whose final base32 character
 has non-zero padding bits (code `"invalid_base32"`).
+
+The `~standard` schema integration shape is documented in
+[#329](https://github.com/smonn/ids/issues/329).
 
 :::note[Equality leakage]
 The codec is fully deterministic: the same material under the same key always
