@@ -15,7 +15,7 @@ Wrapped key, and Digest — exposes two shared validation surfaces:
 Both surfaces work on the **wire form only** — they validate prefix and base32
 shape, require no key material, and are fully **synchronous** on every codec,
 including keyed ones (Opaque Timestamp, Wrapped key, Signed Timestamp, Digest)
-where `generate` or `digest` is async.
+where key-dependent operations are async.
 
 ## Standard Schema (`~standard`)
 
