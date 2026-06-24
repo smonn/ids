@@ -22,9 +22,9 @@ await invoices.extractTimestamp(id); // Date — same key required
 
 > **Important — unauthenticated decryption:** `extractTimestamp` **never throws**
 > on a wrong or tampered key. A mismatched key decrypts silently to a plausible
-> but incorrect `Date`. This is the opposite of the [Signed codec](/codecs/signed/),
+> but incorrect `Date`. This is the opposite of the [Signed Timestamp codec](/codecs/signed/),
 > whose `verify` throws `verification_failed` on tag mismatch. If you need
-> tamper-evident IDs, use the Signed codec instead.
+> tamper-evident IDs, use the Signed Timestamp codec instead.
 
 ## `importOpaqueKey`
 
