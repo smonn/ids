@@ -99,6 +99,15 @@ describe("idParam", () => {
       const res = await app.request(`/users/${orgId}`);
       expect(res.status).toBe(400);
     });
+
+    it("TypeScript rejects non-ContentfulStatusCode values for options.status", () => {
+      const app = new Hono();
+      // @ts-expect-error — 999 is not a valid ContentfulStatusCode
+      app.get("/users/:id", idParam("id", usr, { status: { brand_mismatch: 999 } }), (c) =>
+        c.json({ id: c.get("id") }),
+      );
+      expect(app).toBeDefined();
+    });
   });
 
   describe("Opaque Timestamp codec", () => {
