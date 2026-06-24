@@ -27,6 +27,7 @@
     "./prisma": "./dist/prisma.mjs",
     "./express": "./dist/express.mjs",
     "./fastify": "./dist/fastify.mjs",
+    "./graphql": "./dist/graphql.mjs",
     "./nestjs": "./dist/nestjs.mjs",
     "./package.json": "./package.json"
   },
@@ -58,6 +59,7 @@
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "fastify": "^5.8.5",
+    "graphql": "^17.0.1",
     "hono": "^4.12.26",
     "knip": "6.18.0",
     "kysely": "^0.29.2",
@@ -76,6 +78,7 @@
     "drizzle-orm": ">=0.30.0",
     "express": ">=4.0.0",
     "fastify": ">=4.0.0",
+    "graphql": ">=16.0.0",
     "hono": ">=4.0.0",
     "kysely": ">=0.27.0"
   },
@@ -87,6 +90,9 @@
       "optional": true
     },
     "fastify": {
+      "optional": true
+    },
+    "graphql": {
       "optional": true
     },
     "hono": {
