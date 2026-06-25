@@ -77,6 +77,24 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
+      - name: Generate a READ-ONLY GitHub App token for the producer
+        id: app-token-ro
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # The producer (claude-code-action) gets THIS token, not the write one.
+          # claude-code-action's `github_token` is optional and, if omitted, falls
+          # back to the workflow's built-in `github.token` — which carries this job's
+          # contents/pull-requests WRITE scopes — and wires it into the agent's
+          # git/gh auth, which can override `persist-credentials: false`. So we hand
+          # the agent an explicitly READ-ONLY App token: even if the action sets up
+          # git/gh for it, it cannot push, open PRs, or mutate anything. The write
+          # token stays with the deterministic poster step only.
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
+
       - name: Check if implementation already started
         id: gate
         env:
@@ -160,8 +178,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # No github_token: keeps the action from authenticating any GitHub
-          # access on the producer's behalf.
+          # Hand the agent the READ-ONLY App token explicitly. `github_token` is
+          # optional and omitting it falls back to the WRITE-capable built-in
+          # `github.token` — which the action would wire into the agent's git/gh
+          # auth, defeating the no-push intent. With a read-only token, any auth the
+          # action sets up for the agent cannot push or mutate.
+          github_token: ${{ steps.app-token-ro.outputs.token }}
           # This workflow is triggered by the App applying `ready-for-agent`, so the
           # actor is a bot. claude-code-action blocks bot actors by default; allow
           # only our own App (never '*' — on a public repo that lets external Apps
