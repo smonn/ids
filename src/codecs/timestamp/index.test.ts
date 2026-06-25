@@ -172,9 +172,7 @@ describe("id", () => {
       });
       const id = rng.generate();
       const payload = decodeBase32(id.slice("rng_".length));
-      // 6 timestamp bytes for ms=0: all zeros
       expect(Array.from(payload.slice(0, 6))).toEqual([0, 0, 0, 0, 0, 0]);
-      // 10 random bytes: exact nibble-pair harvest from the pinned UUID
       expect(Array.from(payload.slice(6))).toEqual([
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0xaa, 0xbb, 0xcc, 0xdd,
       ]);
