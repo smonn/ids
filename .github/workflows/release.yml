@@ -14,6 +14,7 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write
+      attestations: write
     steps:
       # First step: monitor egress from this privileged job. It publishes to npm
       # and holds an id-token, so an unexpected outbound connection (e.g. a
@@ -47,29 +48,34 @@ jobs:
           NPM_CONFIG_PROVENANCE: "true"
 
       # Round out supply-chain transparency alongside npm provenance: on every
-      # publish (not on release-PR-only runs), generate a CycloneDX SBOM and
-      # attach it to each published package's GitHub release. Uploaded with the
-      # runner's gh CLI, so no new SHA-pinned action is introduced.
-      - name: Generate and attach CycloneDX SBOM
+      # publish (not on release-PR-only runs), generate a CycloneDX SBOM for the
+      # workspace and bind it to the published package as a signed SBOM
+      # attestation. Attestations (not release assets) are used because the
+      # repo's releases are immutable and reject post-publish asset uploads.
+      - name: Generate CycloneDX SBOM
+        id: sbom
         if: steps.changesets.outputs.published == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
         run: |
           set -euo pipefail
           # cdxgen reads pnpm-lock.yaml directly, so the SBOM is built natively
           # from the pnpm workspace — no throwaway npm lockfile to derive (npm's
           # --package-lock-only chokes on pnpm's symlinked node_modules). Run via
-          # `pnpm dlx` to keep the whole step on the pnpm toolchain.
-          echo "$PUBLISHED_PACKAGES" | jq -c '.[]' | while read -r pkg; do
-            name=$(echo "$pkg" | jq -r '.name')
-            version=$(echo "$pkg" | jq -r '.version')
-            slug=$(echo "${name}" | tr '/@' '--' | sed 's/^-//')
-            sbom="${slug}-${version}.cdx.json"
-            pnpm dlx @cyclonedx/cdxgen@^11 \
-              --type pnpm \
-              --spec-version 1.6 \
-              --output "$sbom" \
-              .
-            gh release upload "${name}@${version}" "$sbom" --clobber --repo "${{ github.repository }}"
-          done
+          # `pnpm dlx` to keep this on the pnpm toolchain.
+          pnpm dlx @cyclonedx/cdxgen@^11 \
+            --type pnpm \
+            --spec-version 1.6 \
+            --output sbom.cdx.json \
+            .
+          # Pack the published package as the attestation subject. pnpm pack is
+          # deterministic from the built dist/, so this tarball matches the one
+          # published to npm and its digest lines up with the provenance subject.
+          # pnpm prints the tarball path on the last line of stdout.
+          tarball=$(pnpm pack --pack-destination "$RUNNER_TEMP" | tail -n1)
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+
+      - name: Attest SBOM
+        if: steps.changesets.outputs.published == 'true'
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: ${{ steps.sbom.outputs.tarball }}
+          sbom-path: sbom.cdx.json
