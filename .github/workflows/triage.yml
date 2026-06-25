@@ -21,6 +21,18 @@ permissions:
   contents: read
   issues: write
 
+# PRODUCE / POST split (mirrors review.yml). Everything MECHANICAL — reading the
+# issue, parsing `Blocked by #N` blockers and their state, the idempotency check,
+# JSON encoding, and the comment/label mutations — lives in deterministic `run:`
+# steps. The Claude step is a pure PRODUCER: it reads the precomputed context under
+# `.triage-context/`, makes the triage judgment, and WRITES its decision to files
+# under `.triage/` (a raw-markdown `comment.md` plus a scalars-only `manifest.json`).
+# It runs NO gh and NO git and makes ZERO GitHub mutations; a later deterministic
+# `post` step reads those files and does all the commenting + labeling. Two purely
+# mechanical decisions short-circuit BEFORE the agent is ever invoked:
+#   - IDEMPOTENCY: if the issue already carries a decision label it was triaged.
+#   - BLOCKERS: if any declared blocker is still OPEN, the gate posts the "blocked"
+#     comment + label deterministically and stops (unblock.yml re-triages later).
 jobs:
   triage:
     # Loop guard: skip THIRD-PARTY bot-authored issues, but allow our own trusted App
@@ -38,6 +50,8 @@ jobs:
     # the `automation` environment, kept separate from the `npm` publish env.
     environment: automation
     timeout-minutes: 20
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
     steps:
       - name: Generate GitHub App token
         id: app-token
@@ -52,43 +66,181 @@ jobs:
           permission-contents: read
           permission-issues: write
 
+      # A SECOND, strictly READ-ONLY App token handed to the producer (the agent). The
+      # write token above is used only by the deterministic mutating steps (the gate's
+      # blocked path and the poster). claude-code-action wires its `github_token` into the
+      # agent's git/gh auth, and the producer's Bash is scoped to `pnpm` — but `pnpm exec`
+      # can run arbitrary binaries (e.g. `pnpm exec gh issue edit`), so a write token here
+      # would let the agent mutate the issue despite the "producer posts nothing" design.
+      # Minting a read-only token makes the producer mutation-free at the token level, not
+      # just by convention: even an injected `gh` call cannot edit or comment on the issue.
+      - name: Generate read-only GitHub App token (for the producer)
+        id: app-token-ro
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
+
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
+      # Precompute every input the producer needs and write it under .triage-context/, so
+      # the agent runs NO gh and NO git — it reads files and writes files, nothing else.
+      # This is the issue itself (title/body/comments), the current labels, and the parsed
+      # blocker list with EACH blocker's open/closed state (the parser is reused verbatim
+      # from unblock.yml). The deterministic gate below reads these same files to make the
+      # idempotency / blockers decisions BEFORE the agent is ever invoked.
+      - name: Build triage context (issue, labels, blockers)
+        id: context
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .triage-context
+
+          # The issue title/body/comments (the producer's primary input) and its labels.
+          gh issue view "$ISSUE_NUMBER" --json title,body,comments,labels > .triage-context/issue.json
+          jq -r '"# " + .title + "\n\n" + (.body // "") + "\n\n## Comments\n\n"
+                 + ([.comments[] | "### @" + .author.login + "\n\n" + (.body // "")] | join("\n\n---\n\n"))' \
+            .triage-context/issue.json > .triage-context/issue.md
+          jq -r '.labels[].name' .triage-context/issue.json > .triage-context/labels.txt
+
+          # Parse declared blockers and resolve each one's state. The extraction is the
+          # exact parser from unblock.yml (two declaration forms: an inline "Depends on
+          # #N" phrase, and a "## Blocked by"/Depends on/Requires heading followed by a
+          # markdown bullet list of "- #N" items). The bullet pass reads only the LEADING
+          # #N of each bullet under the heading, so a self-reference resolves correctly.
+          text=$(jq -r '.body + "\n" + ([.comments[].body] | join("\n"))' .triage-context/issue.json)
+          deps=$(
+            {
+              printf '%s' "$text" \
+                | grep -oiE '(blocked by|depends on|requires)[[:space:]]*:?[[:space:]]*#[0-9]+' \
+                | grep -oE '[0-9]+'
+              printf '%s' "$text" | awk '
+                { lc = tolower($0) }
+                lc ~ /blocked by|depends on|requires/ { collect = 1; started = 0; next }
+                collect {
+                  if ($0 ~ /^[ \t]*$/) { if (started) collect = 0; next }
+                  if ($0 ~ /^[ \t]*[-*][ \t]*#?[0-9]+/) {
+                    n = $0
+                    sub(/^[ \t]*[-*][ \t]*#?/, "", n)
+                    sub(/[^0-9].*$/, "", n)
+                    print n
+                    started = 1
+                    next
+                  }
+                  collect = 0
+                }
+              '
+            } | sort -un || true
+          )
+
+          # For each blocker resolve its state. `gh issue view` works for PR numbers too;
+          # a *merged* PR reports MERGED (not CLOSED), so both count as resolved. Record
+          # one "<n> <STATE>" line per blocker, and surface whether any is still open so
+          # the gate can park the issue as `blocked` deterministically.
+          : > .triage-context/blockers.txt
+          any_open=false
+          if [ -n "$deps" ]; then
+            for d in $deps; do
+              state=$(gh issue view "$d" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
+              echo "$d $state" >> .triage-context/blockers.txt
+              case "$state" in CLOSED | MERGED) ;; *) any_open=true ;; esac
+            done
+          fi
+          echo "any_open=$any_open" >> "$GITHUB_OUTPUT"
+          echo "Context built:"; wc -l .triage-context/* || true
+          echo "Blockers:"; cat .triage-context/blockers.txt || true
+
+      # Deterministic gate (mirrors autofix.yml / address-review.yml): decide whether the
+      # agent should run at all, moving the two purely-mechanical decisions OUT of the
+      # prompt. proceed=false short-circuits the producer + poster.
+      #   - IDEMPOTENCY: if the issue already carries any decision label
+      #     (ready-for-agent / ready-for-human / wontfix / needs-info / blocked) it has
+      #     already been triaged — do nothing.
+      #   - BLOCKERS: if ANY declared blocker is still OPEN, post ONE "blocked" comment
+      #     and apply `blocked` (removing needs-triage) right here, then stop.
+      #     unblock.yml re-triages when the blocker closes.
+      - name: Gate — idempotency and blockers
+        id: gate
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          ANY_OPEN: ${{ steps.context.outputs.any_open }}
+        run: |
+          set -euo pipefail
+
+          # IDEMPOTENCY: any decision label already present means triage is done.
+          if grep -qxE 'ready-for-agent|ready-for-human|wontfix|needs-info|blocked' .triage-context/labels.txt; then
+            echo "#$ISSUE_NUMBER already carries a decision label — already triaged, nothing to do."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # BLOCKERS: if any blocker is still open, park as blocked deterministically.
+          if [ "$ANY_OPEN" = "true" ]; then
+            open_list=$(awk '$2 != "CLOSED" && $2 != "MERGED" { printf "#%s ", $1 }' .triage-context/blockers.txt)
+            open_list=$(echo "$open_list" | sed 's/ *$//; s/ /, /g')
+            {
+              printf '> *This was generated by AI during triage.*\n\n'
+              printf 'This issue is **blocked** by open dependencies: %s.\n\n' "$open_list"
+              printf 'Parking it as `blocked`; it will be re-triaged automatically once '
+              printf 'every blocker is closed.\n'
+            } > blocked-comment.md
+            gh issue comment "$ISSUE_NUMBER" --body-file blocked-comment.md
+            gh issue edit "$ISSUE_NUMBER" --add-label blocked --remove-label needs-triage
+            echo "#$ISSUE_NUMBER parked as blocked (open blockers: $open_list)."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "No decision label yet and no open blockers — running the producer."
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        if: steps.gate.outputs.proceed == 'true'
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        if: steps.gate.outputs.proceed == 'true'
         with:
           node-version: 24
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+        if: steps.gate.outputs.proceed == 'true'
 
-      - name: Triage the issue
+      # Producer: the agent makes the triage judgment and writes it to files. It posts
+      # nothing and mutates nothing — note GH_TOKEN is deliberately NOT in this step's
+      # env, so the agent's fallback `gh` is unauthenticated and cannot touch the issue.
+      - name: Produce the triage decision (write to .triage/, post nothing)
+        if: steps.gate.outputs.proceed == 'true'
         uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153
-        env:
-          # Fallback path for Claude's Bash; the App's built-in GitHub tools (via
-          # github_token) are the primary way it comments and labels.
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ steps.app-token.outputs.token }}
+          # READ-ONLY token: claude-code-action wires this into the agent's git/gh auth,
+          # so a write token here would let a `pnpm exec gh issue edit` mutate the issue.
+          # The read-only token makes the producer mutation-free at the token level; the
+          # deterministic poster below mutates with the write token instead.
+          github_token: ${{ steps.app-token-ro.outputs.token }}
           # Triage can be re-dispatched by the App when an issue becomes unblocked,
           # making the actor a bot. Allow only our own App (never '*').
           allowed_bots: "smonn[bot]"
-          # The methodology lives in the project `triage` skill (.claude/skills/triage),
-          # invoked via the `/triage` slash command below; this prompt only supplies
-          # repo identity, the CI (non-interactive) overrides, and the repo-specific
-          # guardrails the skill doesn't carry. Sonnet keeps subscription usage modest;
-          # bump to opus if triage quality needs it. allowedTools must cover the skill's
-          # repro test + pnpm test + gh labeling.
+          # Hermetic producer: Read/Grep/Glob to read the precomputed .triage-context/
+          # files and the repo's docs; Write to author the .triage/ files; Bash scoped to
+          # ONLY `pnpm` so the bug-repro can run `pnpm test`. NO gh, NO git, NO general
+          # shell — every issue input is precomputed and the deterministic `post` step
+          # below owns all GitHub writes. Sonnet keeps subscription usage modest; bump to
+          # opus if triage quality needs it.
           claude_args: |
             --max-turns 40
             --model claude-sonnet-4-6
-            --allowedTools "Bash,Edit,Write,Read,Grep,Glob,TodoWrite"
+            --allowedTools "Bash(pnpm:*),Read,Grep,Glob,Write,TodoWrite,Task"
           prompt: |
-            /triage #${{ github.event.issue.number || github.event.inputs.issue_number }}
+            /triage #${{ env.ISSUE_NUMBER }}
 
             Run the repo's `triage` skill (invoked above) to triage this issue in
             ${{ github.repository }} — `@smonn/ids`, a TypeScript library for encoding
@@ -100,19 +252,21 @@ jobs:
             - NON-INTERACTIVE: you are running headless in CI — there is NO maintainer
               to converse with. Skip the skill's interactive steps (recommend-and-wait,
               the `/grilling` and `/domain-modeling` sessions). Make the call yourself
-              and apply exactly ONE state label. `gh` is the ONLY way you read or write
-              the issue (GH_TOKEN / GH_REPO are set, already authenticated); read with
-              `gh issue view <n> --json title,body,labels,comments`.
+              and choose exactly ONE state label.
+            - PRODUCER ONLY: you have NO gh and NO git, and you make ZERO GitHub changes.
+              You do NOT comment, label, edit the issue, push, or open PRs. Everything
+              the issue carries has been PRECOMPUTED for you — read these files instead of
+              running any `gh`/`git`:
+                - `.triage-context/issue.md`  — the issue title, body, and all comments.
+                - `.triage-context/labels.txt` — the issue's current labels (one per line).
+                - `.triage-context/blockers.txt` — declared blockers as "<n> <STATE>"
+                  lines (may be empty). The idempotency and blocker decisions have ALREADY
+                  been made deterministically before you were invoked — every blocker here
+                  is resolved (CLOSED/MERGED) and the issue carries no decision label yet,
+                  so just triage it normally; do NOT re-park it as `blocked`.
             - GROUND your judgment first in: CONTEXT.md (domain glossary + CLOSED design
-              decisions), docs/adr/, docs/agents/triage-labels.md, and the issue itself.
-            - IDEMPOTENCY (check FIRST): if the issue already carries any of
-              `ready-for-agent`, `ready-for-human`, `wontfix`, `needs-info`, or
-              `blocked`, it has already been triaged — do nothing and stop.
-            - BLOCKERS (check NEXT): scan the body and comments for `Blocked by #N`,
-              `Depends on #N`, or `Requires #N`. For each, `gh issue view <N> --json
-              state,title`. If ANY is still OPEN, post ONE comment listing the open
-              blockers, run `gh issue edit <n> --add-label blocked --remove-label
-              needs-triage`, and STOP. (unblock.yml re-triages when the blocker closes.)
+              decisions), docs/adr/, docs/agents/triage-labels.md, and the issue text in
+              `.triage-context/issue.md`. Read these from the checkout with Read/Grep/Glob.
             - SCOPE FENCE: when you write the acceptance criteria, include an explicit
               `Non-goals / Out of scope` list. For any issue in a `Blocked by` / split
               chain, name the sibling issue that owns each deferred piece, and ensure
@@ -124,25 +278,73 @@ jobs:
               payload byte layout, canonical `is()`, monotonicity, custom epoch, Opaque
               key behavior, or wire-indistinguishable codec variants) with no compelling
               new argument → `wontfix`; if it has genuine merit → `ready-for-human`.
-            - For bugs, reproduce with a minimal failing test and `pnpm test`, then
-              DELETE the temp test — commit nothing, leave no repro files. Triage ONLY:
-              do not modify code, open PRs, or push.
+            - For bugs, reproduce with a minimal failing test and `pnpm test` (Bash is
+              scoped to `pnpm` only for exactly this), then DELETE the temp test — leave
+              no repro files. Triage ONLY: do not modify source code, commit, or push.
 
-            DELIVERABLE — the job is not done until these land on the issue (verify with
-            `gh issue view <n> --json labels,comments`):
-            - ONE issue comment (heredoc body) with the reproduction result, acceptance
-              criteria, scope/impact summary, and the chosen label + one-line rationale.
-            - `gh issue edit <n> --add-label "<label>" --remove-label "needs-triage"`.
+            DELIVERABLE — write exactly these two files under a `.triage/` directory; a
+            later deterministic step reads them and does all the commenting + labeling:
 
-      # Catch the "hollow success" case: the agent step can exit 0 without actually
-      # writing to the issue (e.g. a 403 on the comment/label). Assert the decision
-      # label is present so such runs fail loudly instead of passing silently. The
-      # invariant also holds for already-triaged issues (the label persists).
-      - name: Verify triage landed on the issue
+            1. `.triage/comment.md` — the issue comment body as RAW markdown: the
+               reproduction result, acceptance criteria, scope/impact summary, and the
+               chosen label + a one-line rationale. It MUST begin with the skill's
+               disclaimer line, verbatim:
+
+                   > *This was generated by AI during triage.*
+
+               Author it with the Write tool, which writes bytes verbatim: use REAL
+               newlines (press enter), never the characters backslash-n. Never emit
+               backslash escapes and never backslash-escape markdown metacharacters
+               (`<`, `>`, `[`, `]`, backtick) — write them as plain characters; GitHub
+               renders them correctly. A literal backslash-n or backslash-`<` in the body
+               is a bug. You never touch JSON encoding or `gh` — the posting step does.
+
+            2. `.triage/manifest.json` — a scalars-only JSON object carrying ONLY the
+               chosen label, so there is nothing to escape:
+
+                   { "label": "<one of: ready-for-agent, ready-for-human, wontfix, needs-info>" }
+
+               `label` MUST be exactly one of those four strings (the blocker case is
+               handled before you run, so never emit `blocked`). Write both files even
+               if your decision is `needs-info`.
+
+      # Deterministic poster: read the producer's .triage/ files and do ALL GitHub
+      # mutation. Validate the manifest parses and that .label is one of the allowed
+      # decision-label enum values (fail loudly otherwise), post the comment via
+      # --body-file (never a --body string, so the body can't be corrupted by shell
+      # quoting), then apply the chosen label and remove needs-triage.
+      - name: Post the triage decision
+        id: post
+        if: steps.gate.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+        run: |
+          set -euo pipefail
+          test -f .triage/manifest.json || { echo "::error::producer wrote no .triage/manifest.json"; exit 1; }
+          test -f .triage/comment.md   || { echo "::error::producer wrote no .triage/comment.md"; exit 1; }
+          jq empty .triage/manifest.json || { echo "::error::.triage/manifest.json is not valid JSON"; exit 1; }
+
+          label=$(jq -r '.label // empty' .triage/manifest.json)
+          case "$label" in
+            ready-for-agent | ready-for-human | wontfix | needs-info) ;;
+            *) echo "::error::manifest .label is '$label' — must be one of ready-for-agent, ready-for-human, wontfix, needs-info"; exit 1 ;;
+          esac
+
+          gh issue comment "$ISSUE_NUMBER" --body-file .triage/comment.md
+          gh issue edit "$ISSUE_NUMBER" --add-label "$label" --remove-label needs-triage
+          echo "Triaged #$ISSUE_NUMBER as '$label'."
+
+      # Catch the "hollow success" backstop: when the producer ran, the poster must have
+      # landed a decision label. (The gate's blocked / idempotency branches set
+      # proceed=false and handle their own state, so this only guards the produce → post
+      # path.) Assert a decision label is present so a poster that silently failed — or
+      # never ran — fails the job loudly instead of passing green.
+      - name: Verify triage landed on the issue
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           labels=$(gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name')
           echo "Labels on #$ISSUE_NUMBER:"
@@ -150,6 +352,6 @@ jobs:
           if echo "$labels" | grep -qxE 'ready-for-agent|ready-for-human|needs-info|wontfix|blocked'; then
             echo "✓ Triage decision label present."
           else
-            echo "::error::Triage produced no decision label on #$ISSUE_NUMBER (agent likely failed to write — check App permissions and the run log)."
+            echo "::error::Triage produced no decision label on #$ISSUE_NUMBER (poster likely failed to write — check App permissions and the run log)."
             exit 1
           fi
