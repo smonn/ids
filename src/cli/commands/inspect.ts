@@ -1,6 +1,5 @@
-import { createTimestampId } from "../../codecs/timestamp/index.js";
-import type { Id, StandardSchemaProps } from "../../types.js";
-import type { SafeVerifyResult } from "../../codecs/signed/index.js";
+import { createTimestampId, type TimestampCodec } from "../../codecs/timestamp/index.js";
+import type { Id } from "../../types.js";
 import { codecOpts } from "../codec-options.js";
 import { buildCodec, deriveAllowedFlags, resolveVariant } from "../dispatch.js";
 import {
@@ -14,12 +13,6 @@ import { isKeyFormatError, parseKeyFormat } from "../key-io.js";
 import type { RunOpts } from "../types.js";
 import { usage } from "../usage.js";
 import { inspectPolicy } from "../variants.js";
-
-type WithValidate = { "~standard": StandardSchemaProps<string> };
-type WithExtractTimestamp = { extractTimestamp(id: Id<string>): Date };
-type WithAsyncExtractTimestamp = { extractTimestamp(id: Id<string>): Promise<Date> };
-type WithUnwrap = { unwrap(id: Id<string>): Promise<number | bigint> };
-type WithSafeVerify = { safeVerify(id: string): Promise<SafeVerifyResult<string>> };
 
 export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
   const allowedFlags = deriveAllowedFlags(inspectPolicy);
@@ -60,6 +53,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
   }
 
   const brand = input.slice(0, 3).toLowerCase();
+  const cap = variant.inspect;
 
   // "verify" (--signed) mode: the timestamp is plaintext and must be extractable even when
   // the signing key is unavailable. Structural parse happens before key loading so that:
@@ -69,16 +63,15 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
   let verifyTimestamp: Date | undefined;
   let verifyCanonical: Id<string> | undefined;
   let verifyNowMs: number | undefined;
-  if (variant.inspectMode === "verify") {
+  if (cap.mode === "verify") {
     const fmtCheck = parseKeyFormat(values, opts, variant.key!);
     if (isKeyFormatError(fmtCheck)) {
       opts.stderr(fmtCheck + "\n");
       return 1;
     }
-    let tsCodec: WithValidate & WithExtractTimestamp;
+    let tsCodec: TimestampCodec<string>;
     try {
-      tsCodec = createTimestampId(brand, codecOpts(opts)) as unknown as WithValidate &
-        WithExtractTimestamp;
+      tsCodec = createTimestampId(brand, codecOpts(opts));
     } catch (err) {
       opts.stderr(formatCliError(err) + "\n");
       return 1;
@@ -95,7 +88,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
 
   const codecOrError = await buildCodec(variant, brand, values, opts);
   if (typeof codecOrError === "string") {
-    if (variant.inspectMode === "verify") {
+    if (cap.mode === "verify") {
       opts.stdout(
         formatSignedInspectOutput({
           brand,
@@ -111,45 +104,37 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     return 1;
   }
 
-  // Structural validation for non-verify cases (verify already validated above)
+  // Structural validation for non-verify, non-unsupported cases
   let canonical: Id<string> | undefined;
-  if (variant.inspectMode !== "verify") {
-    const validation = (codecOrError as unknown as WithValidate)["~standard"].validate(input);
-    if (validation.issues) {
-      opts.stderr(validation.issues[0]!.message + "\n");
+  if (cap.mode !== "verify" && cap.mode !== "unsupported") {
+    const parsed = cap.validate(codecOrError, input);
+    if ("issue" in parsed) {
+      opts.stderr(parsed.issue + "\n");
       return 1;
     }
-    canonical = validation.value;
+    canonical = parsed.value;
   }
 
-  // Back half: switch on inspectMode for output shapes
-  switch (variant.inspectMode) {
+  // Dispatch on capability mode for output shapes
+  switch (cap.mode) {
     case "readable": {
-      const timestamp = (codecOrError as unknown as WithExtractTimestamp).extractTimestamp(
-        canonical!,
-      );
+      const timestamp = cap.extractTimestamp(codecOrError, canonical!);
       const nowMs = (opts.now ?? Date.now)();
-      opts.stderr(
-        "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY\n",
-      );
+      opts.stderr(cap.note + "\n");
       opts.stdout(formatInspectOutput({ brand, timestamp, canonical: canonical!, input, nowMs }));
       return 0;
     }
     case "keyed-readable": {
-      const timestamp = await (
-        codecOrError as unknown as WithAsyncExtractTimestamp
-      ).extractTimestamp(canonical!);
+      const timestamp = await cap.extractTimestamp(codecOrError, canonical!);
       const nowMs = (opts.now ?? Date.now)();
-      opts.stderr(
-        "note: timestamp assumes IDS_KEY matches the key used at generation; a wrong key yields a plausible but incorrect timestamp\n",
-      );
+      opts.stderr(cap.note + "\n");
       opts.stdout(formatInspectOutput({ brand, timestamp, canonical: canonical!, input, nowMs }));
       return 0;
     }
     case "unwrap": {
       let lookupKey: number | bigint;
       try {
-        lookupKey = await (codecOrError as unknown as WithUnwrap).unwrap(canonical!);
+        lookupKey = await cap.unwrap(codecOrError, canonical!);
       } catch (err) {
         opts.stderr(formatCliError(err) + "\n");
         return 1;
@@ -158,7 +143,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
       return 0;
     }
     case "verify": {
-      const verifyResult = await (codecOrError as unknown as WithSafeVerify).safeVerify(input);
+      const verifyResult = await cap.safeVerify(codecOrError, input);
       if (!verifyResult.ok) {
         /* v8 ignore next 4 -- defensive: both codecs share the same wire parse so ParseError
            is unreachable after the createTimestampId pre-validation above passes */
