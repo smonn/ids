@@ -43,9 +43,7 @@ Diagnose the failure: read the failing step logs (`gh run view <run-id> --log-fa
 
 ### Review posted, hard findings — agent branch
 
-Confirm that `address-feedback` is applied to the PR.
-- Auto after #220 — verify the label is present; if not, apply it manually.
-- Manual otherwise — apply the label now.
+Confirm that `address-feedback` is applied to the PR. `review.yml`'s post step applies this label unconditionally when `hard_findings` is true — verify the label is present; if not, apply it manually.
 
 ### Review posted, hard findings — non-agent branch
 
@@ -57,15 +55,11 @@ Scan the PR review threads. Resolve any thread that already has a reply (the fin
 
 ### `address-feedback` run completed
 
-Confirm that `needs-review` is applied to the PR.
-- Auto after #218 — verify the label is present; if not, apply it manually.
-- Manual otherwise — apply the label now.
+Confirm that the fix push landed and CI is re-running. When the fix push advances the PR head, the `synchronize` event fires `review.yml` automatically — no `needs-review` hop occurs in the automated path. `needs-review` is the manual "re-review now" signal a maintainer can apply by hand; do not verify or apply it here.
 
 ### Rebase completed
 
-Confirm that `needs-review` is applied to the PR.
-- Auto after #219 — verify the label is present; if not, apply it manually.
-- Manual otherwise — apply the label now.
+Confirm that `needs-review` is applied to the PR. `rebase.yml` applies this label unconditionally after a successful merge push (skipped only when the PR carries `needs-human`). Verify the label is present; if not, apply it manually.
 
 ### Open thread with fix already committed
 

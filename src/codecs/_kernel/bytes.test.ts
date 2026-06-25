@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeBase64Url, decodeHex, encodeBase64Url, encodeHex } from "./bytes.js";
+import { decodeBase64Url, decodeHex, encodeBase64Url, encodeHex, writeLen32 } from "./bytes.js";
 
 describe("bytes", () => {
   const sample = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
@@ -46,5 +46,37 @@ describe("bytes", () => {
 
   it("decodeBase64Url throws on invalid input", () => {
     expect(() => decodeBase64Url("!!!")).toThrow();
+  });
+
+  describe("writeLen32", () => {
+    it("writes a 32-bit integer as four big-endian bytes", () => {
+      const buf = new Uint8Array(4);
+      writeLen32(0x01020304, buf, 0);
+      expect(Array.from(buf)).toEqual([0x01, 0x02, 0x03, 0x04]);
+    });
+
+    it("respects the offset parameter", () => {
+      const buf = new Uint8Array(6);
+      writeLen32(0x01020304, buf, 2);
+      expect(Array.from(buf)).toEqual([0x00, 0x00, 0x01, 0x02, 0x03, 0x04]);
+    });
+
+    it("writes zero correctly", () => {
+      const buf = new Uint8Array(4).fill(0xff);
+      writeLen32(0, buf, 0);
+      expect(Array.from(buf)).toEqual([0x00, 0x00, 0x00, 0x00]);
+    });
+
+    it("writes max uint32 correctly", () => {
+      const buf = new Uint8Array(4);
+      writeLen32(0xffffffff, buf, 0);
+      expect(Array.from(buf)).toEqual([0xff, 0xff, 0xff, 0xff]);
+    });
+
+    it("writes at maximum valid offset and does not disturb surrounding bytes", () => {
+      const buf = new Uint8Array(8).fill(0xaa);
+      writeLen32(0x01020304, buf, 4);
+      expect(Array.from(buf)).toEqual([0xaa, 0xaa, 0xaa, 0xaa, 0x01, 0x02, 0x03, 0x04]);
+    });
   });
 });

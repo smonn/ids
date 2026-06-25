@@ -1,4 +1,4 @@
-import type { Id, Prefix, ValidBrand } from "../../types.js";
+import type { Id, LayoutOps, Prefix, ValidBrand } from "../../types.js";
 import { toWireId } from "../../wire/envelope.js";
 import { payloadByteLength } from "../../wire/invariants.js";
 import {
@@ -43,7 +43,12 @@ function extractTimestampFromId<Brand extends ValidBrand>(
 export function createTimestampLayoutOps<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   rng: (target: Uint8Array) => void,
-) {
+): LayoutOps<Brand> & {
+  generateAt(ms: number): Id<Brand>;
+  extractTimestamp(id: Id<Brand>): Date;
+  minIdForTime(ms: number): Id<Brand>;
+  maxIdForTime(ms: number): Id<Brand>;
+} {
   // Per-codec scratch buffer. Shared across generateAt(), minIdForTime(),
   // maxIdForTime(), and exampleWireId() — all are synchronous and overwrite both
   // the timestamp and random slices before encoding, so successive callers see
@@ -66,8 +71,8 @@ export function createTimestampLayoutOps<Brand extends ValidBrand>(
       buildSentinelPayload(ms, 0xff, buffer, randomView);
       return toWireId(prefix, buffer);
     },
-    exampleWireId: (ms: number): Id<Brand> => {
-      buildPayload(ms, rng, buffer, randomView);
+    exampleWireId: (ms?: number): Id<Brand> => {
+      buildPayload(ms ?? Date.now(), rng, buffer, randomView);
       return toWireId(prefix, buffer);
     },
   };

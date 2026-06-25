@@ -8,10 +8,22 @@ Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all op
 - **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
-- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
+- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."` — **see the prohibition below before touching labels**.
 - **Close**: `gh issue close <number> --comment "..."`
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
+
+## Pipeline/triage label prohibition
+
+**Agents must not set or remove the pipeline/triage lifecycle labels via `gh issue edit --add-label` or `--remove-label`.** The prohibited labels are the same set guarded by `.claude/hooks/guard-pipeline-labels.mjs` on the MCP path:
+
+`blocked`, `needs-triage`, `ready-for-agent`, `ready-for-human`, `in-progress`, `needs-info`, `wontfix`, `needs-human`, `needs-rebase`
+
+These labels are owned exclusively by the `.github/workflows/` App automations. Setting them by hand races the bot (e.g. `unblock.yml` flips `blocked → needs-triage` when a blocker closes — jumping straight to `ready-for-agent` bypasses that evaluation). Edit issue body, title, or state freely; leave lifecycle labels to the App.
+
+**`address-feedback` and `needs-review` are the only exceptions.** They pass through on the `gh` path for the same reason as on the MCP path: they drive the review lifecycle (re-run automated review / address PR feedback), not triage, and are absent from the guarded set by omission rather than via a positive allowlist.
+
+**Programmatic enforcement:** A `PreToolUse` hook matching `Bash` (`.claude/settings.json` → `.claude/hooks/guard-pipeline-labels-bash.mjs`) parses `gh issue edit --add-label`/`--remove-label` commands and denies any that name a lifecycle label. This covers Claude agent sessions; `gh` calls from `.github/workflows/` CI steps do not route through Claude's Bash tool and are unaffected.
 
 ## When a skill says "publish to the issue tracker"
 

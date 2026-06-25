@@ -1,5 +1,5 @@
 import type { webcrypto } from "node:crypto";
-import type { Id, Prefix, ValidBrand } from "../../types.js";
+import type { Id, LayoutOps, Prefix, ValidBrand } from "../../types.js";
 import { decryptPayload, encryptPayload } from "../_kernel/crypto.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
@@ -48,10 +48,13 @@ export function createOpaqueLayoutOps<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   key: webcrypto.CryptoKey,
   rng: (target: Uint8Array) => void,
-) {
+): LayoutOps<Brand> & {
+  generateAt(ms: number): Promise<Id<Brand>>;
+  extractTimestamp(id: Id<Brand>): Promise<Date>;
+} {
   return {
     generateAt: (ms: number): Promise<Id<Brand>> => generateWireId(prefix, key, rng, ms),
     extractTimestamp: (id: Id<Brand>): Promise<Date> => extractTimestampFromId(prefix, key, id),
-    exampleWireId: (): Id<Brand> => schemaExample(prefix) as Id<Brand>,
+    exampleWireId: (_ms?: number): Id<Brand> => schemaExample(prefix) as Id<Brand>,
   };
 }

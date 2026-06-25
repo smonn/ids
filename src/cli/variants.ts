@@ -41,18 +41,27 @@ type InspectCapability =
   | {
       readonly mode: "readable";
       readonly note: string;
-      validate(codec: IdCodec<ValidBrand>, input: string): { value: Id<ValidBrand> } | { issue: string };
+      validate(
+        codec: IdCodec<ValidBrand>,
+        input: string,
+      ): { value: Id<ValidBrand> } | { issue: string };
       extractTimestamp(codec: IdCodec<ValidBrand>, id: Id<ValidBrand>): Date;
     }
   | {
       readonly mode: "keyed-readable";
       readonly note: string;
-      validate(codec: IdCodec<ValidBrand>, input: string): { value: Id<ValidBrand> } | { issue: string };
+      validate(
+        codec: IdCodec<ValidBrand>,
+        input: string,
+      ): { value: Id<ValidBrand> } | { issue: string };
       extractTimestamp(codec: IdCodec<ValidBrand>, id: Id<ValidBrand>): Promise<Date>;
     }
   | {
       readonly mode: "unwrap";
-      validate(codec: IdCodec<ValidBrand>, input: string): { value: Id<ValidBrand> } | { issue: string };
+      validate(
+        codec: IdCodec<ValidBrand>,
+        input: string,
+      ): { value: Id<ValidBrand> } | { issue: string };
       unwrap(codec: IdCodec<ValidBrand>, id: Id<ValidBrand>): Promise<number | bigint>;
     }
   | {

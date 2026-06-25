@@ -114,7 +114,7 @@ export function createTimestampId<Brand extends ValidBrand>(
     extractTimestamp: layout.extractTimestamp,
     minIdForTime: (date: Date) => layout.minIdForTime(date.getTime()),
     maxIdForTime: (date: Date) => layout.maxIdForTime(date.getTime()),
-    toJsonSchema: () => wire.toJsonSchema(brand, layout.exampleWireId(options.now())),
+    toJsonSchema: () => wire.toJsonSchema(brand, layout.exampleWireId()),
     "~standard": wire["~standard"],
   };
 }

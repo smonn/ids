@@ -64,6 +64,11 @@ export type JsonSchema = {
   readonly example: string;
 };
 
+/** Minimum contract every codec's layout-ops object satisfies. Enforced via explicit return-type annotation on each `create*LayoutOps` binder. */
+export type LayoutOps<Brand extends string> = {
+  exampleWireId: (ms?: number) => Id<Brand>;
+};
+
 /** Standard Schema validate entry point exposed on a codec's `~standard` property. */
 export type StandardSchemaProps<Brand extends ValidBrand> = {
   readonly version: 1;
