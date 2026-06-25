@@ -69,7 +69,7 @@ export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): P
   const codec = await buildCodec(variant, brand ?? "", values, optsWithStdin);
   if (isCodecError(codec)) {
     opts.stderr(codec.message + "\n");
-    return 1;
+    return codec.kind === "usage" ? 2 : 1;
   }
   for (let i = 0; i < count; i++) opts.stdout((await codec.generate()) + "\n");
   return 0;

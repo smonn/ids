@@ -603,9 +603,9 @@ describe("cli", () => {
       for (const id of ids) expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
     });
 
-    it("--opaque without IDS_KEY exits 1", async () => {
+    it("--opaque without IDS_KEY exits 2", async () => {
       const result = await runCapture(["generate", "usr", "--opaque"], { env: {} });
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(2);
       expect(result.stderr).toBe("missing IDS_KEY environment variable\n");
     });
 
@@ -631,7 +631,7 @@ describe("cli", () => {
       const result = await runCapture(["generate", "usr", "--opaque", "--key-format", "bogus"], {
         env: { IDS_KEY: testKeyHex },
       });
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(2);
       expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
     });
 
@@ -886,7 +886,7 @@ describe("cli", () => {
       const result = await runCapture(["generate", "usr", "--opaque"], {
         env: { IDS_KEY: testKeyHex, IDS_KEY_FORMAT: "bogus" },
       });
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(2);
       expect(result.stderr).toBe("IDS_KEY_FORMAT must be hex or base64url, got 'bogus'\n");
     });
 
@@ -1539,9 +1539,9 @@ describe("cli generate --signed", () => {
     expect(result.stdout).toBe(`${expected}\n`);
   });
 
-  it("without IDS_SIGNING_KEY exits 1 with a clear error", async () => {
+  it("without IDS_SIGNING_KEY exits 2 with a clear error", async () => {
     const result = await runCapture(["generate", "usr", "--signed"], { env: {} });
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("missing IDS_SIGNING_KEY environment variable\n");
   });
@@ -1658,7 +1658,7 @@ describe("cli generate --signed", () => {
     const result = await runCapture(["generate", "usr", "--signed"], {
       env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_SIGNING_KEY_FORMAT: "bogus" },
     });
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("IDS_SIGNING_KEY_FORMAT must be hex or base64url, got 'bogus'\n");
   });
@@ -1667,7 +1667,7 @@ describe("cli generate --signed", () => {
     const result = await runCapture(["generate", "usr", "--signed", "--key-format", "bogus"], {
       env: { IDS_SIGNING_KEY: testSigningKeyHex },
     });
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
   });
@@ -1676,7 +1676,7 @@ describe("cli generate --signed", () => {
     const result = await runCapture(["generate", "usr", "--signed", "--key-format"], {
       env: { IDS_SIGNING_KEY: testSigningKeyHex },
     });
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format requires a value\n");
   });
@@ -2120,31 +2120,31 @@ describe("cli generate --digest", () => {
     expect(result.stdout.trim()).toMatch(/^idk_[0-9a-hjkmnp-tv-z]{26}$/);
   });
 
-  it("rejects missing IDS_DIGEST_KEY → exit 1, stderr mentions IDS_DIGEST_KEY", async () => {
+  it("rejects missing IDS_DIGEST_KEY → exit 2, stderr mentions IDS_DIGEST_KEY", async () => {
     const result = await runCaptureWithStdin(
       ["generate", "idk", "--digest", "--ns", "checkout"],
       "order-123",
       { env: {} },
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("IDS_DIGEST_KEY");
   });
 
-  it("rejects missing --ns → exit 1, stderr mentions --ns", async () => {
+  it("rejects missing --ns → exit 2, stderr mentions --ns", async () => {
     const result = await runCaptureWithStdin(["generate", "idk", "--digest"], "order-123", {
       env: { IDS_DIGEST_KEY: testDigestKeyHex },
     });
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("--ns");
   });
 
-  it("rejects --ns without value → exit 1, error message", async () => {
+  it("rejects --ns without value → exit 2, error message", async () => {
     const result = await runCaptureWithStdin(["generate", "idk", "--digest", "--ns"], "order-123", {
       env: { IDS_DIGEST_KEY: testDigestKeyHex },
     });
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("--ns");
   });
