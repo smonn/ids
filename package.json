@@ -108,7 +108,7 @@
     "@prisma/client": ">=5.0.0",
     "@total-typescript/shoehorn": "^0.1.2",
     "@types/express": "^5.0.6",
-    "@types/node": "24.13.2",
+    "@types/node": "22.20.0",
     "@vitest/coverage-v8": "4.1.8",
     "dependency-cruiser": "17.4.3",
     "drizzle-orm": "^0.45.2",
@@ -176,7 +176,7 @@
     }
   },
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=22.0.0"
   },
   "packageManager": "pnpm@11.4.0"
 }
