@@ -1,16 +1,10 @@
 import type { webcrypto } from "node:crypto";
 import type { Id, LayoutOps, Prefix } from "../../types.js";
+import { writeLen32 } from "../_kernel/crypto.js";
 import { toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 
 const encoder = new TextEncoder();
-
-function writeLen32(value: number, target: Uint8Array, offset: number): void {
-  target[offset] = (value >>> 24) & 0xff;
-  target[offset + 1] = (value >>> 16) & 0xff;
-  target[offset + 2] = (value >>> 8) & 0xff;
-  target[offset + 3] = value & 0xff;
-}
 
 function buildMessage(
   brandBytes: Uint8Array,

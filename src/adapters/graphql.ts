@@ -6,7 +6,7 @@ import type { Id } from "../types.js";
 /**
  * Builds a `GraphQLScalarType` for the given codec and brand.
  *
- * - `serialize` — identity pass-through; an `Id<Brand>` is already the canonical wire string.
+ * - `serialize` — validates via `codec.safeParse`; throws `GraphQLError` on a non-conforming value.
  * - `parseValue` — validates variables via `codec.safeParse`; throws `GraphQLError` on failure.
  * - `parseLiteral` — validates inline `Kind.STRING` literals; throws `GraphQLError` for any
  *   other AST kind or on a failed `safeParse`.
@@ -36,7 +36,7 @@ export function idScalar<Brand extends string>(
   return new GraphQLScalarType<Id<Brand>, string>({
     name: config.name,
     description: config.description,
-    serialize: (value) => value as string,
+    serialize: parse,
     parseValue: parse,
     parseLiteral: (ast: ValueNode) => {
       if (ast.kind !== Kind.STRING) {

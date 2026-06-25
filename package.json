@@ -14,23 +14,72 @@
     "dist"
   ],
   "type": "module",
+  "types": "./dist/index.d.mts",
   "exports": {
-    ".": "./dist/index.mjs",
-    "./opaque": "./dist/opaque.mjs",
-    "./reverse": "./dist/reverse.mjs",
-    "./signed": "./dist/signed.mjs",
-    "./wrapped": "./dist/wrapped.mjs",
-    "./digest": "./dist/digest.mjs",
-    "./drizzle": "./dist/drizzle.mjs",
-    "./hono": "./dist/hono.mjs",
-    "./kysely": "./dist/kysely.mjs",
-    "./mikro-orm": "./dist/mikro-orm.mjs",
-    "./prisma": "./dist/prisma.mjs",
-    "./express": "./dist/express.mjs",
-    "./fastify": "./dist/fastify.mjs",
-    "./typeorm": "./dist/typeorm.mjs",
-    "./graphql": "./dist/graphql.mjs",
-    "./nestjs": "./dist/nestjs.mjs",
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./opaque": {
+      "types": "./dist/opaque.d.mts",
+      "default": "./dist/opaque.mjs"
+    },
+    "./reverse": {
+      "types": "./dist/reverse.d.mts",
+      "default": "./dist/reverse.mjs"
+    },
+    "./signed": {
+      "types": "./dist/signed.d.mts",
+      "default": "./dist/signed.mjs"
+    },
+    "./wrapped": {
+      "types": "./dist/wrapped.d.mts",
+      "default": "./dist/wrapped.mjs"
+    },
+    "./digest": {
+      "types": "./dist/digest.d.mts",
+      "default": "./dist/digest.mjs"
+    },
+    "./drizzle": {
+      "types": "./dist/drizzle.d.mts",
+      "default": "./dist/drizzle.mjs"
+    },
+    "./hono": {
+      "types": "./dist/hono.d.mts",
+      "default": "./dist/hono.mjs"
+    },
+    "./kysely": {
+      "types": "./dist/kysely.d.mts",
+      "default": "./dist/kysely.mjs"
+    },
+    "./mikro-orm": {
+      "types": "./dist/mikro-orm.d.mts",
+      "default": "./dist/mikro-orm.mjs"
+    },
+    "./prisma": {
+      "types": "./dist/prisma.d.mts",
+      "default": "./dist/prisma.mjs"
+    },
+    "./express": {
+      "types": "./dist/express.d.mts",
+      "default": "./dist/express.mjs"
+    },
+    "./fastify": {
+      "types": "./dist/fastify.d.mts",
+      "default": "./dist/fastify.mjs"
+    },
+    "./typeorm": {
+      "types": "./dist/typeorm.d.mts",
+      "default": "./dist/typeorm.mjs"
+    },
+    "./graphql": {
+      "types": "./dist/graphql.d.mts",
+      "default": "./dist/graphql.mjs"
+    },
+    "./nestjs": {
+      "types": "./dist/nestjs.d.mts",
+      "default": "./dist/nestjs.mjs"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -48,7 +97,7 @@
     "bench:build": "tsdown -c tsdown.bench.config.ts",
     "bench": "pnpm -s bench:build 1>&2 && node bench/dist/index.mjs",
     "bench:compare": "pnpm -s bench:build 1>&2 && node bench/dist/compare.mjs",
-    "version-packages": "changeset version && pnpm fmt"
+    "version-packages": "changeset version"
   },
   "devDependencies": {
     "@changesets/cli": "2.31.0",
@@ -79,16 +128,16 @@
     "vitest": "4.1.9"
   },
   "peerDependencies": {
-    "@mikro-orm/core": ">=6.0.0",
-    "@nestjs/common": ">=10.0.0",
+    "@mikro-orm/core": ">=7.0.0",
+    "@nestjs/common": ">=11.0.0",
     "@prisma/client": ">=5.0.0",
-    "drizzle-orm": ">=0.30.0",
+    "drizzle-orm": ">=0.36.0",
     "express": ">=4.0.0",
     "fastify": ">=4.0.0",
     "graphql": ">=16.0.0",
     "hono": ">=4.0.0",
     "kysely": ">=0.27.0",
-    "typeorm": ">=0.3.0"
+    "typeorm": ">=1.0.0"
   },
   "peerDependenciesMeta": {
     "@mikro-orm/core": {

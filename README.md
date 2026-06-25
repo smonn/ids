@@ -44,8 +44,11 @@ JSON Schema.
 ## Choosing a codec
 
 All six codecs share the same `<brand>_<26 chars>` wire shape but make different
-trade-offs. They are wire-indistinguishable, so codec choice is a per-brand
-commitment.
+trade-offs. They are wire-indistinguishable — `safeParse`, `is`, and `parse`
+cannot distinguish an Opaque Timestamp ID from a Timestamp ID at runtime.
+Cross-codec confusion is undetectable by the library; the consumer is
+responsible for routing a given ID to the correct codec for the brand. Codec
+choice is therefore a per-brand commitment.
 
 | Codec             | Import               | Sort direction            | Key required       | Timestamp extractable      |
 | ----------------- | -------------------- | ------------------------- | ------------------ | -------------------------- |

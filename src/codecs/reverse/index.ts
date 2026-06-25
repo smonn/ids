@@ -86,6 +86,13 @@ export type ReverseTimestampCodec<Brand extends string> = {
  *
  * @param brand - Entity type brand validated once at construction.
  * @param opts - Optional `now`, `rng`, and `allowDuplicateBrand` overrides.
+ * @example
+ * ```ts
+ * const posts = createReverseTimestampId("pst");
+ *
+ * const id = posts.generate();            // Id<"pst">  (newest-first sort)
+ * posts.extractTimestamp(id);             // Date
+ * ```
  */
 export function createReverseTimestampId<Brand extends string>(
   brand: Brand,

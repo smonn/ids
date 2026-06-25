@@ -14,23 +14,16 @@ pnpm add @prisma/client
 ```ts
 import { idField } from "@smonn/ids/prisma";
 import { createTimestampId } from "@smonn/ids";
-import type { Id } from "@smonn/ids";
 
 const usr = createTimestampId("usr");
 const userIdField = idField(usr);
 
 const xprisma = prisma.$extends({
   result: {
-    user: {
-      id: {
-        needs: { id: true },
-        compute(user) {
-          return userIdField.read(user.id) as Id<"usr">; // cast required — see below
-        },
-      },
-    },
+    user: { id: userIdField.computeField("id") },
   },
 });
+// xprisma.user.findUnique(…).id is typed as Id<"usr"> — no cast required
 
 // Write path: Id<Brand> is already canonical — pass it directly
 await xprisma.user.create({ data: { id: userIdField.write(usr.generate()), name: "Alice" } });
@@ -64,12 +57,3 @@ try {
 `IdsError`, `isIdsError`, and `IdsErrorCode` are re-exported from `@smonn/ids/prisma` — no
 separate import from `"@smonn/ids"` is needed. For the full list of `IdsErrorCode` values, see
 the error-code reference.
-
-:::caution[Prisma casting caveat]
-Prisma's `$extends` result component can add typed computed accessors but cannot
-retroactively re-type an existing schema field at the Prisma Client level. The
-`read` function asserts `Id<Brand>` at the TypeScript level, but Prisma's
-generated types won't reflect this branding — callers need an explicit
-`as Id<"brand">` cast at consumption sites. This is a Prisma type-system
-constraint, not a library limitation.
-:::

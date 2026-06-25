@@ -14,9 +14,14 @@
  */
 import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import type { ResultArgs, ResultFieldDefinition } from "@prisma/client/runtime/library";
+import type {
+  GetPayloadResult,
+  InternalArgs,
+  ResultArgs,
+  ResultFieldDefinition,
+} from "@prisma/client/runtime/library";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { idField, IdsError, isIdsError, type IdColumnCodec } from "./prisma.js";
+import { idField, IdsError, isIdsError, type IdColumnCodec, type IdTransform } from "./prisma.js";
 import type { Id } from "../types.js";
 
 describe("prisma", () => {
@@ -115,5 +120,67 @@ describe("prisma", () => {
     } satisfies ResultArgs;
 
     expectTypeOf(resultSpec.result["user"]!["id"]).toMatchTypeOf<ResultFieldDefinition>();
+  });
+
+  it("computeField returns a { needs, compute } object", () => {
+    const field = transform.computeField("id");
+    expect(field).toHaveProperty("needs", { id: true });
+    expect(typeof field.compute).toBe("function");
+  });
+
+  it("computeField.compute parses a valid Id<Brand> value", () => {
+    const id = usr.generate();
+    const field = transform.computeField("id");
+    expect(field.compute({ id })).toBe(id);
+  });
+
+  it("computeField.compute is typed to return Id<Brand>", () => {
+    const field = transform.computeField("id");
+    expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr">>();
+  });
+
+  it("computeField.compute throws IdsError on invalid value", () => {
+    const field = transform.computeField("id");
+    let err: unknown;
+    try {
+      field.compute({ id: "not-a-valid-id" });
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+  });
+
+  it("computeField.compute throws IdsError on wrong-brand value", () => {
+    const field = transform.computeField("id");
+    const orgId = org.generate();
+    let err: unknown;
+    try {
+      field.compute({ id: orgId });
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+    expect((err as IdsError).cause).toBe("invalid_prefix");
+  });
+
+  it("brand survives $extends result component — type-level assertion via GetPayloadResult", () => {
+    // Simulates the type path that Prisma's $extends follows when computing
+    // the model type for an extended client. InternalArgs wraps each field
+    // definition as a thunk; GetPayloadResult extracts the compute return
+    // type and uses it as the field type on the extended model.
+    type MockUserBase = { id: string; name: string };
+    const fieldDef = transform.computeField("id");
+
+    type Args = InternalArgs<{ user: { id: typeof fieldDef } }>;
+    type Extended = GetPayloadResult<MockUserBase, Args["result"]["user"]>;
+
+    expectTypeOf<Extended["id"]>().toEqualTypeOf<Id<"usr">>();
+  });
+
+  it("IdTransform type exposes computeField", () => {
+    expectTypeOf(transform).toMatchTypeOf<IdTransform<"usr">>();
+    expectTypeOf(transform.computeField).toBeFunction();
   });
 });

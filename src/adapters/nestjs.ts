@@ -73,7 +73,7 @@ export class ParseIdPipe<Brand extends string> implements PipeTransform<unknown,
     if (!result.ok) {
       const failure = resolveIdParamFailure(result.error, this.options);
       if (this.options?.onError) {
-        this.options.onError(failure);
+        return this.options.onError(failure);
       }
       if (failure.reason === "brand_mismatch" && failure.status === 404) {
         throw new NotFoundException();
