@@ -425,8 +425,8 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
         run: |
           set -euo pipefail
-          test -f .address/manifest.json || { echo "::error::producer wrote no .address/manifest.json"; exit 1; }
-          jq empty .address/manifest.json || { echo "::error::.address/manifest.json is not valid JSON"; exit 1; }
+          source .github/scripts/poster-lib.sh
+          require_manifest .address
 
           # --- 1. Escalation path: comment + label, NO push, stop. ---
           if [ "$(jq -r '.escalate // false' .address/manifest.json)" = "true" ]; then
@@ -442,7 +442,7 @@ jobs:
           # Re-establish a push credential here (the checkout had none). A
           # non-fast-forward rejection means the branch advanced past the labelled
           # commit: post "branch moved" and stop — post nothing else (all-or-nothing).
-          if git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${BRANCH}"; then
+          if push_branch "$BRANCH"; then
             echo "Pushed local commits to $BRANCH."
           else
             echo "::warning::push to $BRANCH was rejected (branch likely advanced past the labelled commit) — posting branch-moved notice and stopping."

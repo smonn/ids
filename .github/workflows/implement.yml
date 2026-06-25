@@ -337,8 +337,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          test -f .impl/manifest.json || { echo "::error::producer wrote no .impl/manifest.json"; exit 1; }
-          jq empty .impl/manifest.json || { echo "::error::.impl/manifest.json is not valid JSON"; exit 1; }
+          source .github/scripts/poster-lib.sh
+          require_manifest .impl
 
           issue=$(jq -r '.issue_number' .impl/manifest.json)
           branch=$(jq -r '.branch' .impl/manifest.json)
@@ -371,7 +371,7 @@ jobs:
           #    push (NEVER --force), to the implementation branch (NEVER main). The
           #    URL embeds the token; redirect output so it never reaches the log.
           echo "Pushing $branch…"
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${branch}" >/dev/null 2>&1
+          push_branch "$branch"
           echo "✓ Pushed $branch."
 
           # 2) Create the PR from the raw body file (no shell-quoted body).
