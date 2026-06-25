@@ -46,3 +46,8 @@ jobs:
       - run: pnpm test:coverage
 
       - run: pnpm build
+
+      # Validate the published package shape against a packed tarball: attw
+      # (esm-only profile) catches type-resolution regressions and publint
+      # catches packaging errors. Runs after build since it inspects dist/.
+      - run: pnpm pack:check
