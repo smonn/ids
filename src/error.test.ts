@@ -2,19 +2,20 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import { IdsError, type IdsErrorCode, isIdsError } from "./error.js";
 import type { ParseError } from "./types.js";
 
-const ALL_CODES: IdsErrorCode[] = [
-  "invalid_brand",
-  "invalid_namespace",
-  "invalid_key_format",
-  "invalid_key_encoding",
-  "invalid_key_length",
-  "invalid_kind",
-  "empty_keyring",
-  "duplicate_keyring_entry",
-  "invalid_lookup_key",
-  "verification_failed",
-  "invalid_id",
-];
+const ALL_CODES_MAP: Record<IdsErrorCode, 1> = {
+  invalid_brand: 1,
+  invalid_namespace: 1,
+  invalid_key_format: 1,
+  invalid_key_encoding: 1,
+  invalid_key_length: 1,
+  invalid_kind: 1,
+  empty_keyring: 1,
+  duplicate_keyring_entry: 1,
+  invalid_lookup_key: 1,
+  verification_failed: 1,
+  invalid_id: 1,
+};
+const ALL_CODES = Object.keys(ALL_CODES_MAP) as IdsErrorCode[];
 
 describe("IdsError", () => {
   it("constructs with each code", () => {
