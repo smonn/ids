@@ -1,8 +1,6 @@
 import type { webcrypto } from "node:crypto";
 import { payloadByteLength } from "../../wire/invariants.js";
 
-export const SHA256_DIGEST_BYTES = 32;
-
 const zeroIv = new Uint8Array(payloadByteLength);
 const pkcsPad = 0x10;
 

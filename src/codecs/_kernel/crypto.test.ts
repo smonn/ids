@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   decryptPayload,
   encryptPayload,
-  SHA256_DIGEST_BYTES,
   timingSafeEqual,
   writeLen32,
 } from "./crypto.js";
@@ -103,11 +102,5 @@ describe("writeLen32", () => {
     const buf = new Uint8Array(4);
     writeLen32(0xffffffff, buf, 0);
     expect(Array.from(buf)).toEqual([0xff, 0xff, 0xff, 0xff]);
-  });
-});
-
-describe("SHA256_DIGEST_BYTES", () => {
-  it("equals 32", () => {
-    expect(SHA256_DIGEST_BYTES).toBe(32);
   });
 });
