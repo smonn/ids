@@ -19,6 +19,7 @@ const entryPoints = [
   "../src/adapters/fastify.ts",
   "../src/adapters/hono.ts",
   "../src/adapters/kysely.ts",
+  "../src/adapters/mikro-orm.ts",
   "../src/adapters/prisma.ts",
 ];
 
@@ -90,6 +91,7 @@ export default defineConfig({
             { label: "Fastify", link: "/adapters/fastify/" },
             { label: "Drizzle", link: "/adapters/drizzle/" },
             { label: "Kysely", link: "/adapters/kysely/" },
+            { label: "MikroORM", link: "/adapters/mikro-orm/" },
             { label: "Prisma", link: "/adapters/prisma/" },
           ],
         },
