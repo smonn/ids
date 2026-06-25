@@ -29,16 +29,37 @@ different invariants.
 
 ### Future codec variants (unbuilt)
 
-Sibling variants the accepting ADRs left open. Each would need its own ADR before code.
+Sibling variants the accepting ADRs left open. Both were **evaluated and rejected (2026-06-25)**
+with no concrete consumer on file (no open issue requested either). Kept here so the questions are
+not reopened without new evidence; each would still need its own ADR before any code.
 
-- **Randomized Wrapped key variant.** A sibling to the compact Wrapped key codec that spends
-  payload bits on a nonce, trading away tag strength _and_ determinism (so no equality
-  leakage). Out of scope for the compact deterministic branch — needs its own ADR and a
-  tag-budget analysis. See [ADR-0009](./adr/0009-wrapped-key-compact-construction.md)
-  (Consequences) and the **Wrapped key codec** entry in [CONTEXT.md](../CONTEXT.md).
-- **Signed Timestamp alternate tail-budget split.** A variant that divides the tail
-  differently — e.g. a larger tag where same-millisecond volume is known to be low. Needs
-  its own tag-budget analysis and ADR. See [ADR-0012](./adr/0012-signed-timestamp-construction.md).
+- ~~**Randomized Wrapped key variant.**~~ **Rejected.** A sibling to the compact Wrapped key codec
+  that spends payload bits on a nonce, trading away tag strength _and_ determinism (so no equality
+  leakage). Inside the fixed 16-byte payload the lane (64 bits) must stay, so a meaningful nonce
+  (~32 bits) comes straight out of the tag — dropping it to **32 bits, the exact width
+  [ADR-0009](./adr/0009-wrapped-key-compact-construction.md) rejected as too weak** for
+  correctness-grade unwrap. That trades the codec's headline property (verified, correctness-grade
+  unwrap) for a niche leak: equality leakage only bites when "these two IDs wrap the same lookup
+  key" is itself sensitive, not the common stable-public-token case (where determinism is a
+  feature). When unlinkability genuinely matters you almost always want integrity too, and the
+  honest construction (AEAD with a stored nonce) does not fit 16 bytes — ADR-0009 already rejected
+  AES-CTR/GCM for that reason. So the in-budget variant is strictly worse than the correct answer
+  ("use a wider format / different tool") and adds a third wire-indistinguishable Wrapped-family
+  skin ([ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md)). Reopen only with a
+  concrete consumer that needs unlinkable reversible tokens _and_ accepts 32-bit integrity. See
+  ADR-0009 (Consequences) and the **Wrapped key codec** entry in [CONTEXT.md](../CONTEXT.md).
+- ~~**Signed Timestamp alternate tail-budget split.**~~ **Rejected.** A variant dividing the tail
+  differently — e.g. a larger tag where same-millisecond volume is known to be low. ADR-0012's own
+  2026-06-24 refinement undercuts the general case: over a year the **random field is the tighter
+  axis, not the tag**, so shifting bits from random to tag hardens the already-comfortable axis
+  (40-bit tag ≈ 1.7 years to one online forgery at 10⁴/s) at the cost of the already-tight one. The
+  only coherent regime is genuinely low write volume, and there the forgery axis is online-only and
+  server-adjudicated — **verify-endpoint rate limiting** (wanted anyway) caps it for free without
+  spending wire bits. Exposing the split as a knob also fights wire-indistinguishability: a 40/40 ID
+  verified under a different split reads the wrong bytes as tag and silently always fails. Of the two
+  this is the closer call (coherent niche, near-zero construction cost), but it stays rejected absent
+  a concrete low-volume-token consumer to justify the operator-confusion surface. See
+  [ADR-0012](./adr/0012-signed-timestamp-construction.md).
 
 ## Wrapped key codec
 
@@ -172,6 +193,15 @@ consumer appears.
   future use case genuinely warrants it, with its own ADR and verification story.
 - **Public `@smonn/ids/wire` subpath (parse-without-codec).** See [ADR-0008](./adr/0008-internal-module-layering.md).
   Rejected for now — adapters use `codec["~standard"]`. Can ship later if a concrete adapter need appears.
+- **Randomized Wrapped key variant.** See the **Future codec variants (unbuilt)** section above and
+  [ADR-0009](./adr/0009-wrapped-key-compact-construction.md). Rejected (2026-06-25) — a meaningful
+  nonce forces the tag down to the 32-bit floor ADR-0009 already rejected, to solve a niche leak
+  better handled by a wider format. Reopen only with a consumer needing unlinkable reversible tokens
+  that also accepts 32-bit integrity.
+- **Signed Timestamp alternate tail-budget split.** See the **Future codec variants (unbuilt)**
+  section above and [ADR-0012](./adr/0012-signed-timestamp-construction.md). Rejected (2026-06-25) —
+  ADR-0012's 2026-06-24 refinement makes the random field the tighter axis, and verify-endpoint rate
+  limiting covers the forgery axis for free. Reopen only with a concrete low-volume-token consumer.
 - **Changing the payload width (20 bytes / any non-128-bit length).** See
   [ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md) (Rejected) and the **Wire payload width**
   section above. Width is settled at 128 bits — the cryptographic and length sweet spot; #210's padding
