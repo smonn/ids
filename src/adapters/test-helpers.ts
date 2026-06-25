@@ -1,3 +1,4 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import { vi } from "vitest";
 import type { Id, ParseResult } from "../types.js";
 
@@ -9,13 +10,11 @@ export function makeSpyCodec<Brand extends string>(
   wrap: () => void;
   unwrap: () => void;
 } {
-  const fakeId = `${brand}_00000000000000000000000000` as unknown as Id<Brand>;
+  const fakeId: Id<Brand> = fromAny(`${brand}_00000000000000000000000000`);
   return {
-    safeParse: vi.fn(() => ({ ok: true as const, id: fakeId })) as unknown as (
-      value: unknown,
-    ) => ParseResult<Brand>,
-    extractTimestamp: vi.fn() as unknown as () => void,
-    wrap: vi.fn() as unknown as () => void,
-    unwrap: vi.fn() as unknown as () => void,
+    safeParse: fromAny(vi.fn(() => ({ ok: true as const, id: fakeId }))),
+    extractTimestamp: fromAny(vi.fn()),
+    wrap: fromAny(vi.fn()),
+    unwrap: fromAny(vi.fn()),
   };
 }
