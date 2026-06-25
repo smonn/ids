@@ -16,7 +16,7 @@
 #     three sub-steps.
 #
 # Inputs:
-#   - node-version: Node.js version to install (default "24").
+#   - node-version: Node.js version to install (default "22", the engines floor).
 #   - registry-url: npm registry URL to configure on setup-node. Empty (the
 #     default) is a no-op, so most callers omit it; release passes the npm registry
 #     so it can publish.
@@ -29,7 +29,7 @@ inputs:
   node-version:
     description: Node.js version to install.
     required: false
-    default: "24"
+    default: "22"
   registry-url:
     description: npm registry URL for setup-node (empty is a no-op).
     required: false
