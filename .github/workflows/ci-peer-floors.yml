@@ -1,0 +1,111 @@
+name: CI — peer floors
+
+# Proves the advertised `peerDependencies` floors actually work. The main CI
+# (ci.yml) installs one latest-ish version of each peer dep; the declared
+# *minimum* versions are never exercised there, so a floor that doesn't really
+# work goes undetected. This workflow is additive — it does NOT replace any
+# step in ci.yml — and runs a per-adapter matrix that installs each adapter's
+# declared minimum peer version and runs that adapter's test suite (plus a full
+# typecheck) against it. A floor that breaks at its declared version fails CI.
+#
+# The floor is read at runtime from `peerDependencies` in package.json, so this
+# workflow has no hardcoded version to drift: when a floor is raised/lowered
+# there (see #469), the matrix automatically tests the new value.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  peer-floor:
+    name: floor (${{ matrix.adapter }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Don't let one broken floor mask the others — every adapter is reported.
+      fail-fast: false
+      matrix:
+        # adapter: basename of the test file under src/adapters/.
+        # peer:    the peerDependencies key whose declared floor to install.
+        include:
+          - adapter: drizzle
+            peer: drizzle-orm
+          - adapter: hono
+            peer: hono
+          - adapter: kysely
+            peer: kysely
+          - adapter: mikro-orm
+            peer: "@mikro-orm/core"
+          - adapter: prisma
+            peer: "@prisma/client"
+          - adapter: express
+            peer: express
+          - adapter: fastify
+            peer: fastify
+          - adapter: typeorm
+            peer: typeorm
+          - adapter: graphql
+            peer: graphql
+          - adapter: nestjs
+            peer: "@nestjs/common"
+    steps:
+      # Monitor egress in audit mode (log-only, never blocks). Like ci.yml, this
+      # job is read-only but installs deps that run untrusted postinstall scripts.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: ./.github/actions/setup-node-pnpm
+
+      # Derive the declared minimum from package.json peerDependencies. The
+      # range is a `>=X.Y.Z` floor; we take the first semver as the version to
+      # install. Written as .cjs so it parses as CommonJS regardless of the
+      # repo's "type": "module".
+      - name: Resolve declared floor for ${{ matrix.peer }}
+        id: floor
+        env:
+          PEER: ${{ matrix.peer }}
+        run: |
+          cat > "$RUNNER_TEMP/floor.cjs" <<'EOF'
+          const { readFileSync } = require("node:fs");
+          const peer = process.env.PEER;
+          const pj = JSON.parse(readFileSync("package.json", "utf8"));
+          const range = (pj.peerDependencies || {})[peer];
+          if (!range) {
+            console.error(`no peerDependencies floor declared for ${peer}`);
+            process.exit(1);
+          }
+          const m = range.match(/\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/);
+          if (!m) {
+            console.error(`cannot derive a floor from "${range}" for ${peer}`);
+            process.exit(1);
+          }
+          console.log(`version=${m[0]}`);
+          EOF
+          node "$RUNNER_TEMP/floor.cjs" >> "$GITHUB_OUTPUT"
+
+      # Swap in the declared minimum. -w because the published package is the
+      # workspace root; this rewrites the resolution for the ephemeral CI run.
+      - name: Install ${{ matrix.peer }}@${{ steps.floor.outputs.version }} (declared minimum)
+        run: pnpm add -w -D "${{ matrix.peer }}@${{ steps.floor.outputs.version }}"
+
+      # Typecheck catches type-only floor breaks. Several adapters import the
+      # peer for types only (e.g. typeorm, prisma), so those regressions surface
+      # here rather than in the runtime test.
+      - name: Typecheck against the floor
+        run: pnpm typecheck
+
+      # Run only this adapter's suite so a failure is unambiguously attributable
+      # to its floor. No --coverage: the 100% threshold applies to the whole
+      # suite, not one file.
+      - name: Run ${{ matrix.adapter }} test suite against the floor
+        run: pnpm exec vitest run "src/adapters/${{ matrix.adapter }}.test.ts"
