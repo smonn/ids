@@ -161,14 +161,14 @@ describe("importOpaqueKey", () => {
     expectTypeOf(importOpaqueKey).returns.toEqualTypeOf<Promise<OpaqueKey>>();
   });
 
-  it("rejects invalid key byte lengths", async () => {
-    await expect(importOpaqueKey(new Uint8Array(8))).rejects.toMatchObject({
-      code: "invalid_key_length",
-    });
-    await expect(importOpaqueKey(new Uint8Array(31))).rejects.toMatchObject({
-      code: "invalid_key_length",
-    });
-  });
+  it.each([0, 8, 15, 17, 23, 25, 31, 33])(
+    "rejects key of length %d bytes with invalid_key_length",
+    async (len) => {
+      await expect(importOpaqueKey(new Uint8Array(len))).rejects.toMatchObject({
+        code: "invalid_key_length",
+      });
+    },
+  );
 
   it("getOpaqueKeyCryptoKey throws on an unregistered handle (internal guard — plain Error)", () => {
     const fake = Object.freeze({}) as OpaqueKey;
