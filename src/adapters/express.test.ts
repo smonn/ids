@@ -1,11 +1,12 @@
-import type { NextFunction, Request, Response } from "express";
+import { fromAny } from "@total-typescript/shoehorn";
+import type { NextFunction, Request } from "express";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { IdParamError, idParam } from "./express.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 
 function makeReq(paramName: string, value: string | undefined): Request {
-  return { params: { [paramName]: value } } as unknown as Request;
+  return fromAny({ params: { [paramName]: value } });
 }
 
 type MockRes = {
@@ -54,9 +55,9 @@ describe("idParam", () => {
       const validId = usr.generate();
       const req = makeReq("id", validId);
       const res = makeRes();
-      const next = vi.fn() as unknown as NextFunction;
+      const next: NextFunction = fromAny(vi.fn());
 
-      middleware(req, res as unknown as Response, next);
+      middleware(req, fromAny(res), next);
 
       expect(next).toHaveBeenCalledOnce();
       expect(next).toHaveBeenCalledWith();
@@ -70,9 +71,9 @@ describe("idParam", () => {
       const nonCanonical = canonicalId.toUpperCase();
       const req = makeReq("id", nonCanonical);
       const res = makeRes();
-      const next = vi.fn() as unknown as NextFunction;
+      const next: NextFunction = fromAny(vi.fn());
 
-      middleware(req, res as unknown as Response, next);
+      middleware(req, fromAny(res), next);
 
       expect(next).toHaveBeenCalledOnce();
       expect(next).toHaveBeenCalledWith();
@@ -84,15 +85,15 @@ describe("idParam", () => {
       const orgId = org.generate();
       const req = makeReq("id", orgId);
       const res = makeRes();
-      const next = vi.fn() as unknown as NextFunction;
+      const next: NextFunction = fromAny(vi.fn());
 
-      middleware(req, res as unknown as Response, next);
+      middleware(req, fromAny(res), next);
 
       expect(next).toHaveBeenCalledOnce();
-      const err = vi.mocked(next).mock.calls[0]?.[0];
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
-      expect((err as unknown as IdParamError).reason).toBe("brand_mismatch");
-      expect((err as unknown as IdParamError).status).toBe(404);
+      expect(err.reason).toBe("brand_mismatch");
+      expect(err.status).toBe(404);
       expect(res.statusCode).toBe(200);
     });
 
@@ -102,15 +103,15 @@ describe("idParam", () => {
       // Crockford base32 alphabet
       const req = makeReq("id", "usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
       const res = makeRes();
-      const next = vi.fn() as unknown as NextFunction;
+      const next: NextFunction = fromAny(vi.fn());
 
-      middleware(req, res as unknown as Response, next);
+      middleware(req, fromAny(res), next);
 
       expect(next).toHaveBeenCalledOnce();
-      const err = vi.mocked(next).mock.calls[0]?.[0];
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
-      expect((err as unknown as IdParamError).reason).toBe("malformed");
-      expect((err as unknown as IdParamError).status).toBe(400);
+      expect(err.reason).toBe("malformed");
+      expect(err.status).toBe(400);
       expect(res.statusCode).toBe(200);
     });
 
@@ -123,9 +124,9 @@ describe("idParam", () => {
       const orgId = org.generate();
       const req = makeReq("id", orgId);
       const res = makeRes();
-      const next = vi.fn() as unknown as NextFunction;
+      const next: NextFunction = fromAny(vi.fn());
 
-      middleware(req, res as unknown as Response, next);
+      middleware(req, fromAny(res), next);
 
       expect(next).not.toHaveBeenCalled();
       expect(res.statusCode).toBe(404);
@@ -140,9 +141,9 @@ describe("idParam", () => {
       });
       const req = makeReq("id", "usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
       const res = makeRes();
-      const next = vi.fn() as unknown as NextFunction;
+      const next: NextFunction = fromAny(vi.fn());
 
-      middleware(req, res as unknown as Response, next);
+      middleware(req, fromAny(res), next);
 
       expect(next).not.toHaveBeenCalled();
       expect(res.statusCode).toBe(400);
@@ -154,15 +155,15 @@ describe("idParam", () => {
       const orgId = org.generate();
       const req = makeReq("id", orgId);
       const res = makeRes();
-      const next = vi.fn() as unknown as NextFunction;
+      const next: NextFunction = fromAny(vi.fn());
 
-      middleware(req, res as unknown as Response, next);
+      middleware(req, fromAny(res), next);
 
       expect(next).toHaveBeenCalledOnce();
-      const err = vi.mocked(next).mock.calls[0]?.[0];
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
-      expect((err as unknown as IdParamError).reason).toBe("brand_mismatch");
-      expect((err as unknown as IdParamError).status).toBe(400);
+      expect(err.reason).toBe("brand_mismatch");
+      expect(err.status).toBe(400);
     });
   });
 
@@ -175,9 +176,9 @@ describe("idParam", () => {
       const validId = await inv.generate();
       const req = makeReq("id", validId);
       const res = makeRes();
-      const next = vi.fn() as unknown as NextFunction;
+      const next: NextFunction = fromAny(vi.fn());
 
-      middleware(req, res as unknown as Response, next);
+      middleware(req, fromAny(res), next);
 
       expect(next).toHaveBeenCalledOnce();
       expect(next).toHaveBeenCalledWith();
@@ -193,15 +194,15 @@ describe("idParam", () => {
       const usrId = usr.generate();
       const req = makeReq("id", usrId);
       const res = makeRes();
-      const next = vi.fn() as unknown as NextFunction;
+      const next: NextFunction = fromAny(vi.fn());
 
-      middleware(req, res as unknown as Response, next);
+      middleware(req, fromAny(res), next);
 
       expect(next).toHaveBeenCalledOnce();
-      const err = vi.mocked(next).mock.calls[0]?.[0];
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
-      expect((err as unknown as IdParamError).reason).toBe("brand_mismatch");
-      expect((err as unknown as IdParamError).status).toBe(404);
+      expect(err.reason).toBe("brand_mismatch");
+      expect(err.status).toBe(404);
     });
 
     it("malformed payload with Opaque Timestamp codec forwards IdParamError with status 400 to next(err)", async () => {
@@ -211,15 +212,15 @@ describe("idParam", () => {
 
       const req = makeReq("id", "inv_uuuuuuuuuuuuuuuuuuuuuuuuuu");
       const res = makeRes();
-      const next = vi.fn() as unknown as NextFunction;
+      const next: NextFunction = fromAny(vi.fn());
 
-      middleware(req, res as unknown as Response, next);
+      middleware(req, fromAny(res), next);
 
       expect(next).toHaveBeenCalledOnce();
-      const err = vi.mocked(next).mock.calls[0]?.[0];
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
-      expect((err as unknown as IdParamError).reason).toBe("malformed");
-      expect((err as unknown as IdParamError).status).toBe(400);
+      expect(err.reason).toBe("malformed");
+      expect(err.status).toBe(400);
     });
   });
 });

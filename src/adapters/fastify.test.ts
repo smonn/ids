@@ -1,3 +1,4 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { IdParamError, idParam } from "./fastify.js";
@@ -16,11 +17,11 @@ function makeReq(paramName: string, value: string | undefined): MockRequest {
 }
 
 function asReq<T extends FastifyRequest = FastifyRequest>(req: MockRequest): T {
-  return req as unknown as T;
+  return fromAny(req);
 }
 
 function asReply(): FastifyReply {
-  return {} as unknown as FastifyReply;
+  return fromAny({});
 }
 
 async function catchError(fn: () => Promise<void>): Promise<unknown> {

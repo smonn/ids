@@ -1,3 +1,4 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it, vi, afterAll, beforeAll } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idColumn, IdsError, isIdsError, type IdColumnCodec, type IdColumnType } from "./kysely.js";
@@ -26,8 +27,8 @@ describe("kysely", () => {
 
   it("read-back returns Id<Brand>", () => {
     const id = usr.generate();
-    expect(usrCol.fromDriver(id as unknown as string)).toBe(id);
-    expectTypeOf(usrCol.fromDriver(id as unknown as string)).toEqualTypeOf<Id<"usr">>();
+    expect(usrCol.fromDriver(fromAny(id))).toBe(id);
+    expectTypeOf(usrCol.fromDriver(fromAny(id))).toEqualTypeOf<Id<"usr">>();
   });
 
   it("brand round-trip typing — idColumn infers Brand from codec", () => {
@@ -36,7 +37,7 @@ describe("kysely", () => {
       .toMatchTypeOf<IdColumnCodec<"usr">>();
     expectTypeOf(usr).toMatchTypeOf<IdColumnCodec<"usr">>();
     const id = usr.generate();
-    const fromDb = usrCol.fromDriver(id as unknown as string);
+    const fromDb = usrCol.fromDriver(fromAny(id));
     expect(fromDb).toBe(id);
   });
 
@@ -50,7 +51,7 @@ describe("kysely", () => {
     const orgId = org.generate();
     let err: unknown;
     try {
-      usrCol.fromDriver(orgId as unknown as string);
+      usrCol.fromDriver(fromAny(orgId));
     } catch (e) {
       err = e;
     }
@@ -75,7 +76,7 @@ describe("kysely", () => {
   it("rejects a non-string value from DB", () => {
     let err: unknown;
     try {
-      usrCol.fromDriver(undefined as unknown as string);
+      usrCol.fromDriver(fromAny(undefined));
     } catch (e) {
       err = e;
     }
