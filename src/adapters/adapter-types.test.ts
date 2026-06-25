@@ -18,13 +18,15 @@ describe("readIdColumn", () => {
     }
   });
 
-  it("calls safeParse and not extractTimestamp / wrap / unwrap (spy codec contract)", () => {
-    const spyCodec = makeSpyCodec("spy");
-    readIdColumn(spyCodec, "any_value");
-    expect(spyCodec.safeParse).toHaveBeenCalled();
-    expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
-    expect(spyCodec.wrap).not.toHaveBeenCalled();
-    expect(spyCodec.unwrap).not.toHaveBeenCalled();
+  describe("safeParse-only contract (spy codec)", () => {
+    it("readIdColumn calls only safeParse on the codec", () => {
+      const spyCodec = makeSpyCodec("spy");
+      readIdColumn(spyCodec, "any_value");
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
   });
 });
 
