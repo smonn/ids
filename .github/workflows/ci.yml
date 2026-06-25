@@ -14,6 +14,15 @@ permissions:
 
 jobs:
   ci:
+    # Exercise the full suite across every supported Node major (engines.node
+    # >=22). Without this, a 24/26-only regression in the CLI or Web Crypto
+    # surface would ship undetected. fail-fast is off so one version's failure
+    # doesn't cancel the others — we want to see which majors break.
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24, 26]
+    name: ci (node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     steps:
       # Monitor egress in audit mode (log-only, never blocks). This job is
@@ -26,6 +35,8 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: ${{ matrix.node-version }}
 
       # Fail the build on a high/critical advisory against a *runtime* dependency.
       # --prod scopes the audit to production deps so dev-only advisories (e.g. the
