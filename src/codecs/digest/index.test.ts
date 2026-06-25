@@ -121,8 +121,8 @@ describe("createDigestId", () => {
 
   it("brand binding: same (ns, key, material) under different brands → different IDs", async () => {
     const key = await makeKey();
-    const a = createDigestId("aaa", { ns: "test", key, allowDuplicateBrand: true });
-    const b = createDigestId("bbb", { ns: "test", key, allowDuplicateBrand: true });
+    const a = createDigestId("aaa", { ns: "test", key });
+    const b = createDigestId("bbb", { ns: "test", key });
     const idA = await a.digest("material");
     const idB = await b.digest("material");
     expect(idA.slice(4)).not.toBe(idB.slice(4));
