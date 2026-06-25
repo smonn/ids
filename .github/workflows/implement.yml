@@ -1,5 +1,32 @@
 name: Implement ready-for-agent issues
 
+# Implements a triaged `ready-for-agent` issue test-first and opens its PR.
+#
+# PRODUCE / POST split. The Claude step is a PRODUCER: it grounds itself in the
+# repo, implements the acceptance criteria via the `/tdd` skill, commits LOCALLY
+# on the implementation branch, and runs the full CI gate — but it makes ZERO
+# GitHub mutations and NEVER pushes. It cannot: the checkout sets
+# `persist-credentials: false` (no pushable git remote) and the producer step is
+# NOT given GH_TOKEN (its `gh` is unauthenticated). The agent's entire GitHub
+# output is files under `.impl/`: the raw PR body (`pr-body.md`, written with the
+# Write tool as verbatim bytes — real newlines, no backslash escapes) and a
+# scalars-only `manifest.json`. If it must escalate (a CLOSED decision, blocked,
+# out of scope) it writes the escalation comment body to a file and flags it in
+# the manifest, committing nothing it can't stand behind.
+#
+# A separate deterministic POSTER step owns ALL GitHub mutation. It reads the
+# manifest and: on escalation, posts the comment + flips the issue to
+# ready-for-human (no push); otherwise it pushes the branch (plain, never force,
+# never to main), creates the PR from the raw body file (`--body-file`, so the
+# body can't be corrupted by shell quoting), then transitions the issue
+# (in-progress / -ready-for-agent) and comments the new PR URL. The ordering —
+# push -> create PR -> transition issue — is forced by the data: the PR needs the
+# pushed branch, and the issue comment needs the created PR's URL.
+#
+# Mechanical work (push, PR creation, issue state, JSON/body encoding) leaves the
+# agent; only judgment (what to build, how to slice it, the commits, the body
+# prose) stays with it.
+
 on:
   issues:
     types: [labeled]
@@ -44,7 +71,8 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           # Least-privilege: scope the token to what this job does — push the branch,
           # comment/label the issue, open the PR — so a prompt-injection via untrusted
-          # issue content can't wield the App's full installation grant.
+          # issue content can't wield the App's full installation grant. Only the
+          # deterministic poster step is given this token; the producer never sees it.
           permission-contents: write
           permission-issues: write
           permission-pull-requests: write
@@ -68,8 +96,11 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          # Persist the App token so the agent can push the implementation branch.
-          token: ${{ steps.app-token.outputs.token }}
+          # ENFORCED no-push: do NOT persist any credentials in the local git
+          # config. The agent can commit locally but has no authenticated remote
+          # to push to — pushing is exclusively the deterministic poster's job,
+          # which sets up a one-shot push credential from GH_TOKEN.
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Configure git identity
@@ -77,6 +108,13 @@ jobs:
         run: |
           git config user.name "smonn[bot]"
           git config user.email "110314539+smonn[bot]@users.noreply.github.com"
+
+      - name: Create the implementation branch
+        if: steps.gate.outputs.proceed == 'true'
+        # Create the branch deterministically (off the checked-out main) so the
+        # agent commits onto a correctly-named branch without running git
+        # plumbing or needing to know the convention.
+        run: git checkout -B "$BRANCH"
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         if: steps.gate.outputs.proceed == 'true'
@@ -90,15 +128,40 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: steps.gate.outputs.proceed == 'true'
 
-      - name: Implement the issue
+      # Precompute every GitHub input the producer needs and write it under
+      # .impl-context/, so the agent runs NO gh — it reads files and writes files.
+      # The acceptance criteria live in the triage comment, so we fetch title,
+      # body, AND comments. This step has GH_TOKEN; the producer step deliberately
+      # does not.
+      - name: Build implementation context (issue title, body, comments)
         if: steps.gate.outputs.proceed == 'true'
-        uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .impl-context
+          {
+            gh issue view "$ISSUE_NUMBER" --json title,body,comments --jq '
+              "# " + .title + "\n\n" + (.body // "") + "\n\n" +
+              "## Comments (the triage comment holds the acceptance criteria)\n\n" +
+              ([.comments[] | "### @" + .author.login + "\n\n" + (.body // "")] | join("\n\n---\n\n"))
+            '
+          } > .impl-context/issue.md
+          echo "Context built:"; wc -l .impl-context/issue.md || true
+
+      - name: Implement the issue (produce files, push nothing, mutate nothing)
+        if: steps.gate.outputs.proceed == 'true'
+        uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153
+        # Deliberately NO GH_TOKEN in this step's env: the agent's `gh` is
+        # unauthenticated and cannot mutate GitHub, and the checkout persisted no
+        # push credential, so it cannot push either. The poster owns both.
+        env:
+          GH_REPO: ${{ github.repository }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ steps.app-token.outputs.token }}
+          # No github_token: keeps the action from authenticating any GitHub
+          # access on the producer's behalf.
           # This workflow is triggered by the App applying `ready-for-agent`, so the
           # actor is a bot. claude-code-action blocks bot actors by default; allow
           # only our own App (never '*' — on a public repo that lets external Apps
@@ -107,8 +170,9 @@ jobs:
           # The red/green methodology lives in the project `tdd` skill
           # (.claude/skills/tdd), invoked via `/tdd` in the prompt; `Skill` is in
           # allowedTools so it can chain to `/codebase-design`. This prompt keeps only
-          # the repo-specific scaffolding the skill doesn't carry (branch naming, the
-          # full CI gate, changesets, PR creation, issue-state transition, escalation).
+          # the repo-specific scaffolding the skill doesn't carry (the full CI gate,
+          # changesets, the .impl/ producer output, escalation). PR creation, the
+          # push, and the issue-state transition are NOT here — the poster owns them.
           # Implementation is turn-heavy; Sonnet keeps subscription usage in check,
           # bump to opus if quality needs it. The /tdd skill spends several turns
           # per red→green→refactor cycle, so a multi-slice issue needs generous
@@ -123,19 +187,26 @@ jobs:
             the work specified by issue #${{ env.ISSUE_NUMBER }} in
             ${{ github.repository }}, which has been triaged `ready-for-agent`.
 
-            An authenticated `gh` CLI is available (GH_TOKEN / GH_REPO are set), and
-            git is authenticated to push to this repository. The default branch `main`
-            is checked out.
+            You are a PRODUCER ONLY. You have NO authenticated GitHub access and you
+            CANNOT push: `gh` is unauthenticated (do not call it) and the checkout
+            persisted no push credential. Do NOT run `git push`, do NOT open a PR, do
+            NOT label or comment on the issue. A later deterministic step reads the
+            files you write under `.impl/` and performs every GitHub mutation (push,
+            PR creation, issue-state transition). Your job is to implement, commit
+            LOCALLY, and write those files.
 
-            1. Read the issue and its triage comment — the triage comment holds the
-               acceptance criteria you must satisfy:
-               `gh issue view ${{ env.ISSUE_NUMBER }} --json title,body,comments`.
+            The branch `agent/issue-${{ env.ISSUE_NUMBER }}` has already been created
+            and checked out for you off the current `main`; commit onto it. Do not
+            rename it or create another branch.
+
+            1. Read the issue and its triage comment from the precomputed file
+               `.impl-context/issue.md` — it contains the issue title, body, and all
+               comments. The triage comment holds the acceptance criteria you must
+               satisfy. Do NOT call `gh` to fetch the issue; read this file.
             2. Ground yourself in the codebase before changing anything: CONTEXT.md
                (domain glossary + CLOSED design decisions), docs/adr/, AGENTS.md,
                CONTRIBUTING.md, and the relevant files under src/.
-            3. Create a branch named EXACTLY `agent/issue-${{ env.ISSUE_NUMBER }}` off
-               the current main.
-            4. Implement the acceptance criteria using the repo's `tdd` skill — invoke
+            3. Implement the acceptance criteria using the repo's `tdd` skill — invoke
                it with `/tdd`. It owns the red→green→refactor loop (vertical slices,
                one failing test → minimal code → repeat) and the testing standards.
                Because you are headless, do NOT pause for the skill's interactive
@@ -153,14 +224,14 @@ jobs:
                - NEVER touch a CLOSED design decision (brand format, payload byte
                  layout, canonical `is()`, monotonicity, custom epoch, Opaque key
                  behavior, or wire-indistinguishable codec variants). If the task
-                 genuinely requires reopening one, STOP: comment on the issue
-                 explaining why, run `gh issue edit ${{ env.ISSUE_NUMBER }} --add-label
-                 ready-for-human --remove-label ready-for-agent`, and do NOT open a PR.
-            5. Make the FULL CI gate pass locally before opening a PR, exactly as
+                 genuinely requires reopening one, take the ESCALATION path below
+                 instead of implementing — do NOT commit a change, and do NOT write a
+                 PR body.
+            4. Make the FULL CI gate pass locally before finishing, exactly as
                ci.yml runs it (use `pnpm lint:fix` / `pnpm fmt` to auto-resolve):
                `pnpm lint` && `pnpm depcruise` && `pnpm fmt:check` && `pnpm typecheck`
                && `pnpm test:coverage` && `pnpm build`. All must pass.
-            6. If the change is user-visible (public API, CLI behavior, wire format, or
+            5. If the change is user-visible (public API, CLI behavior, wire format, or
                otherwise release-note-worthy), add a changeset at
                `.changeset/<slug>.md`:
 
@@ -172,32 +243,127 @@ jobs:
 
                Use `minor` for additive API; `patch` for fixes. Docs-only or
                purely-internal changes need NO changeset.
-            7. Commit with a clear conventional-commit message, then push:
-               `git push -u origin agent/issue-${{ env.ISSUE_NUMBER }}`.
-            8. Open a pull request. Author the PR body with the Write tool to a file
-               (e.g. `pr-body.md`) — real newlines, plain characters, never backslash
-               escapes (`\n`, `\<`, `\[`) or escaped markdown metacharacters — then pass
-               that file: `gh pr create --base main --head agent/issue-${{ env.ISSUE_NUMBER }} --body-file pr-body.md`.
-               Do not build the body as a `--body "..."` string argument. Fill in the
-               repository PR template (.github/pull_request_template.md). The body MUST
-               contain `Closes #${{ env.ISSUE_NUMBER }}`, the test-plan checklist with the
-               commands you actually ran checked, and the impact checklist. Do NOT request
-               reviewers, approve, or merge — a human does that.
-            9. Finally, transition the issue state and link the PR:
-               `gh issue edit ${{ env.ISSUE_NUMBER }} --add-label in-progress
-               --remove-label ready-for-agent`, then post a brief issue comment with
-               the PR URL.
+            6. Commit your work LOCALLY with a clear conventional-commit message
+               (`git add` + `git commit`). Make as many commits as the slices
+               warrant. Do NOT push — you cannot, and the poster does it.
 
-            Keep the change minimal and scoped strictly to the acceptance criteria. If
-            you spot an adjacent improvement, a pre-existing bug, or a tempting refactor
-            that the acceptance criteria did not ask for, do NOT fold it into this PR —
-            file a follow-up issue for it (match the relevant `.github/ISSUE_TEMPLATE/`
-            form, label it `needs-triage`) and keep this PR honed to its scope.
-            Do NOT push to main directly. A human reviews and merges the PR.
+            7. Write the PRODUCER OUTPUT under a `.impl/` directory. Author every
+               body file with the Write tool, which writes bytes verbatim: use REAL
+               newlines (press enter), never the characters backslash-n, and never
+               backslash-escape markdown metacharacters (`<`, `>`, `[`, `]`,
+               backtick) — write them as plain characters; GitHub renders them. A
+               literal backslash-n or backslash-`<` in a body is a bug. You never
+               touch JSON escaping or `gh`; the poster does.
 
-      # Catch the "hollow success" case: the agent can exit 0 without opening a PR.
-      # Require either an open PR on the branch, or a legitimate escalation
-      # (ready-for-human / needs-info). Otherwise fail loudly.
+               On the NORMAL (implemented) path, write:
+               - `.impl/pr-body.md` — the raw PR description. Fill in the repository
+                 PR template (.github/pull_request_template.md). The body MUST contain
+                 `Closes #${{ env.ISSUE_NUMBER }}`, the test-plan checklist with the
+                 commands you actually ran checked, and the impact checklist. Do NOT
+                 request reviewers, approve, or merge — a human does that.
+               - `.impl/manifest.json` — scalars ONLY (no prose; nothing to escape):
+
+                     {
+                       "issue_number": ${{ env.ISSUE_NUMBER }},
+                       "branch": "agent/issue-${{ env.ISSUE_NUMBER }}",
+                       "escalate": false,
+                       "pr_title": "<conventional-commit-style PR title, e.g. 'feat: …'>"
+                     }
+
+                 Derive `pr_title` as a single concise conventional-commit subject
+                 line summarizing the change (the poster uses it verbatim as the PR
+                 title).
+
+               On the ESCALATION path (a CLOSED decision must be reopened, the issue
+               is blocked, or it cannot be implemented in scope), do NOT commit an
+               implementation and do NOT write `pr-body.md`. Instead write:
+               - `.impl/escalation.md` — the issue comment body explaining, for a
+                 human, exactly why you are stopping (which CLOSED decision / blocker /
+                 scope problem, and what is needed to proceed). Raw markdown, verbatim.
+               - `.impl/manifest.json` — scalars ONLY:
+
+                     {
+                       "issue_number": ${{ env.ISSUE_NUMBER }},
+                       "branch": "agent/issue-${{ env.ISSUE_NUMBER }}",
+                       "escalate": true,
+                       "escalate_reason": "<one-line reason>",
+                       "escalate_body_file": "escalation.md"
+                     }
+
+                 The poster will post `escalation.md` as an issue comment and flip the
+                 issue to `ready-for-human`; it will NOT push and will NOT open a PR.
+
+            Always write `.impl/manifest.json` — it is how the poster knows what you
+            did. Keep the change minimal and scoped strictly to the acceptance
+            criteria. If you spot an adjacent improvement, a pre-existing bug, or a
+            tempting refactor that the acceptance criteria did not ask for, do NOT
+            fold it into this PR — file a follow-up issue for it. You cannot call
+            `gh`, so record any such follow-up as a short section at the END of
+            `.impl/pr-body.md` (titled "Follow-ups") naming what should be filed; a
+            human files it. Keep this PR honed to its scope.
+
+      # Deterministic poster: read the producer's .impl/ files and perform every
+      # GitHub mutation. It alone gets GH_TOKEN and sets up a one-shot push
+      # credential. Ordering is forced by the data: push (the PR needs the branch)
+      # -> create PR (the issue comment needs its URL) -> transition the issue.
+      # The PR body is posted with --body-file so shell quoting can't corrupt it.
+      - name: Post results (push, open PR, transition issue — or escalate)
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test -f .impl/manifest.json || { echo "::error::producer wrote no .impl/manifest.json"; exit 1; }
+          jq empty .impl/manifest.json || { echo "::error::.impl/manifest.json is not valid JSON"; exit 1; }
+
+          issue=$(jq -r '.issue_number' .impl/manifest.json)
+          branch=$(jq -r '.branch' .impl/manifest.json)
+          escalate=$(jq -r '.escalate // false' .impl/manifest.json)
+          : "${issue:?missing issue_number}" "${branch:?missing branch}"
+
+          # ESCALATION: post the comment, flip to ready-for-human, push nothing, stop.
+          if [ "$escalate" = "true" ]; then
+            body_file=$(jq -r '.escalate_body_file // "escalation.md"' .impl/manifest.json)
+            test -f ".impl/$body_file" || { echo "::error::escalation flagged but .impl/$body_file is missing"; exit 1; }
+            echo "Escalating #$issue to a human (reason: $(jq -r '.escalate_reason // "unspecified"' .impl/manifest.json))."
+            gh issue comment "$issue" --body-file ".impl/$body_file"
+            gh issue edit "$issue" --add-label ready-for-human --remove-label ready-for-agent
+            echo "✓ Posted escalation comment and flipped #$issue to ready-for-human; no PR opened."
+            exit 0
+          fi
+
+          # NORMAL path. Require the producer's PR body and a non-empty local branch.
+          test -f .impl/pr-body.md || { echo "::error::no escalation, but .impl/pr-body.md is missing — nothing to open a PR from"; exit 1; }
+          title=$(jq -r '.pr_title // empty' .impl/manifest.json)
+          [ -n "$title" ] || { echo "::error::manifest.json has no pr_title"; exit 1; }
+          # The branch must carry commits ahead of origin/main; an empty branch means
+          # the producer implemented nothing.
+          if [ "$(git rev-list --count "origin/main..$branch" 2>/dev/null || echo 0)" -eq 0 ]; then
+            echo "::error::branch $branch has no commits ahead of origin/main — the producer committed nothing."
+            exit 1
+          fi
+
+          # 1) Push the branch with a one-shot credential built from GH_TOKEN. Plain
+          #    push (NEVER --force), to the implementation branch (NEVER main). The
+          #    URL embeds the token; redirect output so it never reaches the log.
+          echo "Pushing $branch…"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${branch}" >/dev/null 2>&1
+          echo "✓ Pushed $branch."
+
+          # 2) Create the PR from the raw body file (no shell-quoted body).
+          pr_url=$(gh pr create --base main --head "$branch" --title "$title" --body-file .impl/pr-body.md)
+          echo "✓ Opened PR: $pr_url"
+
+          # 3) Transition the issue and link the PR (URL now known).
+          gh issue edit "$issue" --add-label in-progress --remove-label ready-for-agent
+          gh issue comment "$issue" --body "Implementation opened as $pr_url"
+          echo "✓ Transitioned #$issue to in-progress and linked the PR."
+
+      # Backstop against a "hollow success": the poster either creates the PR (or
+      # escalates) or fails loudly, so this only re-checks the end state. Require an
+      # open PR on the branch, or a legitimate escalation (ready-for-human /
+      # needs-info). Otherwise fail.
       - name: Verify a PR was opened (or the agent escalated)
         if: steps.gate.outputs.proceed == 'true'
         env:
