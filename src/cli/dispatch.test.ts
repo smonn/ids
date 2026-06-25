@@ -434,6 +434,10 @@ describe("isCodecError", () => {
   it("returns false for null", () => {
     expect(isCodecError(null)).toBe(false);
   });
+
+  it("returns false for an object with unknown kind", () => {
+    expect(isCodecError({ kind: "other", message: "oops" })).toBe(false);
+  });
 });
 
 describe("resolveVariant descriptor type guard", () => {

@@ -11,7 +11,9 @@ import {
 export type CodecError = { kind: "usage"; message: string } | { kind: "runtime"; message: string };
 
 export function isCodecError(v: unknown): v is CodecError {
-  return typeof v === "object" && v !== null && "kind" in v && "message" in v;
+  if (typeof v !== "object" || v === null) return false;
+  const kind = (v as Record<string, unknown>).kind;
+  return (kind === "usage" || kind === "runtime") && "message" in v;
 }
 
 export function deriveAllowedFlags(policy: Policy): Set<string> {
