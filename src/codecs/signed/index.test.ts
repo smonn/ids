@@ -14,6 +14,7 @@ import {
   type IdsErrorCode,
 } from "./index.js";
 import type { Id } from "../../types.js";
+import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 
 describe("@smonn/ids/signed re-exports", () => {
   it("exports importSigningKey as a function", () => {
@@ -467,19 +468,23 @@ describe("createSignedTimestampId", () => {
       );
     });
 
-    it("tamper invariant: flipping any base32 char 0–24 causes safeVerify to return verification_failed", async () => {
+    it("tamper invariant: flipping any bit in the 128-bit payload causes safeVerify to return verification_failed", async () => {
       const codec = createSignedTimestampId("sgn", {
         keys: [sharedKey],
+        now: () => 0x123456789abc,
+        rng: (target) => {
+          target.fill(0xab);
+        },
         allowDuplicateBrand: true,
       });
+      const fixedId = await codec.generate();
       await fc.assert(
-        fc.asyncProperty(fc.integer({ min: 0, max: 24 }), async (charIndex) => {
-          const id = await codec.generate();
-          const prefixLen = "sgn_".length;
-          const chars = id.slice(prefixLen).split("");
-          chars[charIndex] = chars[charIndex] === "0" ? "1" : "0";
-          const tampered = ("sgn_" + chars.join("")) as typeof id;
-          const result = await codec.safeVerify(tampered);
+        fc.asyncProperty(fc.integer({ min: 0, max: 127 }), async (bitIndex) => {
+          const payload = payloadBytesFromId("sgn_", fixedId);
+          const tampered = new Uint8Array(payload);
+          const byteIdx = bitIndex >> 3;
+          tampered[byteIdx] = tampered[byteIdx]! ^ (1 << (7 - (bitIndex & 7)));
+          const result = await codec.safeVerify(toWireId("sgn_", tampered));
           return result.ok === false && result.error === "verification_failed";
         }),
       );

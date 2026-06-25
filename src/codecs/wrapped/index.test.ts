@@ -14,7 +14,7 @@ import {
 } from "./index.js";
 import { getWrappingKeyMaterial, type WrappingKey } from "./key.js";
 import type { Id } from "../../types.js";
-import { toWireId } from "../../wire/envelope.js";
+import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 
 const payloadByteLength = 16;
 const tagByteLength = 8;
@@ -581,7 +581,7 @@ describe("wrapped", () => {
       );
     });
 
-    it("tamper invariant: flipping any base32 char 0–24 causes safeUnwrap to return verification_failed", async () => {
+    it("tamper invariant: flipping any bit in the 128-bit payload causes safeUnwrap to return verification_failed", async () => {
       const inv = createWrappedKeyId("inv", {
         kind: "u32",
         keys: [sharedKey],
@@ -589,12 +589,12 @@ describe("wrapped", () => {
       });
       const fixedId = await inv.wrap(42);
       await fc.assert(
-        fc.asyncProperty(fc.integer({ min: 0, max: 24 }), async (charIndex) => {
-          const prefixLen = "inv_".length;
-          const chars = fixedId.slice(prefixLen).split("");
-          chars[charIndex] = chars[charIndex] === "0" ? "1" : "0";
-          const tampered = ("inv_" + chars.join("")) as typeof fixedId;
-          const result = await inv.safeUnwrap(tampered);
+        fc.asyncProperty(fc.integer({ min: 0, max: 127 }), async (bitIndex) => {
+          const payload = payloadBytesFromId("inv_", fixedId);
+          const tampered = new Uint8Array(payload);
+          const byteIdx = bitIndex >> 3;
+          tampered[byteIdx] = tampered[byteIdx]! ^ (1 << (7 - (bitIndex & 7)));
+          const result = await inv.safeUnwrap(toWireId("inv_", tampered));
           return result.ok === false && result.error === "verification_failed";
         }),
       );
