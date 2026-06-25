@@ -1,5 +1,4 @@
 import { validateBrand } from "../_kernel/brand.js";
-import { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
 import { createReverseTimestampLayoutOps } from "./layout.js";
 import { registerBrand } from "../_kernel/registry.js";
 import { fastTenByteRng } from "../_kernel/rng.js";
@@ -7,7 +6,7 @@ import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from ".
 import { wireMethods } from "../../wire/codec-shell.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
-export { IdsError, isIdsError, type IdsErrorCode };
+export { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
 
 /**
  * Configuration options for a Reverse Timestamp codec instance.
