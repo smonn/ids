@@ -1,5 +1,20 @@
-import { describe, expect, it } from "vitest";
-import { resolveIdParamFailure } from "./adapter-types.js";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { isIdsError } from "../error.js";
+import type { ParseError } from "../types.js";
+import { readIdColumn, resolveIdParamFailure } from "./adapter-types.js";
+
+describe("readIdColumn", () => {
+  it("caught IdsError.cause is typed as ParseError | undefined", () => {
+    const codec = { safeParse: () => ({ ok: false as const, error: "invalid_prefix" as const }) };
+    try {
+      readIdColumn(codec, "bad_value");
+    } catch (err) {
+      if (isIdsError(err)) {
+        expectTypeOf(err.cause).toEqualTypeOf<ParseError | undefined>();
+      }
+    }
+  });
+});
 
 describe("resolveIdParamFailure", () => {
   it("maps invalid_prefix to brand_mismatch with default status 404", () => {

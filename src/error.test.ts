@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { IdsError, type IdsErrorCode, isIdsError } from "./error.js";
+import type { ParseError } from "./types.js";
 
 const ALL_CODES: IdsErrorCode[] = [
   "invalid_brand",
@@ -49,9 +50,14 @@ describe("IdsError", () => {
   });
 
   it("cause round-trips", () => {
-    const cause = new Error("underlying parse failure");
+    const cause: ParseError = "invalid_prefix";
     const err = new IdsError("invalid_id", "not a valid ID", { cause });
     expect(err.cause).toBe(cause);
+  });
+
+  it("cause is typed as ParseError | undefined", () => {
+    const err = new IdsError("invalid_id", "not a valid ID", { cause: "invalid_prefix" });
+    expectTypeOf(err.cause).toEqualTypeOf<ParseError | undefined>();
   });
 
   it("brand property is non-enumerable", () => {
