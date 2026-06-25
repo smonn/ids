@@ -116,6 +116,14 @@ const cases = [
     fixture: "test/fixtures/depcruise/codecs/_kernel/key-material.ts",
     rule: "key-material-leaf-no-upward",
   },
+  {
+    fixture: "test/fixtures/depcruise/non-crypto-consumer.ts",
+    rule: "crypto-leaf-restricted",
+  },
+  {
+    fixture: "test/fixtures/depcruise/codecs/_kernel/crypto.ts",
+    rule: "crypto-leaf-no-upward",
+  },
   // codec slice rules
   {
     fixture: "test/fixtures/depcruise/codecs/cross-codec-violation/index.ts",

@@ -77,6 +77,46 @@ describe("encryptPayload / decryptPayload", () => {
     const decrypted = await decryptPayload(key, encrypted);
     expect(decrypted).toEqual(plaintext);
   });
+
+  it("wrong key: decryptPayload resolves to 16 bytes and does not throw", async () => {
+    const rawKeyA = new Uint8Array(16).map((_, i) => i);
+    const keyA = await crypto.subtle.importKey(
+      "raw",
+      rawKeyA as Uint8Array<ArrayBuffer>,
+      "AES-CBC",
+      false,
+      ["encrypt", "decrypt"],
+    );
+    const rawKeyB = new Uint8Array(16).map((_, i) => i + 100);
+    const keyB = await crypto.subtle.importKey(
+      "raw",
+      rawKeyB as Uint8Array<ArrayBuffer>,
+      "AES-CBC",
+      false,
+      ["encrypt", "decrypt"],
+    );
+    const plaintext = new Uint8Array(16).map((_, i) => i + 1);
+    const encrypted = await encryptPayload(keyA, plaintext);
+    const result = await decryptPayload(keyB, encrypted);
+    expect(result).toHaveLength(16);
+  });
+
+  it("tampered ciphertext: decryptPayload resolves and does not throw", async () => {
+    const rawKey = new Uint8Array(16).map((_, i) => i);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      rawKey as Uint8Array<ArrayBuffer>,
+      "AES-CBC",
+      false,
+      ["encrypt", "decrypt"],
+    );
+    const plaintext = new Uint8Array(16).map((_, i) => i + 1);
+    const encrypted = await encryptPayload(key, plaintext);
+    const tampered = new Uint8Array(encrypted);
+    tampered[0] = tampered[0]! ^ 0xff;
+    const result = await decryptPayload(key, tampered);
+    expect(result).toHaveLength(16);
+  });
 });
 
 describe("deriveKey", () => {
