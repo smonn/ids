@@ -79,16 +79,16 @@
     "vitest": "4.1.9"
   },
   "peerDependencies": {
-    "@mikro-orm/core": ">=6.0.0",
-    "@nestjs/common": ">=10.0.0",
+    "@mikro-orm/core": ">=7.0.0",
+    "@nestjs/common": ">=11.0.0",
     "@prisma/client": ">=5.0.0",
-    "drizzle-orm": ">=0.30.0",
+    "drizzle-orm": ">=0.36.0",
     "express": ">=4.0.0",
     "fastify": ">=4.0.0",
     "graphql": ">=16.0.0",
     "hono": ">=4.0.0",
     "kysely": ">=0.27.0",
-    "typeorm": ">=0.3.0"
+    "typeorm": ">=1.0.0"
   },
   "peerDependenciesMeta": {
     "@mikro-orm/core": {
