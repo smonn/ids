@@ -1,5 +1,5 @@
 import type { webcrypto } from "node:crypto";
-import type { Id, Prefix } from "../../types.js";
+import type { Id, LayoutOps, Prefix } from "../../types.js";
 import { timingSafeEqual } from "../_kernel/crypto.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
@@ -34,7 +34,13 @@ export function createSignedTimestampLayoutOps<Brand extends string>(
   brand: Brand,
   rng: (target: Uint8Array) => void,
   hmacKeys: readonly webcrypto.CryptoKey[],
-) {
+): LayoutOps<Brand> & {
+  generateAt(ms: number): Promise<Id<Brand>>;
+  tryVerify(id: Id<Brand>): Promise<boolean>;
+  extractTimestamp(id: Id<Brand>): Date;
+  minIdForTime(ms: number): Id<Brand>;
+  maxIdForTime(ms: number): Id<Brand>;
+} {
   const signKey = hmacKeys[0]!;
   const brandBytes = new TextEncoder().encode(brand);
   const syncBuffer = new Uint8Array(payloadByteLength);
@@ -74,6 +80,7 @@ export function createSignedTimestampLayoutOps<Brand extends string>(
       syncBuffer.fill(0xff, randomOffset, payloadByteLength);
       return toWireId(prefix, syncBuffer);
     },
-    exampleWireId: (): Id<Brand> => (prefix + "0".repeat(payloadBase32Length)) as Id<Brand>,
+    exampleWireId: (_ms?: number): Id<Brand> =>
+      (prefix + "0".repeat(payloadBase32Length)) as Id<Brand>,
   };
 }

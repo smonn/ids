@@ -1,6 +1,6 @@
 import type { webcrypto } from "node:crypto";
-import type { Id, Prefix } from "../../types.js";
-import { writeLen32 } from "../_kernel/crypto.js";
+import type { Id, LayoutOps, Prefix } from "../../types.js";
+import { writeLen32 } from "../_kernel/bytes.js";
 import { toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 
@@ -31,7 +31,9 @@ export function createDigestLayoutOps<Brand extends string>(
   brand: Brand,
   ns: string,
   hmacKey: webcrypto.CryptoKey,
-) {
+): LayoutOps<Brand> & {
+  digest(material: string | Uint8Array): Promise<Id<Brand>>;
+} {
   const brandBytes = encoder.encode(brand);
   const nsBytes = encoder.encode(ns);
 
@@ -45,6 +47,7 @@ export function createDigestLayoutOps<Brand extends string>(
       const payload = hmacOutput.subarray(0, payloadByteLength);
       return toWireId(prefix, payload);
     },
-    exampleWireId: (): Id<Brand> => (prefix + "0".repeat(payloadBase32Length)) as Id<Brand>,
+    exampleWireId: (_ms?: number): Id<Brand> =>
+      (prefix + "0".repeat(payloadBase32Length)) as Id<Brand>,
   };
 }

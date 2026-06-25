@@ -42,7 +42,7 @@ Every triaged issue should carry exactly one category role and one state role. I
 
 These are canonical role names — the actual label strings used in the issue tracker may differ. The mapping for this repo is in `docs/agents/triage-labels.md`, and issue-tracker operations (the `gh` CLI conventions) are in `docs/agents/issue-tracker.md`.
 
-State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time — flag transitions that look unusual and ask before proceeding.
+State transitions: how an issue enters the pipeline depends on its author. **Trusted-author path** (OWNER, MEMBER, COLLABORATOR, or `smonn[bot]`): the triage workflow fires on `opened`/`reopened` and auto-triages the issue directly to a decision label (`needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`) — `needs-triage` is not involved. **Outside-author opt-in**: an issue from an outside author is left unlabeled until a maintainer manually adds `needs-triage`; that label fires the triage pipeline via the `labeled` event. **Unblock re-entry**: `needs-triage` is also the re-entry state after a blocked issue's dependencies close — `unblock.yml` applies it when every blocker is resolved, causing the triage workflow to re-triage the issue. `needs-info` returns toward `needs-triage` once the reporter replies. The maintainer can override at any time — flag transitions that look unusual and ask before proceeding.
 
 ## CI producer model
 

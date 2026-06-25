@@ -1,4 +1,4 @@
-import type { Id, Prefix } from "../../types.js";
+import type { Id, LayoutOps, Prefix } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadByteLength } from "../../wire/invariants.js";
 import { timestampByteLength, writeTimestamp } from "../../wire/timestamp-bytes.js";
@@ -50,7 +50,12 @@ function extractReverseTimestampFromId<Brand extends string>(
 export function createReverseTimestampLayoutOps<Brand extends string>(
   prefix: Prefix<Brand>,
   rng: (target: Uint8Array) => void,
-) {
+): LayoutOps<Brand> & {
+  generateAt(ms: number): Id<Brand>;
+  extractTimestamp(id: Id<Brand>): Date;
+  minIdForTime(ms: number): Id<Brand>;
+  maxIdForTime(ms: number): Id<Brand>;
+} {
   const buffer = new Uint8Array(payloadByteLength);
   const randomView = new Uint8Array(buffer.buffer, timestampByteLength, randomByteLength);
 
@@ -68,8 +73,8 @@ export function createReverseTimestampLayoutOps<Brand extends string>(
       buildReverseSentinelPayload(ms, 0xff, buffer, randomView);
       return toWireId(prefix, buffer);
     },
-    exampleWireId: (ms: number): Id<Brand> => {
-      buildReversePayload(ms, rng, buffer, randomView);
+    exampleWireId: (ms?: number): Id<Brand> => {
+      buildReversePayload(ms ?? Date.now(), rng, buffer, randomView);
       return toWireId(prefix, buffer);
     },
   };

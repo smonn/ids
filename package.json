@@ -89,6 +89,7 @@
     "fmt:check": "oxfmt --check",
     "typecheck": "tsc --noEmit",
     "build": "tsdown",
+    "pack:check": "attw --pack . --profile esm-only && publint",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -100,6 +101,7 @@
     "version-packages": "changeset version"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.4",
     "@changesets/cli": "2.31.0",
     "@mikro-orm/core": "^7.1.4",
     "@nestjs/common": "^11.1.27",
@@ -120,6 +122,7 @@
     "mitata": "1.0.34",
     "oxfmt": "0.55.0",
     "oxlint": "1.70.0",
+    "publint": "0.3.21",
     "reflect-metadata": "^0.2.2",
     "tsdown": "0.22.3",
     "tslib": "^2.8.1",
