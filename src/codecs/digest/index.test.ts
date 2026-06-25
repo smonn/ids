@@ -117,14 +117,16 @@ describe("createDigestId", () => {
     expect(idA).not.toBe(idB);
   });
 
-  it("split-collision: ns='ab'+material='c' ≠ ns='a'+material='bc' (writeLen32 is load-bearing)", async () => {
+  it("split-collision: ns='ab'+material='c' ≠ ns='a'+material='bc'", async () => {
+    // writeLen32 is load-bearing: without it a regression could drop the length prefix
     const key = await makeKey();
     const ab = createDigestId("idk", { ns: "ab", key, allowDuplicateBrand: true });
     const a = createDigestId("idk", { ns: "a", key, allowDuplicateBrand: true });
     expect(await ab.digest("c")).not.toBe(await a.digest("bc"));
   });
 
-  it("split-collision: ns='a'+material='bcd' ≠ ns='ab'+material='cd' (neither field consumes the other's length prefix)", async () => {
+  it("split-collision: ns='a'+material='bcd' ≠ ns='ab'+material='cd'", async () => {
+    // neither field consumes the other's length prefix
     const key = await makeKey();
     const a = createDigestId("idk", { ns: "a", key, allowDuplicateBrand: true });
     const ab = createDigestId("idk", { ns: "ab", key, allowDuplicateBrand: true });
