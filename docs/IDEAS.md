@@ -120,6 +120,74 @@ the third-party lib (see `src/adapters/`, `package.json` exports, and [CONTEXT.m
   and the `is()` strict / `safeParse()` lenient split (ADR-0003). Probably one
   pass across both codec types, linking to the relevant ADR per method.~~ — shipped in #41.
 
+## Interop & portability
+
+Adjacent-library gaps. The closest competitor is [TypeID](https://github.com/jetify-com/typeid)
+(`prefix_<base32 UUIDv7>`): same prefix-plus-base32 silhouette, but its headline properties are
+native-UUID interop and a cross-language spec with ~25 ports. We have neither. Both sketches below
+need their own ADR before any code.
+
+- **UUID interop on the timestamp-family codecs (`toUUID` / `fromUUID`).** The Timestamp payload is a
+  128-bit value whose layout (48-bit big-endian ms + 80 random bits, [ADR-0002](./adr/0002-payload-layout.md))
+  is UUIDv7's data layout minus the version/variant nibbles. A conversion pair would let an
+  `Id<Brand>` stay branded and sortable at the app edge while persisting into a native `uuid` column
+  (migration off UUID PKs; DBAs who want a real indexed UUID type). The live design fork is the whole
+  decision: a **lossless raw-128-bit mapping** (round-trips perfectly but is not a spec-valid UUIDv7 —
+  no version/variant bits) versus a **spec-valid UUIDv7 mapping** (sets the 6 version/variant bits,
+  costing 6 of the 80 random bits — a bounded, documented entropy hit that must be reconciled against
+  the ADR-0015 collision budget). Scope fence: plaintext timestamp/reverse codecs only. The keyed and
+  opaque codecs deliberately expose no extractable structure, so they stay out — a `toUUID` on an
+  opaque ID would either leak nothing useful or break the confidentiality promise. Reverse Timestamp
+  is in scope but its inverted bytes are not a UUIDv7 timestamp, so it would convert to the raw form
+  only. Reopen as an ADR with a concrete UUID-column consumer; resolve the mapping fork there.
+
+- **Frozen wire spec + cross-language conformance vectors.** TypeID's portability rests on a published
+  spec and a shared test-vector file, not on the format itself. Every construction here is already
+  pinned in prose by an ADR (base32 canonicalization [ADR-0003](./adr/0003-canonical-strict-is.md), the
+  AES-CBC strip trick [ADR-0004](./adr/0004-aes-cbc-strip-trick.md), the Signed/Digest HMAC layouts
+  [ADR-0012](./adr/0012-signed-timestamp-construction.md)/[ADR-0017](./adr/0017-digest-codec-construction.md)).
+  A `SPEC.md` plus a versioned JSON vector file (input → canonical output per codec, keyed codecs run
+  under fixed published test keys) would turn that prose into a CI-enforceable oracle, lock the
+  now-settled 128-bit format ([ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md)), and let
+  others port the format without reverse-engineering it. Lowest-risk item of this batch and a natural
+  pairing with the UUID-interop fork (a UUID mapping is exactly the kind of thing vectors should pin).
+  Open questions for the ADR: vector-file versioning vs. the format version, whether the keyed-codec
+  test keys live in-repo, and whether the spec is normative (others may claim conformance) or
+  descriptive (documents the reference implementation only).
+
+## Tooling (sibling packages / CLI)
+
+- **ESLint plugin (typed rules).** A library this committed to branding could make the branding
+  enforceable instead of advisory. Candidate typed-lint rules: forbid comparing or concatenating a
+  branded `Id<Brand>` with a raw `string`; forbid logging the decoded form of an opaque-codec ID;
+  require the brand string literal at a `create*Id(...)` call site to match the codec's prefix. Likely
+  a separate published package (own peer dep on `typescript-eslint`), not a subpath export, since its
+  dependency and release cadence differ from the core. Needs an ADR scoping which rules are
+  type-aware (require the TS program) versus syntactic, and how a rule recognizes an `Id<Brand>` at a
+  use site without import tracing every value.
+
+- **Testing / fixture helpers (`@smonn/ids/testing`).** The `rng` option already permits deterministic
+  generation, but every consumer rewrites the same boilerplate for stable snapshots. A thin, blessed
+  surface over capabilities we already have: seeded deterministic generation (stable IDs in snapshot
+  diffs), a sequential generator, and a frozen-clock helper for `generateAt`. Additive and non-breaking
+  — it ships no new wire behavior, only ergonomics. Scope fence for the ADR: it must not become a
+  second generation path with its own invariants; it is sugar over the existing `rng` / `generateAt`
+  contracts, and anything it cannot express by injecting those is out of scope. Open question: whether
+  determinism is keyed per-brand or globally, and how it composes with the async keyed codecs.
+
+## SQL/DDL emitter (CLI)
+
+- **`ids sql <brand>` — emit native DDL.** The ORM adapters (`src/adapters/`) serve application code;
+  raw DDL serves DBAs and hand-written migrations, a different audience TypeID courts with its SQL
+  extension. The command would emit a `CREATE DOMAIN <brand>_id AS text CHECK (value ~ '<brand-anchored
+  base32 regex>')` (the canonical-form pattern from [ADR-0003](./adr/0003-canonical-strict-is.md)), and
+  optionally a generator function. Pairs with the UUID-interop sketch above: if a `uuid`-column path
+  exists, the emitter could target a `uuid` domain plus a check instead of `text`. Open questions for
+  the ADR: which dialects (Postgres first; the regex and domain syntax are not portable to MySQL/SQLite),
+  whether a generator function is in scope at all (server-side generation re-raises the custom-epoch and
+  RNG-quality questions ADR-0002 settled for the library), and how this stays in sync with the canonical
+  form so the emitted regex never drifts from the parser.
+
 ## Wire payload width (16 → 20 bytes)
 
 _**Rejected (2026-06-24)** — width is settled at 128 bits. See
