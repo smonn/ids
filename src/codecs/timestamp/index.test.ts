@@ -156,6 +156,32 @@ describe("id", () => {
     expect(timestamp).toBeLessThanOrEqual(after);
   });
 
+  it("default rng harvests exact bytes from crypto.randomUUID via hexCharCodeToNibble table", () => {
+    // Stub randomUUID so the default fastTenByteRng runs against a known input.
+    // UUID "00112233-4455-4677-8899-aabbccddeeff" exercises both for-loops:
+    //   L66: digit nibbles '0'-'9' → positions 0-7, 9-12 → bytes 0x00-0x55
+    //   L67: letter nibbles 'a'-'f' → positions 24-31 → bytes 0xaa-0xdd
+    const spy = vi
+      .spyOn(crypto, "randomUUID")
+      .mockReturnValue("00112233-4455-4677-8899-aabbccddeeff");
+    try {
+      const rng = createTimestampId("rng", {
+        now: () => 0,
+        allowDuplicateBrand: true,
+      });
+      const id = rng.generate();
+      const payload = decodeBase32(id.slice("rng_".length));
+      // 6 timestamp bytes for ms=0: all zeros
+      expect(Array.from(payload.slice(0, 6))).toEqual([0, 0, 0, 0, 0, 0]);
+      // 10 random bytes: exact nibble-pair harvest from the pinned UUID
+      expect(Array.from(payload.slice(6))).toEqual([
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0xaa, 0xbb, 0xcc, 0xdd,
+      ]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("is() accepts only canonical form", () => {
     const usr = createTimestampId("usr");
     expect(usr.is("usr_01h7b3k9rqxn1cw3p9r8t2sgkw")).toBe(true);
