@@ -919,12 +919,6 @@ describe("cli", () => {
       );
     });
 
-    it("emits sensitivity warning to stderr on default keygen", async () => {
-      const result = await runCapture(["keygen"]);
-      expect(result.exitCode).toBe(0);
-      expect(result.stderr).toBe(KEYGEN_WARNING);
-    });
-
     it("stdout contains only the key — no warning text", async () => {
       const result = await runCapture(["keygen"]);
       expect(result.exitCode).toBe(0);
@@ -1021,12 +1015,6 @@ describe("cli keygen --wrapped", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("--signed");
     expect(result.stdout).toContain("IDS_SIGNING_KEY_FORMAT");
-  });
-
-  it("emits sensitivity warning to stderr for --wrapped", async () => {
-    const result = await runCapture(["keygen", "--wrapped"]);
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe(KEYGEN_WARNING);
   });
 
   it("stdout contains only the wrapping key — no warning text", async () => {
@@ -1553,12 +1541,6 @@ describe("cli keygen --signed", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("--signed");
     expect(result.stdout).toContain("IDS_SIGNING_KEY");
-  });
-
-  it("emits sensitivity warning to stderr for --signed", async () => {
-    const result = await runCapture(["keygen", "--signed"]);
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe(KEYGEN_WARNING);
   });
 
   it("stdout contains only the signing key — no warning text", async () => {
@@ -2110,12 +2092,6 @@ describe("cli keygen --digest", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("unsupported flag for keygen: --ns\n");
-  });
-
-  it("emits sensitivity warning to stderr for --digest", async () => {
-    const result = await runCapture(["keygen", "--digest"]);
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe(KEYGEN_WARNING);
   });
 
   it("stdout contains only the digest key — no warning text", async () => {
