@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idTransformer, IdsError, isIdsError, type IdColumnCodec } from "./typeorm.js";
 import type { Id } from "../types.js";
+import { makeSpyCodec } from "./test-helpers.js";
 
 describe("typeorm", () => {
   const usr = createTimestampId("usr", { allowDuplicateBrand: true });
@@ -98,5 +99,16 @@ describe("typeorm", () => {
     const id = usr.generate();
     const result: Id<"usr"> = fromAny(transformer.from(id));
     expectTypeOf(result).toEqualTypeOf<Id<"usr">>();
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("from calls only safeParse on the codec", () => {
+      const spyCodec = makeSpyCodec("spy");
+      idTransformer(spyCodec).from("any_value");
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
   });
 });

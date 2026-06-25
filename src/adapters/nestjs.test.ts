@@ -5,6 +5,7 @@ import { ParseIdPipe } from "./nestjs.js";
 import type { IdParamFailure } from "./nestjs.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
+import { makeSpyCodec } from "./test-helpers.js";
 
 const METADATA: ArgumentMetadata = { type: "param", metatype: String, data: "id" };
 
@@ -133,6 +134,18 @@ describe("ParseIdPipe", () => {
       expect(() => pipe.transform("inv_uuuuuuuuuuuuuuuuuuuuuuuuuu", METADATA)).toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("transform calls only safeParse on the codec", () => {
+      const spyCodec = makeSpyCodec("spy");
+      const pipe = new ParseIdPipe(spyCodec);
+      pipe.transform("any_value", METADATA);
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
   });
 });

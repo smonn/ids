@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { IdParamError, idParam } from "./express.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
+import { makeSpyCodec } from "./test-helpers.js";
 
 function makeReq(paramName: string, value: string | undefined): Request {
   return fromAny({ params: { [paramName]: value } });
@@ -221,6 +222,21 @@ describe("idParam", () => {
       expect(err).toBeInstanceOf(IdParamError);
       expect(err.reason).toBe("malformed");
       expect(err.status).toBe(400);
+    });
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("middleware calls only safeParse on the codec", () => {
+      const spyCodec = makeSpyCodec("spy");
+      const middleware = idParam("id", spyCodec);
+      const req = makeReq("id", "any_value");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
   });
 });

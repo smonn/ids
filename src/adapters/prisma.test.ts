@@ -14,6 +14,7 @@
  */
 import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { makeSpyCodec } from "./test-helpers.js";
 import type {
   GetPayloadResult,
   InternalArgs,
@@ -182,5 +183,16 @@ describe("prisma", () => {
   it("IdTransform type exposes computeField", () => {
     expectTypeOf(transform).toMatchTypeOf<IdTransform<"usr">>();
     expectTypeOf(transform.computeField).toBeFunction();
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("read calls only safeParse on the codec", () => {
+      const spyCodec = makeSpyCodec("spy");
+      idField(spyCodec).read("any_value");
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
   });
 });

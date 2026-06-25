@@ -4,6 +4,7 @@ import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idType, IdsError, isIdsError, type IdColumnCodec } from "./mikro-orm.js";
 import type { Id } from "../types.js";
 import { Type } from "@mikro-orm/core";
+import { makeSpyCodec } from "./test-helpers.js";
 
 describe("mikro-orm", () => {
   const usr = createTimestampId("usr", { allowDuplicateBrand: true });
@@ -80,5 +81,17 @@ describe("mikro-orm", () => {
     expect(isIdsError(err)).toBe(true);
     expect((err as IdsError).code).toBe("invalid_id");
     expect((err as IdsError).cause).toBe("not_string");
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("convertToJSValue calls only safeParse on the codec", () => {
+      const spyCodec = makeSpyCodec("spy");
+      const SpyType = idType(spyCodec);
+      new SpyType().convertToJSValue("any_value", undefined as never);
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
   });
 });

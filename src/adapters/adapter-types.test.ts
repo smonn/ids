@@ -2,6 +2,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import { isIdsError } from "../error.js";
 import type { ParseError } from "../types.js";
 import { readIdColumn, resolveIdParamFailure } from "./adapter-types.js";
+import { makeSpyCodec } from "./test-helpers.js";
 
 describe("readIdColumn", () => {
   it("caught IdsError.cause is typed as ParseError | undefined", () => {
@@ -15,6 +16,15 @@ describe("readIdColumn", () => {
         expect(err.cause).toBe("invalid_prefix");
       }
     }
+  });
+
+  it("calls safeParse and not extractTimestamp / wrap / unwrap (spy codec contract)", () => {
+    const spyCodec = makeSpyCodec("spy");
+    readIdColumn(spyCodec, "any_value");
+    expect(spyCodec.safeParse).toHaveBeenCalled();
+    expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+    expect(spyCodec.wrap).not.toHaveBeenCalled();
+    expect(spyCodec.unwrap).not.toHaveBeenCalled();
   });
 });
 

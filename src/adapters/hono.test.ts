@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { idParam } from "./hono.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
+import { makeSpyCodec } from "./test-helpers.js";
 
 describe("idParam", () => {
   let warnSilencer: ReturnType<typeof vi.spyOn>;
@@ -150,6 +151,19 @@ describe("idParam", () => {
 
       const res = await app.request("/invoices/inv_uuuuuuuuuuuuuuuuuuuuuuuuuu");
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("middleware calls only safeParse on the codec", async () => {
+      const spyCodec = makeSpyCodec("spy");
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", spyCodec), (c) => c.text("ok"));
+      await app.request("/items/any_value");
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
   });
 });
