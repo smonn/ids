@@ -49,13 +49,21 @@ export type TimestampCodec<Brand extends string> = {
   safeParse(value: unknown): ParseResult<Brand>;
   /**
    * Decodes the creation `Date` from an `Id<Brand>`. Trusts the type — use `safeParse()` at boundaries first. See ADR-0002.
+   *
+   * Best-effort: decodes the timestamp bytes in the payload without any additional
+   * verification. An ID that bypassed `safeParse()` (e.g. via a type assertion)
+   * may return a plausible-looking but incorrect `Date`.
    */
   extractTimestamp(id: Id<Brand>): Date;
   /** Tight lower bound for any ID generated at `date` (random portion `0x00`). Throws on invalid dates. */
   minIdForTime(date: Date): Id<Brand>;
   /** Tight upper bound for any ID generated at `date` (random portion `0xff`). Throws on invalid dates. */
   maxIdForTime(date: Date): Id<Brand>;
-  /** JSON Schema for the canonical wire form (`pattern` is canonical-only). */
+  /**
+   * JSON Schema for the canonical wire form. The `pattern` matches the canonical stored
+   * form only and is deliberately stricter than `parse()`/`safeParse()`, which accept
+   * uppercase letters and Crockford aliases (`o`/`i`/`l`) before normalising. See ADR-0003.
+   */
   toJsonSchema(): JsonSchema;
   /** Standard Schema validate entry point. */
   readonly "~standard": StandardSchemaProps<Brand>;

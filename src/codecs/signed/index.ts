@@ -103,6 +103,10 @@ export type SignedTimestampCodec<Brand extends string> = {
   /**
    * Decodes the creation `Date` from an `Id<Brand>`.
    * Sync — the 6-byte timestamp is plaintext. Trusts the type; use `safeParse()` at boundaries first.
+   *
+   * Best-effort: the timestamp is returned **without checking the HMAC tag** — a tampered
+   * or unsigned ID yields the attacker-controlled timestamp without error. Call
+   * `verify()` / `safeVerify()` first if you need an authenticated timestamp.
    */
   extractTimestamp(id: Id<Brand>): Date;
   /**
@@ -124,7 +128,11 @@ export type SignedTimestampCodec<Brand extends string> = {
   parse(value: unknown): Id<Brand>;
   /** Normalise to canonical form, or return `{ ok: false, error }`. */
   safeParse(value: unknown): ParseResult<Brand>;
-  /** JSON Schema for the canonical wire form (`pattern` is canonical-only). */
+  /**
+   * JSON Schema for the canonical wire form. The `pattern` matches the canonical stored
+   * form only and is deliberately stricter than `parse()`/`safeParse()`, which accept
+   * uppercase letters and Crockford aliases (`o`/`i`/`l`) before normalising. See ADR-0003.
+   */
   toJsonSchema(): JsonSchema;
   /** Standard Schema validate entry point. */
   readonly "~standard": StandardSchemaProps<Brand>;

@@ -83,7 +83,12 @@ export type OpaqueTimestampCodec<Brand extends string> = {
    * ID's key epoch from your own records — the library cannot. See ADR-0013.
    */
   extractTimestamp(id: Id<Brand>): Promise<Date>;
-  /** JSON Schema for the canonical wire form (`example` is a structural placeholder). */
+  /**
+   * JSON Schema for the canonical wire form. The `pattern` matches the canonical stored
+   * form only and is deliberately stricter than `parse()`/`safeParse()`, which accept
+   * uppercase letters and Crockford aliases (`o`/`i`/`l`) before normalising. See ADR-0003.
+   * The `example` is a structural placeholder (generated at construction time).
+   */
   toJsonSchema(): JsonSchema;
   /** Standard Schema validate entry point. */
   readonly "~standard": StandardSchemaProps<Brand>;
