@@ -72,7 +72,7 @@ export async function deriveKey(
     {
       name: "HKDF",
       hash: "SHA-256",
-      salt: new Uint8Array(),
+      salt: new Uint8Array(), // empty salt: IKM is already uniform random; see ADR-0019
       info: info as Uint8Array<ArrayBuffer>,
     },
     base,
