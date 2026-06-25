@@ -1,4 +1,5 @@
 import type { webcrypto } from "node:crypto";
+import { deriveKey } from "../_kernel/crypto.js";
 import {
   assertValidKeyMaterialByteLength,
   decodeKeyMaterial,
@@ -51,7 +52,9 @@ const internals = new WeakMap<DigestKey, DigestKeyInternals>();
  */
 export async function importDigestKey(bytes: Uint8Array): Promise<DigestKey> {
   assertValidKeyMaterialByteLength(bytes.length, "digest");
-  const hmacKey = await deriveHmacKey(bytes);
+  const hmacKey = await deriveKey(bytes, hmacInfo, { name: "HMAC", hash: "SHA-256", length: 256 }, [
+    "sign",
+  ]);
   const key = Object.freeze({}) as DigestKey;
   internals.set(key, { hmacKey });
   return key;
@@ -94,21 +97,4 @@ export function getDigestKeyHmacKey(key: DigestKey): webcrypto.CryptoKey {
   /* v8 ignore next -- defensive guard; only reachable with a forged DigestKey handle */
   if (keyInternals === undefined) throw new Error("invalid digest key");
   return keyInternals.hmacKey;
-}
-
-async function deriveHmacKey(bytes: Uint8Array): Promise<webcrypto.CryptoKey> {
-  const base = await crypto.subtle.importKey(
-    "raw",
-    bytes as Uint8Array<ArrayBuffer>,
-    "HKDF",
-    false,
-    ["deriveKey"],
-  );
-  return crypto.subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(), info: hmacInfo },
-    base,
-    { name: "HMAC", hash: "SHA-256", length: 256 },
-    false,
-    ["sign"],
-  );
 }

@@ -54,3 +54,33 @@ export async function decryptPayload(
 }
 
 export { writeLen32 } from "./bytes.js";
+
+/**
+ * @param info - codec-specific HKDF domain-separation label; see ADR-0019.
+ */
+export async function deriveKey(
+  bytes: Uint8Array,
+  info: Uint8Array,
+  keySpec: webcrypto.AesDerivedKeyParams | webcrypto.HmacImportParams,
+  keyUsages: webcrypto.KeyUsage[],
+): Promise<webcrypto.CryptoKey> {
+  const base = await crypto.subtle.importKey(
+    "raw",
+    bytes as Uint8Array<ArrayBuffer>,
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new Uint8Array(), // empty salt: IKM is already uniform random; see ADR-0019
+      info: info as Uint8Array<ArrayBuffer>,
+    },
+    base,
+    keySpec,
+    false,
+    keyUsages,
+  );
+}

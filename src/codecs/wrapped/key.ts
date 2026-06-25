@@ -1,5 +1,5 @@
 import type { webcrypto } from "node:crypto";
-import { timingSafeEqual } from "../_kernel/crypto.js";
+import { deriveKey, timingSafeEqual } from "../_kernel/crypto.js";
 import {
   assertValidKeyMaterialByteLength,
   assertValidKeyring,
@@ -57,8 +57,8 @@ const internals = new WeakMap<WrappingKey, WrappingKeyInternals>();
 export async function importWrappingKey(bytes: Uint8Array): Promise<WrappingKey> {
   assertValidKeyMaterialByteLength(bytes.length, "wrapping");
   const [aesKey, hmacKey, digestBuffer] = await Promise.all([
-    deriveAesKey(bytes),
-    deriveHmacKey(bytes),
+    deriveKey(bytes, aesInfo, { name: "AES-CBC", length: 256 }, ["encrypt", "decrypt"]),
+    deriveKey(bytes, hmacInfo, { name: "HMAC", hash: "SHA-256", length: 256 }, ["sign", "verify"]),
     crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>),
   ]);
   const key = Object.freeze({}) as WrappingKey;
@@ -116,38 +116,4 @@ function getWrappingKeyInternals(key: WrappingKey): WrappingKeyInternals {
     throw new Error("invalid wrapping key");
   }
   return keyInternals;
-}
-
-async function deriveAesKey(bytes: Uint8Array): Promise<webcrypto.CryptoKey> {
-  const base = await crypto.subtle.importKey(
-    "raw",
-    bytes as Uint8Array<ArrayBuffer>,
-    "HKDF",
-    false,
-    ["deriveKey"],
-  );
-  return crypto.subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(), info: aesInfo },
-    base,
-    { name: "AES-CBC", length: 256 },
-    false,
-    ["encrypt", "decrypt"],
-  );
-}
-
-async function deriveHmacKey(bytes: Uint8Array): Promise<webcrypto.CryptoKey> {
-  const base = await crypto.subtle.importKey(
-    "raw",
-    bytes as Uint8Array<ArrayBuffer>,
-    "HKDF",
-    false,
-    ["deriveKey"],
-  );
-  return crypto.subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(), info: hmacInfo },
-    base,
-    { name: "HMAC", hash: "SHA-256", length: 256 },
-    false,
-    ["sign", "verify"],
-  );
 }
