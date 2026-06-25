@@ -107,7 +107,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
       return 1;
     }
     opts.stderr(codecOrError.message + "\n");
-    return 1;
+    return codecOrError.kind === "usage" ? 2 : 1;
   }
 
   // Structural validation for non-verify, non-unsupported cases

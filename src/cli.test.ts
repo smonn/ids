@@ -284,11 +284,11 @@ describe("cli", () => {
       expect(result.stdout).toContain("timestamp: 1983-05-27T10:24:22.469Z");
     });
 
-    it("--opaque without IDS_KEY exits 1", async () => {
+    it("--opaque without IDS_KEY exits 2", async () => {
       const result = await runCapture(["inspect", "usr_00000000000000000000000000", "--opaque"], {
         env: {},
       });
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(2);
       expect(result.stderr).toBe("missing IDS_KEY environment variable\n");
     });
 
@@ -297,7 +297,7 @@ describe("cli", () => {
         ["inspect", "usr_00000000000000000000000000", "--opaque", "--key-format", "bogus"],
         { env: { IDS_KEY: testKeyHex } },
       );
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(2);
       expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
     });
 
@@ -306,7 +306,7 @@ describe("cli", () => {
         ["inspect", "usr_00000000000000000000000000", "--opaque", "--key-format"],
         { env: { IDS_KEY: testKeyHex } },
       );
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(2);
       expect(result.stderr).toBe("--key-format requires a value\n");
     });
 
@@ -1005,7 +1005,7 @@ describe("cli inspect --wrapped", () => {
     const result = await runCapture(["inspect", "inv_00000000000000000000000000", "--wrapped"], {
       env: { IDS_WRAPPING_KEY: testWrappingKeyHex },
     });
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--kind is required with --wrapped\n");
   });
@@ -1015,7 +1015,7 @@ describe("cli inspect --wrapped", () => {
       ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u8"],
       { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--kind must be u32, i32, u64, or i64, got 'u8'\n");
   });
@@ -1025,7 +1025,7 @@ describe("cli inspect --wrapped", () => {
       ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind"],
       { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--kind requires a value\n");
   });
@@ -1097,12 +1097,12 @@ describe("cli inspect --wrapped", () => {
     expect(result.stderr).toContain("verification_failed");
   });
 
-  it("exits 1 when IDS_WRAPPING_KEY is missing", async () => {
+  it("exits 2 when IDS_WRAPPING_KEY is missing", async () => {
     const result = await runCapture(
       ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u32"],
       { env: {} },
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("missing IDS_WRAPPING_KEY environment variable\n");
   });
@@ -1193,7 +1193,7 @@ describe("cli inspect --wrapped", () => {
       ],
       { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
   });
@@ -1203,7 +1203,7 @@ describe("cli inspect --wrapped", () => {
       ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u32"],
       { env: { IDS_WRAPPING_KEY: testWrappingKeyHex, IDS_WRAPPING_KEY_FORMAT: "bogus" } },
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("IDS_WRAPPING_KEY_FORMAT must be hex or base64url, got 'bogus'\n");
   });
@@ -1223,7 +1223,7 @@ describe("cli inspect --wrapped", () => {
       ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u32", "--key-format"],
       { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format requires a value\n");
   });
