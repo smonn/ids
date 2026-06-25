@@ -66,6 +66,24 @@ jobs:
           permission-contents: read
           permission-issues: write
 
+      # A SECOND, strictly READ-ONLY App token handed to the producer (the agent). The
+      # write token above is used only by the deterministic mutating steps (the gate's
+      # blocked path and the poster). claude-code-action wires its `github_token` into the
+      # agent's git/gh auth, and the producer's Bash is scoped to `pnpm` — but `pnpm exec`
+      # can run arbitrary binaries (e.g. `pnpm exec gh issue edit`), so a write token here
+      # would let the agent mutate the issue despite the "producer posts nothing" design.
+      # Minting a read-only token makes the producer mutation-free at the token level, not
+      # just by convention: even an injected `gh` call cannot edit or comment on the issue.
+      - name: Generate read-only GitHub App token (for the producer)
+        id: app-token-ro
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
+
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -203,7 +221,11 @@ jobs:
         uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ steps.app-token.outputs.token }}
+          # READ-ONLY token: claude-code-action wires this into the agent's git/gh auth,
+          # so a write token here would let a `pnpm exec gh issue edit` mutate the issue.
+          # The read-only token makes the producer mutation-free at the token level; the
+          # deterministic poster below mutates with the write token instead.
+          github_token: ${{ steps.app-token-ro.outputs.token }}
           # Triage can be re-dispatched by the App when an issue becomes unblocked,
           # making the actor a bot. Allow only our own App (never '*').
           allowed_bots: "smonn[bot]"
