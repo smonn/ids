@@ -25,7 +25,7 @@ export function usage(): string {
     "      Same material + ns + key always produces the same ID. Digest IDs are one-way.",
     "      --count N > 1 is rejected: same material always produces the same ID.",
     "  keygen, k [--wrapped] [--signed] [--digest] [--bits 128|192|256] [--key-format hex|base64url]",
-    "    Emit a random key for importOpaqueKey, importWrappingKey, importSigningKey, or importDigestKey (stdout only).",
+    "    Emit a random key for importOpaqueKey, importWrappingKey, importSigningKey, or importDigestKey (key on stdout; warning on stderr).",
     "    Safe handling: redirect stdout to a 0600 file (e.g. ids keygen > key.hex && chmod 0600 key.hex);",
     "    do not let the key appear in shell history or CI logs. A warning is printed to stderr on every run.",
     "    --wrapped emits a wrapping key for importWrappingKey instead (IDS_WRAPPING_KEY).",
