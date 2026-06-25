@@ -51,7 +51,7 @@ Codec depcruise enforcement is now directory-based (implemented in #325):
 2. Create `src/codecs/<name>/layout.ts` — layout ops binder (`create*LayoutOps`).
 3. For keyed codecs, create `src/codecs/<name>/key.ts` — key-handle module (`import*Key`, `encode*Key`, `decode*Key`).
 4. Add a subpath export to `package.json#exports` and `tsdown.config.ts` ([ADR-0005](./0005-codec-variant-subpath-exports.md)).
-5. Re-export `{ IdsError, isIdsError, IdsErrorCode }` from `src/error.ts` in the codec subpath's `index.ts` ([ADR-0011](./0011-coded-ids-error.md)). **Exception:** the Timestamp codec ships from the root entry, which already exports the trio — no re-export needed.
+5. Re-export `{ IdsError, isIdsError, type IdsErrorCode }` from `src/error.ts` in the codec subpath's `index.ts` ([ADR-0011](./0011-coded-ids-error.md)). **Exception:** the Timestamp codec ships from the root entry, which already exports the trio — no re-export needed.
 6. Register the codec variant in the CLI registry (`src/cli/variants.ts`).
 7. **No `.dependency-cruiser.cjs` edits required** — the directory-based rules cover any `codecs/<name>/` automatically.
 
