@@ -276,6 +276,16 @@ jobs:
               payload byte layout, canonical `is()`, monotonicity, custom epoch, Opaque
               key behavior, or wire-indistinguishable codec variants) with no compelling
               new argument → `wontfix`; if it has genuine merit → `ready-for-human`.
+            - CI / WORKFLOW CHANGES: the implementation agent's App token deliberately
+              lacks the `workflows` permission (least-privilege — a prompt-injected agent
+              must not be able to rewrite CI, which runs with secrets), so GitHub rejects
+              any push that creates or modifies a file under `.github/workflows/`. If
+              satisfying this issue would require adding or editing ANY
+              `.github/workflows/*` file, choose `ready-for-human` (a maintainer must make
+              the workflow change by hand) — even when the issue is otherwise a clean,
+              well-scoped `ready-for-agent` candidate. Note this in your rationale. An
+              issue that only touches non-workflow files (src/, docs, other config) is
+              unaffected by this rule.
             - For bugs, reproduce with a minimal failing test and `pnpm test` (Bash is
               scoped to `pnpm` only for exactly this), then DELETE the temp test — leave
               no repro files. Triage ONLY: do not modify source code, commit, or push.
