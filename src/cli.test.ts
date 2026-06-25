@@ -1942,7 +1942,7 @@ describe("cli inspect --signed", () => {
       ["inspect", "usr_00000000000000000000000000", "--signed", "--key-format"],
       { env: { IDS_SIGNING_KEY: testSigningKeyHex } },
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format requires a value\n");
   });
