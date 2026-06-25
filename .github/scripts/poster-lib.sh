@@ -41,13 +41,22 @@ require_manifest() {
 #
 # Requires GH_TOKEN and GH_REPO to be set in the caller's environment (the deterministic
 # poster step provides both). The token appears ONLY inside the remote-URL argument and
-# is NEVER echoed; stdout and stderr are redirected to /dev/null so the URL (and thus the
-# token) can't leak into the run log.
+# is NEVER echoed: on success nothing is printed, and on failure git's combined output is
+# echoed to stderr ONLY after redacting `x-access-token:<token>@` back to `***`, so the
+# rejection reason (push protection, a branch ruleset, a non-fast-forward) is diagnosable
+# without leaking the credential — git error lines can echo the remote URL back verbatim.
 #
 # Returns the push exit status (it does NOT exit), so callers can branch on it — e.g.
 #   if push_branch "$BRANCH"; then ...pushed... else ...branch-moved handling... fi
-# which is how address-review detects a non-fast-forward rejection.
+# which is how address-review detects a non-fast-forward rejection. The `|| status=$?`
+# capture keeps a failing push from tripping the caller's `set -e` before the redacted
+# output is printed and the status is returned.
 push_branch() {
   branch=$1
-  git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${branch}" >/dev/null 2>&1
+  status=0
+  out=$(git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${branch}" 2>&1) || status=$?
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$out" | sed -E 's#x-access-token:[^@]*@#x-access-token:***@#g' >&2
+  fi
+  return "$status"
 }
