@@ -40,9 +40,18 @@ permissions:
 
 jobs:
   autofix:
+    # Same-repo guard (mirrors rebase.yml / address-review.yml): a `workflow_run` event
+    # fires in the BASE repo even when the triggering CI ran on a FORK PR, with
+    # `head_repository` set to the fork. Without this check a third party could open a
+    # fork PR on a branch named `agent/issue-*`, let its CI fail, and trip this `if` —
+    # triggering autofix runs (burning compute and the per-branch attempt cap). The
+    # producer's read-only token and `persist-credentials: false` already prevent a
+    # fork-push, but gating on `head_repository.full_name == github.repository` stops the
+    # trigger itself, keeping autofix scoped to our own agent branches like its siblings.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'failure' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
        startsWith(github.event.workflow_run.head_branch, 'agent/issue-'))
     runs-on: ubuntu-latest
     environment: automation
