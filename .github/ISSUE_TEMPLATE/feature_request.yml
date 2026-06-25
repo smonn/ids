@@ -44,7 +44,10 @@ body:
       options:
         - Timestamp codec
         - Opaque Timestamp codec
-        - Both codec variants
+        - Reverse Timestamp codec
+        - Wrapped key codec
+        - Signed Timestamp codec
+        - Digest codec
         - Not sure / not relevant
     validations:
       required: true

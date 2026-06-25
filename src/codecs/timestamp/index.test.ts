@@ -14,7 +14,7 @@ import * as fc from "fast-check";
 import { decodeBase32, encodeBase32 } from "../../wire/base32.js";
 import { createTimestampId, type TimestampOptions } from "./index.js";
 import { IdsError, isIdsError } from "../../error.js";
-import type { Id, JsonSchema } from "../../types.js";
+import type { Id, JsonSchema, LayoutOps } from "../../types.js";
 
 describe("id", () => {
   // These tests recreate many codecs for the same brand. That's intentional —
@@ -760,5 +760,17 @@ describe("dev-mode duplicate-brand warning", () => {
     expect(warnSpy).not.toHaveBeenCalled();
     createTimestampId("zae");
     expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("LayoutOps contract", () => {
+  it("LayoutOps<Brand> exampleWireId is (ms?: number) => Id<Brand>", () => {
+    expectTypeOf<LayoutOps<"usr">["exampleWireId"]>().toEqualTypeOf<(ms?: number) => Id<"usr">>();
+  });
+
+  it("toJsonSchema() example matches the brand pattern", () => {
+    const usr = createTimestampId("uzz");
+    const schema = usr.toJsonSchema();
+    expect(schema.example).toMatch(/^uzz_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$/);
   });
 });
