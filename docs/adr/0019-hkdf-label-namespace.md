@@ -15,13 +15,13 @@ This resolves issue [#388](https://github.com/smonn/ids/issues/388) (split from 
 
 ## The Opaque codec is intentionally exempt
 
+The Opaque Timestamp codec imports the operator's 16/24/32 raw bytes **directly** as the AES-CBC key (no HKDF), so it has no `info` label to standardize. This is principled, not an oversight: an AES-128/192/256 key is exactly what the operator hands it, raw import is the conventional construction, and Opaque is already cryptographically independent of the HKDF codecs _because_ its key is the raw bytes rather than an HKDF output. Whether to route Opaque through a labelled HKDF for a no-exceptions uniform model is left **undecided** (see `docs/IDEAS.md`); it is a separate breaking change with its own rationale and would need its own ADR.
+
 ## Empty-salt rationale for HKDF
 
 RFC 5869 § 2.2 specifies that when no application-defined salt is available, HKDF uses a block of zero bytes whose length equals the hash output (SHA-256 → 32 zero bytes), and the security reduction holds as long as the IKM has sufficient entropy. The keyed codecs use an empty salt (`new Uint8Array()`) because the IKM is already operator-supplied cryptographic key material.
 
 The entropy floor is the **input key size**, not a fixed 256-bit value: `importSigningKey`, `importWrappingKey`, and `importDigestKey` all accept 16, 24, or 32 raw bytes (128, 192, or 256 bits), and that is the actual entropy the HKDF extract step receives. All three accepted key sizes provide an entropy floor well above the HKDF security parameter for SHA-256, so the empty-salt construction is safe for any of the three lengths. Callers choosing 16-byte keys get 128-bit entropy, not the 256-bit floor a reader might assume if this rationale stated a fixed value.
-
-The Opaque Timestamp codec imports the operator's 16/24/32 raw bytes **directly** as the AES-CBC key (no HKDF), so it has no `info` label to standardize. This is principled, not an oversight: an AES-128/192/256 key is exactly what the operator hands it, raw import is the conventional construction, and Opaque is already cryptographically independent of the HKDF codecs _because_ its key is the raw bytes rather than an HKDF output. Whether to route Opaque through a labelled HKDF for a no-exceptions uniform model is left **undecided** (see `docs/IDEAS.md`); it is a separate breaking change with its own rationale and would need its own ADR.
 
 ## Semver and migration
 
