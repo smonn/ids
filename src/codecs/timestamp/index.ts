@@ -81,6 +81,13 @@ const defaultTimestampOptions: ResolvedTimestampOptions = {
  *
  * @param brand - Entity type brand validated once at construction.
  * @param opts - Optional `now`, `rng`, and `allowDuplicateBrand` overrides.
+ * @example
+ * ```ts
+ * const users = createTimestampId("usr");
+ *
+ * const id = users.generate();            // Id<"usr">
+ * users.extractTimestamp(id);             // Date
+ * ```
  */
 export function createTimestampId<Brand extends ValidBrand>(
   brand: Brand,

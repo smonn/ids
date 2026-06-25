@@ -129,11 +129,12 @@ module.exports = {
       name: "layouts-wire-imports-allowlist",
       severity: "error",
       comment:
-        "layouts may import wire/envelope, wire/invariants, wire/timestamp-bytes, and types only",
+        "layouts may import wire/envelope, wire/invariants, wire/timestamp-bytes, types, and _kernel/crypto only",
       from: { path: "^src/codecs/[^/]+/layout\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/(wire/(envelope|invariants|timestamp-bytes)|types)\\.ts$",
+        pathNot:
+          "^src/(wire/(envelope|invariants|timestamp-bytes)|types|codecs/_kernel/crypto)\\.ts$",
       },
     },
     {
@@ -159,8 +160,10 @@ module.exports = {
     {
       name: "leaves-no-upward",
       severity: "error",
+      comment:
+        "covers all codec paths post-ADR-0018 (layouts/timestamp/opaque moved under src/codecs/)",
       from: { path: "^src/(wire/base32|codecs/_kernel/bytes|types|codecs/_kernel/brand)\\.ts$" },
-      to: { path: "^src/(wire|layouts|timestamp|opaque|cli|codecs/_kernel/registry)" },
+      to: { path: "^src/(wire|cli|codecs)" },
     },
     {
       name: "key-material-leaf-restricted",
@@ -181,6 +184,26 @@ module.exports = {
       to: {
         path: "^src",
         pathNot: "^src/(codecs/_kernel/bytes|error)\\.ts$",
+      },
+    },
+    {
+      name: "crypto-leaf-restricted",
+      severity: "error",
+      comment: "_kernel/crypto is a leaf importable only by layout modules and key-handle modules",
+      from: {
+        path: "^src.*\\.ts$",
+        pathNot: "^src/codecs/[^/]+/(layout|key)\\.ts$|\\.test\\.ts$",
+      },
+      to: { path: "^src/codecs/_kernel/crypto\\.ts$" },
+    },
+    {
+      name: "crypto-leaf-no-upward",
+      severity: "error",
+      comment: "_kernel/crypto leaf may only import _kernel/bytes and wire/invariants",
+      from: { path: "^src/codecs/_kernel/crypto\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/(codecs/_kernel/bytes|wire/invariants)\\.ts$",
       },
     },
     {

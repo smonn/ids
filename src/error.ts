@@ -1,3 +1,5 @@
+import type { ParseError } from "./types.js";
+
 const BRAND = Symbol.for("@smonn/ids/IdsError");
 
 /**
@@ -35,8 +37,9 @@ export type IdsErrorCode =
  */
 export class IdsError extends Error {
   readonly code: IdsErrorCode;
+  declare readonly cause?: ParseError;
 
-  constructor(code: IdsErrorCode, message: string, options?: ErrorOptions) {
+  constructor(code: IdsErrorCode, message: string, options?: { cause?: ParseError }) {
     super(message, options);
     this.name = "IdsError";
     this.code = code;

@@ -29,14 +29,48 @@ import {
   type WrappingKey,
 } from "../codecs/wrapped/index.js";
 import type { IdCodec } from "../adapters/adapter-types.js";
-import type { ValidBrand } from "../types.js";
+import type { SafeVerifyResult } from "../codecs/signed/index.js";
+import type { Id, StandardSchemaProps, ValidBrand } from "../types.js";
 import { codecOpts } from "./codec-options.js";
 import { isKindError, isNsError, parseKind, parseNs } from "./flags.js";
 import { formatCliError } from "./format.js";
 import type { KeyFacet } from "./key-io.js";
 import type { RunOpts } from "./types.js";
 
-type InspectMode = "readable" | "keyed-readable" | "unwrap" | "verify" | "unsupported";
+type InspectCapability =
+  | {
+      readonly mode: "readable";
+      readonly note: string;
+      validate(codec: IdCodec<ValidBrand>, input: string): { value: Id<ValidBrand> } | { issue: string };
+      extractTimestamp(codec: IdCodec<ValidBrand>, id: Id<ValidBrand>): Date;
+    }
+  | {
+      readonly mode: "keyed-readable";
+      readonly note: string;
+      validate(codec: IdCodec<ValidBrand>, input: string): { value: Id<ValidBrand> } | { issue: string };
+      extractTimestamp(codec: IdCodec<ValidBrand>, id: Id<ValidBrand>): Promise<Date>;
+    }
+  | {
+      readonly mode: "unwrap";
+      validate(codec: IdCodec<ValidBrand>, input: string): { value: Id<ValidBrand> } | { issue: string };
+      unwrap(codec: IdCodec<ValidBrand>, id: Id<ValidBrand>): Promise<number | bigint>;
+    }
+  | {
+      readonly mode: "verify";
+      safeVerify(codec: IdCodec<ValidBrand>, id: string): Promise<SafeVerifyResult<ValidBrand>>;
+    }
+  | { readonly mode: "unsupported" };
+
+function standardValidate(
+  codec: IdCodec<ValidBrand>,
+  input: string,
+): { value: Id<ValidBrand> } | { issue: string } {
+  const result = (codec as unknown as { "~standard": StandardSchemaProps<ValidBrand> })[
+    "~standard"
+  ].validate(input);
+  if (result.issues) return { issue: result.issues[0]!.message };
+  return { value: result.value! };
+}
 
 export type Descriptor = {
   flag?: string;
@@ -47,7 +81,7 @@ export type Descriptor = {
     key?: unknown,
     values?: Map<string, string>,
   ) => (IdCodec<ValidBrand> & { generate?(): string | Promise<string> }) | string;
-  inspectMode: InspectMode;
+  inspect: InspectCapability;
   extraFlags?: readonly string[];
 };
 
@@ -60,7 +94,7 @@ export type GeneratorDescriptor = {
     key?: unknown,
     values?: Map<string, string>,
   ) => (IdCodec<ValidBrand> & { generate(): string | Promise<string> }) | string;
-  inspectMode: InspectMode;
+  inspect: InspectCapability;
   extraFlags?: readonly string[];
 };
 
@@ -73,7 +107,14 @@ export type Policy<D extends Descriptor = Descriptor> = {
 export type GeneratePolicy = Policy<GeneratorDescriptor>;
 
 export const timestampVariant: GeneratorDescriptor = {
-  inspectMode: "readable",
+  inspect: {
+    mode: "readable",
+    note: "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY",
+    validate: standardValidate,
+    extractTimestamp(codec: IdCodec<string>, id: Id<string>): Date {
+      return (codec as unknown as { extractTimestamp(id: Id<string>): Date }).extractTimestamp(id);
+    },
+  },
   construct(brand, opts) {
     try {
       return createTimestampId(brand as unknown as ValidBrand, codecOpts(opts));
@@ -92,7 +133,16 @@ export const opaqueVariant: GeneratorDescriptor = {
     decode: decodeOpaqueKey,
     import: importOpaqueKey,
   },
-  inspectMode: "keyed-readable",
+  inspect: {
+    mode: "keyed-readable",
+    note: "note: timestamp assumes IDS_KEY matches the key used at generation; a wrong key yields a plausible but incorrect timestamp",
+    validate: standardValidate,
+    extractTimestamp(codec: IdCodec<string>, id: Id<string>): Promise<Date> {
+      return (
+        codec as unknown as { extractTimestamp(id: Id<string>): Promise<Date> }
+      ).extractTimestamp(id);
+    },
+  },
   construct(brand, opts, key) {
     try {
       return createOpaqueTimestampId(brand as unknown as ValidBrand, {
@@ -107,7 +157,14 @@ export const opaqueVariant: GeneratorDescriptor = {
 
 export const reverseVariant: GeneratorDescriptor = {
   flag: "--reverse",
-  inspectMode: "readable",
+  inspect: {
+    mode: "readable",
+    note: "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY",
+    validate: standardValidate,
+    extractTimestamp(codec: IdCodec<string>, id: Id<string>): Date {
+      return (codec as unknown as { extractTimestamp(id: Id<string>): Date }).extractTimestamp(id);
+    },
+  },
   construct(brand, opts) {
     try {
       return createReverseTimestampId(brand as unknown as ValidBrand, codecOpts(opts));
@@ -126,7 +183,13 @@ export const wrappedVariant: Descriptor = {
     decode: decodeWrappingKey,
     import: importWrappingKey,
   },
-  inspectMode: "unwrap",
+  inspect: {
+    mode: "unwrap",
+    validate: standardValidate,
+    unwrap(codec: IdCodec<string>, id: Id<string>): Promise<number | bigint> {
+      return (codec as unknown as { unwrap(id: Id<string>): Promise<number | bigint> }).unwrap(id);
+    },
+  },
   extraFlags: ["--kind"],
   construct(brand, _opts, key, values) {
     const kind = parseKind(values ?? new Map());
@@ -153,7 +216,14 @@ export const signedVariant: GeneratorDescriptor = {
     decode: decodeSigningKey,
     import: importSigningKey,
   },
-  inspectMode: "verify",
+  inspect: {
+    mode: "verify",
+    safeVerify(codec: IdCodec<string>, id: string): Promise<SafeVerifyResult<string>> {
+      return (
+        codec as unknown as { safeVerify(id: string): Promise<SafeVerifyResult<string>> }
+      ).safeVerify(id);
+    },
+  },
   construct(brand, opts, key) {
     try {
       return createSignedTimestampId(brand as unknown as ValidBrand, {
@@ -177,7 +247,7 @@ export const digestVariant: GeneratorDescriptor = {
   },
   // Digest is one-way: inspect --digest is unsupported by design, so digestVariant is omitted
   // from inspectPolicy.selectable. "unsupported" documents that there is no inspect path.
-  inspectMode: "unsupported",
+  inspect: { mode: "unsupported" },
   extraFlags: ["--ns"],
   construct(brand, opts, key, values) {
     const ns = parseNs(values ?? new Map());

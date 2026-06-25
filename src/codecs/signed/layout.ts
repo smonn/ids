@@ -1,5 +1,6 @@
 import type { webcrypto } from "node:crypto";
 import type { Id, Prefix, ValidBrand } from "../../types.js";
+import { timingSafeEqual } from "../_kernel/crypto.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 import {
@@ -26,14 +27,6 @@ async function computeTag(
     await crypto.subtle.sign("HMAC", hmacKey, message as Uint8Array<ArrayBuffer>),
   );
   return signature.subarray(0, tagByteLength);
-}
-
-function tagsEqual(a: Uint8Array, b: Uint8Array): boolean {
-  /* v8 ignore next -- defensive guard; both call sites always pass tagByteLength-byte arrays */
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
-  return diff === 0;
 }
 
 export function createSignedTimestampLayoutOps<Brand extends ValidBrand>(
@@ -65,7 +58,7 @@ export function createSignedTimestampLayoutOps<Brand extends ValidBrand>(
       const signedContent = payload.subarray(0, signedContentByteLength);
       for (const hmacKey of hmacKeys) {
         const expected = await computeTag(hmacKey, brandBytes, signedContent);
-        if (tagsEqual(storedTag, expected)) return true;
+        if (timingSafeEqual(storedTag, expected)) return true;
       }
       return false;
     },
