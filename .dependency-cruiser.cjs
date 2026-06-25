@@ -150,10 +150,11 @@ module.exports = {
     {
       name: "_kernel-brand-registry-only-from-codec-constructors",
       severity: "error",
-      comment: "only codec constructors may import brand or registry from _kernel",
+      comment:
+        "only codec constructors may import brand or registry from _kernel; tests may use the resetBrandRegistry hook (ADR-0021)",
       from: {
         path: "^src",
-        pathNot: "^src/codecs/[^/]+/index\\.ts$",
+        pathNot: "^src/codecs/[^/]+/index\\.ts$|\\.test\\.ts$",
       },
       to: { path: "^src/codecs/_kernel/(brand|registry)" },
     },
