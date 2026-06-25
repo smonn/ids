@@ -63,9 +63,19 @@ jobs:
       ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
       BRANCH: agent/issue-${{ github.event.issue.number || github.event.inputs.issue_number }}
     steps:
+      # Provision the LOCAL composite action (.github/actions/app-token) on disk
+      # before the mints below use it. This default-ref checkout needs no token, and
+      # MUST NOT persist one: the job's built-in token carries write scopes, and a
+      # persisted credential here would survive into the producer's workspace and
+      # defeat the working checkout's persist-credentials: false (the no-push boundary).
+      - name: Checkout (provision local actions)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: ./.github/actions/app-token
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -77,9 +87,11 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
+      # Kept as a SEPARATE mint from the write token above — the write/read-only
+      # split is the security boundary, never merged into one token.
       - name: Generate a READ-ONLY GitHub App token for the producer
         id: app-token-ro
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: ./.github/actions/app-token
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
