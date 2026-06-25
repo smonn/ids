@@ -22,7 +22,7 @@ export type JsonSchema = {
   readonly example: string;
 };
 
-/** Minimum contract every codec's layout-ops object satisfies. Used via `satisfies` in each `create*LayoutOps` binder. */
+/** Minimum contract every codec's layout-ops object satisfies. Enforced via explicit return-type annotation on each `create*LayoutOps` binder. */
 export type LayoutOps<Brand extends string> = {
   exampleWireId: (ms?: number) => Id<Brand>;
 };
