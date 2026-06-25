@@ -65,6 +65,8 @@ export type UnwrapResult<Brand extends string, Kind extends WrappedKind> =
  * @remarks
  * **Security properties (correctness-grade verification, not AEAD):**
  *
+ * - The construction is deterministic — the same lookup key always yields the
+ *   same public ID (**equality leakage**).
  * - The verification tag is a fixed **64-bit (8-byte) truncation** of a
  *   domain-separated HMAC over the brand, kind, and lookup key lane.
  * - False-accept rate is approximately `keyring_size / 2^64` per `unwrap`
