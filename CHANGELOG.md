@@ -1,5 +1,27 @@
 # @smonn/ids
 
+## 0.13.0
+
+### Minor Changes
+
+- 86d6244: CLI: usage errors now exit 2, runtime errors exit 1; per-subcommand `--help` prints focused usage and exits 0.
+- d6db5c7: **Breaking type change:** `Id<Brand>` now uses a module-private `unique symbol` for branding instead of the publicly-named `__brand` property. The runtime string representation is unchanged. Consumers that hand-constructed `Id` values via `as { __brand: "…" }` casts must switch to `as unknown as Id<"…">`.
+- 550b2d8: Add `computeField(fieldName)` to the Prisma adapter's `IdTransform` so branded `Id<Brand>` types survive `$extends` without a per-call-site cast.
+- 13e05ed: Add `ValidBrand<S>` type for compile-time brand validation on codec constructors.
+
+### Patch Changes
+
+- e46a4cb: Replace bare string returns from `buildCodec` with a typed `CodecError` discriminant so callers switch on `error.kind` instead of inspecting message text. Usage errors from `buildCodec` (missing key env-vars, bad `*_FORMAT` values) that previously exited 1 now correctly exit 2.
+- 15fc03b: Add explicit `types` conditions to all `exports` entries and a top-level `types` field, fixing type resolution for node10 (root) and node16/bundler (all subpaths).
+- 4da79d1: Fix GraphQL adapter `serialize` to validate via `codec.safeParse` and throw `GraphQLError` on a non-conforming value instead of an unchecked cast.
+- 139ad51: Correct two peerDependencies floors that did not actually type-check against the adapter code: `hono` >=4.6.15 (the `ContentfulStatusCode` type the adapter imports lands in 4.6.15) and `@prisma/client` >=5.9.1 (the `GetPayloadResult`/`ResultArgs`/`ResultFieldDefinition` runtime types the adapter relies on are exported from 5.9.1). Caught by the new peer-dependency floor CI matrix, which installs each adapter's declared minimum and type-checks/tests against it.
+- 46b4d69: Narrow `IdsError.cause` type to `ParseError | undefined` for typed access without unsafe casts.
+- 5a3b8df: `ids keygen` now emits a sensitivity warning to stderr before printing the key, keeping stdout pipeable while alerting users to safe handling.
+- 705ed73: Lift duplicated crypto primitives into a shared `_kernel/crypto` leaf to eliminate silent-drift risk.
+- dba4913: Lower the `engines.node` floor from `>=24.0.0` to `>=22.0.0`. An exhaustive audit of `src/` found no Node 24-only API — the crypto surface (`crypto.subtle`, `crypto.randomUUID`, `crypto.getRandomValues`, HKDF) and the hand-rolled hex/base64url helpers all predate Node 22, and no Node 22+ additions (`Uint8Array.prototype.toHex`/`toBase64`, `Promise.withResolvers`, `RegExp.escape`, `node:sqlite`, etc.) are used. Node 22 (Jod) is the lowest non-EOL LTS — Node 20 reached end-of-life on 2026-03-24 — so the floor lands at 22. `@types/node` is re-pinned to `22.20.0` to match.
+- 3b5dee7: Fix NestJS `ParseIdPipe` so the default exception block is skipped when a caller-supplied `onError` hook is provided.
+- 6ab1ee6: Tighten peerDependencies floors to versions actually built and tested: typeorm >=1.0.0, @mikro-orm/core >=7.0.0, @nestjs/common >=11.0.0, drizzle-orm >=0.36.0. kysely >=0.27.0 is unchanged as ColumnType is stable since that version.
+
 ## 0.12.3
 
 ### Patch Changes
