@@ -39,9 +39,14 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          # Least-privilege: this job only reads and re-labels issues; no checkout, no
-          # push, no PR access.
+          # Least-privilege: this job only reads and re-labels issues; no push, no PR
+          # access.
           permission-issues: write
+
+      # Checkout only so the shared .github/scripts/parse-blockers.sh is on disk; the
+      # job still makes no commits and pushes nothing.
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Unblock issues whose blockers are all closed
         env:
@@ -56,37 +61,11 @@ jobs:
           for n in $blocked; do
             text=$(gh issue view "$n" --json body,comments \
               --jq '.body + "\n" + ([.comments[].body] | join("\n"))')
-            # Extract blocker issue numbers from two declaration forms:
-            #   1. an inline phrase + number on one line ("Depends on #104"); and
-            #   2. a "## Blocked by" (or Depends on / Requires) heading followed by a
-            #      markdown bullet list of "- #N" items — the issue-template form, which a
-            #      line-by-line grep misses because the number sits on its own bullet line.
-            # The bullet pass reads only the LEADING #N of each bullet under the heading
-            # (not surrounding prose), so a self-reference like "Issue #109 depends on
-            # #104" resolves to #104, never #109.
-            deps=$(
-              {
-                printf '%s' "$text" \
-                  | grep -oiE '(blocked by|depends on|requires)[[:space:]]*:?[[:space:]]*#[0-9]+' \
-                  | grep -oE '[0-9]+'
-                printf '%s' "$text" | awk '
-                  { lc = tolower($0) }
-                  lc ~ /blocked by|depends on|requires/ { collect = 1; started = 0; next }
-                  collect {
-                    if ($0 ~ /^[ \t]*$/) { if (started) collect = 0; next }
-                    if ($0 ~ /^[ \t]*[-*][ \t]*#?[0-9]+/) {
-                      n = $0
-                      sub(/^[ \t]*[-*][ \t]*#?/, "", n)
-                      sub(/[^0-9].*$/, "", n)
-                      print n
-                      started = 1
-                      next
-                    }
-                    collect = 0
-                  }
-                '
-              } | sort -un
-            )
+            # Extract blocker issue numbers (two declaration forms: an inline
+            # "Depends on #N" phrase, and a "## Blocked by"/Depends on/Requires heading
+            # followed by a markdown "- #N" bullet list — the issue-template form). The
+            # text→numbers parser is shared verbatim with triage.yml.
+            deps=$(printf '%s' "$text" | bash .github/scripts/parse-blockers.sh)
             if [ -z "$deps" ]; then
               echo "#$n: blocked but no parseable blocker reference; leaving for a human."
               continue
