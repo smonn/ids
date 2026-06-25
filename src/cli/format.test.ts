@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatInspectOutput } from "./format.js";
+import { formatInspectOutput, msPerDay, msPerHour, msPerMinute } from "./format.js";
 import type { Id } from "../types.js";
-
-const msPerMinute = 60 * 1000;
-const msPerHour = 60 * msPerMinute;
-const msPerDay = 24 * msPerHour;
 
 const nowMs = 1_000_000_000_000;
 const fakeId = "tst_00000000000000000000000000" as unknown as Id<string>;
