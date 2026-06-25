@@ -33,9 +33,9 @@ type LowerChar =
  * When passed the generic `string` type it resolves to `string`, so existing
  * dynamic-brand call sites (e.g. CLI, ORM adapters) are unaffected.
  *
- * Apply as a generic constraint on codec constructors:
+ * Apply as a parameter intersection on codec constructors:
  * ```ts
- * function createTimestampId<Brand extends ValidBrand<Brand>>(brand: Brand, ...)
+ * function createTimestampId<Brand extends string>(brand: Brand & ValidBrand<Brand>, ...)
  * ```
  * TypeScript then validates the specific brand literal at each call site without
  * materialising the 17 576-member all-brands union.
