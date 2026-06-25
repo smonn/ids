@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isIdsError } from "../../error.js";
 import { getDigestKeyHmacKey, importDigestKey, type DigestKey } from "./key.js";
 
-describe("importDigestKey", () => {
+describe("getDigestKeyHmacKey", () => {
   it("getDigestKeyHmacKey throws on an unregistered handle (internal guard — plain Error)", () => {
     const fake = Object.freeze({}) as DigestKey;
     let err: unknown;
