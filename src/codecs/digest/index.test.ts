@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import * as fc from "fast-check";
 import {
   createDigestId,
   decodeDigestKey,
@@ -430,5 +431,70 @@ describe("createDigestId", () => {
     const idk = createDigestId("idk", { ns: "checkout", key, allowDuplicateBrand: true });
     const id: Id<"idk"> = await idk.digest("test");
     expect(id).toBeDefined();
+  });
+
+  // --- Golden vector ---
+
+  it("golden vector: fixed ns + key + material yields exact wire string", async () => {
+    // key: 32 bytes of 0x99; ns: "test"; material: "hello"
+    // Payload = leftmost 16 bytes of HMAC-SHA-256 over brand ‖ ns ‖ material
+    const key = await importDigestKey(new Uint8Array(32).fill(0x99));
+    const idk = createDigestId("idk", { ns: "test", key, allowDuplicateBrand: true });
+    expect(await idk.digest("hello")).toBe("idk_c9xfsmvmfrm237420a31ax167m");
+  });
+
+  // --- fast-check property tests ---
+
+  describe("fast-check property tests", () => {
+    let sharedKey: DigestKey;
+
+    beforeAll(async () => {
+      sharedKey = await importDigestKey(new Uint8Array(32).fill(0x42));
+    });
+
+    it("safeParse never throws on arbitrary input", () => {
+      const idk = createDigestId("idk", {
+        ns: "checkout",
+        key: sharedKey,
+        allowDuplicateBrand: true,
+      });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          idk.safeParse(s);
+          return true;
+        }),
+      );
+    });
+
+    it("safeParse: when ok, returned id satisfies is()", () => {
+      const idk = createDigestId("idk", {
+        ns: "checkout",
+        key: sharedKey,
+        allowDuplicateBrand: true,
+      });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          const r = idk.safeParse(s);
+          return !r.ok || idk.is(r.id);
+        }),
+      );
+    });
+
+    it("key encode/decode round-trip: encodeDigestKey → decodeDigestKey is identity for all lengths and formats", () => {
+      fc.assert(
+        fc.property(
+          fc.oneof(
+            fc.uint8Array({ minLength: 16, maxLength: 16 }),
+            fc.uint8Array({ minLength: 24, maxLength: 24 }),
+            fc.uint8Array({ minLength: 32, maxLength: 32 }),
+          ),
+          fc.constantFrom("hex" as DigestKeyFormat, "base64url" as DigestKeyFormat),
+          (bytes, fmt) => {
+            const decoded = decodeDigestKey(encodeDigestKey(bytes, fmt), fmt);
+            return decoded.length === bytes.length && decoded.every((b, i) => b === bytes[i]);
+          },
+        ),
+      );
+    });
   });
 });

@@ -9,11 +9,15 @@ import {
   it,
   vi,
 } from "vitest";
+import * as fc from "fast-check";
 import { createTimestampId } from "../timestamp/index.js";
 import {
   createOpaqueTimestampId,
+  decodeOpaqueKey,
+  encodeOpaqueKey,
   importOpaqueKey,
   type OpaqueKey,
+  type OpaqueKeyFormat,
   type OpaqueTimestampOptions,
 } from "./index.js";
 import type { Id, JsonSchema, ParseResult } from "../../types.js";
@@ -251,6 +255,69 @@ describe("opaque", () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const usr = createOpaqueTimestampId("usr", { key });
     await expect(usr.generateAt(new Date(NaN))).rejects.toThrow("timestamp is not a number");
+  });
+
+  // --- Golden vector ---
+
+  it("golden vector: fixed ts + rng + AES key yields exact wire string", async () => {
+    // key: 16 bytes of 0x11; ts: 0x123456789abc; rng: all bytes 0x55
+    // AES-CBC(key, zero-IV, ts6 ‖ rand10) → first 16 bytes → base32 payload.
+    const key = await importOpaqueKey(new Uint8Array(16).fill(0x11));
+    const opc = createOpaqueTimestampId("opc", {
+      key,
+      now: () => 0x123456789abc,
+      rng: (target) => {
+        target.fill(0x55);
+      },
+    });
+    expect(await opc.generate()).toBe("opc_vwpbpgz86xc98hvyk801n1n43m");
+  });
+
+  // --- fast-check property tests ---
+
+  describe("fast-check property tests", () => {
+    let fcKey: OpaqueKey;
+
+    beforeAll(async () => {
+      fcKey = await importOpaqueKey(new Uint8Array(16).fill(0x11));
+    });
+
+    it("safeParse never throws on arbitrary input", () => {
+      const opc = createOpaqueTimestampId("opc", { key: fcKey, allowDuplicateBrand: true });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          opc.safeParse(s);
+          return true;
+        }),
+      );
+    });
+
+    it("safeParse: when ok, returned id satisfies is()", () => {
+      const opc = createOpaqueTimestampId("opc", { key: fcKey, allowDuplicateBrand: true });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          const r = opc.safeParse(s);
+          return !r.ok || opc.is(r.id);
+        }),
+      );
+    });
+
+    it("key encode/decode round-trip: encodeOpaqueKey → decodeOpaqueKey is identity for all lengths and formats", () => {
+      fc.assert(
+        fc.property(
+          fc.oneof(
+            fc.uint8Array({ minLength: 16, maxLength: 16 }),
+            fc.uint8Array({ minLength: 24, maxLength: 24 }),
+            fc.uint8Array({ minLength: 32, maxLength: 32 }),
+          ),
+          fc.constantFrom("hex" as OpaqueKeyFormat, "base64url" as OpaqueKeyFormat),
+          (bytes, fmt) => {
+            const decoded = decodeOpaqueKey(encodeOpaqueKey(bytes, fmt), fmt);
+            return decoded.length === bytes.length && decoded.every((b, i) => b === bytes[i]);
+          },
+        ),
+      );
+    });
   });
 });
 

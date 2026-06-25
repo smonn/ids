@@ -61,6 +61,7 @@
     "dependency-cruiser": "17.4.3",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
+    "fast-check": "^4.8.0",
     "fastify": "^5.8.5",
     "graphql": "^17.0.1",
     "hono": "^4.12.26",
