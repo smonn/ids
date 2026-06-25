@@ -37,6 +37,7 @@ async function runCapture(
     now?: () => number;
     rng?: (target: Uint8Array) => void;
     env?: Readonly<Record<string, string | undefined>>;
+    readStdin?: () => Promise<string>;
   } = {},
 ): Promise<Capture> {
   let stdout = "";
@@ -52,6 +53,7 @@ async function runCapture(
     now: opts.now ?? (() => 0x123456789abc),
     rng: opts.rng ?? ((target) => target.fill(0x00)),
     ...(opts.env !== undefined ? { env: opts.env } : {}),
+    ...(opts.readStdin !== undefined ? { readStdin: opts.readStdin } : {}),
   });
   return { stdout, stderr, exitCode };
 }
@@ -2372,5 +2374,16 @@ describe("cli exit code contract", () => {
     expect(result.stdout).toContain("0");
     expect(result.stdout).toContain("1");
     expect(result.stdout).toContain("2");
+  });
+
+  it("unexpected throw escaping a command handler maps to exit 1", async () => {
+    const result = await runCapture(["generate", "idk", "--digest", "--ns", "test"], {
+      env: { IDS_DIGEST_KEY: testDigestKeyHex },
+      readStdin: () => {
+        throw new Error("boom");
+      },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBeTruthy();
   });
 });
