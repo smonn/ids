@@ -25,4 +25,14 @@ export default defineConfig({
   },
   sourcemap: true,
   platform: "node",
+  inputOptions: {
+    onLog(level, log, defaultHandler) {
+      // rolldown-plugin-dts:fake-js transforms .d.ts files to fake-JS for bundling
+      // without emitting an intermediate sourcemap, triggering SOURCEMAP_BROKEN.
+      // The final .d.mts.map files are produced correctly by TypeScript's declarationMap,
+      // so this warning is a false alarm about the internal processing chain.
+      if (log.code === "SOURCEMAP_BROKEN" && log.plugin === "rolldown-plugin-dts:fake-js") return;
+      defaultHandler(level, log);
+    },
+  },
 });
