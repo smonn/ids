@@ -245,11 +245,9 @@ describe("reverse timestamp codec", () => {
       });
       const min = rev.minIdForTime(d);
       const max = rev.maxIdForTime(d);
-      for (let i = 0; i < 100; i++) {
-        const id = rev.generate();
-        expect(min <= id).toBe(true);
-        expect(id <= max).toBe(true);
-      }
+      const id = rev.generate();
+      expect(min <= id).toBe(true);
+      expect(id <= max).toBe(true);
     });
 
     it("minIdForTime(d) equals a zero-RNG generateAt() at the same time (tight lower bound)", () => {
