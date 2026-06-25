@@ -17,24 +17,13 @@ import { encodeDigestKey } from "../codecs/digest/index.js";
 import { encodeOpaqueKey } from "../codecs/opaque/index.js";
 import { encodeSigningKey } from "../codecs/signed/index.js";
 import { encodeWrappingKey } from "../codecs/wrapped/index.js";
-import type { RunOpts } from "./types.js";
+import { makeOpts } from "./test-helpers.js";
 
 const testKeyBytes = new Uint8Array(32).fill(0xab);
 const testOpaqueHex = encodeOpaqueKey(testKeyBytes, "hex");
 const testSigningHex = encodeSigningKey(testKeyBytes, "hex");
 const testWrappingHex = encodeWrappingKey(testKeyBytes, "hex");
 const testDigestHex = encodeDigestKey(testKeyBytes, "hex");
-
-function makeOpts(env: Record<string, string> = {}): RunOpts {
-  return {
-    argv: [],
-    stdout: () => {},
-    stderr: () => {},
-    now: () => 0x123456789abc,
-    rng: (t) => t.fill(0x00),
-    env,
-  };
-}
 
 // A policy with no keyed variants, to cover the hasKeyed=false branch
 const noKeyPolicy: Policy = {

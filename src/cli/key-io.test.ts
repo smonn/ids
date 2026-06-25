@@ -1,18 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isLoadKeyError, loadKey } from "./key-io.js";
 import type { KeyFacet, LoadKeyError } from "./key-io.js";
-import type { RunOpts } from "./types.js";
-
-function makeOpts(env: Record<string, string> = {}): RunOpts {
-  return {
-    argv: [],
-    stdout: () => {},
-    stderr: () => {},
-    now: () => 0,
-    rng: (t) => t.fill(0x00),
-    env,
-  };
-}
+import { makeOpts } from "./test-helpers.js";
 
 const dummyFacet: KeyFacet<string> = {
   envVar: "TEST_KEY",
