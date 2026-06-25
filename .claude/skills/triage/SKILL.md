@@ -85,8 +85,8 @@ Show counts and a one-line summary per item. Let the maintainer pick.
    - `needs-info` — post triage notes (template below).
    - `wontfix` — apply the `wontfix` label and post a comment depending on *why* (the issue stays open; the workflow does not automatically close it):
      - **Already implemented** — the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
-     - **Rejected (bug)** — polite explanation, then close.
-     - **Rejected (enhancement)** — write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
+     - **Rejected (bug)** — polite explanation.
+     - **Rejected (enhancement)** — write to `.out-of-scope/`, link to it from a comment ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
    - `needs-triage` — apply the role. Optional comment if there's partial progress.
 
 ## Quick state override
