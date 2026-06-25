@@ -1,0 +1,6 @@
+{
+  "issue_number": 574,
+  "branch": "agent/issue-574",
+  "escalate": false,
+  "pr_title": "test(cli): match on exit code/error code instead of exact stderr, add flags unit coverage"
+}
