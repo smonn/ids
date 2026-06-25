@@ -176,8 +176,7 @@ jobs:
       - name: Configure git identity and working branch
         if: steps.gate.outputs.proceed == 'true'
         run: |
-          git config user.name "smonn[bot]"
-          git config user.email "110314539+smonn[bot]@users.noreply.github.com"
+          bash .github/scripts/git-identity.sh
           # We checked out a detached SHA; recreate the branch at it so the agent can
           # commit locally. There is no push credential — the poster pushes later.
           git checkout -B "$BRANCH"
@@ -219,21 +218,7 @@ jobs:
           # build if an issue can't be read.
           pr_body=$(jq -r '(.title // "") + "\n\n" + (.body // "")' .address-context/pr.json)
           printf '%s\n' "$pr_body" > .address-context/pr.md
-          issues=$(printf '%s' "$pr_body" \
-            | grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]+#[0-9]+' \
-            | grep -oE '[0-9]+' | sort -u || true)
-          {
-            if [ -n "$issues" ]; then
-              for n in $issues; do
-                echo "## Issue #$n"; echo
-                gh issue view "$n" --json title,body --jq '"**" + .title + "**\n\n" + (.body // "")' \
-                  2>/dev/null || echo "(could not fetch issue #$n)"
-                echo; echo "---"; echo
-              done
-            else
-              echo "No originating issue found in the PR body (no Closes/Fixes/Resolves #N)."
-            fi
-          } > .address-context/issue.md
+          printf '%s' "$pr_body" | bash .github/scripts/fetch-closing-issues.sh > .address-context/issue.md
 
           echo "Context built:"; wc -l .address-context/* 2>/dev/null || true
 

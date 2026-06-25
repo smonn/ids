@@ -123,9 +123,7 @@ jobs:
 
       - name: Configure git identity
         if: steps.gate.outputs.proceed == 'true'
-        run: |
-          git config user.name "smonn[bot]"
-          git config user.email "110314539+smonn[bot]@users.noreply.github.com"
+        run: bash .github/scripts/git-identity.sh
 
       - name: Create the implementation branch
         if: steps.gate.outputs.proceed == 'true'

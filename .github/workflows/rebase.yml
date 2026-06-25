@@ -138,8 +138,7 @@ jobs:
           # inject. The scope gate above also constrains it to agent/issue-*.
           BRANCH: ${{ steps.pr.outputs.branch }}
         run: |
-          git config user.name "smonn[bot]"
-          git config user.email "110314539+smonn[bot]@users.noreply.github.com"
+          bash .github/scripts/git-identity.sh
           # We checked out a detached SHA; recreate the branch at it so we can push.
           git checkout -B "$BRANCH"
 
