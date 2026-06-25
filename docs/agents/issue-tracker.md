@@ -83,13 +83,13 @@ make triage route correctly by how you write the issue.
 2. **Slice for the pipeline, not just for humans:**
    - **One issue per finding by default**, each sized to finish in a single `implement.yml`
      turn. Prefer small: a fat "roundup" can exhaust an implementing agent's turn budget and
-     mixes unrelated diffs. Trivial one-line *doc* fixes may be batched into one roundup.
+     mixes unrelated diffs. Trivial one-line _doc_ fixes may be batched into one roundup.
    - **Make each issue's file set disjoint.** `implement.yml` opens one PR per issue and they
      run in parallel; multiple PRs editing the same file conflict and churn `rebase.yml`.
      So when several findings touch the same file, **group sub-findings by the file they
      touch** (e.g. all `reverse/index.test.ts` work in one issue) rather than by finding type.
-     A cross-file fix that would otherwise collide with several issues should be *dissolved
-     into* those per-file issues, or chained ahead of them with `Blocked by #N`.
+     A cross-file fix that would otherwise collide with several issues should be _dissolved
+     into_ those per-file issues, or chained ahead of them with `Blocked by #N`.
    - **Resolve embedded design decisions before filing as `ready-for-agent`.** If a finding has
      a genuine trade-off, either decide the direction and bake it into the acceptance criteria
      (with the rejected option in `Out of scope`), or file it as a maintainer-decision issue

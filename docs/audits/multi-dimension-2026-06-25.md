@@ -16,7 +16,7 @@ roundups, etc.) and the then-open issue on `ALL_CODES` compile-time exhaustivene
 
 Headline: **the library is in strong shape.** Crypto is sound, layering is enforced
 (dependency-cruiser clean), docs are largely accurate, coverage gate is 100%. No
-critical/high-severity *bugs* in shipped code. The most actionable items are one dead test
+critical/high-severity _bugs_ in shipped code. The most actionable items are one dead test
 assertion, a handful of doc contradictions, and CLI/CI gaps.
 
 ---
@@ -24,6 +24,7 @@ assertion, a handful of doc contradictions, and CLI/CI gaps.
 ## Findings by dimension
 
 ### Security — construction verified sound
+
 Constant-time compares everywhere tags are verified; all `CryptoKey`s `extractable:false`; no
 raw secrets retained; domain-separated HKDF labels; CSPRNG-only; zero runtime deps; CLI keys
 via env, never argv. No critical/high.
@@ -31,7 +32,7 @@ via env, never argv. No critical/high.
 - **sec-M1 (doc) — HKDF empty-salt rationale assumes 256-bit IKM.** `_kernel/crypto.ts:74`.
   HKDF is called with an empty salt; the ADR-0004/0019 justification ("IKM already 256-bit
   uniform") doesn't literally hold for the accepted 16/24-byte key sizes. Still cryptographically
-  safe — only the *documented rationale* is narrower than the input range. → tighten ADR wording:
+  safe — only the _documented rationale_ is narrower than the input range. → tighten ADR wording:
   entropy floor = input key size (128/192/256-bit). Folded into the doc-drift roundup.
 - **sec-L1 (comment) — `decodeBase32` indexes a 256-entry table via `charCodeAt`.**
   `wire/base32.ts:52`. A >255 code unit yields silent garbage rather than a throw, unlike
@@ -39,6 +40,7 @@ via env, never argv. No critical/high.
   asymmetry with `decodeHex` deserves a one-line comment noting the gate lives upstream.
 
 ### Performance — already well-tuned
+
 Module-level tables, construction-time hoisting, reused scratch buffers. Findings are
 low/medium.
 
@@ -54,6 +56,7 @@ low/medium.
   rotation case) is unmeasured; rejection paths (`is(invalid)`/`safeParse(invalid)`) unbenched.
 
 ### Architecture — coherent; depcruise verified clean (110 modules, 0 violations, 0 cycles)
+
 No high.
 
 - **arch-M1 — two depcruise rules have no negative-fixture coverage.**
@@ -70,12 +73,13 @@ No high.
   opaque's key accessor breaks the two-function pattern other key modules follow. Low priority.
 
 ### Documentation — largely accurate; the value is the drift findings
+
 - **doc-T2 — `monitor-prs` skill names the wrong bot.** `.claude/skills/monitor-prs/SKILL.md:24`
   says the PR author is `claude[bot]`; the real App identity is `smonn[bot]` everywhere
   (`implement.yml`, `triage.yml`). Breaks the agent-vs-external PR classification rule as written.
 - **doc-T3 — ADR-0019 closing sentence contradicts its own decision.** `docs/adr/0019:11` ends
   "The bare `ids` prefix was chosen instead," but the decision (and the code's `@smonn/ids/...`
-  HKDF labels) chose the namespaced prefix; line 28 lists bare `ids` as *rejected*.
+  HKDF labels) chose the namespaced prefix; line 28 lists bare `ids` as _rejected_.
 - **doc-M3 — stale ADR range in agent docs.** `docs/agents/domain.md:20` hardcodes "(0001–0020)";
   ADRs now run to 0022. → drop the hardcoded upper bound so it can't drift again.
 - **doc-ADR0003 — references a non-existent result field.** `docs/adr/0003:13` says
@@ -86,12 +90,13 @@ No high.
   refs. **Filed separately** from the doc-drift roundup (rename + refs, not a typo).
 
 ### Testing — 100% line coverage, but some assertions don't test what they claim
+
 - **test-T1 (HIGH) — dead assertion.** `wrapped/index.test.ts:153`:
   `await expect(rotated.wrap(7)).not.toBe(id)` — `await` binds the whole expression, so `expect`
   receives an unresolved Promise and the matcher can never fail. The rotation re-wrap property is
   unverified. → `expect(await rotated.wrap(7)).not.toBe(id)`.
 - **test-H2 (HIGH) — reverse codec lacks property-based round-trip + boundary round-trips.**
-  `reverse/index.test.ts`. The bitwise inversion on encode *and* decode is the riskiest path, yet
+  `reverse/index.test.ts`. The bitwise inversion on encode _and_ decode is the riskiest path, yet
   it has no `generateAt(ms)→extractTimestamp===ms` property and no epoch-0 / 2⁴⁸−1 round-trips
   (where all-ones/all-zeros byte patterns most expose mask/shift errors).
 - **test-H3 (HIGH) — kernel `decryptPayload` never tested with wrong key / tampered ciphertext.**
@@ -103,7 +108,7 @@ No high.
   bare-`toThrow()` convention for the timestamp codec. **Do NOT introduce an error code** — the
   bare `Error` from the 48-bit range check is a CLOSED decision (CONTEXT.md `IdsError` entry,
   ADR-0011). This is a test-only de-brittling; dissolved into each codec's test issue below.
-- **test-M (medium gaps):** full-ring *failure* path (no key matches → `verification_failed`)
+- **test-M (medium gaps):** full-ring _failure_ path (no key matches → `verification_failed`)
   untested for signed & wrapped; digest length-prefix split-collision guarded by a single golden
   vector; wrong-length wire input never reaches the AES/length guard in a test; reverse codec
   missing the forward suite's negative cases; brand-registry global state not reset in the opaque
@@ -118,6 +123,7 @@ No high.
   paths AND asserted by runtime tests.
 
 ### DX / build / packaging / CI — packaging clean (attw + publint green; exports match dist)
+
 - **DX-M-cli — no `--version`/`-v` on the published bin.** `cli/index.ts:20`. `ids --version`
   falls through to unknown-subcommand → usage on stderr, exit 2 (looks like an error). → add
   `--version` printing the package version (read at build time) to stdout, exit 0.
@@ -139,11 +145,11 @@ No high.
 
 ## Resolved design decisions (so issues can be written agent-ready)
 
-| Finding | Decision | Why |
-| --- | --- | --- |
+| Finding                          | Decision                                    | Why                                                                                                                             |
+| -------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | test-M2 timestamp-overflow error | Test-only de-brittle; **no** new error code | Bare `Error` for the 48-bit range check is a CLOSED decision (CONTEXT.md/ADR-0011) — adding `invalid_timestamp` would reopen it |
-| arch-M2 `IdsError` re-export | **Keep** + document the rule | Subpath-import DX is real and cheap; keep is the freeze-safe direction |
-| DX-M3 `/timestamp` subpath | **Document** the asymmetry, don't add | Avoids a permanent dual-homed export; adding later stays additive |
+| arch-M2 `IdsError` re-export     | **Keep** + document the rule                | Subpath-import DX is real and cheap; keep is the freeze-safe direction                                                          |
+| DX-M3 `/timestamp` subpath       | **Document** the asymmetry, don't add       | Avoids a permanent dual-homed export; adding later stays additive                                                               |
 
 ---
 
@@ -153,9 +159,10 @@ Default: **one issue per finding**, sized single-turn for `implement.yml`. Excep
 real automation hazard — multiple parallel `implement.yml` PRs editing the same file conflict. So:
 **group sub-findings by the file they touch, so each issue's file set is disjoint** and the PRs
 run in parallel conflict-free (no `Blocked by` chains needed). test-M2's per-file de-brittling is
-*dissolved into* each codec's test issue rather than filed cross-file.
+_dissolved into_ each codec's test issue rather than filed cross-file.
 
 **Test cluster (file-disjoint, parallel-safe):**
+
 - reverse test parity = H2 + reverse negatives + de-brittle reverse assertions
 - signed test hardening = try-all-fail + wrong-length wire + dup-handle + de-brittle
 - opaque test hardening = registry reset + key-length boundaries + guard + de-brittle
@@ -182,7 +189,7 @@ sec-M1 HKDF wording.
 ## 1.0.0 release gate
 
 1.0 freezes the **public export surface**, the **wire format / byte layouts**, and the **CLI
-surface** permanently (error-code *additions* remain minor bumps). Re-triaged against that:
+surface** permanently (error-code _additions_ remain minor bumps). Re-triaged against that:
 
 - **None of the findings above is a hard 1.0 blocker.** Tests, docs, perf, depcruise fixtures,
   bench, `.prettierignore` don't touch the frozen contract; CLI `--version` and the `/timestamp`
