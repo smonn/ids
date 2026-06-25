@@ -46,7 +46,7 @@ export type OpaqueTimestampOptions = {
  * encrypted payloads do not sort by creation time.
  *
  * @remarks
- * **Security properties (unauthenticated and malleable by design):**
+ * **Security properties (unauthenticated, deterministic, and malleable by design):**
  *
  * - The payload is AES-CBC encrypted but **unauthenticated** — there is no
  *   integrity tag. A tampered or wrong-key payload decrypts to garbage bytes
