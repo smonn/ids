@@ -15,20 +15,9 @@ import { importDigestKey } from "../codecs/digest/index.js";
 import { importOpaqueKey } from "../codecs/opaque/index.js";
 import { importSigningKey } from "../codecs/signed/index.js";
 import { importWrappingKey } from "../codecs/wrapped/index.js";
-import type { RunOpts } from "./types.js";
+import { makeOpts } from "./test-helpers.js";
 
 const testKeyBytes = new Uint8Array(32).fill(0xab);
-
-function makeOpts(env: Record<string, string> = {}): RunOpts {
-  return {
-    argv: [],
-    stdout: () => {},
-    stderr: () => {},
-    now: () => 0x123456789abc,
-    rng: (t) => t.fill(0x00),
-    env,
-  };
-}
 
 describe("timestampVariant", () => {
   it("has no flag (default variant)", () => {
