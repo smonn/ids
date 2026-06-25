@@ -616,6 +616,23 @@ describe("wrapped", () => {
         ),
       );
     });
+
+    it("decodeWrappingKey never throws on arbitrary string input", () => {
+      fc.assert(
+        fc.property(
+          fc.string(),
+          fc.constantFrom("hex" as WrappingKeyFormat, "base64url" as WrappingKeyFormat),
+          (s, fmt) => {
+            try {
+              decodeWrappingKey(s, fmt);
+            } catch (e) {
+              return isIdsError(e);
+            }
+            return true;
+          },
+        ),
+      );
+    });
   });
 });
 

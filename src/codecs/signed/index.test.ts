@@ -501,5 +501,22 @@ describe("createSignedTimestampId", () => {
         ),
       );
     });
+
+    it("decodeSigningKey never throws on arbitrary string input", () => {
+      fc.assert(
+        fc.property(
+          fc.string(),
+          fc.constantFrom("hex" as SigningKeyFormat, "base64url" as SigningKeyFormat),
+          (s, fmt) => {
+            try {
+              decodeSigningKey(s, fmt);
+            } catch (e) {
+              return isIdsError(e);
+            }
+            return true;
+          },
+        ),
+      );
+    });
   });
 });

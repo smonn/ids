@@ -496,5 +496,22 @@ describe("createDigestId", () => {
         ),
       );
     });
+
+    it("decodeDigestKey never throws on arbitrary string input", () => {
+      fc.assert(
+        fc.property(
+          fc.string(),
+          fc.constantFrom("hex" as DigestKeyFormat, "base64url" as DigestKeyFormat),
+          (s, fmt) => {
+            try {
+              decodeDigestKey(s, fmt);
+            } catch (e) {
+              return isIdsError(e);
+            }
+            return true;
+          },
+        ),
+      );
+    });
   });
 });

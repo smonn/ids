@@ -16,6 +16,7 @@ import {
   decodeOpaqueKey,
   encodeOpaqueKey,
   importOpaqueKey,
+  isIdsError,
   type OpaqueKey,
   type OpaqueKeyFormat,
   type OpaqueTimestampOptions,
@@ -314,6 +315,23 @@ describe("opaque", () => {
           (bytes, fmt) => {
             const decoded = decodeOpaqueKey(encodeOpaqueKey(bytes, fmt), fmt);
             return decoded.length === bytes.length && decoded.every((b, i) => b === bytes[i]);
+          },
+        ),
+      );
+    });
+
+    it("decodeOpaqueKey never throws on arbitrary string input", () => {
+      fc.assert(
+        fc.property(
+          fc.string(),
+          fc.constantFrom("hex" as OpaqueKeyFormat, "base64url" as OpaqueKeyFormat),
+          (s, fmt) => {
+            try {
+              decodeOpaqueKey(s, fmt);
+            } catch (e) {
+              return isIdsError(e);
+            }
+            return true;
           },
         ),
       );
