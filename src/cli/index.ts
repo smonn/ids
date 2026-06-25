@@ -26,5 +26,5 @@ export async function run(opts: RunOpts): Promise<number> {
     return 0;
   }
   opts.stderr(usage());
-  return 1;
+  return 2;
 }
