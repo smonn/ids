@@ -2,6 +2,7 @@ import { BadRequestException, HttpException, NotFoundException } from "@nestjs/c
 import type { ArgumentMetadata } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ParseIdPipe } from "./nestjs.js";
+import type { IdParamFailure } from "./nestjs.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 
@@ -88,6 +89,19 @@ describe("ParseIdPipe", () => {
       }
       expect(received).toHaveLength(1);
       expect(received[0]).toEqual({ reason: "brand_mismatch", status: 404 });
+    });
+
+    it("onError supplied: default NotFoundException is NOT thrown when onError does not throw", () => {
+      let called = false;
+      const pipe = new ParseIdPipe(usr, {
+        // Cast: intentionally non-throwing to verify the default block is guarded by else
+        onError: ((_failure: IdParamFailure) => {
+          called = true;
+        }) as (failure: IdParamFailure) => never,
+      });
+      const orgId = org.generate();
+      expect(() => pipe.transform(orgId, METADATA)).not.toThrow(NotFoundException);
+      expect(called).toBe(true);
     });
   });
 
