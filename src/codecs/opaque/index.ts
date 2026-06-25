@@ -44,6 +44,18 @@ export type OpaqueTimestampOptions = {
  * payload is AES-CBC encrypted. `generate`, `generateAt`, and `extractTimestamp`
  * are async; parsing methods are sync. No `minIdForTime` / `maxIdForTime` —
  * encrypted payloads do not sort by creation time.
+ *
+ * @remarks
+ * **Security properties (unauthenticated and malleable by design):**
+ *
+ * - The payload is AES-CBC encrypted but **unauthenticated** — there is no
+ *   integrity tag. A tampered or wrong-key payload decrypts to garbage bytes
+ *   without throwing.
+ * - Opaque IDs must be treated as **opaque handles**, not as trusted or
+ *   authenticated tokens.
+ * - `extractTimestamp` is best-effort on untrusted input: a wrong or tampered
+ *   key returns a plausible-looking `Date` without error, not a verification
+ *   failure. Do not treat the returned timestamp as proof of origin.
  */
 export type OpaqueTimestampCodec<Brand extends string> = {
   /** Produces a new canonical encrypted ID using the codec's `now` and `rng`. */

@@ -61,6 +61,16 @@ export type UnwrapResult<Brand extends string, Kind extends WrappedKind> =
  *   no key material — they validate prefix and base32 shape only.
  * - The `Kind` type parameter drives value types at the TypeScript boundary:
  *   `u32` / `i32` → `number`; `u64` / `i64` → `bigint`.
+ *
+ * @remarks
+ * **Security properties (correctness-grade verification, not AEAD):**
+ *
+ * - The verification tag is a fixed **64-bit (8-byte) truncation** of a
+ *   domain-separated HMAC over the brand, kind, and lookup key lane.
+ * - False-accept rate is approximately `keyring_size / 2^64` per `unwrap`
+ *   trial — correctness-grade verification, not AEAD-strength origin
+ *   authentication.
+ * - Consumers requiring full AEAD guarantees must use a different construction.
  */
 export type WrappedKeyCodec<Brand extends string, Kind extends WrappedKind> = {
   /**
