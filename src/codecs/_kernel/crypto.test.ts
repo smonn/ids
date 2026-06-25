@@ -98,6 +98,12 @@ describe("writeLen32", () => {
     expect(Array.from(buf.subarray(0, 4))).toEqual([0, 0, 0, 0]);
     expect(Array.from(buf.subarray(4))).toEqual([0xde, 0xad, 0xbe, 0xef]);
   });
+
+  it("writes the 32-bit maximum correctly", () => {
+    const buf = new Uint8Array(4);
+    writeLen32(0xffffffff, buf, 0);
+    expect(Array.from(buf)).toEqual([0xff, 0xff, 0xff, 0xff]);
+  });
 });
 
 describe("SHA256_DIGEST_BYTES", () => {
