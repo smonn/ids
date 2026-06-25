@@ -1,5 +1,13 @@
 # @smonn/ids
 
+## 0.12.2
+
+### Patch Changes
+
+- b6cc09f: Fix the release SBOM step to generate the CycloneDX SBOM natively from
+  `pnpm-lock.yaml` with cdxgen, instead of deriving a throwaway npm lockfile
+  (which crashed under npm 11 on pnpm's symlinked `node_modules`).
+
 ## 0.12.1
 
 ### Patch Changes
