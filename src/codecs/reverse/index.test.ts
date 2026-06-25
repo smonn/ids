@@ -237,9 +237,12 @@ describe("reverse timestamp codec", () => {
       },
     );
 
-    it("minIdForTime(d) <= generate() <= maxIdForTime(d) for the default RNG", () => {
+    it("minIdForTime(d) <= generate() <= maxIdForTime(d) with a deterministic rng", () => {
       const d = new Date("2026-05-28T12:00:00Z");
-      const rev = createReverseTimestampId("rev", { now: () => d.getTime() });
+      const rev = createReverseTimestampId("rev", {
+        now: () => d.getTime(),
+        rng: (target) => target.fill(0x80),
+      });
       const min = rev.minIdForTime(d);
       const max = rev.maxIdForTime(d);
       for (let i = 0; i < 100; i++) {
