@@ -9,6 +9,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
+import * as fc from "fast-check";
 import { decodeBase32, encodeBase32 } from "../../wire/base32.js";
 import { createTimestampId, type TimestampOptions } from "./index.js";
 import { IdsError, isIdsError } from "../../error.js";
@@ -597,6 +598,56 @@ describe("id", () => {
     it("toJsonSchema() return type is the exported JsonSchema type", () => {
       const usr = createTimestampId("usr");
       expectTypeOf(usr.toJsonSchema()).toEqualTypeOf<JsonSchema>();
+    });
+  });
+
+  describe("fast-check property tests", () => {
+    it("encodeBase32 never throws on arbitrary Uint8Array input", () => {
+      fc.assert(
+        fc.property(fc.uint8Array(), (bytes) => {
+          encodeBase32(bytes);
+          return true;
+        }),
+      );
+    });
+
+    it("decodeBase32 never throws on arbitrary string input", () => {
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          decodeBase32(s);
+          return true;
+        }),
+      );
+    });
+
+    it("round-trip: generateAt at arbitrary valid ms yields same timestamp via extractTimestamp", () => {
+      const codec = createTimestampId("fck", { allowDuplicateBrand: true });
+      fc.assert(
+        fc.property(fc.integer({ min: 0, max: 2 ** 48 - 1 }), (ms) => {
+          const id = codec.generateAt(new Date(ms));
+          return codec.extractTimestamp(id).getTime() === ms;
+        }),
+      );
+    });
+
+    it("safeParse never throws on arbitrary input", () => {
+      const codec = createTimestampId("fck", { allowDuplicateBrand: true });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          codec.safeParse(s);
+          return true;
+        }),
+      );
+    });
+
+    it("safeParse: when ok, returned id satisfies is()", () => {
+      const codec = createTimestampId("fck", { allowDuplicateBrand: true });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          const r = codec.safeParse(s);
+          return !r.ok || codec.is(r.id);
+        }),
+      );
     });
   });
 });

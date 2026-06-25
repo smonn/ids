@@ -1,4 +1,5 @@
 import { expect, describe, it, expectTypeOf, vi, beforeAll, afterAll } from "vitest";
+import * as fc from "fast-check";
 import { createReverseTimestampId } from "./index.js";
 import type { Id, JsonSchema } from "../../types.js";
 
@@ -297,5 +298,49 @@ describe("reverse timestamp codec", () => {
       expect(ids.has(id)).toBe(false);
       ids.add(id);
     }
+  });
+
+  describe("golden vectors", () => {
+    // Reverse timestamp inverts the 48-bit field before encoding: ~ts & 0xFFFFFFFFFFFF.
+    // Fixed inputs: ts=0x123456789abc, rng writes 0xff only at random byte 9
+    // (matches the non-symmetric known-answer pattern used in timestamp/index.test.ts).
+    it("non-symmetric known-answer encoding", () => {
+      const rev = createReverseTimestampId("rev", {
+        now: () => 0x123456789abc,
+        rng: (target) => {
+          target[9] = 0xff;
+        },
+        allowDuplicateBrand: true,
+      });
+      expect(rev.generate()).toBe("rev_xq5tk1v58c00000000000000zw");
+    });
+
+    it("non-symmetric known-answer decoding (independent of encoder)", () => {
+      const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+      const id = "rev_xq5tk1v58c00000000000000zw" as Id<"rev">;
+      expect(rev.extractTimestamp(id)).toEqual(new Date(0x123456789abc));
+    });
+  });
+
+  describe("fast-check property tests", () => {
+    it("safeParse never throws on arbitrary input", () => {
+      const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          rev.safeParse(s);
+          return true;
+        }),
+      );
+    });
+
+    it("safeParse: when ok, returned id satisfies is()", () => {
+      const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          const r = rev.safeParse(s);
+          return !r.ok || rev.is(r.id);
+        }),
+      );
+    });
   });
 });

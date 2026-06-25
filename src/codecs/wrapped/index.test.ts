@@ -1,5 +1,6 @@
 import type { webcrypto } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
+import * as fc from "fast-check";
 import {
   createWrappedKeyId,
   decodeWrappingKey,
@@ -9,10 +10,11 @@ import {
   isIdsError,
   type UnwrapResult,
   type WrappedKeyCodec,
+  type WrappingKeyFormat,
 } from "./index.js";
 import { getWrappingKeyMaterial, type WrappingKey } from "./key.js";
 import type { Id } from "../../types.js";
-import { toWireId } from "../../wire/envelope.js";
+import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 
 const payloadByteLength = 16;
 const tagByteLength = 8;
@@ -457,6 +459,180 @@ describe("wrapped", () => {
       unwrap: (id: Id<"inv">) => Promise<bigint>;
       safeUnwrap: (input: unknown) => Promise<UnwrapResult<"inv", "i64">>;
     }>();
+  });
+
+  // --- Golden vectors ---
+
+  it("golden vector u32: fixed wrapping key + lookup key 42 yields exact wire string", async () => {
+    // wrapping key: 32 bytes of 0x77; HMAC covers brand ‖ kind ‖ lane
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x77));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    expect(await inv.wrap(42)).toBe("inv_a40dzajnegxm59r42ncns282vm");
+  });
+
+  it("golden vector i32: fixed wrapping key + lookup key -1 yields exact wire string", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x77));
+    const inv = createWrappedKeyId("inv", { kind: "i32", keys: [key], allowDuplicateBrand: true });
+    expect(await inv.wrap(-1)).toBe("inv_ge4jpwg9wewpnx0cjxyx59424g");
+  });
+
+  it("golden vector u64: fixed wrapping key + lookup key 0xdeadbeefn yields exact wire string", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x77));
+    const inv = createWrappedKeyId("inv", { kind: "u64", keys: [key], allowDuplicateBrand: true });
+    expect(await inv.wrap(0xdeadbeefn)).toBe("inv_rbywwjb38we19463jmr6jgj5hg");
+  });
+
+  it("golden vector i64: fixed wrapping key + lookup key -1n yields exact wire string", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x77));
+    const inv = createWrappedKeyId("inv", { kind: "i64", keys: [key], allowDuplicateBrand: true });
+    expect(await inv.wrap(-1n)).toBe("inv_b65ndnfdgx2hzhhyay2qchw888");
+  });
+
+  // --- fast-check property tests ---
+
+  describe("fast-check property tests", () => {
+    let sharedKey: WrappingKey;
+
+    beforeAll(async () => {
+      sharedKey = await importWrappingKey(new Uint8Array(32).fill(0x77));
+    });
+
+    it("safeParse never throws on arbitrary input", () => {
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [sharedKey],
+        allowDuplicateBrand: true,
+      });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          inv.safeParse(s);
+          return true;
+        }),
+      );
+    });
+
+    it("safeParse: when ok, returned id satisfies is()", () => {
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [sharedKey],
+        allowDuplicateBrand: true,
+      });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          const r = inv.safeParse(s);
+          return !r.ok || inv.is(r.id);
+        }),
+      );
+    });
+
+    it("round-trip u32: wrap → unwrap is identity for arbitrary in-range values", async () => {
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [sharedKey],
+        allowDuplicateBrand: true,
+      });
+      await fc.assert(
+        fc.asyncProperty(fc.integer({ min: 0, max: 0xffff_ffff }), async (v) => {
+          const id = await inv.wrap(v);
+          return (await inv.unwrap(id)) === v;
+        }),
+      );
+    });
+
+    it("round-trip i32: wrap → unwrap is identity for arbitrary in-range values", async () => {
+      const inv = createWrappedKeyId("inv", {
+        kind: "i32",
+        keys: [sharedKey],
+        allowDuplicateBrand: true,
+      });
+      await fc.assert(
+        fc.asyncProperty(fc.integer({ min: -0x8000_0000, max: 0x7fff_ffff }), async (v) => {
+          const id = await inv.wrap(v);
+          return (await inv.unwrap(id)) === v;
+        }),
+      );
+    });
+
+    it("round-trip u64: wrap → unwrap is identity for arbitrary in-range values", async () => {
+      const inv = createWrappedKeyId("inv", {
+        kind: "u64",
+        keys: [sharedKey],
+        allowDuplicateBrand: true,
+      });
+      await fc.assert(
+        fc.asyncProperty(fc.bigInt({ min: 0n, max: 0xffff_ffff_ffff_ffffn }), async (v) => {
+          const id = await inv.wrap(v);
+          return (await inv.unwrap(id)) === v;
+        }),
+      );
+    });
+
+    it("round-trip i64: wrap → unwrap is identity for arbitrary in-range values", async () => {
+      const inv = createWrappedKeyId("inv", {
+        kind: "i64",
+        keys: [sharedKey],
+        allowDuplicateBrand: true,
+      });
+      await fc.assert(
+        fc.asyncProperty(fc.bigInt({ min: -(1n << 63n), max: (1n << 63n) - 1n }), async (v) => {
+          const id = await inv.wrap(v);
+          return (await inv.unwrap(id)) === v;
+        }),
+      );
+    });
+
+    it("tamper invariant: flipping any bit in the 128-bit payload causes safeUnwrap to return verification_failed", async () => {
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [sharedKey],
+        allowDuplicateBrand: true,
+      });
+      const fixedId = await inv.wrap(42);
+      await fc.assert(
+        fc.asyncProperty(fc.integer({ min: 0, max: 127 }), async (bitIndex) => {
+          const payload = payloadBytesFromId("inv_", fixedId);
+          const tampered = new Uint8Array(payload);
+          const byteIdx = bitIndex >> 3;
+          tampered[byteIdx] = tampered[byteIdx]! ^ (1 << (7 - (bitIndex & 7)));
+          const result = await inv.safeUnwrap(toWireId("inv_", tampered));
+          return result.ok === false && result.error === "verification_failed";
+        }),
+      );
+    });
+
+    it("key encode/decode round-trip: encodeWrappingKey → decodeWrappingKey is identity for all lengths and formats", () => {
+      fc.assert(
+        fc.property(
+          fc.oneof(
+            fc.uint8Array({ minLength: 16, maxLength: 16 }),
+            fc.uint8Array({ minLength: 24, maxLength: 24 }),
+            fc.uint8Array({ minLength: 32, maxLength: 32 }),
+          ),
+          fc.constantFrom("hex" as WrappingKeyFormat, "base64url" as WrappingKeyFormat),
+          (bytes, fmt) => {
+            const decoded = decodeWrappingKey(encodeWrappingKey(bytes, fmt), fmt);
+            return decoded.length === bytes.length && decoded.every((b, i) => b === bytes[i]);
+          },
+        ),
+      );
+    });
+
+    it("decodeWrappingKey never throws on arbitrary string input", () => {
+      fc.assert(
+        fc.property(
+          fc.string(),
+          fc.constantFrom("hex" as WrappingKeyFormat, "base64url" as WrappingKeyFormat),
+          (s, fmt) => {
+            try {
+              decodeWrappingKey(s, fmt);
+            } catch (e) {
+              return isIdsError(e);
+            }
+            return true;
+          },
+        ),
+      );
+    });
   });
 });
 
