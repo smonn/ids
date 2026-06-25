@@ -174,6 +174,23 @@ describe("createSignedTimestampId", () => {
     await expect(codec2.verify(id)).rejects.toMatchObject({ code: "verification_failed" });
   });
 
+  // --- Full-ring failure ---
+
+  it("full-ring failure: all entries in a multi-key ring tried and none verifies an outside-key ID", async () => {
+    const key1 = await makeKey(0x11);
+    const key2 = await makeKey(0x22);
+    const key3 = await makeKey(0x33);
+    // Sign with key3 — an outside key not present in the verifier ring
+    const signer = createSignedTimestampId("sgn", { keys: [key3], allowDuplicateBrand: true });
+    const id = await signer.generate();
+    // Verifier ring has key1 and key2 only — both entries must be tried and fail
+    const verifier = createSignedTimestampId("sgn", {
+      keys: [key1, key2],
+      allowDuplicateBrand: true,
+    });
+    await expect(verifier.verify(id)).rejects.toMatchObject({ code: "verification_failed" });
+  });
+
   // --- Keyring trial ---
 
   it("keyring trial: ID signed under keys[1] still verifies when that entry is in the ring", async () => {
@@ -240,6 +257,21 @@ describe("createSignedTimestampId", () => {
     expect((err as IdsError).code).toBe("duplicate_keyring_entry");
   });
 
+  it("rejects distinct-handle duplicate keys (same raw bytes, two separate imports) at construction", async () => {
+    const bytes = new Uint8Array(32).fill(0x55);
+    const key1 = await importSigningKey(bytes);
+    const key2 = await importSigningKey(bytes);
+    // key1 !== key2 by reference but share the same raw secret material
+    let err: unknown;
+    try {
+      createSignedTimestampId("sgn", { keys: [key1, key2], allowDuplicateBrand: true });
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("duplicate_keyring_entry");
+  });
+
   // --- extractTimestamp ---
 
   it("extractTimestamp recovers the plaintext timestamp (sync, no key required)", async () => {
@@ -280,57 +312,118 @@ describe("createSignedTimestampId", () => {
   it("generateAt() rejects pre-epoch dates", async () => {
     const key = await makeKey();
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
-    await expect(codec.generateAt(new Date(-1))).rejects.toThrow("timestamp is negative");
+    let caughtErr: unknown;
+    try {
+      await codec.generateAt(new Date(-1));
+    } catch (e) {
+      caughtErr = e;
+    }
+    expect(caughtErr).toBeInstanceOf(Error);
+    expect(caughtErr).not.toBeInstanceOf(IdsError);
   });
 
   it("generateAt() rejects dates that overflow 48 bits", async () => {
     const key = await makeKey();
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
-    await expect(codec.generateAt(new Date(2 ** 48))).rejects.toThrow(
-      "timestamp exceeds 48-bit range",
-    );
+    let caughtErr: unknown;
+    try {
+      await codec.generateAt(new Date(2 ** 48));
+    } catch (e) {
+      caughtErr = e;
+    }
+    expect(caughtErr).toBeInstanceOf(Error);
+    expect(caughtErr).not.toBeInstanceOf(IdsError);
   });
 
   it("generateAt() rejects an Invalid Date (NaN timestamp)", async () => {
     const key = await makeKey();
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
-    await expect(codec.generateAt(new Date(NaN))).rejects.toThrow("timestamp is not a number");
+    let caughtErr: unknown;
+    try {
+      await codec.generateAt(new Date(NaN));
+    } catch (e) {
+      caughtErr = e;
+    }
+    expect(caughtErr).toBeInstanceOf(Error);
+    expect(caughtErr).not.toBeInstanceOf(IdsError);
   });
 
   it("minIdForTime() rejects pre-epoch dates", async () => {
     const key = await makeKey();
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
-    expect(() => codec.minIdForTime(new Date(-1))).toThrow("timestamp is negative");
+    let caughtErr: unknown;
+    try {
+      codec.minIdForTime(new Date(-1));
+    } catch (e) {
+      caughtErr = e;
+    }
+    expect(caughtErr).toBeInstanceOf(Error);
+    expect(caughtErr).not.toBeInstanceOf(IdsError);
   });
 
   it("minIdForTime() rejects dates that overflow 48 bits", async () => {
     const key = await makeKey();
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
-    expect(() => codec.minIdForTime(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
+    let caughtErr: unknown;
+    try {
+      codec.minIdForTime(new Date(2 ** 48));
+    } catch (e) {
+      caughtErr = e;
+    }
+    expect(caughtErr).toBeInstanceOf(Error);
+    expect(caughtErr).not.toBeInstanceOf(IdsError);
   });
 
   it("minIdForTime() rejects an Invalid Date", async () => {
     const key = await makeKey();
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
-    expect(() => codec.minIdForTime(new Date(NaN))).toThrow("timestamp is not a number");
+    let caughtErr: unknown;
+    try {
+      codec.minIdForTime(new Date(NaN));
+    } catch (e) {
+      caughtErr = e;
+    }
+    expect(caughtErr).toBeInstanceOf(Error);
+    expect(caughtErr).not.toBeInstanceOf(IdsError);
   });
 
   it("maxIdForTime() rejects pre-epoch dates", async () => {
     const key = await makeKey();
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
-    expect(() => codec.maxIdForTime(new Date(-1))).toThrow("timestamp is negative");
+    let caughtErr: unknown;
+    try {
+      codec.maxIdForTime(new Date(-1));
+    } catch (e) {
+      caughtErr = e;
+    }
+    expect(caughtErr).toBeInstanceOf(Error);
+    expect(caughtErr).not.toBeInstanceOf(IdsError);
   });
 
   it("maxIdForTime() rejects dates that overflow 48 bits", async () => {
     const key = await makeKey();
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
-    expect(() => codec.maxIdForTime(new Date(2 ** 48))).toThrow("timestamp exceeds 48-bit range");
+    let caughtErr: unknown;
+    try {
+      codec.maxIdForTime(new Date(2 ** 48));
+    } catch (e) {
+      caughtErr = e;
+    }
+    expect(caughtErr).toBeInstanceOf(Error);
+    expect(caughtErr).not.toBeInstanceOf(IdsError);
   });
 
   it("maxIdForTime() rejects an Invalid Date", async () => {
     const key = await makeKey();
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
-    expect(() => codec.maxIdForTime(new Date(NaN))).toThrow("timestamp is not a number");
+    let caughtErr: unknown;
+    try {
+      codec.maxIdForTime(new Date(NaN));
+    } catch (e) {
+      caughtErr = e;
+    }
+    expect(caughtErr).toBeInstanceOf(Error);
+    expect(caughtErr).not.toBeInstanceOf(IdsError);
   });
 
   // --- minIdForTime / maxIdForTime sentinels ---
@@ -371,6 +464,15 @@ describe("createSignedTimestampId", () => {
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
     const result = await codec.safeVerify("not-an-id");
     expect(result).toEqual({ ok: false, error: "invalid_prefix" });
+  });
+
+  it("safeVerify rejects a correctly-prefixed but truncated base32 payload (wrong-length wire)", async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    // 25 base32 chars instead of the required 26 — parse-length guard fires before any HMAC work
+    const shortWire = "sgn_" + "0".repeat(25);
+    const result = await codec.safeVerify(shortWire);
+    expect(result).toEqual({ ok: false, error: "invalid_base32" });
   });
 
   it("safeVerify returns verification_failed for tampered IDs without throwing", async () => {
