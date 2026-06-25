@@ -73,9 +73,9 @@ function describeInputForm(input: string, canonical: Id<string>): string {
 }
 
 const msPerSecond = 1000;
-const msPerMinute = 60 * msPerSecond;
-const msPerHour = 60 * msPerMinute;
-const msPerDay = 24 * msPerHour;
+export const msPerMinute: number = 60 * msPerSecond;
+export const msPerHour: number = 60 * msPerMinute;
+export const msPerDay: number = 24 * msPerHour;
 const daysPerMonth = 30.44;
 const monthsPerYear = 12;
 
