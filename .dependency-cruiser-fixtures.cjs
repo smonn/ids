@@ -173,6 +173,8 @@ module.exports = {
     {
       name: "leaves-no-upward",
       severity: "error",
+      comment:
+        "covers all codec paths post-ADR-0018 (layouts/timestamp/opaque moved under src/codecs/)",
       from: {
         path: "^test/fixtures/depcruise/(wire/base32|codecs/_kernel/bytes|types|codecs/_kernel/brand)\\.ts$",
       },
