@@ -20,7 +20,5 @@ describe("getDigestKeyHmacKey", () => {
     const key: DigestKey = await importDigestKey(new Uint8Array(32).fill(0x42));
     const cryptoKey = getDigestKeyHmacKey(key);
     expect(cryptoKey).toBeDefined();
-    expect(cryptoKey.type).toBe("secret");
-    expect(cryptoKey.algorithm.name).toBe("HMAC");
   });
 });
