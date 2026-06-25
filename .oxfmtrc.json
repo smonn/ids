@@ -1,4 +1,10 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": [".claude/**", ".impl-context/**", ".impl/**"]
+  "ignorePatterns": [
+    ".claude/**",
+    ".impl-context/**",
+    ".impl/**",
+    ".address-context/**",
+    ".address/**"
+  ]
 }
