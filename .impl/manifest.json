@@ -1,0 +1,6 @@
+{
+  "issue_number": 474,
+  "branch": "agent/issue-474",
+  "pr_title": "feat(types): add ValidBrand and enforce 3-char brand constraint at the type level",
+  "escalate": false
+}
