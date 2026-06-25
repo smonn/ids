@@ -8,6 +8,39 @@ const pkcsPad = 0x10;
 const laneByteLength = 8;
 const tagByteLength = 8;
 
+// EXPERIMENT (buffer pool): a bounded, size-keyed free-list for the input-side
+// scratch buffers on the wrap / unwrap hot paths. Under high concurrency the
+// single JS thread feeding the libuv crypto threadpool is the bottleneck, so
+// reusing these buffers instead of allocating fresh per call relieves it.
+//
+// Only buffers we FULLY overwrite before any crypto reads them are pooled
+// (message, lane, plaintext, c2Input, ciphertext) — never the WebCrypto output
+// ArrayBuffers, which are always freshly allocated by subtle.* anyway. Each
+// buffer is checked out for its whole lifetime (held across the await) and
+// returned in a finally, so two concurrent ops never share one. POOL_CAP bounds
+// per-size growth so a burst of N concurrent ops can't pin memory forever.
+const POOL_CAP = 1024;
+const pools = new Map<number, Uint8Array[]>();
+
+function acquire(size: number): Uint8Array {
+  const free = pools.get(size);
+  if (free !== undefined) {
+    const reused = free.pop();
+    if (reused !== undefined) return reused;
+  }
+  return new Uint8Array(size);
+}
+
+function release(buffer: Uint8Array): void {
+  let free = pools.get(buffer.length);
+  if (free === undefined) {
+    free = [];
+    pools.set(buffer.length, free);
+  }
+  /* v8 ignore next -- POOL_CAP guard: the cap-exceeded branch needs >1024 live buffers of one size, beyond test concurrency */
+  if (free.length < POOL_CAP) free.push(buffer);
+}
+
 type LayoutWrappingKey = {
   aesKey: webcrypto.CryptoKey;
   hmacKey: webcrypto.CryptoKey;
@@ -132,11 +165,10 @@ function createHmacMessageTemplate(brand: string, kind: LayoutWrappedKind): Hmac
   return { buffer, laneOffset };
 }
 
-/** Materialise the HMAC message for `lane`. Fresh buffer per call → safe under concurrent async signs. */
-function hmacMessage(template: HmacMessageTemplate, lane: Uint8Array): Uint8Array {
-  const message = template.buffer.slice();
+/** Fill a (pooled) message buffer with the constant prefix + this call's `lane`. */
+function fillMessage(message: Uint8Array, template: HmacMessageTemplate, lane: Uint8Array): void {
+  message.set(template.buffer, 0);
   message.set(lane, template.laneOffset);
-  return message;
 }
 
 async function computeTag(
@@ -144,14 +176,17 @@ async function computeTag(
   template: HmacMessageTemplate,
   lane: Uint8Array,
 ): Promise<Uint8Array> {
-  const signature = new Uint8Array(
-    await crypto.subtle.sign(
-      "HMAC",
-      key.hmacKey,
-      hmacMessage(template, lane) as Uint8Array<ArrayBuffer>,
-    ),
-  );
-  return signature.subarray(0, tagByteLength);
+  const message = acquire(template.buffer.length);
+  fillMessage(message, template, lane);
+  try {
+    const signature = new Uint8Array(
+      await crypto.subtle.sign("HMAC", key.hmacKey, message as Uint8Array<ArrayBuffer>),
+    );
+    // signature is a fresh WebCrypto output; the subarray view is safe to return.
+    return signature.subarray(0, tagByteLength);
+  } finally {
+    release(message);
+  }
 }
 
 function tagsEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -174,32 +209,31 @@ async function encryptPayload(key: LayoutWrappingKey, plaintext: Uint8Array): Pr
 }
 
 async function decryptPayload(key: LayoutWrappingKey, c1: Uint8Array): Promise<Uint8Array> {
-  const c2Input = new Uint8Array(payloadByteLength);
-  for (let i = 0; i < payloadByteLength; i++) c2Input[i] = pkcsPad ^ c1[i]!;
-  const c2Encrypted = new Uint8Array(
-    await crypto.subtle.encrypt(
-      { name: "AES-CBC", iv: zeroIv },
-      key.aesKey,
-      c2Input as Uint8Array<ArrayBuffer>,
-    ),
-  );
-  const ciphertext = new Uint8Array(payloadByteLength * 2);
-  ciphertext.set(c1, 0);
-  ciphertext.set(c2Encrypted.subarray(0, payloadByteLength), payloadByteLength);
-  return new Uint8Array(
-    await crypto.subtle.decrypt(
-      { name: "AES-CBC", iv: zeroIv },
-      key.aesKey,
-      ciphertext as Uint8Array<ArrayBuffer>,
-    ),
-  );
-}
-
-function buildPlaintext(lane: Uint8Array, tag: Uint8Array): Uint8Array {
-  const plaintext = new Uint8Array(payloadByteLength);
-  plaintext.set(lane, 0);
-  plaintext.set(tag, laneByteLength);
-  return plaintext;
+  const c2Input = acquire(payloadByteLength);
+  const ciphertext = acquire(payloadByteLength * 2);
+  try {
+    for (let i = 0; i < payloadByteLength; i++) c2Input[i] = pkcsPad ^ c1[i]!;
+    const c2Encrypted = new Uint8Array(
+      await crypto.subtle.encrypt(
+        { name: "AES-CBC", iv: zeroIv },
+        key.aesKey,
+        c2Input as Uint8Array<ArrayBuffer>,
+      ),
+    );
+    ciphertext.set(c1, 0);
+    ciphertext.set(c2Encrypted.subarray(0, payloadByteLength), payloadByteLength);
+    // The decrypt result is a fresh WebCrypto output (not pooled) — safe to return.
+    return new Uint8Array(
+      await crypto.subtle.decrypt(
+        { name: "AES-CBC", iv: zeroIv },
+        key.aesKey,
+        ciphertext as Uint8Array<ArrayBuffer>,
+      ),
+    );
+  } finally {
+    release(c2Input);
+    release(ciphertext);
+  }
 }
 
 async function wrapLookupKey<Brand extends string, Kind extends LayoutWrappedKind>(
@@ -209,11 +243,22 @@ async function wrapLookupKey<Brand extends string, Kind extends LayoutWrappedKin
   kind: Kind,
   lookupKey: LayoutLookupKey<Kind>,
 ): Promise<Id<Brand>> {
-  const lane = new Uint8Array(laneByteLength);
-  writeLane(kind, lookupKey, lane);
-  const tag = await computeTag(key, template, lane);
-  const encrypted = await encryptPayload(key, buildPlaintext(lane, tag));
-  return toWireId(prefix, encrypted);
+  const lane = acquire(laneByteLength);
+  try {
+    writeLane(kind, lookupKey, lane);
+    const tag = await computeTag(key, template, lane);
+    const plaintext = acquire(payloadByteLength);
+    try {
+      plaintext.set(lane, 0);
+      plaintext.set(tag, laneByteLength);
+      const encrypted = await encryptPayload(key, plaintext);
+      return toWireId(prefix, encrypted);
+    } finally {
+      release(plaintext);
+    }
+  } finally {
+    release(lane);
+  }
 }
 
 async function tryUnwrapLookupKey<Brand extends string, Kind extends LayoutWrappedKind>(
