@@ -1,0 +1,205 @@
+name: Auto-rebase conflicting agent PRs
+
+# Detect agent PRs that have become CONFLICTING with `main` and drive them through
+# an automatic rebase — the counterpart to the (still valid) manual `needs-rebase`
+# label. This deliberately REVERSES rebase.yml's original "never automatic" stance:
+# instead of a maintainer deciding when to refresh a branch, a conflict triggers the
+# whole loop on its own.
+#
+# WHEN it runs:
+#   - `push` to `main` (a merge landed) -> SWEEP every open same-repo `agent/issue-*`
+#     PR, because a merge can silently make any of them conflict (GitHub sends no
+#     "became conflicting" webhook).
+#   - `pull_request` opened/reopened -> check that ONE PR, which may have been cut
+#     from a stale base while another PR was merging.
+#   (No `synchronize`: a PR's own push already re-fires CI/review/bench, and the next
+#   main-sweep re-evaluates mergeability — adding it would only fight the guards.)
+#
+# WHAT it does for a conflicting PR (order matters — see the apply-before-cancel note):
+#   1. Add the `conflicting` label. While present, every PR-triggered run of our
+#      workflows pauses (ci/bench self-cancel; review/address-review/autofix no-op),
+#      so nothing burns compute on the soon-to-be-superseded commit.
+#   2. Cancel the in-flight runs of our workflows for that branch (the ones that
+#      started BEFORE the label and so won't re-check it themselves).
+#   3. Dispatch rebase.yml via `workflow_dispatch` (NOT by applying `needs-rebase`:
+#      rebase.yml documents that an App-applied `labeled` webhook can be silently
+#      dropped, and dispatch-by-number is its reliable path).
+#
+# rebase.yml then removes the `conflicting` label EARLY — before its agent pushes the
+# merge commit — so that the clean merge commit's CI/review/bench run UNBLOCKED and
+# the required checks settle green on the new head. The `conflicting` marker is thus
+# an automation-in-progress flag, not a standing "this PR conflicts" status: once the
+# rebase hands off (resolved, or escalated to `needs-human`) the marker is gone.
+#
+# SCOPE / SECURITY: only OPEN, same-repo `agent/issue-*` PRs are ever touched — forks
+# get no secrets and are filtered out, mirroring every sibling workflow's gate. All
+# mutations go through a least-privilege App token (issues + pull-requests + actions);
+# the default GITHUB_TOKEN gets no permissions.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened]
+
+concurrency:
+  # Serialize the main-sweep so two rapid merges don't run overlapping sweeps that
+  # double-dispatch rebases (the second queues and re-evaluates fresh state). The
+  # per-PR open path gets its own group so it never waits behind a main sweep.
+  # Never cancel-in-progress: a half-finished sweep could leave some PRs unflagged.
+  group: conflicts-${{ github.event_name == 'push' && 'main' || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+# All mutations go through the minted App token below, so the default GITHUB_TOKEN
+# needs no permissions at all.
+permissions: {}
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    environment: automation
+    timeout-minutes: 20
+    steps:
+      # Checkout only so the LOCAL composite ./.github/actions/app-token is on disk
+      # before the mint below uses it. Needs no token and persists none; this job
+      # makes no commits and pushes nothing.
+      - name: Checkout (provision local actions)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: ./.github/actions/app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Least-privilege: read PR mergeability + edit the `conflicting` label
+          # (issues + pull-requests), and cancel runs / dispatch rebase (actions:write).
+          permission-issues: write
+          permission-pull-requests: write
+          permission-actions: write
+
+      - name: Detect conflicts and drive the rebase
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          THIS_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          # Populated on the pull_request event; empty on push. PR-author-controlled
+          # values are only ever read through these env vars (never interpolated into
+          # the shell), and the scope gate constrains them to agent/issue-*.
+          EV_NUMBER: ${{ github.event.pull_request.number }}
+          EV_BRANCH: ${{ github.event.pull_request.head.ref }}
+          EV_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          set -uo pipefail
+
+          # GitHub computes PR mergeability LAZILY: right after a push to main, the
+          # first read returns UNKNOWN and itself kicks off the background compute.
+          # Poll with capped backoff (3,6,12,24,24...s, ~<2min) until it resolves.
+          # Still UNKNOWN after the budget -> don't flag (no false cancellation); the
+          # next sweep / the PR's own push re-evaluates.
+          poll_mergeable() {
+            pr="$1"; delay=3; out=""
+            for _ in $(seq 1 8); do
+              if out=$(gh pr view "$pr" --json mergeable,mergeStateStatus \
+                         --jq '.mergeable + " " + .mergeStateStatus' 2>/dev/null); then
+                case "${out%% *}" in
+                  MERGEABLE) echo MERGEABLE; return 0 ;;
+                  CONFLICTING) echo CONFLICTING; return 0 ;;
+                esac
+              fi
+              sleep "$delay"
+              if [ "$delay" -lt 24 ]; then delay=$((delay * 2)); fi
+            done
+            echo UNKNOWN
+          }
+
+          # Cancel our in-flight (running OR queued) runs for this branch. Filter to OUR
+          # five workflows by their human-readable `name:` — keep this list in step with
+          # those workflows. rebase is deliberately EXCLUDED (we are about to dispatch
+          # it, and a dispatch run is associated with `main`, not this branch, so it
+          # would not be listed here anyway). Best-effort: a run that finishes between
+          # list and cancel is fine.
+          cancel_our_runs() {
+            branch="$1"
+            gh run list --branch "$branch" --limit 100 \
+              --json databaseId,workflowName,status \
+              --jq '.[] | select(.status=="in_progress" or .status=="queued")
+                    | select(.workflowName=="CI" or .workflowName=="Bench"
+                          or .workflowName=="Review agent PRs"
+                          or .workflowName=="Address PR review feedback"
+                          or .workflowName=="Autofix agent PR CI")
+                    | .databaseId' 2>/dev/null \
+            | while read -r id; do
+                [ -n "$id" ] || continue
+                echo "  cancelling run $id on $branch"
+                gh run cancel "$id" || true
+              done
+          }
+
+          # Build the candidate PR-number list, scoped to OPEN same-repo agent branches.
+          if [ "$EVENT_NAME" = "push" ]; then
+            candidates=$(gh pr list --state open --limit 100 \
+              --json number,headRefName,headRepositoryOwner,headRepository \
+              --jq '.[] | select((.headRepositoryOwner.login + "/" + .headRepository.name) == env.THIS_REPO)
+                    | select(.headRefName | startswith("agent/issue-")) | .number')
+          else
+            # Single PR from the event — re-assert the SAME open/same-repo/agent gate
+            # before acting (the workflow only fires on opened/reopened, i.e. open).
+            case "$EV_BRANCH" in agent/issue-*) ok_branch=true ;; *) ok_branch=false ;; esac
+            if [ "$EV_HEAD_REPO" = "$THIS_REPO" ] && [ "$ok_branch" = true ]; then
+              candidates="$EV_NUMBER"
+            else
+              candidates=""
+              echo "PR #${EV_NUMBER:-?} is out of scope (head_repo=$EV_HEAD_REPO branch=$EV_BRANCH); nothing to do."
+            fi
+          fi
+
+          if [ -z "$candidates" ]; then
+            echo "No in-scope open agent PRs to check."
+            exit 0
+          fi
+
+          for pr in $candidates; do
+            status=$(poll_mergeable "$pr")
+            labels=$(gh pr view "$pr" --json labels --jq '.labels[].name' 2>/dev/null || true)
+            has_conflicting=false
+            echo "$labels" | grep -qx conflicting && has_conflicting=true
+            echo "PR #$pr: mergeable=$status conflicting-label=$has_conflicting"
+
+            case "$status" in
+              CONFLICTING)
+                if [ "$has_conflicting" = true ]; then
+                  echo "  already marked conflicting — a rebase is already in flight for this episode; skipping."
+                  continue
+                fi
+                if echo "$labels" | grep -qx needs-human; then
+                  echo "  escalated to needs-human — a human owns it; skipping."
+                  continue
+                fi
+                branch=$(gh pr view "$pr" --json headRefName --jq .headRefName)
+                # Apply the marker FIRST so any run that STARTS after this point sees it
+                # and self-pauses; THEN cancel the runs that started before it.
+                gh pr edit "$pr" --add-label conflicting
+                echo "  applied conflicting; cancelling our in-flight runs on $branch"
+                cancel_our_runs "$branch"
+                echo "  dispatching rebase for #$pr"
+                gh workflow run rebase.yml -f pr_number="$pr" || \
+                  echo "::warning::failed to dispatch rebase for #$pr — the next sweep will retry."
+                ;;
+              MERGEABLE)
+                # Self-heal: a PR that was flagged but now merges cleanly (e.g. main was
+                # reverted) shouldn't stay marked. rebase.yml normally clears the marker
+                # itself; this catches the case where no rebase ran.
+                if [ "$has_conflicting" = true ]; then
+                  echo "  merges cleanly but still marked conflicting — clearing the stale marker."
+                  gh pr edit "$pr" --remove-label conflicting || true
+                fi
+                ;;
+              *)
+                echo "  mergeability still UNKNOWN after the poll budget — leaving for the next sweep."
+                ;;
+            esac
+          done

@@ -86,6 +86,10 @@ jobs:
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           THIS_REPO: ${{ github.repository }}
+          # github.token (not the App token, which is minted later) — only used on the
+          # in-scope path below, so a fork PR still runs this step with no secrets.
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           review=false
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
@@ -95,11 +99,23 @@ jobs:
                case "$HEAD_REF" in agent/issue-*) true ;; *) false ;; esac; then
             review=true
           fi
+          # Defer while the PR is mid-conflict-rebase: conflicts.yml marks it `conflicting`
+          # and an automatic rebase is in flight, so this commit is about to be superseded.
+          # Report success WITHOUT reviewing (the no-op path keeps the required `review`
+          # check green); the rebase merge commit re-fires review on the new SHA with the
+          # marker already cleared. Only checked when we'd otherwise review, so forks /
+          # out-of-scope PRs make no gh call and stay secret-free.
+          if [ "$review" = "true" ] &&
+             gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null |
+               grep -qx conflicting; then
+            review=false
+            echo "PR #$PR_NUMBER is conflicting — deferring review until the rebase merge commit."
+          fi
           echo "review=$review" >> "$GITHUB_OUTPUT"
           if [ "$review" = "true" ]; then
             echo "In scope — running the automated review."
           else
-            echo "Out of scope ($EVENT_NAME/$ACTION on $HEAD_REF) — reporting success without reviewing."
+            echo "Out of scope or deferred ($EVENT_NAME/$ACTION on $HEAD_REF) — reporting success without reviewing."
           fi
 
       - name: Generate GitHub App token
