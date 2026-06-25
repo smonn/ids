@@ -168,8 +168,9 @@ describe("wrapped", () => {
       keys: [newKey],
       allowDuplicateBrand: true,
     });
-    expect(await rotated.wrap(7)).not.toBe(id);
-    expect(await rotated.wrap(7)).toBe(await newKeyOnlyCodec.wrap(7));
+    const rewrapped = await rotated.wrap(7);
+    expect(rewrapped).not.toBe(id);
+    expect(rewrapped).toBe(await newKeyOnlyCodec.wrap(7));
   });
 
   it("safeUnwrap returns verification_failed when no keyring entry verifies (full-ring exhaustion)", async () => {
