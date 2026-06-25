@@ -2,6 +2,14 @@ import type { RunOpts } from "./types.js";
 
 export type KeyFormat = "hex" | "base64url";
 
+export type LoadKeyError = { kind: "missing" | "import-failure"; message: string };
+
+export function isLoadKeyError(value: unknown): value is LoadKeyError {
+  if (typeof value !== "object" || value === null) return false;
+  const kind = (value as Record<string, unknown>).kind;
+  return kind === "missing" || kind === "import-failure";
+}
+
 export type KeyFacet<K> = {
   envVar: string;
   formatEnvVar: string;
@@ -47,13 +55,15 @@ export async function loadKey<K>(
   opts: RunOpts,
   format: KeyFormat,
   facet: Pick<KeyFacet<K>, "envVar" | "decode" | "import">,
-): Promise<K | string> {
+): Promise<K | LoadKeyError> {
   const env = opts.env ?? process.env;
   const raw = env[facet.envVar];
-  if (raw === undefined || raw === "") return `missing ${facet.envVar} environment variable`;
+  if (raw === undefined || raw === "") {
+    return { kind: "missing", message: `missing ${facet.envVar} environment variable` };
+  }
   try {
     return await facet.import(facet.decode(raw, format));
   } catch (err) {
-    return (err as Error).message;
+    return { kind: "import-failure", message: (err as Error).message };
   }
 }

@@ -1,5 +1,5 @@
 import type { IdCodec } from "../adapters/adapter-types.js";
-import { isKeyFormatError, loadKey, parseKeyFormat } from "./key-io.js";
+import { isKeyFormatError, isLoadKeyError, loadKey, parseKeyFormat } from "./key-io.js";
 import type { RunOpts } from "./types.js";
 import {
   conflictPriorityOrder,
@@ -66,10 +66,10 @@ export async function buildCodec(
     const format = parseKeyFormat(values, opts, variant.key);
     if (isKeyFormatError(format)) return { kind: "usage", message: format };
     const keyResult = await loadKey(opts, format, variant.key);
-    if (typeof keyResult === "string") {
+    if (isLoadKeyError(keyResult)) {
       return {
-        kind: keyResult.startsWith("missing ") ? "usage" : "runtime",
-        message: keyResult,
+        kind: keyResult.kind === "missing" ? "usage" : "runtime",
+        message: keyResult.message,
       };
     }
     key = keyResult;
