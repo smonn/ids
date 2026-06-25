@@ -63,6 +63,15 @@ jobs:
       ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
       BRANCH: agent/issue-${{ github.event.issue.number || github.event.inputs.issue_number }}
     steps:
+      # First step: monitor egress from this privileged job. It mints an App
+      # token with `contents: write` / `pull-requests: write` and runs the full
+      # CI gate (untrusted postinstall scripts), so logging unexpected outbound
+      # connections is worth it. Audit mode logs only — it never blocks.
+      - name: Harden the runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
       # Provision the LOCAL composite action (.github/actions/app-token) on disk
       # before the mints below use it. This default-ref checkout needs no token, and
       # MUST NOT persist one: the job's built-in token carries write scopes, and a

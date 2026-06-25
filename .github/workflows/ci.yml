@@ -16,6 +16,13 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
+      # Monitor egress in audit mode (log-only, never blocks). This job is
+      # read-only, but the dependency install runs untrusted postinstall
+      # scripts, so logging unexpected outbound connections is cheap insurance.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: ./.github/actions/setup-node-pnpm

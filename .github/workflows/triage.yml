@@ -76,6 +76,15 @@ jobs:
     env:
       ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
     steps:
+      # First step: monitor egress from this privileged job. It mints an App
+      # token with `issues: write`, so an unexpected outbound connection (e.g. a
+      # malicious postinstall trying to exfiltrate it) is worth detecting. Audit
+      # mode logs only — it never blocks — so it cannot break triage.
+      - name: Harden the runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
       # Checkout first: the app-token steps below use the LOCAL composite action
       # under .github/actions/app-token, which must be on disk before it runs. This
       # checkout needs no token, so it is safe to run before the mints.
