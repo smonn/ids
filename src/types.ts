@@ -1,9 +1,11 @@
 /** The brand plus trailing separator — e.g. `usr_` for brand `usr`. */
 export type Prefix<Brand extends string> = `${Brand}_`;
 
+declare const idBrand: unique symbol;
+
 /** A canonical branded ID string for `Brand`. Produced by `generate()` and `safeParse()`. */
 export type Id<Brand extends string> = `${Prefix<Brand>}${string}` & {
-  readonly __brand: Brand;
+  readonly [idBrand]: Brand;
 };
 
 /** Parse failure reason returned by `safeParse()`. */
