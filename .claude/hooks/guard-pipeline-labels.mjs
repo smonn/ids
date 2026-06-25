@@ -15,18 +15,7 @@
 // trade-off is accepted because they drive the review lifecycle (re-run review /
 // address PR feedback), not the triage lifecycle. See docs/agents/triage-labels.md.
 import { readFileSync } from "node:fs";
-
-const LIFECYCLE = new Set([
-  "blocked",
-  "needs-triage",
-  "ready-for-agent",
-  "ready-for-human",
-  "in-progress",
-  "needs-info",
-  "wontfix",
-  "needs-human",
-  "needs-rebase",
-]);
+import { LIFECYCLE } from "./lifecycle-labels.mjs";
 
 let input;
 try {
