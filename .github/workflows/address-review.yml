@@ -260,7 +260,7 @@ jobs:
 
       - name: Address the feedback (edit + commit locally, write .address/, post nothing)
         if: steps.gate.outputs.proceed == 'true'
-        uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153
+        uses: anthropics/claude-code-action@428971d2ecd6e3a7cb0ee0da2a3a8b33fdb3678d # v1.0.157
         # NOTE: deliberately NO GH_TOKEN in env, and the only token handed to the action
         # is the READ-ONLY app-token-ro. claude-code-action wires its `github_token` into
         # the agent's git/gh auth (which can override `persist-credentials: false`), so it
