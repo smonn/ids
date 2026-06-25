@@ -17,11 +17,22 @@ This repo is **single-context**:
 ```
 /
 ├── CONTEXT.md
-├── docs/adr/
-│   ├── 0001-brand-format.md
-│   ├── 0002-payload-layout.md
-│   └── 0003-canonical-strict-is.md
+├── docs/adr/          ← live index; see docs/adr/ for all ADRs (0001–0020)
 └── src/
+    ├── index.ts
+    ├── types.ts
+    ├── error.ts
+    ├── codecs/        ← by-feature codec slices (ADR-0018); layering rules enforced by .dependency-cruiser.cjs (ADR-0008)
+    │   ├── _kernel/   ← shared crypto primitives, not a public export
+    │   ├── digest/
+    │   ├── opaque/
+    │   ├── reverse/
+    │   ├── signed/
+    │   ├── timestamp/
+    │   └── wrapped/
+    ├── wire/          ← base32 encode/decode and envelope parsing
+    ├── adapters/      ← ORM and web-framework adapters
+    └── cli/           ← CLI entry point and subcommands
 ```
 
 ## Use the glossary's vocabulary

@@ -116,7 +116,7 @@ export function createReverseTimestampId<Brand extends string>(
     extractTimestamp: layout.extractTimestamp,
     minIdForTime: (date: Date) => layout.minIdForTime(date.getTime()),
     maxIdForTime: (date: Date) => layout.maxIdForTime(date.getTime()),
-    toJsonSchema: () => wire.toJsonSchema(brand, layout.exampleWireId(now())),
+    toJsonSchema: () => wire.toJsonSchema(brand, layout.exampleWireId()),
     "~standard": wire["~standard"],
   };
 }

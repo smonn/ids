@@ -11,6 +11,16 @@
             "statusMessage": "Checking issue labels for pipeline/triage labels"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-pipeline-labels-bash.mjs\"",
+            "statusMessage": "Checking gh issue edit for pipeline/triage labels"
+          }
+        ]
       }
     ]
   }
