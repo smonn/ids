@@ -30,9 +30,11 @@ jobs:
     steps:
       # This job otherwise needs no checkout, but the app-token step below uses the
       # LOCAL composite action under .github/actions/app-token, which must be on disk
-      # first. This checkout needs no token.
+      # first. This checkout needs no token and persists none.
       - name: Checkout (provision local actions)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Generate GitHub App token
         id: app-token

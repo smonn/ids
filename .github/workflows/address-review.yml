@@ -66,10 +66,15 @@ jobs:
     steps:
       # Provision the LOCAL composite action (.github/actions/app-token) on disk
       # before the mints below use it. This is a default-ref checkout that needs no
-      # token; the pinned-SHA working checkout (with persist-credentials: false) runs
-      # later, after the gate, and overwrites the tree at the reviewed commit.
+      # token, and MUST NOT persist one: the job's built-in token carries write scopes,
+      # and a persisted credential here would survive into the producer's workspace and
+      # defeat the working checkout's persist-credentials: false (the no-push boundary).
+      # The pinned-SHA working checkout runs later, after the gate, and overwrites the
+      # tree at the reviewed commit.
       - name: Checkout (provision local actions)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Generate GitHub App token
         id: app-token

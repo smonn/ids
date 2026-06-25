@@ -54,9 +54,14 @@ jobs:
       # Provision the LOCAL composite action (.github/actions/app-token) from the
       # DEFAULT branch before the mints use it — the working checkout below pulls the
       # agent branch (which may predate this action), so provision from main here. This
-      # checkout needs no token; the agent-branch checkout overwrites the tree after.
+      # checkout needs no token, and MUST NOT persist one: the job's built-in token
+      # carries write scopes, and a persisted credential here would survive into the
+      # producer's workspace and defeat the working checkout's persist-credentials:
+      # false (the no-push boundary). The agent-branch checkout overwrites the tree after.
       - name: Checkout (provision local actions)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Generate GitHub App token
         id: app-token
