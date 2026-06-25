@@ -1,5 +1,5 @@
 import type { webcrypto } from "node:crypto";
-import { timingSafeEqual } from "../_kernel/crypto.js";
+import { deriveKey, timingSafeEqual } from "../_kernel/crypto.js";
 import {
   assertValidKeyMaterialByteLength,
   assertValidKeyring,
@@ -53,7 +53,7 @@ const internals = new WeakMap<SigningKey, SigningKeyInternals>();
 export async function importSigningKey(bytes: Uint8Array): Promise<SigningKey> {
   assertValidKeyMaterialByteLength(bytes.length, "signing");
   const [hmacKey, digestBuffer] = await Promise.all([
-    deriveHmacKey(bytes),
+    deriveKey(bytes, hmacInfo, { name: "HMAC", hash: "SHA-256", length: 256 }, ["sign", "verify"]),
     crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>),
   ]);
   const key = Object.freeze({}) as SigningKey;
@@ -113,21 +113,4 @@ function getSigningKeyInternals(key: SigningKey): SigningKeyInternals {
     throw new Error("invalid signing key");
   }
   return keyInternals;
-}
-
-async function deriveHmacKey(bytes: Uint8Array): Promise<webcrypto.CryptoKey> {
-  const base = await crypto.subtle.importKey(
-    "raw",
-    bytes as Uint8Array<ArrayBuffer>,
-    "HKDF",
-    false,
-    ["deriveKey"],
-  );
-  return crypto.subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(), info: hmacInfo },
-    base,
-    { name: "HMAC", hash: "SHA-256", length: 256 },
-    false,
-    ["sign", "verify"],
-  );
 }

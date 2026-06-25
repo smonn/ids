@@ -59,3 +59,33 @@ export function writeLen32(value: number, target: Uint8Array, offset: number): v
   target[offset + 2] = (value >>> 8) & 0xff;
   target[offset + 3] = value & 0xff;
 }
+
+export async function deriveKey(
+  bytes: Uint8Array,
+  info: Uint8Array,
+  keySpec:
+    | webcrypto.AlgorithmIdentifier
+    | webcrypto.AesDerivedKeyParams
+    | webcrypto.HmacImportParams,
+  keyUsages: webcrypto.KeyUsage[],
+): Promise<webcrypto.CryptoKey> {
+  const base = await crypto.subtle.importKey(
+    "raw",
+    bytes as Uint8Array<ArrayBuffer>,
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new Uint8Array(),
+      info: info as Uint8Array<ArrayBuffer>,
+    },
+    base,
+    keySpec,
+    false,
+    keyUsages,
+  );
+}
