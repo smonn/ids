@@ -138,12 +138,10 @@ describe("wrapped", () => {
   it("safeUnwrap rejects wire input with wrong payload length before reaching AES decrypt", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0xaa));
     const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
-    // Correct prefix, too-short payload (10 chars instead of 26)
     await expect(inv.safeUnwrap("inv_0000000000")).resolves.toEqual({
       ok: false,
       error: "invalid_base32",
     });
-    // Correct prefix, too-long payload (30 chars instead of 26)
     await expect(inv.safeUnwrap("inv_" + "0".repeat(30))).resolves.toEqual({
       ok: false,
       error: "invalid_base32",
