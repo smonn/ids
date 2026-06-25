@@ -58,10 +58,7 @@ export { writeLen32 } from "./bytes.js";
 export async function deriveKey(
   bytes: Uint8Array,
   info: Uint8Array,
-  keySpec:
-    | webcrypto.AlgorithmIdentifier
-    | webcrypto.AesDerivedKeyParams
-    | webcrypto.HmacImportParams,
+  keySpec: webcrypto.AesDerivedKeyParams | webcrypto.HmacImportParams,
   keyUsages: webcrypto.KeyUsage[],
 ): Promise<webcrypto.CryptoKey> {
   const base = await crypto.subtle.importKey(
