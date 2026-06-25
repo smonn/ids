@@ -5,12 +5,14 @@ import { readIdColumn, resolveIdParamFailure } from "./adapter-types.js";
 
 describe("readIdColumn", () => {
   it("caught IdsError.cause is typed as ParseError | undefined", () => {
+    expect.assertions(1);
     const codec = { safeParse: () => ({ ok: false as const, error: "invalid_prefix" as const }) };
     try {
       readIdColumn(codec, "bad_value");
     } catch (err) {
       if (isIdsError(err)) {
         expectTypeOf(err.cause).toEqualTypeOf<ParseError | undefined>();
+        expect(err.cause).toBe("invalid_prefix");
       }
     }
   });
