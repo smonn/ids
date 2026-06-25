@@ -45,7 +45,7 @@ const noKeyPolicy: Policy = {
 
 // A flagless selectable descriptor, to cover the v.flag === undefined branch in deriveAllowedFlags
 const flaglessDescriptor: Descriptor = {
-  inspectMode: "readable",
+  inspect: timestampVariant.inspect,
   construct(brand, opts) {
     return timestampVariant.construct(brand, opts);
   },

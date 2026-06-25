@@ -39,8 +39,8 @@ describe("timestampVariant", () => {
     expect(timestampVariant.key).toBeUndefined();
   });
 
-  it("has readable inspectMode", () => {
-    expect(timestampVariant.inspectMode).toBe("readable");
+  it("has readable inspect mode", () => {
+    expect(timestampVariant.inspect.mode).toBe("readable");
   });
 
   it("has no extraFlags", () => {
@@ -77,8 +77,8 @@ describe("opaqueVariant", () => {
     expect(decoded).toEqual(testKeyBytes);
   });
 
-  it("has keyed-readable inspectMode", () => {
-    expect(opaqueVariant.inspectMode).toBe("keyed-readable");
+  it("has keyed-readable inspect mode", () => {
+    expect(opaqueVariant.inspect.mode).toBe("keyed-readable");
   });
 
   it("has no extraFlags", () => {
@@ -109,8 +109,8 @@ describe("reverseVariant", () => {
     expect(reverseVariant.key).toBeUndefined();
   });
 
-  it("has readable inspectMode", () => {
-    expect(reverseVariant.inspectMode).toBe("readable");
+  it("has readable inspect mode", () => {
+    expect(reverseVariant.inspect.mode).toBe("readable");
   });
 
   it("has no extraFlags", () => {
@@ -147,8 +147,8 @@ describe("wrappedVariant", () => {
     expect(decoded).toEqual(testKeyBytes);
   });
 
-  it("has unwrap inspectMode", () => {
-    expect(wrappedVariant.inspectMode).toBe("unwrap");
+  it("has unwrap inspect mode", () => {
+    expect(wrappedVariant.inspect.mode).toBe("unwrap");
   });
 
   it("has --kind in extraFlags", () => {
@@ -219,8 +219,8 @@ describe("signedVariant", () => {
     expect(decoded).toEqual(testKeyBytes);
   });
 
-  it("has verify inspectMode", () => {
-    expect(signedVariant.inspectMode).toBe("verify");
+  it("has verify inspect mode", () => {
+    expect(signedVariant.inspect.mode).toBe("verify");
   });
 
   it("has no extraFlags", () => {
@@ -265,8 +265,8 @@ describe("digestVariant", () => {
     expect(decoded).toEqual(testKeyBytes);
   });
 
-  it("has unsupported inspectMode", () => {
-    expect(digestVariant.inspectMode).toBe("unsupported");
+  it("has unsupported inspect mode", () => {
+    expect(digestVariant.inspect.mode).toBe("unsupported");
   });
 
   it("has --ns in extraFlags", () => {
