@@ -89,6 +89,15 @@ describe("idScalar", () => {
       const result = scalar.serialize(id);
       expect(typeof result).toBe("string");
     });
+
+    it("wrong-brand ID throws GraphQLError", () => {
+      const orgId = org.generate();
+      expect(() => scalar.serialize(orgId)).toThrow(GraphQLError);
+    });
+
+    it("invalid string throws GraphQLError", () => {
+      expect(() => scalar.serialize("not-an-id-at-all")).toThrow(GraphQLError);
+    });
   });
 
   describe("scalar metadata", () => {
