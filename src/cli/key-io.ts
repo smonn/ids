@@ -5,12 +5,9 @@ export type KeyFormat = "hex" | "base64url";
 export type LoadKeyError = { kind: "missing" | "import-failure"; message: string };
 
 export function isLoadKeyError(value: unknown): value is LoadKeyError {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    ((value as LoadKeyError).kind === "missing" ||
-      (value as LoadKeyError).kind === "import-failure")
-  );
+  if (typeof value !== "object" || value === null) return false;
+  const kind = (value as Record<string, unknown>).kind;
+  return kind === "missing" || kind === "import-failure";
 }
 
 export type KeyFacet<K> = {
