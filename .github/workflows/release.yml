@@ -32,8 +32,6 @@ jobs:
           registry-url: https://registry.npmjs.org
           install: "false"
 
-      - run: npm install -g npm@latest
-
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm build
@@ -59,18 +57,19 @@ jobs:
           PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
         run: |
           set -euo pipefail
-          # cyclonedx-npm reads an npm lockfile; the repo uses pnpm, so derive a
-          # throwaway package-lock.json. --package-lock-only never touches
-          # node_modules and the lockfile is discarded with the runner.
-          npm install --package-lock-only --ignore-scripts --legacy-peer-deps
+          # cdxgen reads pnpm-lock.yaml directly, so the SBOM is built natively
+          # from the pnpm workspace — no throwaway npm lockfile to derive (npm's
+          # --package-lock-only chokes on pnpm's symlinked node_modules). Run via
+          # `pnpm dlx` to keep the whole step on the pnpm toolchain.
           echo "$PUBLISHED_PACKAGES" | jq -c '.[]' | while read -r pkg; do
             name=$(echo "$pkg" | jq -r '.name')
             version=$(echo "$pkg" | jq -r '.version')
             slug=$(echo "${name}" | tr '/@' '--' | sed 's/^-//')
             sbom="${slug}-${version}.cdx.json"
-            npx --yes @cyclonedx/cyclonedx-npm@^4 \
-              --package-lock-only \
-              --output-format JSON \
-              --output-file "$sbom"
+            pnpm dlx @cyclonedx/cdxgen@^11 \
+              --type pnpm \
+              --spec-version 1.6 \
+              --output "$sbom" \
+              .
             gh release upload "${name}@${version}" "$sbom" --clobber --repo "${{ github.repository }}"
           done
