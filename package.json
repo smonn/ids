@@ -48,6 +48,7 @@
     "bench:build": "tsdown -c tsdown.bench.config.ts",
     "bench": "pnpm -s bench:build 1>&2 && node bench/dist/index.mjs",
     "bench:compare": "pnpm -s bench:build 1>&2 && node bench/dist/compare.mjs",
+    "bench:concurrent": "pnpm -s bench:build 1>&2 && node bench/dist/concurrent.mjs",
     "version-packages": "changeset version && pnpm fmt"
   },
   "devDependencies": {
