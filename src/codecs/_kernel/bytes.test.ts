@@ -72,5 +72,11 @@ describe("bytes", () => {
       writeLen32(0xffffffff, buf, 0);
       expect(Array.from(buf)).toEqual([0xff, 0xff, 0xff, 0xff]);
     });
+
+    it("writes at maximum valid offset and does not disturb surrounding bytes", () => {
+      const buf = new Uint8Array(8).fill(0xaa);
+      writeLen32(0x01020304, buf, 4);
+      expect(Array.from(buf)).toEqual([0xaa, 0xaa, 0xaa, 0xaa, 0x01, 0x02, 0x03, 0x04]);
+    });
   });
 });
