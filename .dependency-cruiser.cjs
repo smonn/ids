@@ -160,7 +160,7 @@ module.exports = {
       name: "leaves-no-upward",
       severity: "error",
       from: { path: "^src/(wire/base32|codecs/_kernel/bytes|types|codecs/_kernel/brand)\\.ts$" },
-      to: { path: "^src/(wire|layouts|timestamp|opaque|cli|codecs/_kernel/registry)" },
+      to: { path: "^src/(wire|cli|codecs)" },
     },
     {
       name: "key-material-leaf-restricted",

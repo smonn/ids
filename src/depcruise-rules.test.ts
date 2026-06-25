@@ -105,6 +105,10 @@ const cases = [
     rule: "leaves-no-upward",
   },
   {
+    fixture: "test/fixtures/depcruise/codecs/_kernel/bytes.ts",
+    rule: "leaves-no-upward",
+  },
+  {
     fixture: "test/fixtures/depcruise/non-key-handle.ts",
     rule: "key-material-leaf-restricted",
   },
