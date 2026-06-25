@@ -17,7 +17,7 @@ This repo is **single-context**:
 ```
 /
 ├── CONTEXT.md
-├── docs/adr/          ← live index; see docs/adr/ for all ADRs (0001–0020)
+├── docs/adr/          ← live index; see docs/adr/ for the full ADR index
 └── src/
     ├── index.ts
     ├── types.ts

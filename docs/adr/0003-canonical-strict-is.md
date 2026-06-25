@@ -10,7 +10,7 @@ A 16-byte (128-bit) payload encoded in 26 Crockford base32 characters uses 130 b
 
 ## Considered Options
 
-- **Lenient `is()`** (rejected) — equivalent to `safeParse().success`. Leaves `Id<Brand>` semantically ambiguous: a value of that type might or might not be canonical, so consumers can't rely on `===` and non-canonical strings can leak into storage if a caller forgets to round-trip through `parse()`.
+- **Lenient `is()`** (rejected) — equivalent to `safeParse().ok`. Leaves `Id<Brand>` semantically ambiguous: a value of that type might or might not be canonical, so consumers can't rely on `===` and non-canonical strings can leak into storage if a caller forgets to round-trip through `parse()`.
 - **Normalize trailing bits in `safeParse`** (not chosen) — possible, but silently accepting malformed input is surprising and harder to audit. Rejection makes the contract explicit and surfaces the rare case where a caller holds a non-canonical string.
 
 ## Consequences
