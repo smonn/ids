@@ -35,16 +35,39 @@ permissions:
 #     comment + label deterministically and stops (unblock.yml re-triages later).
 jobs:
   triage:
-    # Loop guard: skip THIRD-PARTY bot-authored issues, but allow our own trusted App
-    # (`smonn[bot]`) through — it files follow-up issues from address-review.yml and
-    # re-triage from unblock.yml, which must still be triaged (mirrors the
-    # `allowed_bots: "smonn[bot]"` pattern in the claude-code-action step below). This is
-    # loop-safe: triage creates no issues, and on `labeled` events we only act when
-    # `needs-triage` was added, so triage/implement applying their own labels are no-ops.
+    # Who is allowed to set this pipeline in motion. Two independent guards:
+    #
+    # 1. LOOP GUARD (bot authors): skip third-party bot-authored issues, but allow our
+    #    own trusted App (`smonn[bot]`) through — it files follow-up issues from
+    #    address-review.yml and re-triage from unblock.yml, which must still be triaged
+    #    (mirrors the `allowed_bots: "smonn[bot]"` pattern in the claude-code-action step
+    #    below). Loop-safe: triage creates no issues, and on `labeled` events we only act
+    #    when `needs-triage` was added, so triage/implement applying their own labels are
+    #    no-ops.
+    #
+    # 2. THIRD-PARTY GUARD (human authors): an issue opened/reopened by an outside party
+    #    must NOT auto-trigger the agent pipeline (triage -> ready-for-agent -> implement
+    #    writes code + opens a PR). So on `opened`/`reopened` we only auto-triage when the
+    #    author is trusted — OWNER / MEMBER / COLLABORATOR — or is our own `smonn[bot]`
+    #    (whose `author_association` is not a repo role, so it is named explicitly to keep
+    #    the follow-up / re-triage chains alive). An outside issue is left untouched until
+    #    a maintainer opts it in by adding `needs-triage`; that arrives as a `labeled`
+    #    event, which is gated by GitHub's own permission model (adding a label requires
+    #    triage/write access, which `author_association` alone — e.g. a returning
+    #    CONTRIBUTOR — does NOT grant). The `labeled` branch therefore needs no author
+    #    check: only a trusted actor (or the App) can reach it. This matches the issue
+    #    templates, which already tell reporters that "a maintainer applies triage labels".
     if: >-
       ${{ github.event_name == 'workflow_dispatch' ||
       ((github.event.issue.user.type != 'Bot' || github.event.issue.user.login == 'smonn[bot]') &&
-       (github.event.action != 'labeled' || github.event.label.name == 'needs-triage')) }}
+       (
+         (github.event.action == 'labeled' && github.event.label.name == 'needs-triage') ||
+         (github.event.action != 'labeled' &&
+          (github.event.issue.user.login == 'smonn[bot]' ||
+           github.event.issue.author_association == 'OWNER' ||
+           github.event.issue.author_association == 'MEMBER' ||
+           github.event.issue.author_association == 'COLLABORATOR'))
+       )) }}
     runs-on: ubuntu-latest
     # Agent secrets (APP_ID / APP_PRIVATE_KEY / CLAUDE_CODE_OAUTH_TOKEN) live in
     # the `automation` environment, kept separate from the `npm` publish env.
