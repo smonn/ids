@@ -186,6 +186,28 @@ jobs:
         # resolvable (checkout only fetched the PR head ref).
         run: git fetch --no-tags origin main:refs/remotes/origin/main
 
+      - name: Provision workflow helpers from main if absent
+        if: steps.scope.outputs.review == 'true' && steps.gate.outputs.skip != 'true'
+        # This job checks out an agent/PR branch; local actions (./.github/actions/*)
+        # and scripts (.github/scripts/*) resolve from that branch's tree. A branch that
+        # predates these helpers lacks them, breaking the references below. If any are
+        # missing, fetch them from main and extract as UNTRACKED, git-ignored files:
+        # available on disk for uses:/bash, but never staged into the agent's commits.
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ ! -f .github/actions/setup-node-pnpm/action.yml ] \
+             || [ ! -f .github/scripts/poster-lib.sh ] \
+             || [ ! -f .github/scripts/git-identity.sh ] \
+             || [ ! -f .github/scripts/fetch-closing-issues.sh ]; then
+            echo "Provisioning workflow helpers from main (this branch predates them)."
+            git fetch --no-tags --depth=1 "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" main >/dev/null 2>&1
+            git archive FETCH_HEAD .github/actions .github/scripts | tar -x
+            printf '.github/actions/\n.github/scripts/\n' >> .git/info/exclude
+          fi
+
       # Precompute every input the producer needs and write it under .review-context/, so
       # the agent itself runs NO git and NO gh — it reads files and writes files, nothing
       # else. This keeps the producer hermetic (it can't run the static-analysis gate or
