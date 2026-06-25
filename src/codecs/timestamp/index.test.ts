@@ -310,13 +310,19 @@ describe("id", () => {
   });
 
   it("fails if brand is not exactly three a-z characters", () => {
-    for (const brand of ["a", "aaaa", "!@?"]) {
-      let err: unknown;
+    function tryCreate(brand: string): unknown {
       try {
-        createTimestampId(brand);
+        // Runtime brand validation via the `_kernel/brand.ts` guard —
+        // the `as unknown as ValidBrand` cast bypasses the compile-time check
+        // so we can verify the runtime path still fires.
+        createTimestampId(brand as unknown as import("../../types.js").ValidBrand);
       } catch (e) {
-        err = e;
+        return e;
       }
+      return undefined;
+    }
+    for (const brand of ["a", "aaaa", "!@?"]) {
+      const err = tryCreate(brand);
       expect(isIdsError(err)).toBe(true);
       expect((err as IdsError).code).toBe("invalid_brand");
     }

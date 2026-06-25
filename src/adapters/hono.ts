@@ -2,7 +2,7 @@ import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Context, MiddlewareHandler } from "hono";
 import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
-import type { Id } from "../types.js";
+import type { Id, ValidBrand } from "../types.js";
 
 export type { IdParamFailure };
 
@@ -58,7 +58,7 @@ export type IdParamOptions = {
  * app.get("/things/:id", idParam("id", thing, { status: { brand_mismatch: 400 } }), handler);
  * ```
  */
-export function idParam<ParamKey extends string, Brand extends string>(
+export function idParam<ParamKey extends string, Brand extends ValidBrand>(
   paramName: ParamKey,
   codec: IdCodec<Brand>,
   options?: IdParamOptions,

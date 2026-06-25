@@ -1,5 +1,5 @@
 import { alphabet } from "./base32.js";
-import type { Id, ParseError, ParseResult, Prefix } from "../types.js";
+import type { Id, ParseError, ParseResult, Prefix, ValidBrand } from "../types.js";
 import { base32FinalCharClass, payloadBase32Length } from "./invariants.js";
 
 const replacePattern = /[ilo]/g;
@@ -9,7 +9,7 @@ const base32Pattern = new RegExp(
   `^[${alphabet}]{${payloadBase32Length - 1}}${base32FinalCharClass}$`,
 );
 
-export function safeParse<Brand extends string>(
+export function safeParse<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   value: unknown,
 ): ParseResult<Brand> {
@@ -28,7 +28,7 @@ export function safeParse<Brand extends string>(
   return { ok: true, id };
 }
 
-export function is<Brand extends string>(
+export function is<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   value: unknown,
 ): value is Id<Brand> {
@@ -37,7 +37,7 @@ export function is<Brand extends string>(
   return base32Pattern.test(value.slice(prefix.length));
 }
 
-function errorMessage<Brand extends string>(prefix: Prefix<Brand>, error: ParseError): string {
+function errorMessage<Brand extends ValidBrand>(prefix: Prefix<Brand>, error: ParseError): string {
   switch (error) {
     case "not_string":
       return "expected string";
@@ -48,7 +48,7 @@ function errorMessage<Brand extends string>(prefix: Prefix<Brand>, error: ParseE
   }
 }
 
-export function standardValidate<Brand extends string>(
+export function standardValidate<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   value: unknown,
 ):

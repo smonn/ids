@@ -2,7 +2,14 @@ import { validateBrand } from "../_kernel/brand.js";
 import { createTimestampLayoutOps } from "./layout.js";
 import { registerBrand } from "../_kernel/registry.js";
 import { fastTenByteRng } from "../_kernel/rng.js";
-import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../../types.js";
+import type {
+  Id,
+  JsonSchema,
+  ParseResult,
+  Prefix,
+  StandardSchemaProps,
+  ValidBrand,
+} from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 
 /**
@@ -29,7 +36,7 @@ type ResolvedTimestampOptions = Required<Pick<TimestampOptions, "now" | "rng">> 
  *
  * For encrypted IDs, use `createOpaqueTimestampId` from `@smonn/ids/opaque`.
  */
-export type TimestampCodec<Brand extends string> = {
+export type TimestampCodec<Brand extends ValidBrand> = {
   /** Produces a new canonical ID using the codec's `now` and `rng`. */
   generate(): Id<Brand>;
   /** Produces a new canonical ID with timestamp bytes from `date` and a fresh random tail. Throws on invalid dates. */
@@ -75,7 +82,7 @@ const defaultTimestampOptions: ResolvedTimestampOptions = {
  * @param brand - Entity type brand validated once at construction.
  * @param opts - Optional `now`, `rng`, and `allowDuplicateBrand` overrides.
  */
-export function createTimestampId<Brand extends string>(
+export function createTimestampId<Brand extends ValidBrand>(
   brand: Brand,
   opts: TimestampOptions = {},
 ): TimestampCodec<Brand> {

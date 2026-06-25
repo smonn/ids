@@ -1,5 +1,5 @@
 import type { webcrypto } from "node:crypto";
-import type { Id, Prefix } from "../../types.js";
+import type { Id, Prefix, ValidBrand } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 
@@ -202,7 +202,7 @@ function buildPlaintext(lane: Uint8Array, tag: Uint8Array): Uint8Array {
   return plaintext;
 }
 
-async function wrapLookupKey<Brand extends string, Kind extends LayoutWrappedKind>(
+async function wrapLookupKey<Brand extends ValidBrand, Kind extends LayoutWrappedKind>(
   prefix: Prefix<Brand>,
   template: HmacMessageTemplate,
   key: LayoutWrappingKey,
@@ -216,7 +216,7 @@ async function wrapLookupKey<Brand extends string, Kind extends LayoutWrappedKin
   return toWireId(prefix, encrypted);
 }
 
-async function tryUnwrapLookupKey<Brand extends string, Kind extends LayoutWrappedKind>(
+async function tryUnwrapLookupKey<Brand extends ValidBrand, Kind extends LayoutWrappedKind>(
   prefix: Prefix<Brand>,
   template: HmacMessageTemplate,
   key: LayoutWrappingKey,
@@ -231,11 +231,11 @@ async function tryUnwrapLookupKey<Brand extends string, Kind extends LayoutWrapp
   return readLane(kind, lane);
 }
 
-function schemaExample<Brand extends string>(prefix: Prefix<Brand>): string {
+function schemaExample<Brand extends ValidBrand>(prefix: Prefix<Brand>): string {
   return prefix + "0".repeat(payloadBase32Length);
 }
 
-export function createWrappedLayoutOps<Brand extends string, Kind extends LayoutWrappedKind>(
+export function createWrappedLayoutOps<Brand extends ValidBrand, Kind extends LayoutWrappedKind>(
   prefix: Prefix<Brand>,
   brand: Brand,
   kind: Kind,

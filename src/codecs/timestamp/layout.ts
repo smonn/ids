@@ -1,4 +1,4 @@
-import type { Id, Prefix } from "../../types.js";
+import type { Id, Prefix, ValidBrand } from "../../types.js";
 import { toWireId } from "../../wire/envelope.js";
 import { payloadByteLength } from "../../wire/invariants.js";
 import {
@@ -32,12 +32,15 @@ function buildSentinelPayload(
 }
 
 /** Decodes the creation timestamp from a trusted wire ID. */
-function extractTimestampFromId<Brand extends string>(prefix: Prefix<Brand>, id: Id<Brand>): Date {
+function extractTimestampFromId<Brand extends ValidBrand>(
+  prefix: Prefix<Brand>,
+  id: Id<Brand>,
+): Date {
   return new Date(readTimestampMsFromBase32Suffix(id.slice(prefix.length)));
 }
 
 /** Layout ops binder for the Timestamp variant. `extractTimestampFromId` is module-private; the binder exposes `extractTimestamp` for the codec constructor. */
-export function createTimestampLayoutOps<Brand extends string>(
+export function createTimestampLayoutOps<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   rng: (target: Uint8Array) => void,
 ) {

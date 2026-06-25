@@ -1,7 +1,7 @@
 import type { ValueTransformer } from "typeorm";
 import { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
-import type { Id } from "../types.js";
+import type { Id, ValidBrand } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };
@@ -40,7 +40,9 @@ export type { IdColumnCodec };
  * }
  * ```
  */
-export function idTransformer<Brand extends string>(codec: IdColumnCodec<Brand>): ValueTransformer {
+export function idTransformer<Brand extends ValidBrand>(
+  codec: IdColumnCodec<Brand>,
+): ValueTransformer {
   return {
     to(value: Id<Brand>): string {
       return value;

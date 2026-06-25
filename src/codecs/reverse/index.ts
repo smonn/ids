@@ -3,7 +3,14 @@ import { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
 import { createReverseTimestampLayoutOps } from "./layout.js";
 import { registerBrand } from "../_kernel/registry.js";
 import { fastTenByteRng } from "../_kernel/rng.js";
-import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../../types.js";
+import type {
+  Id,
+  JsonSchema,
+  ParseResult,
+  Prefix,
+  StandardSchemaProps,
+  ValidBrand,
+} from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -34,7 +41,7 @@ export type ReverseTimestampOptions = {
  *
  * Constructed via `createReverseTimestampId(brand)` from `@smonn/ids/reverse`.
  */
-export type ReverseTimestampCodec<Brand extends string> = {
+export type ReverseTimestampCodec<Brand extends ValidBrand> = {
   /** Produces a new canonical ID using the codec's `now` and `rng`. */
   generate(): Id<Brand>;
   /** Produces a new canonical ID with timestamp bytes from `date` and a fresh random tail. Throws on invalid dates. */
@@ -87,7 +94,7 @@ export type ReverseTimestampCodec<Brand extends string> = {
  * @param brand - Entity type brand validated once at construction.
  * @param opts - Optional `now`, `rng`, and `allowDuplicateBrand` overrides.
  */
-export function createReverseTimestampId<Brand extends string>(
+export function createReverseTimestampId<Brand extends ValidBrand>(
   brand: Brand,
   opts: ReverseTimestampOptions = {},
 ): ReverseTimestampCodec<Brand> {

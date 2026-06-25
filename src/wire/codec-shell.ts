@@ -1,9 +1,16 @@
 import { IdsError } from "../error.js";
-import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../types.js";
+import type {
+  Id,
+  JsonSchema,
+  ParseResult,
+  Prefix,
+  StandardSchemaProps,
+  ValidBrand,
+} from "../types.js";
 import { base32CharClass, base32FinalCharClass, payloadBase32Length } from "./invariants.js";
 import { is, safeParse, standardValidate } from "./parse.js";
 
-type WireMethods<Brand extends string> = {
+type WireMethods<Brand extends ValidBrand> = {
   is: (value: unknown) => value is Id<Brand>;
   parse: (value: unknown) => Id<Brand>;
   safeParse: (value: unknown) => ParseResult<Brand>;
@@ -12,7 +19,7 @@ type WireMethods<Brand extends string> = {
 };
 
 /** Wire-only methods shared by every codec variant for a fixed prefix. */
-export function wireMethods<Brand extends string>(prefix: Prefix<Brand>): WireMethods<Brand> {
+export function wireMethods<Brand extends ValidBrand>(prefix: Prefix<Brand>): WireMethods<Brand> {
   const standard: StandardSchemaProps<Brand> = {
     version: 1,
     vendor: "@smonn/ids",

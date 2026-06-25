@@ -1,7 +1,7 @@
 import { Type } from "@mikro-orm/core";
 import { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
-import type { Id } from "../types.js";
+import type { Id, ValidBrand } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };
@@ -35,7 +35,7 @@ export type { IdColumnCodec };
  * }
  * ```
  */
-export function idType<Brand extends string>(
+export function idType<Brand extends ValidBrand>(
   codec: IdColumnCodec<Brand>,
 ): new () => Type<Id<Brand>, string> {
   return class extends Type<Id<Brand>, string> {

@@ -1,5 +1,5 @@
 import { IdsError } from "../error.js";
-import type { Id, ParseError, ParseResult } from "../types.js";
+import type { Id, ParseError, ParseResult, ValidBrand } from "../types.js";
 
 /** Discriminated failure value passed to `onError` and emitted to the framework's error handler. */
 export type IdParamFailure =
@@ -7,15 +7,15 @@ export type IdParamFailure =
   | { readonly reason: "malformed"; readonly status: number };
 
 /** Minimum structural type required by web and ORM adapters. Any codec variant satisfies this — all expose `safeParse`. Adapters only ever call `safeParse` — never key-dependent methods like `extractTimestamp`, `wrap`, or `unwrap`. */
-export type IdCodec<Brand extends string> = {
+export type IdCodec<Brand extends ValidBrand> = {
   safeParse(value: unknown): ParseResult<Brand>;
 };
 
 /** Re-exported from ORM adapter subpaths (`@smonn/ids/drizzle`, `@smonn/ids/prisma`, `@smonn/ids/kysely`) under the public name; structurally identical to {@link IdCodec}. */
-export type IdColumnCodec<Brand extends string> = IdCodec<Brand>;
+export type IdColumnCodec<Brand extends ValidBrand> = IdCodec<Brand>;
 
 /** Parses `value` as `Id<Brand>` via `codec.safeParse`; throws `IdsError("invalid_id")` on failure. Shared read helper for ORM adapters. */
-export function readIdColumn<Brand extends string>(
+export function readIdColumn<Brand extends ValidBrand>(
   codec: IdCodec<Brand>,
   value: unknown,
 ): Id<Brand> {

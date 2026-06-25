@@ -145,8 +145,11 @@ describe("reverse timestamp codec", () => {
   });
 
   it("fails if brand is not exactly three a-z characters", () => {
+    // @ts-expect-error — "a" is not a ValidBrand; tests the runtime guard
     expect(() => createReverseTimestampId("a")).toThrow();
+    // @ts-expect-error — "aaaa" is not a ValidBrand; tests the runtime guard
     expect(() => createReverseTimestampId("aaaa")).toThrow();
+    // @ts-expect-error — "!@?" is not a ValidBrand; tests the runtime guard
     expect(() => createReverseTimestampId("!@?")).toThrow();
   });
 

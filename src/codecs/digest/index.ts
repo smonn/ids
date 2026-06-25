@@ -2,7 +2,14 @@ import { validateBrand } from "../_kernel/brand.js";
 import { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
 import { createDigestLayoutOps } from "./layout.js";
 import { registerBrand } from "../_kernel/registry.js";
-import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../../types.js";
+import type {
+  Id,
+  JsonSchema,
+  ParseResult,
+  Prefix,
+  StandardSchemaProps,
+  ValidBrand,
+} from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 import {
   decodeDigestKey,
@@ -49,7 +56,7 @@ export type DigestOptions = {
  * - There is no reverse method (`unwrap`, `verify`, `extractTimestamp`) — the
  *   codec is one-way by definition.
  */
-export type DigestCodec<Brand extends string> = {
+export type DigestCodec<Brand extends ValidBrand> = {
   /**
    * Digest `material` into a stable canonical {@link Id}.
    *
@@ -85,7 +92,7 @@ export type DigestCodec<Brand extends string> = {
  * idk.is(id);                               // true
  * ```
  */
-export function createDigestId<Brand extends string>(
+export function createDigestId<Brand extends ValidBrand>(
   brand: Brand,
   opts: DigestOptions,
 ): DigestCodec<Brand> {

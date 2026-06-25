@@ -5,7 +5,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
-import type { Id } from "../types.js";
+import type { Id, ValidBrand } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };
@@ -33,7 +33,7 @@ export type { IdColumnCodec };
  * // users.id is Id<"usr"> end-to-end
  * ```
  */
-export function idColumn<Brand extends string>(
+export function idColumn<Brand extends ValidBrand>(
   codec: IdColumnCodec<Brand>,
 ): PgCustomColumnBuilder<ConvertCustomConfig<"", { data: Id<Brand>; driverData: string }>> {
   return customType<{ data: Id<Brand>; driverData: string }>({

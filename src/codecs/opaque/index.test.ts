@@ -237,8 +237,11 @@ describe("opaque", () => {
 
   it("rejects brands that are not exactly three a-z characters", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
+    // @ts-expect-error — "a" is not a ValidBrand; tests the runtime guard
     expect(() => createOpaqueTimestampId("a", { key })).toThrow();
+    // @ts-expect-error — "aaaa" is not a ValidBrand; tests the runtime guard
     expect(() => createOpaqueTimestampId("aaaa", { key })).toThrow();
+    // @ts-expect-error — "!@?" is not a ValidBrand; tests the runtime guard
     expect(() => createOpaqueTimestampId("!@?", { key })).toThrow();
   });
 

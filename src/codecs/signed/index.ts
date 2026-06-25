@@ -10,6 +10,7 @@ import type {
   ParseResult,
   Prefix,
   StandardSchemaProps,
+  ValidBrand,
 } from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 import {
@@ -59,7 +60,7 @@ export type SignedTimestampOptions = {
  * `"verification_failed"` when the HMAC tag does not match any entry in the
  * signing keyring.
  */
-export type SafeVerifyResult<Brand extends string> =
+export type SafeVerifyResult<Brand extends ValidBrand> =
   | { ok: true; id: Id<Brand> }
   | { ok: false; error: ParseError | "verification_failed" };
 
@@ -76,7 +77,7 @@ export type SafeVerifyResult<Brand extends string> =
  * - Async (HMAC): `generate`, `generateAt`, `verify`, `safeVerify`.
  * - Sync (no key / plaintext timestamp): all other methods.
  */
-export type SignedTimestampCodec<Brand extends string> = {
+export type SignedTimestampCodec<Brand extends ValidBrand> = {
   /** Produces a canonical ID signed with the current (first) key. */
   generate(): Promise<Id<Brand>>;
   /**
@@ -147,7 +148,7 @@ export type SignedTimestampCodec<Brand extends string> = {
  * usr.extractTimestamp(id);               // Date — sync, timestamp is plaintext
  * ```
  */
-export function createSignedTimestampId<Brand extends string>(
+export function createSignedTimestampId<Brand extends ValidBrand>(
   brand: Brand,
   opts: SignedTimestampOptions,
 ): SignedTimestampCodec<Brand> {

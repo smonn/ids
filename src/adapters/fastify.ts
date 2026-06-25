@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
-import type { Id } from "../types.js";
+import type { Id, ValidBrand } from "../types.js";
 
 export type { IdParamFailure };
 
@@ -96,7 +96,7 @@ export type IdParamOptions = {
  * }, handler);
  * ```
  */
-export function idParam<ParamKey extends string, Brand extends string>(
+export function idParam<ParamKey extends string, Brand extends ValidBrand>(
   paramName: ParamKey,
   codec: IdCodec<Brand>,
   options?: IdParamOptions,

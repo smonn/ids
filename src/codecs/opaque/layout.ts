@@ -1,5 +1,5 @@
 import type { webcrypto } from "node:crypto";
-import type { Id, Prefix } from "../../types.js";
+import type { Id, Prefix, ValidBrand } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 import {
@@ -57,7 +57,7 @@ async function decryptPayload(key: webcrypto.CryptoKey, c1: Uint8Array): Promise
   );
 }
 
-async function extractTimestampFromId<Brand extends string>(
+async function extractTimestampFromId<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   key: webcrypto.CryptoKey,
   id: Id<Brand>,
@@ -68,7 +68,7 @@ async function extractTimestampFromId<Brand extends string>(
 
 /** Produces a canonical encrypted wire ID. Per-call plaintext/ciphertext buffers —
  * subtle dominates this path; reuse would be safe but not worth pinning to spec detail. */
-async function generateWireId<Brand extends string>(
+async function generateWireId<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   key: webcrypto.CryptoKey,
   rng: (target: Uint8Array) => void,
@@ -80,12 +80,12 @@ async function generateWireId<Brand extends string>(
 }
 
 /** Structural placeholder for JSON Schema (encrypt is async). */
-function schemaExample<Brand extends string>(prefix: Prefix<Brand>): string {
+function schemaExample<Brand extends ValidBrand>(prefix: Prefix<Brand>): string {
   return prefix + "0".repeat(payloadBase32Length);
 }
 
 /** Layout ops binder for the Opaque Timestamp variant. `extractTimestampFromId` is module-private; the binder exposes `extractTimestamp` for the codec constructor. */
-export function createOpaqueLayoutOps<Brand extends string>(
+export function createOpaqueLayoutOps<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   key: webcrypto.CryptoKey,
   rng: (target: Uint8Array) => void,

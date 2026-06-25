@@ -9,6 +9,7 @@ import type {
   ParseResult,
   Prefix,
   StandardSchemaProps,
+  ValidBrand,
 } from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 import {
@@ -45,7 +46,7 @@ type LookupKeyForKind<K extends WrappedKind> = K extends "u32" | "i32" ? number 
  * `"verification_failed"` when the payload is structurally valid but the
  * verification tag does not match any entry in the wrapping keyring.
  */
-export type UnwrapResult<Brand extends string, Kind extends WrappedKind> =
+export type UnwrapResult<Brand extends ValidBrand, Kind extends WrappedKind> =
   | { ok: true; id: Id<Brand>; lookupKey: LookupKeyForKind<Kind> }
   | { ok: false; error: ParseError | "verification_failed" };
 
@@ -62,7 +63,7 @@ export type UnwrapResult<Brand extends string, Kind extends WrappedKind> =
  * - The `Kind` type parameter drives value types at the TypeScript boundary:
  *   `u32` / `i32` → `number`; `u64` / `i64` → `bigint`.
  */
-export type WrappedKeyCodec<Brand extends string, Kind extends WrappedKind> = {
+export type WrappedKeyCodec<Brand extends ValidBrand, Kind extends WrappedKind> = {
   /**
    * Wrap `lookupKey` into a public ID using the current (first) wrapping key.
    *
@@ -200,7 +201,7 @@ function assertLookupKey<Kind extends WrappedKind>(
  * await invoices.unwrap(id);               // 42
  * ```
  */
-export function createWrappedKeyId<Brand extends string, Kind extends WrappedKind>(
+export function createWrappedKeyId<Brand extends ValidBrand, Kind extends WrappedKind>(
   brand: Brand,
   opts: WrappedKeyOptions<Kind>,
 ): WrappedKeyCodec<Brand, Kind> {

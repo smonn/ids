@@ -1,7 +1,7 @@
 import type { ColumnType } from "kysely";
 import { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
-import type { Id } from "../types.js";
+import type { Id, ValidBrand } from "../types.js";
 
 export type { IdColumnCodec } from "./adapter-types.js";
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -24,7 +24,7 @@ export { IdsError, isIdsError, type IdsErrorCode };
  * }
  * ```
  */
-export type IdColumnType<Brand extends string> = ColumnType<Id<Brand>, Id<Brand>, Id<Brand>>;
+export type IdColumnType<Brand extends ValidBrand> = ColumnType<Id<Brand>, Id<Brand>, Id<Brand>>;
 
 /**
  * Kysely column adapter bound to a codec.
@@ -51,7 +51,7 @@ export type IdColumnType<Brand extends string> = ColumnType<Id<Brand>, Id<Brand>
  * const id = usrCol.fromDriver(row.id);
  * ```
  */
-export function idColumn<Brand extends string>(
+export function idColumn<Brand extends ValidBrand>(
   codec: IdColumnCodec<Brand>,
 ): {
   toDriver(value: Id<Brand>): string;

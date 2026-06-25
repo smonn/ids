@@ -1,7 +1,7 @@
 import { GraphQLError, GraphQLScalarType, Kind } from "graphql";
 import type { ValueNode } from "graphql";
 import type { IdCodec } from "./adapter-types.js";
-import type { Id } from "../types.js";
+import type { Id, ValidBrand } from "../types.js";
 
 /**
  * Builds a `GraphQLScalarType` for the given codec and brand.
@@ -22,7 +22,7 @@ import type { Id } from "../types.js";
  * const UserIdScalar = idScalar(usr, { name: "UserId", description: "A branded user ID." });
  * ```
  */
-export function idScalar<Brand extends string>(
+export function idScalar<Brand extends ValidBrand>(
   codec: IdCodec<Brand>,
   config: { name: string; description?: string },
 ): GraphQLScalarType<Id<Brand>, string> {

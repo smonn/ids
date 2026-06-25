@@ -1,7 +1,7 @@
 import { BadRequestException, HttpException, Injectable, NotFoundException } from "@nestjs/common";
 import type { ArgumentMetadata, PipeTransform } from "@nestjs/common";
 import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
-import type { Id } from "../types.js";
+import type { Id, ValidBrand } from "../types.js";
 
 export type { IdParamFailure };
 
@@ -59,7 +59,7 @@ export type IdParamOptions = {
  * }
  * ```
  */
-export class ParseIdPipe<Brand extends string> implements PipeTransform<unknown, Id<Brand>> {
+export class ParseIdPipe<Brand extends ValidBrand> implements PipeTransform<unknown, Id<Brand>> {
   private readonly codec: IdCodec<Brand>;
   private readonly options: IdParamOptions | undefined;
 

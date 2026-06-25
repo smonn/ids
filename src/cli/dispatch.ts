@@ -1,4 +1,5 @@
 import type { IdCodec } from "../adapters/adapter-types.js";
+import type { ValidBrand } from "../types.js";
 import { isKeyFormatError, loadKey, parseKeyFormat } from "./key-io.js";
 import type { RunOpts } from "./types.js";
 import {
@@ -40,19 +41,19 @@ export async function buildCodec(
   brand: string,
   values: Map<string, string>,
   opts: RunOpts,
-): Promise<(IdCodec<string> & { generate(): string | Promise<string> }) | string>;
+): Promise<(IdCodec<ValidBrand> & { generate(): string | Promise<string> }) | string>;
 export async function buildCodec(
   variant: Descriptor,
   brand: string,
   values: Map<string, string>,
   opts: RunOpts,
-): Promise<IdCodec<string> | string>;
+): Promise<IdCodec<ValidBrand> | string>;
 export async function buildCodec(
   variant: Descriptor,
   brand: string,
   values: Map<string, string>,
   opts: RunOpts,
-): Promise<(IdCodec<string> & { generate?(): string | Promise<string> }) | string> {
+): Promise<(IdCodec<ValidBrand> & { generate?(): string | Promise<string> }) | string> {
   let key: unknown;
   if (variant.key !== undefined) {
     const format = parseKeyFormat(values, opts, variant.key);

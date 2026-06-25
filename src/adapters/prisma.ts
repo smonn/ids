@@ -1,6 +1,6 @@
 import { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
-import type { Id } from "../types.js";
+import type { Id, ValidBrand } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode };
@@ -16,7 +16,7 @@ export type { IdColumnCodec };
  * reflect this branding. Callers consuming the validated value from a Prisma
  * result component may need an explicit `as Id<Brand>` cast at the call site.
  */
-export type IdTransform<Brand extends string> = {
+export type IdTransform<Brand extends ValidBrand> = {
   /**
    * Read transform: validates the raw database value via `safeParse` and returns
    * `Id<Brand>`. Throws if the value is missing, malformed, or belongs to a
@@ -70,7 +70,7 @@ export type IdTransform<Brand extends string> = {
  * });
  * ```
  */
-export function idField<Brand extends string>(codec: IdColumnCodec<Brand>): IdTransform<Brand> {
+export function idField<Brand extends ValidBrand>(codec: IdColumnCodec<Brand>): IdTransform<Brand> {
   return {
     read(value: unknown): Id<Brand> {
       return readIdColumn(codec, value);

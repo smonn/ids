@@ -1,10 +1,50 @@
+type BrandChar =
+  | "a"
+  | "b"
+  | "c"
+  | "d"
+  | "e"
+  | "f"
+  | "g"
+  | "h"
+  | "i"
+  | "j"
+  | "k"
+  | "l"
+  | "m"
+  | "n"
+  | "o"
+  | "p"
+  | "q"
+  | "r"
+  | "s"
+  | "t"
+  | "u"
+  | "v"
+  | "w"
+  | "x"
+  | "y"
+  | "z";
+
+/**
+ * The 17,576-member union of all valid three-lowercase-letter brands
+ * (`"aaa"` … `"zzz"`). Use as the upper bound on `Brand` type parameters
+ * to get a compile-time error when a caller passes a brand that is not
+ * exactly three lowercase a–z characters.
+ *
+ * Performance note: the union is large but TypeScript resolves member
+ * checks lazily; in practice the incremental typecheck cost is negligible
+ * compared to the benefit of catching invalid brands at the call site.
+ */
+export type ValidBrand = `${BrandChar}${BrandChar}${BrandChar}`;
+
 /** The brand plus trailing separator — e.g. `usr_` for brand `usr`. */
-export type Prefix<Brand extends string> = `${Brand}_`;
+export type Prefix<Brand extends ValidBrand> = `${Brand}_`;
 
 declare const idBrand: unique symbol;
 
 /** A canonical branded ID string for `Brand`. Produced by `generate()` and `safeParse()`. */
-export type Id<Brand extends string> = `${Prefix<Brand>}${string}` & {
+export type Id<Brand extends ValidBrand> = `${Prefix<Brand>}${string}` & {
   readonly [idBrand]: Brand;
 };
 
@@ -12,7 +52,7 @@ export type Id<Brand extends string> = `${Prefix<Brand>}${string}` & {
 export type ParseError = "not_string" | "invalid_prefix" | "invalid_base32";
 
 /** Result of `safeParse()`: canonical `Id<Brand>` or a `ParseError`. */
-export type ParseResult<Brand extends string> =
+export type ParseResult<Brand extends ValidBrand> =
   | { ok: true; id: Id<Brand> }
   | { ok: false; error: ParseError };
 
@@ -25,7 +65,7 @@ export type JsonSchema = {
 };
 
 /** Standard Schema validate entry point exposed on a codec's `~standard` property. */
-export type StandardSchemaProps<Brand extends string> = {
+export type StandardSchemaProps<Brand extends ValidBrand> = {
   readonly version: 1;
   readonly vendor: "@smonn/ids";
   readonly validate: (

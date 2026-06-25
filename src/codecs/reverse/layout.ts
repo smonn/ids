@@ -1,4 +1,4 @@
-import type { Id, Prefix } from "../../types.js";
+import type { Id, Prefix, ValidBrand } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadByteLength } from "../../wire/invariants.js";
 import { timestampByteLength, writeTimestamp } from "../../wire/timestamp-bytes.js";
@@ -34,7 +34,7 @@ function buildReverseSentinelPayload(
 }
 
 /** Decodes the original timestamp by inverting the first 6 payload bytes. */
-function extractReverseTimestampFromId<Brand extends string>(
+function extractReverseTimestampFromId<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   id: Id<Brand>,
 ): Date {
@@ -47,7 +47,7 @@ function extractReverseTimestampFromId<Brand extends string>(
 }
 
 /** Layout ops binder for the Reverse Timestamp variant. */
-export function createReverseTimestampLayoutOps<Brand extends string>(
+export function createReverseTimestampLayoutOps<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   rng: (target: Uint8Array) => void,
 ) {

@@ -1,5 +1,5 @@
 import type { webcrypto } from "node:crypto";
-import type { Id, Prefix } from "../../types.js";
+import type { Id, Prefix, ValidBrand } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 import {
@@ -36,7 +36,7 @@ function tagsEqual(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-export function createSignedTimestampLayoutOps<Brand extends string>(
+export function createSignedTimestampLayoutOps<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   brand: Brand,
   rng: (target: Uint8Array) => void,

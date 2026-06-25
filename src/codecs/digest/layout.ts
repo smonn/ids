@@ -1,5 +1,5 @@
 import type { webcrypto } from "node:crypto";
-import type { Id, Prefix } from "../../types.js";
+import type { Id, Prefix, ValidBrand } from "../../types.js";
 import { toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 
@@ -32,7 +32,7 @@ function buildMessage(
   return message;
 }
 
-export function createDigestLayoutOps<Brand extends string>(
+export function createDigestLayoutOps<Brand extends ValidBrand>(
   prefix: Prefix<Brand>,
   brand: Brand,
   ns: string,

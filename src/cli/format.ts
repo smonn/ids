@@ -1,10 +1,9 @@
 import { isIdsError } from "../error.js";
-import type { Id } from "../types.js";
 
 type InspectOutput = {
   brand: string;
   timestamp: Date;
-  canonical: Id<string>;
+  canonical: string;
   input: string;
   nowMs: number;
 };
@@ -16,7 +15,7 @@ type SignedInspectOutput = InspectOutput & {
 type WrappedInspectOutput = {
   brand: string;
   lookupKey: number | bigint;
-  canonical: Id<string>;
+  canonical: string;
   input: string;
 };
 
@@ -64,7 +63,7 @@ export function formatInspectOutput(result: InspectOutput): string {
   ].join("\n");
 }
 
-function describeInputForm(input: string, canonical: Id<string>): string {
+function describeInputForm(input: string, canonical: string): string {
   if (input === canonical) return "canonical";
   const notes: string[] = [];
   if (input !== input.toLowerCase()) notes.push("was uppercase");

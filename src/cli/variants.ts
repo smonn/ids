@@ -29,6 +29,7 @@ import {
   type WrappingKey,
 } from "../codecs/wrapped/index.js";
 import type { IdCodec } from "../adapters/adapter-types.js";
+import type { ValidBrand } from "../types.js";
 import { codecOpts } from "./codec-options.js";
 import { isKindError, isNsError, parseKind, parseNs } from "./flags.js";
 import { formatCliError } from "./format.js";
@@ -45,7 +46,7 @@ export type Descriptor = {
     opts: RunOpts,
     key?: unknown,
     values?: Map<string, string>,
-  ) => (IdCodec<string> & { generate?(): string | Promise<string> }) | string;
+  ) => (IdCodec<ValidBrand> & { generate?(): string | Promise<string> }) | string;
   inspectMode: InspectMode;
   extraFlags?: readonly string[];
 };
@@ -58,7 +59,7 @@ export type GeneratorDescriptor = {
     opts: RunOpts,
     key?: unknown,
     values?: Map<string, string>,
-  ) => (IdCodec<string> & { generate(): string | Promise<string> }) | string;
+  ) => (IdCodec<ValidBrand> & { generate(): string | Promise<string> }) | string;
   inspectMode: InspectMode;
   extraFlags?: readonly string[];
 };
@@ -75,7 +76,7 @@ export const timestampVariant: GeneratorDescriptor = {
   inspectMode: "readable",
   construct(brand, opts) {
     try {
-      return createTimestampId(brand, codecOpts(opts));
+      return createTimestampId(brand as unknown as ValidBrand, codecOpts(opts));
     } catch (err) {
       return formatCliError(err);
     }
@@ -94,7 +95,10 @@ export const opaqueVariant: GeneratorDescriptor = {
   inspectMode: "keyed-readable",
   construct(brand, opts, key) {
     try {
-      return createOpaqueTimestampId(brand, { key: key as OpaqueKey, ...codecOpts(opts) });
+      return createOpaqueTimestampId(brand as unknown as ValidBrand, {
+        key: key as OpaqueKey,
+        ...codecOpts(opts),
+      });
     } catch (err) {
       return formatCliError(err);
     }
@@ -106,7 +110,7 @@ export const reverseVariant: GeneratorDescriptor = {
   inspectMode: "readable",
   construct(brand, opts) {
     try {
-      return createReverseTimestampId(brand, codecOpts(opts));
+      return createReverseTimestampId(brand as unknown as ValidBrand, codecOpts(opts));
     } catch (err) {
       return formatCliError(err);
     }
@@ -129,7 +133,7 @@ export const wrappedVariant: Descriptor = {
     if (kind === undefined) return "--kind is required with --wrapped";
     if (isKindError(kind)) return kind;
     try {
-      return createWrappedKeyId(brand, {
+      return createWrappedKeyId(brand as unknown as ValidBrand, {
         kind,
         keys: [key as WrappingKey],
         allowDuplicateBrand: true,
@@ -152,7 +156,7 @@ export const signedVariant: GeneratorDescriptor = {
   inspectMode: "verify",
   construct(brand, opts, key) {
     try {
-      return createSignedTimestampId(brand, {
+      return createSignedTimestampId(brand as unknown as ValidBrand, {
         keys: [key as SigningKey],
         ...codecOpts(opts),
       });
@@ -180,7 +184,11 @@ export const digestVariant: GeneratorDescriptor = {
     if (ns === undefined) return "--ns is required with --digest";
     if (isNsError(ns)) return ns;
     try {
-      const codec = createDigestId(brand, { ns, key: key as DigestKey, allowDuplicateBrand: true });
+      const codec = createDigestId(brand as unknown as ValidBrand, {
+        ns,
+        key: key as DigestKey,
+        allowDuplicateBrand: true,
+      });
       return {
         safeParse: (v: unknown) => codec.safeParse(v),
         generate(): Promise<string> {

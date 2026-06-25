@@ -1,6 +1,5 @@
 import { createTimestampId } from "../../codecs/timestamp/index.js";
-import type { Id, StandardSchemaProps } from "../../types.js";
-import type { SafeVerifyResult } from "../../codecs/signed/index.js";
+import type { ParseError, ValidBrand } from "../../types.js";
 import { codecOpts } from "../codec-options.js";
 import { buildCodec, deriveAllowedFlags, resolveVariant } from "../dispatch.js";
 import {
@@ -15,11 +14,21 @@ import type { RunOpts } from "../types.js";
 import { usage } from "../usage.js";
 import { inspectPolicy } from "../variants.js";
 
-type WithValidate = { "~standard": StandardSchemaProps<string> };
-type WithExtractTimestamp = { extractTimestamp(id: Id<string>): Date };
-type WithAsyncExtractTimestamp = { extractTimestamp(id: Id<string>): Promise<Date> };
-type WithUnwrap = { unwrap(id: Id<string>): Promise<number | bigint> };
-type WithSafeVerify = { safeVerify(id: string): Promise<SafeVerifyResult<string>> };
+type WithValidate = {
+  "~standard": {
+    validate(
+      value: unknown,
+    ): { value: string; issues?: undefined } | { issues: ReadonlyArray<{ message: string }> };
+  };
+};
+type WithExtractTimestamp = { extractTimestamp(id: string): Date };
+type WithAsyncExtractTimestamp = { extractTimestamp(id: string): Promise<Date> };
+type WithUnwrap = { unwrap(id: string): Promise<number | bigint> };
+type WithSafeVerify = {
+  safeVerify(
+    id: string,
+  ): Promise<{ ok: true; id: string } | { ok: false; error: ParseError | "verification_failed" }>;
+};
 
 export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
   const allowedFlags = deriveAllowedFlags(inspectPolicy);
@@ -67,7 +76,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
   //   invalid payload → stderr only, stdout = "" (no timestamp shown)
   //   key missing/malformed → stdout has timestamp + "verification: unavailable"
   let verifyTimestamp: Date | undefined;
-  let verifyCanonical: Id<string> | undefined;
+  let verifyCanonical: string | undefined;
   let verifyNowMs: number | undefined;
   if (variant.inspectMode === "verify") {
     const fmtCheck = parseKeyFormat(values, opts, variant.key!);
@@ -77,8 +86,10 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     }
     let tsCodec: WithValidate & WithExtractTimestamp;
     try {
-      tsCodec = createTimestampId(brand, codecOpts(opts)) as unknown as WithValidate &
-        WithExtractTimestamp;
+      tsCodec = createTimestampId(
+        brand as unknown as ValidBrand,
+        codecOpts(opts),
+      ) as unknown as WithValidate & WithExtractTimestamp;
     } catch (err) {
       opts.stderr(formatCliError(err) + "\n");
       return 1;
@@ -112,7 +123,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
   }
 
   // Structural validation for non-verify cases (verify already validated above)
-  let canonical: Id<string> | undefined;
+  let canonical: string | undefined;
   if (variant.inspectMode !== "verify") {
     const validation = (codecOrError as unknown as WithValidate)["~standard"].validate(input);
     if (validation.issues) {
