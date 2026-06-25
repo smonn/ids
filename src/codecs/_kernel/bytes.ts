@@ -47,6 +47,14 @@ export function encodeBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+/** Shifts a 32-bit integer into four big-endian bytes at target[offset..offset+3]. */
+export function writeLen32(value: number, target: Uint8Array, offset: number): void {
+  target[offset] = (value >>> 24) & 0xff;
+  target[offset + 1] = (value >>> 16) & 0xff;
+  target[offset + 2] = (value >>> 8) & 0xff;
+  target[offset + 3] = value & 0xff;
+}
+
 /** Decodes a base64url string to raw bytes. Throws on invalid input. */
 export function decodeBase64Url(encoded: string): Uint8Array {
   const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");

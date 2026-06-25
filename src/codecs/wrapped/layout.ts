@@ -1,5 +1,6 @@
 import type { webcrypto } from "node:crypto";
 import type { Id, Prefix } from "../../types.js";
+import { writeLen32 } from "../_kernel/bytes.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 
@@ -91,13 +92,6 @@ function readLane<K extends LayoutWrappedKind>(
   if (kind === "i64") return readI64Lane(lane) as LayoutLookupKey<K>;
   const value = kind === "i32" ? readI32Lane(lane) : readU32Lane(lane);
   return value as LayoutLookupKey<K> | null;
-}
-
-function writeLen32(value: number, target: Uint8Array, offset: number): void {
-  target[offset] = (value >>> 24) & 0xff;
-  target[offset + 1] = (value >>> 16) & 0xff;
-  target[offset + 2] = (value >>> 8) & 0xff;
-  target[offset + 3] = value & 0xff;
 }
 
 /**

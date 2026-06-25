@@ -129,11 +129,12 @@ module.exports = {
       name: "layouts-wire-imports-allowlist",
       severity: "error",
       comment:
-        "layouts may import wire/envelope, wire/invariants, wire/timestamp-bytes, and types only",
+        "layouts may import wire/envelope, wire/invariants, wire/timestamp-bytes, types, and codecs/_kernel/bytes only",
       from: { path: "^src/codecs/[^/]+/layout\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/(wire/(envelope|invariants|timestamp-bytes)|types)\\.ts$",
+        pathNot:
+          "^src/(wire/(envelope|invariants|timestamp-bytes)|types)\\.ts$|^src/codecs/_kernel/bytes\\.ts$",
       },
     },
     {
