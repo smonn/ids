@@ -24,11 +24,12 @@ The shared `resolveIdParamFailure` helper in `adapter-types.ts` translates a `Pa
 
 The ORM adapters throw `IdsError("invalid_id")` via the shared `readIdColumn` helper in `adapter-types.ts`:
 
-| Adapter      | Helper                           | Error type               |
-| ------------ | -------------------------------- | ------------------------ |
-| `drizzle.ts` | `readIdColumn` in `fromDriver`   | `IdsError("invalid_id")` |
-| `prisma.ts`  | `readIdColumn` in `idField.read` | `IdsError("invalid_id")` |
-| `kysely.ts`  | `readIdColumn` in `fromDb`       | `IdsError("invalid_id")` |
+| Adapter        | Helper                               | Error type               |
+| -------------- | ------------------------------------ | ------------------------ |
+| `drizzle.ts`   | `readIdColumn` in `fromDriver`       | `IdsError("invalid_id")` |
+| `prisma.ts`    | `readIdColumn` in `idField.read`     | `IdsError("invalid_id")` |
+| `kysely.ts`    | `readIdColumn` in `fromDb`           | `IdsError("invalid_id")` |
+| `mikro-orm.ts` | `readIdColumn` in `convertToJSValue` | `IdsError("invalid_id")` |
 
 The `invalid_id` code is consistent with `parse()` — same code, same `cause` chain carrying the underlying `ParseError` — so callers can handle a bad database value the same way they handle a bad user input that reached `parse()`.
 

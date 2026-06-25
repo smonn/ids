@@ -11,6 +11,7 @@ export default defineConfig({
     drizzle: "src/adapters/drizzle.ts",
     hono: "src/adapters/hono.ts",
     kysely: "src/adapters/kysely.ts",
+    "mikro-orm": "src/adapters/mikro-orm.ts",
     prisma: "src/adapters/prisma.ts",
     express: "src/adapters/express.ts",
     fastify: "src/adapters/fastify.ts",
