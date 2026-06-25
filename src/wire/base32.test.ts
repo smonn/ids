@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as fc from "fast-check";
 import { decodeBase32, encodeBase32 } from "./base32.js";
 
 describe("base32", () => {
@@ -36,5 +37,22 @@ describe("base32", () => {
       0xbb,
     ]);
     expect(decodeBase32(encodeBase32(buf))).toEqual(buf);
+  });
+
+  it("round-trips arbitrary Uint8Array through encode then decode", () => {
+    // Lengths include multiples of 5 (4, 5, 6, 9, 10, 11) to exercise the
+    // partial-group accumulator path in both encodeBase32 and decodeBase32.
+    const byteLengths = fc.oneof(
+      fc.constantFrom(4, 5, 6, 9, 10, 11, 15, 16, 20),
+      fc.integer({ min: 0, max: 32 }),
+    );
+    fc.assert(
+      fc.property(
+        byteLengths.chain((len) => fc.uint8Array({ minLength: len, maxLength: len })),
+        (bytes) => {
+          expect(decodeBase32(encodeBase32(bytes))).toEqual(bytes);
+        },
+      ),
+    );
   });
 });
