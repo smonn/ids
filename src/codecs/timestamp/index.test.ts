@@ -14,7 +14,7 @@ import * as fc from "fast-check";
 import { decodeBase32, encodeBase32 } from "../../wire/base32.js";
 import { createTimestampId, type TimestampOptions } from "./index.js";
 import { IdsError, isIdsError } from "../../error.js";
-import type { Id, JsonSchema, LayoutOps } from "../../types.js";
+import type { Id, JsonSchema, LayoutOps, ValidBrand } from "../../types.js";
 
 describe("id", () => {
   // These tests recreate many codecs for the same brand. That's intentional —
@@ -315,7 +315,7 @@ describe("id", () => {
         // Runtime brand validation via the `_kernel/brand.ts` guard —
         // the `as unknown as ValidBrand` cast bypasses the compile-time check
         // so we can verify the runtime path still fires.
-        createTimestampId(brand as unknown as import("../../types.js").ValidBrand);
+        createTimestampId(brand as unknown as ValidBrand);
       } catch (e) {
         return e;
       }
