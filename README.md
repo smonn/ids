@@ -92,6 +92,32 @@ it slots into Zod, Valibot, ArkType, tRPC, and any validator-aware library.
   known creation time can compute the epoch offset. Use the Opaque Timestamp
   codec to hide creation time per-ID.
 
+## API surface
+
+Exports from the main `@smonn/ids` entry point only. Codec-specific subpath
+exports (`@smonn/ids/reverse`, `@smonn/ids/opaque`, `@smonn/ids/signed`,
+`@smonn/ids/wrapped`, `@smonn/ids/digest`) and adapter subpaths are not listed
+here.
+
+### Types
+
+- `Id<Brand>` — Canonical branded ID string for `Brand`; produced by `generate()` and `safeParse()`.
+- `ParseError` — Parse failure reason string (`"not_string"`, `"invalid_prefix"`, or `"invalid_base32"`) returned by `safeParse()`.
+- `ParseResult<Brand>` — Discriminated union returned by `safeParse()`: `{ ok: true; id: Id<Brand> }` or `{ ok: false; error: ParseError }`.
+- `JsonSchema` — Shape of the object returned by a codec's `toJsonSchema()`.
+- `IdsErrorCode` — String-literal union of the eleven stable error codes carried by `IdsError`.
+- `TimestampCodec<Brand>` — Interface of a brand-scoped Timestamp codec instance returned by `createTimestampId()`.
+- `TimestampOptions` — Construction options for `createTimestampId()`: `now`, `rng`, and `allowDuplicateBrand`.
+
+### Classes
+
+- `IdsError` — Single error class thrown by caller-reachable failures; carries a stable `code: IdsErrorCode`. Use `isIdsError()` rather than `instanceof` to detect across realms.
+
+### Functions
+
+- `isIdsError(value)` — Type guard for `IdsError`; uses an internal brand to survive ESM/CJS dual-package duplication where bare `instanceof` fails.
+- `createTimestampId(brand, options?)` — Creates a Timestamp codec for `brand` (three lowercase `a–z` characters).
+
 ## Links
 
 - **[Documentation](https://ids.smonn.se)** — full guides, API reference, and playground
