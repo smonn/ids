@@ -2,7 +2,14 @@ import { validateBrand } from "../_kernel/brand.js";
 import { createReverseTimestampLayoutOps } from "./layout.js";
 import { registerBrand } from "../_kernel/registry.js";
 import { fastTenByteRng } from "../_kernel/rng.js";
-import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../../types.js";
+import type {
+  Id,
+  JsonSchema,
+  ParseResult,
+  Prefix,
+  StandardSchemaProps,
+  ValidBrand,
+} from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -102,7 +109,7 @@ export type ReverseTimestampCodec<Brand extends string> = {
  * ```
  */
 export function createReverseTimestampId<Brand extends string>(
-  brand: Brand,
+  brand: Brand & ValidBrand<Brand>,
   opts: ReverseTimestampOptions = {},
 ): ReverseTimestampCodec<Brand> {
   validateBrand(brand);

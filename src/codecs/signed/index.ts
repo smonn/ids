@@ -10,6 +10,7 @@ import type {
   ParseResult,
   Prefix,
   StandardSchemaProps,
+  ValidBrand,
 } from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 import {
@@ -156,7 +157,7 @@ export type SignedTimestampCodec<Brand extends string> = {
  * ```
  */
 export function createSignedTimestampId<Brand extends string>(
-  brand: Brand,
+  brand: Brand & ValidBrand<Brand>,
   opts: SignedTimestampOptions,
 ): SignedTimestampCodec<Brand> {
   validateBrand(brand);

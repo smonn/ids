@@ -2,7 +2,14 @@ import { validateBrand } from "../_kernel/brand.js";
 import { createTimestampLayoutOps } from "./layout.js";
 import { registerBrand } from "../_kernel/registry.js";
 import { fastTenByteRng } from "../_kernel/rng.js";
-import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../../types.js";
+import type {
+  Id,
+  JsonSchema,
+  ParseResult,
+  Prefix,
+  StandardSchemaProps,
+  ValidBrand,
+} from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 
 /**
@@ -91,7 +98,7 @@ const defaultTimestampOptions: ResolvedTimestampOptions = {
  * ```
  */
 export function createTimestampId<Brand extends string>(
-  brand: Brand,
+  brand: Brand & ValidBrand<Brand>,
   opts: TimestampOptions = {},
 ): TimestampCodec<Brand> {
   validateBrand(brand);

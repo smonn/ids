@@ -1,3 +1,51 @@
+type LowerChar =
+  | "a"
+  | "b"
+  | "c"
+  | "d"
+  | "e"
+  | "f"
+  | "g"
+  | "h"
+  | "i"
+  | "j"
+  | "k"
+  | "l"
+  | "m"
+  | "n"
+  | "o"
+  | "p"
+  | "q"
+  | "r"
+  | "s"
+  | "t"
+  | "u"
+  | "v"
+  | "w"
+  | "x"
+  | "y"
+  | "z";
+
+/**
+ * Validator-style conditional type: resolves to `S` when `S` is exactly three
+ * lowercase `a–z` characters, and to `never` otherwise.
+ *
+ * When passed the generic `string` type it resolves to `string`, so existing
+ * dynamic-brand call sites (e.g. CLI, ORM adapters) are unaffected.
+ *
+ * Apply as a parameter intersection on codec constructors:
+ * ```ts
+ * function createTimestampId<Brand extends string>(brand: Brand & ValidBrand<Brand>, ...)
+ * ```
+ * TypeScript then validates the specific brand literal at each call site without
+ * materialising the 17 576-member all-brands union.
+ */
+export type ValidBrand<S extends string> = string extends S
+  ? S
+  : S extends `${infer _A extends LowerChar}${infer _B extends LowerChar}${infer _C extends LowerChar}`
+    ? S
+    : never;
+
 /** The brand plus trailing separator — e.g. `usr_` for brand `usr`. */
 export type Prefix<Brand extends string> = `${Brand}_`;
 

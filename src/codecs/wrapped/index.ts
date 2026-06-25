@@ -9,6 +9,7 @@ import type {
   ParseResult,
   Prefix,
   StandardSchemaProps,
+  ValidBrand,
 } from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 import {
@@ -230,7 +231,7 @@ function assertLookupKey<Kind extends WrappedKind>(
  * ```
  */
 export function createWrappedKeyId<Brand extends string, Kind extends WrappedKind>(
-  brand: Brand,
+  brand: Brand & ValidBrand<Brand>,
   opts: WrappedKeyOptions<Kind>,
 ): WrappedKeyCodec<Brand, Kind> {
   validateBrand(brand);
