@@ -1858,7 +1858,7 @@ describe("cli inspect --signed", () => {
       ["inspect", "usr_00000000000000000000000000", "--signed", "--key-format", "bogus"],
       { env: { IDS_SIGNING_KEY: testSigningKeyHex } },
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
   });
@@ -1923,7 +1923,7 @@ describe("cli inspect --signed", () => {
     const result = await runCapture(["inspect", "usr_00000000000000000000000000", "--signed"], {
       env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_SIGNING_KEY_FORMAT: "bogus" },
     });
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("IDS_SIGNING_KEY_FORMAT must be hex or base64url, got 'bogus'\n");
   });

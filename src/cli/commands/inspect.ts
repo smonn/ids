@@ -71,7 +71,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     const fmtCheck = parseKeyFormat(values, opts, variant.key!);
     if (isKeyFormatError(fmtCheck)) {
       opts.stderr(fmtCheck + "\n");
-      return 1;
+      return 2;
     }
     let tsCodec: TimestampCodec<string>;
     try {
