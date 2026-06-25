@@ -37,7 +37,7 @@ import { formatCliError } from "./format.js";
 import type { KeyFacet } from "./key-io.js";
 import type { RunOpts } from "./types.js";
 
-export type InspectCapability =
+type InspectCapability =
   | {
       readonly mode: "readable";
       readonly note: string;
