@@ -20,6 +20,12 @@ jobs:
 
       - uses: ./.github/actions/setup-node-pnpm
 
+      # Fail the build on a high/critical advisory against a *runtime* dependency.
+      # --prod scopes the audit to production deps so dev-only advisories (e.g. the
+      # esbuild/vite findings pinned in pnpm-workspace.yaml overrides) don't block,
+      # while a real runtime high/critical does. Dependabot still surfaces the rest.
+      - run: pnpm audit --prod --audit-level=high
+
       - run: pnpm lint
 
       - run: pnpm depcruise

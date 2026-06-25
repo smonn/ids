@@ -9,6 +9,13 @@ allowBuilds:
   esbuild: true
   sharp: true
 
+# Install cooldown: don't let dependency resolution select a version published
+# less than 24h ago. Mitigates the supply-chain pattern of installing a
+# freshly-hijacked transitive release within minutes of its publish. CI uses
+# `pnpm install --frozen-lockfile`, which skips resolution and is unaffected;
+# this only gates new resolutions (lockfile updates, Dependabot bumps).
+minimumReleaseAge: 1440
+
 # Dependency vulnerability remediation overrides.
 # All entries pin transitive, dev-only dependencies to patched releases.
 overrides:
