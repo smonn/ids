@@ -159,8 +159,10 @@ module.exports = {
     {
       name: "leaves-no-upward",
       severity: "error",
+      comment:
+        "covers all codec paths post-ADR-0018 (layouts/timestamp/opaque moved under src/codecs/)",
       from: { path: "^src/(wire/base32|codecs/_kernel/bytes|types|codecs/_kernel/brand)\\.ts$" },
-      to: { path: "^src/(wire|layouts|timestamp|opaque|cli|codecs/_kernel/registry)" },
+      to: { path: "^src/(wire|cli|codecs)" },
     },
     {
       name: "key-material-leaf-restricted",
