@@ -297,7 +297,7 @@ describe("cli", () => {
         ["inspect", "usr_00000000000000000000000000", "--opaque", "--key-format", "bogus"],
         { env: { IDS_KEY: testKeyHex } },
       );
-      expect(result.exitCode).toBe(2);
+      expect(result.exitCode).toBe(1);
       expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
     });
 
@@ -306,7 +306,7 @@ describe("cli", () => {
         ["inspect", "usr_00000000000000000000000000", "--opaque", "--key-format"],
         { env: { IDS_KEY: testKeyHex } },
       );
-      expect(result.exitCode).toBe(2);
+      expect(result.exitCode).toBe(1);
       expect(result.stderr).toBe("--key-format requires a value\n");
     });
 
@@ -631,7 +631,7 @@ describe("cli", () => {
       const result = await runCapture(["generate", "usr", "--opaque", "--key-format", "bogus"], {
         env: { IDS_KEY: testKeyHex },
       });
-      expect(result.exitCode).toBe(2);
+      expect(result.exitCode).toBe(1);
       expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
     });
 
@@ -1005,7 +1005,7 @@ describe("cli inspect --wrapped", () => {
     const result = await runCapture(["inspect", "inv_00000000000000000000000000", "--wrapped"], {
       env: { IDS_WRAPPING_KEY: testWrappingKeyHex },
     });
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--kind is required with --wrapped\n");
   });
@@ -1015,7 +1015,7 @@ describe("cli inspect --wrapped", () => {
       ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u8"],
       { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
     );
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--kind must be u32, i32, u64, or i64, got 'u8'\n");
   });
@@ -1025,7 +1025,7 @@ describe("cli inspect --wrapped", () => {
       ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind"],
       { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
     );
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--kind requires a value\n");
   });
@@ -1193,7 +1193,7 @@ describe("cli inspect --wrapped", () => {
       ],
       { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
     );
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
   });
@@ -1223,7 +1223,7 @@ describe("cli inspect --wrapped", () => {
       ["inspect", "inv_00000000000000000000000000", "--wrapped", "--kind", "u32", "--key-format"],
       { env: { IDS_WRAPPING_KEY: testWrappingKeyHex } },
     );
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format requires a value\n");
   });
@@ -1667,7 +1667,7 @@ describe("cli generate --signed", () => {
     const result = await runCapture(["generate", "usr", "--signed", "--key-format", "bogus"], {
       env: { IDS_SIGNING_KEY: testSigningKeyHex },
     });
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
   });
@@ -1676,7 +1676,7 @@ describe("cli generate --signed", () => {
     const result = await runCapture(["generate", "usr", "--signed", "--key-format"], {
       env: { IDS_SIGNING_KEY: testSigningKeyHex },
     });
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format requires a value\n");
   });
@@ -1858,7 +1858,7 @@ describe("cli inspect --signed", () => {
       ["inspect", "usr_00000000000000000000000000", "--signed", "--key-format", "bogus"],
       { env: { IDS_SIGNING_KEY: testSigningKeyHex } },
     );
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format must be hex or base64url, got 'bogus'\n");
   });
@@ -1942,7 +1942,7 @@ describe("cli inspect --signed", () => {
       ["inspect", "usr_00000000000000000000000000", "--signed", "--key-format"],
       { env: { IDS_SIGNING_KEY: testSigningKeyHex } },
     );
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("--key-format requires a value\n");
   });
@@ -2131,20 +2131,20 @@ describe("cli generate --digest", () => {
     expect(result.stderr).toContain("IDS_DIGEST_KEY");
   });
 
-  it("rejects missing --ns → exit 2, stderr mentions --ns", async () => {
+  it("rejects missing --ns → exit 1, stderr mentions --ns", async () => {
     const result = await runCaptureWithStdin(["generate", "idk", "--digest"], "order-123", {
       env: { IDS_DIGEST_KEY: testDigestKeyHex },
     });
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("--ns");
   });
 
-  it("rejects --ns without value → exit 2, error message", async () => {
+  it("rejects --ns without value → exit 1, error message", async () => {
     const result = await runCaptureWithStdin(["generate", "idk", "--digest", "--ns"], "order-123", {
       env: { IDS_DIGEST_KEY: testDigestKeyHex },
     });
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("--ns");
   });

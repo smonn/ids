@@ -8,6 +8,12 @@ import {
   type Policy,
 } from "./variants.js";
 
+export type CodecError = { kind: "usage"; message: string } | { kind: "runtime"; message: string };
+
+export function isCodecError(v: unknown): v is CodecError {
+  return typeof v === "object" && v !== null && "kind" in v && "message" in v;
+}
+
 export function deriveAllowedFlags(policy: Policy): Set<string> {
   const flags = new Set<string>(policy.intrinsicFlags);
   let hasKeyed = policy.default.key !== undefined;
@@ -40,26 +46,38 @@ export async function buildCodec(
   brand: string,
   values: Map<string, string>,
   opts: RunOpts,
-): Promise<(IdCodec<string> & { generate(): string | Promise<string> }) | string>;
+): Promise<(IdCodec<string> & { generate(): string | Promise<string> }) | CodecError>;
 export async function buildCodec(
   variant: Descriptor,
   brand: string,
   values: Map<string, string>,
   opts: RunOpts,
-): Promise<IdCodec<string> | string>;
+): Promise<IdCodec<string> | CodecError>;
 export async function buildCodec(
   variant: Descriptor,
   brand: string,
   values: Map<string, string>,
   opts: RunOpts,
-): Promise<(IdCodec<string> & { generate?(): string | Promise<string> }) | string> {
+): Promise<(IdCodec<string> & { generate?(): string | Promise<string> }) | CodecError> {
   let key: unknown;
   if (variant.key !== undefined) {
     const format = parseKeyFormat(values, opts, variant.key);
-    if (isKeyFormatError(format)) return format;
+    if (isKeyFormatError(format)) return { kind: "usage", message: format };
     const keyResult = await loadKey(opts, format, variant.key);
-    if (typeof keyResult === "string") return keyResult;
+    if (typeof keyResult === "string") {
+      return {
+        kind: keyResult.startsWith("missing ") ? "usage" : "runtime",
+        message: keyResult,
+      };
+    }
     key = keyResult;
   }
-  return variant.construct(brand, opts, key, values);
+  const codecOrError = variant.construct(brand, opts, key, values);
+  if (typeof codecOrError === "string") {
+    return {
+      kind: codecOrError.startsWith("--") ? "usage" : "runtime",
+      message: codecOrError,
+    };
+  }
+  return codecOrError;
 }
