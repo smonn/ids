@@ -4,6 +4,19 @@ name: Autofix agent PR CI
 # the `CI` workflow (so the noisy `bench` workflow never triggers an autofix), and
 # only for `agent/issue-*` branches. A per-branch attempt cap prevents an autofix →
 # CI → autofix loop: after MAX_ATTEMPTS the PR is escalated to `needs-human`.
+#
+# PRECOMPUTE / PRODUCE / POST split. The failing CI logs are PRECOMPUTED into
+# `.autofix-context/ci-failed.log` so the agent diagnoses by reading a file instead of
+# running `gh run list` / `gh run view`. The Claude step is then a hermetic PRODUCER:
+# it gets a strictly READ-ONLY App token (no GH_TOKEN in its env) and its checkout has
+# `persist-credentials: false`, so even though the action wires a token into the agent's
+# git/gh, that token can only READ — it can commit LOCALLY (keeping the `[ci-autofix]`
+# marker the cap gate counts) but it CANNOT push and CANNOT mutate GitHub. It records
+# its outcome as scalars in `.autofix/manifest.json` and, when escalating, writes the
+# escalation comment body verbatim to `.autofix/escalation.md`. A separate deterministic
+# POSTER step is the ONLY place with push credentials and a GitHub token: it reads the
+# manifest and either pushes the local fix commits (plain, never force), or posts the
+# escalation comment + `needs-human` label, or no-ops — one explicit outcome each.
 
 on:
   workflow_run:
@@ -52,12 +65,32 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
+      - name: Generate a READ-ONLY GitHub App token for the producer
+        id: app-token-ro
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # The producer (claude-code-action) wires whatever token it has into the agent's
+          # git/gh auth, and `github_token` falls back to the write-capable built-in
+          # `github.token` when omitted — so persist-credentials: false alone does NOT
+          # guarantee no-push. Hand the producer a strictly READ-ONLY token instead: even
+          # if the action sets up the agent's git/gh, it cannot push, comment, or label.
+          # actions:read lets it read run logs; everything else is read-only.
+          permission-actions: read
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
+
       - name: Checkout the agent branch
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ env.BRANCH }}
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
+          # The agent commits LOCALLY but must not push: keep the checkout's git
+          # credentials OUT of the local config so a stray `git push` from the producer
+          # has no auth. The deterministic poster sets up push creds explicitly.
+          persist-credentials: false
 
       - name: Resolve PR and guard against autofix loops
         id: gate
@@ -84,6 +117,34 @@ jobs:
             echo "proceed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # Precompute the failed CI logs so the producer diagnoses from a file and runs no
+      # `gh` at all. The failing run id comes straight from the event (workflow_run.id);
+      # a manual dispatch has no triggering run, so resolve the branch's most recent
+      # failed CI run instead. Never fail the job if logs can't be fetched — the agent
+      # can still reproduce locally with the gate commands.
+      - name: Precompute failed CI logs
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p .autofix-context
+          run_id="$RUN_ID"
+          if [ -z "$run_id" ]; then
+            run_id=$(gh run list --branch "$BRANCH" --workflow CI --status failure \
+              --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          fi
+          if [ -z "$run_id" ]; then
+            echo "No failed CI run id resolved for $BRANCH." | tee .autofix-context/ci-failed.log
+          else
+            echo "Fetching failed-step logs for CI run $run_id."
+            gh run view "$run_id" --log-failed > .autofix-context/ci-failed.log 2>&1 \
+              || echo "(could not fetch logs for run $run_id)" > .autofix-context/ci-failed.log
+          fi
+          echo "Failed-CI log size:"; wc -l .autofix-context/ci-failed.log || true
+
       - name: Configure git identity
         if: steps.gate.outputs.proceed == 'true'
         run: |
@@ -102,15 +163,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: steps.gate.outputs.proceed == 'true'
 
+      # Hermetic PRODUCER. It gets the READ-ONLY token (app-token-ro) and there is NO
+      # GH_TOKEN in this step's env; the checkout used persist-credentials: false. Even
+      # though the action wires its token into the agent's git/gh, that token can only
+      # READ — the agent physically cannot push or mutate GitHub. It diagnoses from the
+      # precomputed log + the code, fixes, runs the gate, and commits LOCALLY with the
+      # `[ci-autofix]` marker (a local commit needs no token); the deterministic poster
+      # below holds the WRITE token and does all GitHub I/O.
       - name: Fix CI with Claude
         if: steps.gate.outputs.proceed == 'true'
         uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ steps.app-token.outputs.token }}
+          github_token: ${{ steps.app-token-ro.outputs.token }}
           # CI runs that failed on an agent branch were pushed by the App, so the
           # workflow_run actor is a bot. Allow only our own App (never '*').
           allowed_bots: "smonn[bot]"
@@ -121,24 +186,88 @@ jobs:
           prompt: |
             You are fixing failing CI on pull request #${{ steps.gate.outputs.pr }}
             (branch `${{ env.BRANCH }}`) of ${{ github.repository }}. The branch is
-            checked out, `gh` is authenticated, and git can push.
+            checked out and git can commit LOCALLY.
 
-            1. Diagnose the failure. Inspect the most recent failed CI run for this
-               branch:
-               `gh run list --branch "${{ env.BRANCH }}" --workflow CI --limit 1 --json databaseId --jq '.[0].databaseId'`,
-               then `gh run view <id> --log-failed`. Reproduce locally by running the
-               same gate ci.yml uses: `pnpm lint`, `pnpm depcruise`, `pnpm fmt:check`,
-               `pnpm typecheck`, `pnpm test:coverage`, `pnpm build`.
+            You are a PRODUCER ONLY. You have NO GitHub access: your `gh` is
+            unauthenticated and git has no push credentials. Do NOT run any `gh` command,
+            do NOT push, and do NOT try to comment, label, or otherwise touch GitHub — a
+            later deterministic step does all of that. Your job is to fix the code, commit
+            locally, and write your outcome to files under `.autofix/`.
+
+            1. Diagnose the failure. The failed CI logs are PRECOMPUTED for you at
+               `.autofix-context/ci-failed.log` — read that file (do NOT run `gh run list`
+               or `gh run view`). Reproduce locally by running the same gate ci.yml uses:
+               `pnpm lint`, `pnpm depcruise`, `pnpm fmt:check`, `pnpm typecheck`,
+               `pnpm test:coverage`, `pnpm build`.
             2. Fix the ROOT CAUSE. Use `pnpm lint:fix` / `pnpm fmt` for formatting and
                lint. For failing tests, fix the implementation or the test faithfully.
                NEVER weaken, skip, or delete tests just to go green, and NEVER touch a
                CLOSED design decision (see CONTEXT.md and docs/adr/).
             3. Re-run the full gate; everything must pass.
-            4. Commit with a message that starts `fix(ci): ` and contains the marker
-               `[ci-autofix]`, then push to `${{ env.BRANCH }}`.
-            5. If you cannot fix it safely — flaky infrastructure, it needs human
-               judgment, or the only fix would reopen a CLOSED decision — do NOT push:
-               comment on the PR explaining why, then run
-               `gh pr edit ${{ steps.gate.outputs.pr }} --add-label needs-human`.
+            4. If you fixed it: commit LOCALLY (do NOT push) with a message that starts
+               `fix(ci): ` and contains the marker `[ci-autofix]`. Then write
+               `.autofix/manifest.json` containing exactly:
+                   { "fixed": true, "escalate": false }
+            5. If you CANNOT fix it safely — flaky infrastructure, it needs human
+               judgment, or the only fix would reopen a CLOSED decision — do NOT commit.
+               Write the escalation comment body (raw markdown, real newlines, no shell
+               quoting, no backslash escapes) to `.autofix/escalation.md`, then write
+               `.autofix/manifest.json` containing exactly:
+                   { "fixed": false, "escalate": true, "escalate_reason": "<one short line>" }
+            6. If there was nothing to fix (the gate already passes), write
+               `.autofix/manifest.json` containing exactly:
+                   { "fixed": false, "escalate": false }
 
-            Do not modify other branches and do not push to main.
+            `.autofix/manifest.json` MUST contain ONLY the scalar fields above — no prose,
+            nothing to escape. Author `.autofix/escalation.md` with the Write tool, which
+            writes bytes verbatim: use REAL newlines (press enter), never the characters
+            backslash-n, and never backslash-escape markdown. Writing the manifest is your
+            only required deliverable on every path. Do not modify other branches.
+
+      # Deterministic POSTER: the ONLY step with a GitHub token and push credentials. It
+      # reads the producer's scalar manifest and takes exactly one of three actions —
+      # escalate (comment + label, no push), push the local [ci-autofix] fix commits
+      # (plain, never force), or no-op — and logs which one. `--body-file` keeps the
+      # escalation body verbatim (no shell quoting), `jq` parses the manifest.
+      - name: Post outcome (push fix, escalate, or no-op)
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.gate.outputs.pr }}
+        run: |
+          set -euo pipefail
+          test -f .autofix/manifest.json || { echo "::error::producer wrote no .autofix/manifest.json"; exit 1; }
+          jq empty .autofix/manifest.json || { echo "::error::.autofix/manifest.json is not valid JSON"; exit 1; }
+          fixed=$(jq -r '.fixed // false' .autofix/manifest.json)
+          escalate=$(jq -r '.escalate // false' .autofix/manifest.json)
+          reason=$(jq -r '.escalate_reason // ""' .autofix/manifest.json)
+
+          if [ "$escalate" = "true" ]; then
+            echo "Producer escalated${reason:+: $reason}. Posting comment + needs-human label (no push)."
+            if [ -f .autofix/escalation.md ] && [ -s .autofix/escalation.md ]; then
+              gh pr comment "$PR_NUMBER" --body-file .autofix/escalation.md
+            else
+              echo "::warning::escalate=true but no escalation body — posting a generic comment."
+              gh pr comment "$PR_NUMBER" --body "Autofix could not safely fix CI${reason:+: $reason}. Escalating for human review."
+            fi
+            gh pr edit "$PR_NUMBER" --add-label needs-human
+            echo "Escalation posted for PR #$PR_NUMBER."
+            exit 0
+          fi
+
+          if [ "$fixed" = "true" ]; then
+            new=$(git log origin/main..HEAD --grep='ci-autofix' --oneline | wc -l | tr -d ' ')
+            if [ "$new" -eq 0 ]; then
+              echo "::error::manifest says fixed=true but there are no [ci-autofix] commits to push."
+              exit 1
+            fi
+            echo "Pushing $new local fix commit(s) to $BRANCH (plain, never force)."
+            # Set up push credentials HERE (the producer's checkout had none). Never log
+            # the token: the URL with the token is passed directly to git, not echoed.
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${BRANCH}"
+            echo "Pushed fix to $BRANCH — this re-fires CI/review as usual."
+            exit 0
+          fi
+
+          echo "No fix and no escalation — nothing to do for PR #$PR_NUMBER (gate already green or no safe change)."
