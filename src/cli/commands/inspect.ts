@@ -12,7 +12,7 @@ import {
 import { splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, parseKeyFormat } from "../key-io.js";
 import type { RunOpts } from "../types.js";
-import { usage } from "../usage.js";
+import { usageInspect } from "../usage.js";
 import { inspectPolicy } from "../variants.js";
 
 type WithValidate = { "~standard": StandardSchemaProps<string> };
@@ -22,6 +22,10 @@ type WithUnwrap = { unwrap(id: Id<string>): Promise<number | bigint> };
 type WithSafeVerify = { safeVerify(id: string): Promise<SafeVerifyResult<string>> };
 
 export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
+  if (args.includes("--help") || args.includes("-h")) {
+    opts.stdout(usageInspect());
+    return 0;
+  }
   const allowedFlags = deriveAllowedFlags(inspectPolicy);
   const selectorFlags = new Set(
     inspectPolicy.selectable.map((v) => v.flag).filter((f): f is string => f !== undefined),
@@ -32,31 +36,31 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
   const unsupported = unsupportedFlagForCommand("inspect", flags, allowedFlags);
   if (unsupported !== undefined) {
     opts.stderr(unsupported + "\n");
-    return 1;
+    return 2;
   }
   if (errors[0] !== undefined) {
     opts.stderr(errors[0] + "\n");
-    return 1;
+    return 2;
   }
   const [input] = positionals;
   if (input === undefined) {
-    opts.stderr(usage());
-    return 1;
+    opts.stderr(usageInspect());
+    return 2;
   }
   const extra = positionals[1];
   if (extra !== undefined) {
     opts.stderr(`unexpected argument: ${extra}\n`);
-    return 1;
+    return 2;
   }
 
   const variant = resolveVariant(inspectPolicy, flags);
   if (typeof variant === "string") {
     opts.stderr(variant + "\n");
-    return 1;
+    return 2;
   }
   if (variant.key === undefined && flags.has("--key-format")) {
     opts.stderr("--key-format requires --opaque, --wrapped, or --signed\n");
-    return 1;
+    return 2;
   }
 
   const brand = input.slice(0, 3).toLowerCase();
@@ -73,7 +77,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     const fmtCheck = parseKeyFormat(values, opts, variant.key!);
     if (isKeyFormatError(fmtCheck)) {
       opts.stderr(fmtCheck + "\n");
-      return 1;
+      return values.has("--key-format") ? 2 : 1;
     }
     let tsCodec: WithValidate & WithExtractTimestamp;
     try {
@@ -106,9 +110,11 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
           verification: "unavailable",
         }),
       );
+      opts.stderr(codecOrError + "\n");
+      return 1;
     }
     opts.stderr(codecOrError + "\n");
-    return 1;
+    return codecOrError.startsWith("--") ? 2 : 1;
   }
 
   // Structural validation for non-verify cases (verify already validated above)
