@@ -240,8 +240,8 @@ jobs:
           PR_NUMBER: ${{ steps.gate.outputs.pr }}
         run: |
           set -euo pipefail
-          test -f .autofix/manifest.json || { echo "::error::producer wrote no .autofix/manifest.json"; exit 1; }
-          jq empty .autofix/manifest.json || { echo "::error::.autofix/manifest.json is not valid JSON"; exit 1; }
+          source .github/scripts/poster-lib.sh
+          require_manifest .autofix
           fixed=$(jq -r '.fixed // false' .autofix/manifest.json)
           escalate=$(jq -r '.escalate // false' .autofix/manifest.json)
           reason=$(jq -r '.escalate_reason // ""' .autofix/manifest.json)
@@ -268,7 +268,7 @@ jobs:
             echo "Pushing $new local fix commit(s) to $BRANCH (plain, never force)."
             # Set up push credentials HERE (the producer's checkout had none). Never log
             # the token: the URL with the token is passed directly to git, not echoed.
-            git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${BRANCH}"
+            push_branch "$BRANCH"
             echo "Pushed fix to $BRANCH — this re-fires CI/review as usual."
             exit 0
           fi

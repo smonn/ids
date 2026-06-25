@@ -411,8 +411,8 @@ jobs:
           HEAD_SHA: ${{ steps.sha.outputs.sha }}
         run: |
           set -euo pipefail
-          test -f .review/manifest.json || { echo "::error::producer wrote no .review/manifest.json"; exit 1; }
-          jq empty .review/manifest.json || { echo "::error::.review/manifest.json is not valid JSON"; exit 1; }
+          source .github/scripts/poster-lib.sh
+          require_manifest .review
           summary_file=$(jq -r '.summary_file // "summary.md"' .review/manifest.json)
           test -f ".review/$summary_file" || { echo "::error::summary file .review/$summary_file missing"; exit 1; }
 

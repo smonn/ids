@@ -296,9 +296,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          test -f .triage/manifest.json || { echo "::error::producer wrote no .triage/manifest.json"; exit 1; }
+          source .github/scripts/poster-lib.sh
+          require_manifest .triage
           test -f .triage/comment.md   || { echo "::error::producer wrote no .triage/comment.md"; exit 1; }
-          jq empty .triage/manifest.json || { echo "::error::.triage/manifest.json is not valid JSON"; exit 1; }
 
           label=$(jq -r '.label // empty' .triage/manifest.json)
           case "$label" in
