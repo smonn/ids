@@ -7,6 +7,50 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    # Cooldown: don't open PRs for releases younger than this window. Kept in
+    # sync with `minimumReleaseAge: 1440` (24h = 1 day) in pnpm-workspace.yaml so
+    # Dependabot honors the same install cooldown as local dependency resolution,
+    # closing the window where a freshly-hijacked release could be proposed.
+    # Dependabot cooldown is measured in whole days (minimum 1). See #490.
+    cooldown:
+      default-days: 1
+    # Group related updates into single PRs to reduce churn. `adapters-peers`
+    # batches the optional ORM/framework integration packages; `dev-deps` catches
+    # the remaining development tooling.
+    groups:
+      adapters-peers:
+        applies-to: version-updates
+        patterns:
+          - "drizzle-orm"
+          - "kysely"
+          - "@mikro-orm/*"
+          - "@prisma/client"
+          - "typeorm"
+          - "express"
+          - "@types/express"
+          - "fastify"
+          - "hono"
+          - "graphql"
+          - "@nestjs/common"
+          - "reflect-metadata"
+      dev-deps:
+        applies-to: version-updates
+        dependency-type: "development"
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "drizzle-orm"
+          - "kysely"
+          - "@mikro-orm/*"
+          - "@prisma/client"
+          - "typeorm"
+          - "express"
+          - "@types/express"
+          - "fastify"
+          - "hono"
+          - "graphql"
+          - "@nestjs/common"
+          - "reflect-metadata"
 
   - package-ecosystem: "github-actions"
     directory: "/"
