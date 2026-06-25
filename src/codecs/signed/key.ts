@@ -1,4 +1,5 @@
 import type { webcrypto } from "node:crypto";
+import { timingSafeEqual } from "../_kernel/crypto.js";
 import {
   assertValidKeyMaterialByteLength,
   assertValidKeyring,
@@ -12,8 +13,6 @@ export { assertValidKeyring };
 export type SigningKeyFormat = "hex" | "base64url";
 
 const hmacInfo = new TextEncoder().encode("@smonn/ids/signed/hmac");
-
-const SHA256_DIGEST_BYTES = 32;
 
 declare const signingKeyBrand: unique symbol;
 
@@ -95,13 +94,7 @@ export function decodeSigningKey(encoded: string, format: SigningKeyFormat): Uin
  * not leak the position of the first differing byte through a timing side channel.
  */
 export function signingKeysEqual(a: SigningKey, b: SigningKey): boolean {
-  const aDigest = getSigningKeyInternals(a).keyDigest;
-  const bDigest = getSigningKeyInternals(b).keyDigest;
-  let diff = 0;
-  for (let i = 0; i < SHA256_DIGEST_BYTES; i++) {
-    diff |= aDigest[i]! ^ bDigest[i]!;
-  }
-  return diff === 0;
+  return timingSafeEqual(getSigningKeyInternals(a).keyDigest, getSigningKeyInternals(b).keyDigest);
 }
 
 /**
