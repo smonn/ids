@@ -1,6 +1,7 @@
 import type { webcrypto } from "node:crypto";
 import type { Id, LayoutOps, Prefix } from "../../types.js";
-import { decryptPayload, encryptPayload, timingSafeEqual, writeLen32 } from "../_kernel/crypto.js";
+import { decryptPayload, encryptPayload, timingSafeEqual } from "../_kernel/crypto.js";
+import { writeLen32 } from "../_kernel/bytes.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 

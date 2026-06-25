@@ -53,9 +53,4 @@ export async function decryptPayload(
   );
 }
 
-export function writeLen32(value: number, target: Uint8Array, offset: number): void {
-  target[offset] = (value >>> 24) & 0xff;
-  target[offset + 1] = (value >>> 16) & 0xff;
-  target[offset + 2] = (value >>> 8) & 0xff;
-  target[offset + 3] = value & 0xff;
-}
+export { writeLen32 } from "./bytes.js";
