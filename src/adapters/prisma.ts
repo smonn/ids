@@ -8,21 +8,14 @@ export { IdsError, isIdsError, type IdsErrorCode };
 export type { IdColumnCodec };
 
 /**
- * Read/write transform pair for integrating `Id<Brand>` with Prisma extensions.
- *
- * **Prisma casting caveat:** Prisma cannot fully brand a generated model field
- * type at the schema level. The `read` function asserts `Id<Brand>` at the
- * TypeScript level, but Prisma's generated types for the model field will not
- * reflect this branding. Callers consuming the validated value from a Prisma
- * result component may need an explicit `as Id<Brand>` cast at the call site.
+ * Read/write transform pair and `$extends` result-component factory for
+ * integrating `Id<Brand>` with Prisma extensions.
  */
 export type IdTransform<Brand extends string> = {
   /**
    * Read transform: validates the raw database value via `safeParse` and returns
    * `Id<Brand>`. Throws if the value is missing, malformed, or belongs to a
    * different brand.
-   *
-   * Use in a Prisma `$extends` result component's `compute` function.
    */
   read(value: unknown): Id<Brand>;
   /**
@@ -33,6 +26,28 @@ export type IdTransform<Brand extends string> = {
    * Use in a Prisma `$extends` query component or explicit `data` mapping.
    */
   write(value: Id<Brand>): string;
+  /**
+   * Creates a typed `$extends` result-component field definition that carries
+   * `Id<Brand>` through Prisma's type machinery without a per-call-site cast.
+   *
+   * @param fieldName - The model field to read from (e.g. `"id"`).
+   * @returns A `{ needs, compute }` object whose `compute` return type is
+   * statically `Id<Brand>`, so the extended-client model field is typed correctly.
+   *
+   * @example
+   * ```ts
+   * const xprisma = prisma.$extends({
+   *   result: {
+   *     user: { id: userIdField.computeField("id") },
+   *   },
+   * });
+   * // xprisma.user.findUnique(…).id is typed as Id<"usr"> — no cast required
+   * ```
+   */
+  computeField(fieldName: string): {
+    needs: Record<string, boolean>;
+    compute: (model: Record<string, unknown>) => Id<Brand>;
+  };
 };
 
 /**
@@ -40,12 +55,9 @@ export type IdTransform<Brand extends string> = {
  *
  * Works with any codec variant exposing `safeParse`.
  *
- * **Prisma casting caveat:** Prisma's `$extends` result component can add
- * typed computed accessors to model instances, but cannot retroactively
- * re-type an existing schema field at the Prisma Client level. The `read`
- * function asserts `Id<Brand>`, but callers will need an explicit
- * `as Id<Brand>` cast at consumption sites where Prisma's generated types
- * are expected.
+ * Use `computeField(fieldName)` to produce a typed `$extends` result-component
+ * field definition — the brand is carried through Prisma's type machinery
+ * automatically and no per-call-site cast is required.
  *
  * @example
  * ```ts
@@ -57,17 +69,10 @@ export type IdTransform<Brand extends string> = {
  *
  * const xprisma = prisma.$extends({
  *   result: {
- *     user: {
- *       id: {
- *         needs: { id: true },
- *         compute(user) {
- *           // Cast required: Prisma cannot brand the generated type at schema level
- *           return userIdField.read(user.id) as Id<"usr">;
- *         },
- *       },
- *     },
+ *     user: { id: userIdField.computeField("id") },
  *   },
  * });
+ * // xprisma.user.findUnique(…).id is typed as Id<"usr"> — no cast required
  * ```
  */
 export function idField<Brand extends string>(codec: IdColumnCodec<Brand>): IdTransform<Brand> {
@@ -77,6 +82,18 @@ export function idField<Brand extends string>(codec: IdColumnCodec<Brand>): IdTr
     },
     write(value: Id<Brand>): string {
       return value;
+    },
+    computeField(fieldName: string) {
+      return {
+        needs: { [fieldName]: true },
+        // Prisma's $extends types `compute` as returning `any` in its constraint
+        // type (DynamicResultExtensionArgs). Returning a pre-built object with an
+        // explicit Id<Brand> return type on `compute` causes TypeScript to infer
+        // the brand through the `& R` intersection in $extends — encapsulating
+        // the single necessary cast here rather than pushing it to every call site.
+        compute: (model: Record<string, unknown>): Id<Brand> =>
+          readIdColumn(codec, model[fieldName]),
+      };
     },
   };
 }
