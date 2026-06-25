@@ -402,7 +402,7 @@ describe("reverse timestamp codec", () => {
 
   describe("fast-check property tests", () => {
     it("round-trip: generateAt at arbitrary valid ms yields same timestamp via extractTimestamp", () => {
-      const rev = createReverseTimestampId("fck", { allowDuplicateBrand: true });
+      const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
       fc.assert(
         fc.property(fc.integer({ min: 0, max: 2 ** 48 - 1 }), (ms) => {
           const id = rev.generateAt(new Date(ms));
