@@ -161,7 +161,7 @@ describe("id", () => {
     // UUID "00112233-4455-4677-8899-aabbccddeeff" exercises both for-loops in
     // src/codecs/_kernel/rng.ts (L9/L10, hexCharCodeToNibble initialization):
     //   digit nibbles '0'-'5' → positions 0-7, 9-12 → bytes 0x00-0x55
-    //   letter nibbles 'a'-'f' → positions 24-31 → bytes 0xaa-0xdd
+    //   letter nibbles 'a'-'d' → positions 24-31 → bytes 0xaa-0xdd
     const spy = vi
       .spyOn(crypto, "randomUUID")
       .mockReturnValue("00112233-4455-4677-8899-aabbccddeeff");
