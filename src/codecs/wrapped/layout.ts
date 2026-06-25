@@ -100,36 +100,55 @@ function writeLen32(value: number, target: Uint8Array, offset: number): void {
   target[offset + 3] = value & 0xff;
 }
 
-function hmacMessage(brand: string, kind: LayoutWrappedKind, lane: Uint8Array): Uint8Array {
+/**
+ * Precomputed HMAC-message template for a fixed (brand, kind) pair.
+ *
+ * The message is `len32(brand) ‖ brand ‖ len32(kind) ‖ kind ‖ lane`. Everything
+ * except the trailing 8-byte lane is constant for the life of the codec, so we
+ * build it once at construction. `brand`/`kind` are never re-encoded and no
+ * `TextEncoder` is allocated on the `wrap` / `unwrap` hot paths.
+ */
+type HmacMessageTemplate = {
+  /** Full-length buffer with the constant prefix written and the lane region zeroed. */
+  readonly buffer: Uint8Array;
+  /** Byte offset where the lane is copied in on each call. */
+  readonly laneOffset: number;
+};
+
+function createHmacMessageTemplate(brand: string, kind: LayoutWrappedKind): HmacMessageTemplate {
   const encoder = new TextEncoder();
   const brandBytes = encoder.encode(brand);
   const kindBytes = encoder.encode(kind);
-  const msgLen = 4 + brandBytes.length + 4 + kindBytes.length + lane.length;
-  const message = new Uint8Array(msgLen);
+  const laneOffset = 4 + brandBytes.length + 4 + kindBytes.length;
+  const buffer = new Uint8Array(laneOffset + laneByteLength);
   let offset = 0;
-  writeLen32(brandBytes.length, message, offset);
+  writeLen32(brandBytes.length, buffer, offset);
   offset += 4;
-  message.set(brandBytes, offset);
+  buffer.set(brandBytes, offset);
   offset += brandBytes.length;
-  writeLen32(kindBytes.length, message, offset);
+  writeLen32(kindBytes.length, buffer, offset);
   offset += 4;
-  message.set(kindBytes, offset);
-  offset += kindBytes.length;
-  message.set(lane, offset);
+  buffer.set(kindBytes, offset);
+  return { buffer, laneOffset };
+}
+
+/** Materialise the HMAC message for `lane`. Fresh buffer per call → safe under concurrent async signs. */
+function hmacMessage(template: HmacMessageTemplate, lane: Uint8Array): Uint8Array {
+  const message = template.buffer.slice();
+  message.set(lane, template.laneOffset);
   return message;
 }
 
 async function computeTag(
   key: LayoutWrappingKey,
-  brand: string,
-  kind: LayoutWrappedKind,
+  template: HmacMessageTemplate,
   lane: Uint8Array,
 ): Promise<Uint8Array> {
   const signature = new Uint8Array(
     await crypto.subtle.sign(
       "HMAC",
       key.hmacKey,
-      hmacMessage(brand, kind, lane) as Uint8Array<ArrayBuffer>,
+      hmacMessage(template, lane) as Uint8Array<ArrayBuffer>,
     ),
   );
   return signature.subarray(0, tagByteLength);
@@ -185,21 +204,21 @@ function buildPlaintext(lane: Uint8Array, tag: Uint8Array): Uint8Array {
 
 async function wrapLookupKey<Brand extends string, Kind extends LayoutWrappedKind>(
   prefix: Prefix<Brand>,
-  brand: string,
+  template: HmacMessageTemplate,
   key: LayoutWrappingKey,
   kind: Kind,
   lookupKey: LayoutLookupKey<Kind>,
 ): Promise<Id<Brand>> {
   const lane = new Uint8Array(laneByteLength);
   writeLane(kind, lookupKey, lane);
-  const tag = await computeTag(key, brand, kind, lane);
+  const tag = await computeTag(key, template, lane);
   const encrypted = await encryptPayload(key, buildPlaintext(lane, tag));
   return toWireId(prefix, encrypted);
 }
 
 async function tryUnwrapLookupKey<Brand extends string, Kind extends LayoutWrappedKind>(
   prefix: Prefix<Brand>,
-  brand: string,
+  template: HmacMessageTemplate,
   key: LayoutWrappingKey,
   kind: Kind,
   id: Id<Brand>,
@@ -207,7 +226,7 @@ async function tryUnwrapLookupKey<Brand extends string, Kind extends LayoutWrapp
   const plaintext = await decryptPayload(key, payloadBytesFromId(prefix, id));
   const lane = plaintext.subarray(0, laneByteLength);
   const tag = plaintext.subarray(laneByteLength, payloadByteLength);
-  const expected = await computeTag(key, brand, kind, lane);
+  const expected = await computeTag(key, template, lane);
   if (!tagsEqual(tag, expected)) return null;
   return readLane(kind, lane);
 }
@@ -223,12 +242,15 @@ export function createWrappedLayoutOps<Brand extends string, Kind extends Layout
   keys: readonly LayoutWrappingKey[],
 ) {
   const wrapKey = keys[0]!;
+  // brand + kind are fixed for the codec's lifetime; encode them and build the
+  // HMAC-message prefix once instead of on every wrap / unwrap-trial.
+  const template = createHmacMessageTemplate(brand, kind);
   return {
     wrap: (lookupKey: LayoutLookupKey<Kind>): Promise<Id<Brand>> =>
-      wrapLookupKey(prefix, brand, wrapKey, kind, lookupKey),
+      wrapLookupKey(prefix, template, wrapKey, kind, lookupKey),
     tryUnwrap: async (id: Id<Brand>): Promise<LayoutLookupKey<Kind> | null> => {
       for (const key of keys) {
-        const lookupKey = await tryUnwrapLookupKey(prefix, brand, key, kind, id);
+        const lookupKey = await tryUnwrapLookupKey(prefix, template, key, kind, id);
         if (lookupKey !== null) return lookupKey;
       }
       return null;

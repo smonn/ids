@@ -2,7 +2,7 @@ import { validateBrand } from "../_kernel/brand.js";
 import { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
 import { createReverseTimestampLayoutOps } from "./layout.js";
 import { registerBrand } from "../_kernel/registry.js";
-import { defaultRng } from "../_kernel/rng.js";
+import { fastTenByteRng } from "../_kernel/rng.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 
@@ -15,7 +15,7 @@ export { IdsError, isIdsError, type IdsErrorCode };
 export type ReverseTimestampOptions = {
   /** Returns the current timestamp in milliseconds. Defaults to `Date.now`. */
   now?: () => number;
-  /** Writes random bytes into `target` for ID generation. Defaults to `crypto.getRandomValues`. */
+  /** Writes the 10-byte random tail into `target`. Defaults to a `crypto.randomUUID` harvest fast path (same as the Timestamp codec). */
   rng?: (target: Uint8Array) => void;
   /** If true, silences the duplicate-brand warning in non-production environments. */
   allowDuplicateBrand?: boolean;
@@ -95,7 +95,7 @@ export function createReverseTimestampId<Brand extends string>(
   registerBrand(brand, opts.allowDuplicateBrand);
 
   const now = opts.now ?? Date.now;
-  const rng = opts.rng ?? defaultRng;
+  const rng = opts.rng ?? fastTenByteRng;
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);
   const layout = createReverseTimestampLayoutOps(prefix, rng);
