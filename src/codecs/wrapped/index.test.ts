@@ -135,6 +135,21 @@ describe("wrapped", () => {
     });
   });
 
+  it("safeUnwrap rejects wire input with wrong payload length before reaching AES decrypt", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0xaa));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    // Correct prefix, too-short payload (10 chars instead of 26)
+    await expect(inv.safeUnwrap("inv_0000000000")).resolves.toEqual({
+      ok: false,
+      error: "invalid_base32",
+    });
+    // Correct prefix, too-long payload (30 chars instead of 26)
+    await expect(inv.safeUnwrap("inv_" + "0".repeat(30))).resolves.toEqual({
+      ok: false,
+      error: "invalid_base32",
+    });
+  });
+
   it("unwrap tries every keyring entry until verification succeeds", async () => {
     const oldKey = await importWrappingKey(new Uint8Array(32).fill(0x01));
     const newKey = await importWrappingKey(new Uint8Array(32).fill(0x02));
@@ -150,7 +165,32 @@ describe("wrapped", () => {
       allowDuplicateBrand: true,
     });
     await expect(rotated.unwrap(id)).resolves.toBe(7);
-    await expect(rotated.wrap(7)).not.toBe(id);
+    const newKeyOnlyCodec = createWrappedKeyId("inv", {
+      kind: "u32",
+      keys: [newKey],
+      allowDuplicateBrand: true,
+    });
+    expect(await rotated.wrap(7)).not.toBe(id);
+    expect(await rotated.wrap(7)).toBe(await newKeyOnlyCodec.wrap(7));
+  });
+
+  it("safeUnwrap returns verification_failed when no keyring entry verifies (full-ring exhaustion)", async () => {
+    const keyA = await importWrappingKey(new Uint8Array(32).fill(0xaa));
+    const keyB = await importWrappingKey(new Uint8Array(32).fill(0xbb));
+    const keyC = await importWrappingKey(new Uint8Array(32).fill(0xcc));
+    const ring = createWrappedKeyId("inv", {
+      kind: "u32",
+      keys: [keyA, keyB],
+      allowDuplicateBrand: true,
+    });
+    const outsider = createWrappedKeyId("inv", {
+      kind: "u32",
+      keys: [keyC],
+      allowDuplicateBrand: true,
+    });
+    const id = await outsider.wrap(7);
+    await expect(ring.safeUnwrap(id)).resolves.toEqual({ ok: false, error: "verification_failed" });
+    await expect(ring.unwrap(id)).rejects.toMatchObject({ code: "verification_failed" });
   });
 
   it("rejects duplicate wrapping keys in the keyring at construction", async () => {
@@ -158,6 +198,25 @@ describe("wrapped", () => {
     let err: unknown;
     try {
       createWrappedKeyId("inv", { kind: "u32", keys: [key, key] });
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("duplicate_keyring_entry");
+  });
+
+  it("rejects two distinct wrapping key handles imported from the same raw bytes", async () => {
+    const bytes = new Uint8Array(32).fill(0x42);
+    const handle1 = await importWrappingKey(bytes);
+    const handle2 = await importWrappingKey(bytes);
+    expect(handle1).not.toBe(handle2);
+    let err: unknown;
+    try {
+      createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [handle1, handle2],
+        allowDuplicateBrand: true,
+      });
     } catch (e) {
       err = e;
     }
