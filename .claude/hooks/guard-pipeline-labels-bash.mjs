@@ -33,10 +33,12 @@ if (typeof command !== "string") process.exit(0);
 if (!command.includes("gh issue edit")) process.exit(0);
 
 // Extract all values supplied to --add-label and --remove-label.
-// Handles: --add-label "a,b"  --add-label 'a,b'  --add-label a
+// Handles space-separated and equals-separated forms:
+//   --add-label "a,b"  --add-label 'a,b'  --add-label a
+//   --add-label="a,b"  --add-label='a,b'  --add-label=a
 // and comma-separated values within a single flag value.
 const labelPattern =
-  /--(?:add|remove)-label\s+(?:"([^"]*)"|'([^']*)'|(\S+))/g;
+  /--(?:add|remove)-label(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))/g;
 const labels = [];
 let match;
 while ((match = labelPattern.exec(command)) !== null) {
