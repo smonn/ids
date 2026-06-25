@@ -8,8 +8,9 @@ name: Autofix agent PR CI
 # PRECOMPUTE / PRODUCE / POST split. The failing CI logs are PRECOMPUTED into
 # `.autofix-context/ci-failed.log` so the agent diagnoses by reading a file instead of
 # running `gh run list` / `gh run view`. The Claude step is then a hermetic PRODUCER:
-# its `gh` is UNAUTHENTICATED (no GH_TOKEN in its env) and its checkout has
-# `persist-credentials: false`, so it can commit LOCALLY (keeping the `[ci-autofix]`
+# it gets a strictly READ-ONLY App token (no GH_TOKEN in its env) and its checkout has
+# `persist-credentials: false`, so even though the action wires a token into the agent's
+# git/gh, that token can only READ — it can commit LOCALLY (keeping the `[ci-autofix]`
 # marker the cap gate counts) but it CANNOT push and CANNOT mutate GitHub. It records
 # its outcome as scalars in `.autofix/manifest.json` and, when escalating, writes the
 # escalation comment body verbatim to `.autofix/escalation.md`. A separate deterministic
@@ -63,6 +64,23 @@ jobs:
           permission-contents: write
           permission-issues: write
           permission-pull-requests: write
+
+      - name: Generate a READ-ONLY GitHub App token for the producer
+        id: app-token-ro
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # The producer (claude-code-action) wires whatever token it has into the agent's
+          # git/gh auth, and `github_token` falls back to the write-capable built-in
+          # `github.token` when omitted — so persist-credentials: false alone does NOT
+          # guarantee no-push. Hand the producer a strictly READ-ONLY token instead: even
+          # if the action sets up the agent's git/gh, it cannot push, comment, or label.
+          # actions:read lets it read run logs; everything else is read-only.
+          permission-actions: read
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
 
       - name: Checkout the agent branch
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -145,17 +163,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: steps.gate.outputs.proceed == 'true'
 
-      # Hermetic PRODUCER. Note there is NO GH_TOKEN in this step's env and the checkout
-      # used persist-credentials: false — the agent's `gh` is unauthenticated and git has
-      # no push credentials, so it physically cannot mutate GitHub or push. It diagnoses
-      # from the precomputed log + the code, fixes, runs the gate, and commits LOCALLY
-      # with the `[ci-autofix]` marker; the deterministic poster below does all GitHub I/O.
+      # Hermetic PRODUCER. It gets the READ-ONLY token (app-token-ro) and there is NO
+      # GH_TOKEN in this step's env; the checkout used persist-credentials: false. Even
+      # though the action wires its token into the agent's git/gh, that token can only
+      # READ — the agent physically cannot push or mutate GitHub. It diagnoses from the
+      # precomputed log + the code, fixes, runs the gate, and commits LOCALLY with the
+      # `[ci-autofix]` marker (a local commit needs no token); the deterministic poster
+      # below holds the WRITE token and does all GitHub I/O.
       - name: Fix CI with Claude
         if: steps.gate.outputs.proceed == 'true'
         uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ steps.app-token.outputs.token }}
+          github_token: ${{ steps.app-token-ro.outputs.token }}
           # CI runs that failed on an agent branch were pushed by the App, so the
           # workflow_run actor is a bot. Allow only our own App (never '*').
           allowed_bots: "smonn[bot]"
