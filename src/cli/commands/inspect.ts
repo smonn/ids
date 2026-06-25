@@ -82,7 +82,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     }
     const structValidation = tsCodec["~standard"].validate(input);
     if (structValidation.issues) {
-      opts.stderr(structValidation.issues[0]!.message + "\n");
+      opts.stderr("invalid_id: " + structValidation.issues[0]!.message + "\n");
       return 1;
     }
     verifyCanonical = structValidation.value;

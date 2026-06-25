@@ -164,7 +164,7 @@ describe("cli", () => {
       const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgk!"]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("invalid base32 payload\n");
+      expect(result.stderr).toContain("invalid_id");
     });
 
     it("missing id arg prints inspect usage to stderr and exits 2", async () => {
@@ -338,7 +338,7 @@ describe("cli", () => {
         env: { IDS_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toBe("invalid base32 payload\n");
+      expect(result.stderr).toContain("invalid_id");
     });
 
     it("--opaque rejects malformed IDS_KEY", async () => {
@@ -346,7 +346,7 @@ describe("cli", () => {
         env: { IDS_KEY: "aabbcc" },
       });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toBe("invalid AES key length: expected 16, 24, or 32 bytes, got 3\n");
+      expect(result.stderr).toContain("invalid_key_length");
     });
 
     it("--opaque falls back to Date.now when not overridden", async () => {
@@ -657,7 +657,7 @@ describe("cli", () => {
         env: { IDS_KEY: "not-hex!" },
       });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toBe("invalid hex key: expected [0-9a-fA-F] only\n");
+      expect(result.stderr).toContain("invalid_key_encoding");
     });
 
     it("--opaque rejects a base64url IDS_KEY when --key-format=hex", async () => {
@@ -666,7 +666,7 @@ describe("cli", () => {
         env: { IDS_KEY: keyB64 },
       });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toMatch(/^invalid hex key:/);
+      expect(result.stderr).toContain("invalid_key_encoding");
     });
 
     it("--opaque reads IDS_KEY from process.env when env is not injected", async () => {
@@ -1171,7 +1171,7 @@ describe("cli inspect --wrapped", () => {
     );
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toMatch(/invalid hex key/);
+    expect(result.stderr).toContain("invalid_key_encoding");
   });
 
   it("rejects invalid base32 payload with --wrapped", async () => {
@@ -1181,7 +1181,7 @@ describe("cli inspect --wrapped", () => {
     );
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid base32 payload\n");
+    expect(result.stderr).toContain("invalid_id");
   });
 
   it("rejects --wrapped and --opaque together", async () => {
@@ -1434,7 +1434,7 @@ describe("cli inspect --reverse", () => {
     const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgk!", "--reverse"]);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid base32 payload\n");
+    expect(result.stderr).toContain("invalid_id");
   });
 
   it("--reverse with --opaque emits a conflict error and exits 2", async () => {
@@ -1610,7 +1610,7 @@ describe("cli generate --signed", () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toMatch(/invalid hex key/);
+    expect(result.stderr).toContain("invalid_key_encoding");
   });
 
   it("rejects an invalid brand with --signed", async () => {
@@ -1909,7 +1909,7 @@ describe("cli inspect --signed", () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain("verification: unavailable");
-    expect(result.stderr).toMatch(/invalid hex key/);
+    expect(result.stderr).toContain("invalid_key_encoding");
   });
 
   it("rejects invalid base32 payload with --signed (no key)", async () => {
@@ -1918,7 +1918,7 @@ describe("cli inspect --signed", () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid base32 payload\n");
+    expect(result.stderr).toContain("invalid_id");
   });
 
   it("rejects invalid base32 payload with --signed (key present)", async () => {
@@ -1927,7 +1927,7 @@ describe("cli inspect --signed", () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("invalid base32 payload\n");
+    expect(result.stderr).toContain("invalid_id");
   });
 
   it("reads base64url IDS_SIGNING_KEY when IDS_SIGNING_KEY_FORMAT is base64url", async () => {

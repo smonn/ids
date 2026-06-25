@@ -1,3 +1,4 @@
+import { formatCliError } from "./format.js";
 import type { RunOpts } from "./types.js";
 
 export type KeyFormat = "hex" | "base64url";
@@ -64,6 +65,6 @@ export async function loadKey<K>(
   try {
     return await facet.import(facet.decode(raw, format));
   } catch (err) {
-    return { kind: "import-failure", message: (err as Error).message };
+    return { kind: "import-failure", message: formatCliError(err) };
   }
 }

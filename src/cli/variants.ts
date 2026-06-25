@@ -68,7 +68,7 @@ function standardValidate(
   const result = (codec as unknown as { "~standard": StandardSchemaProps<string> })[
     "~standard"
   ].validate(input);
-  if (result.issues) return { issue: result.issues[0]!.message };
+  if (result.issues) return { issue: "invalid_id: " + result.issues[0]!.message };
   return { value: result.value! };
 }
 
