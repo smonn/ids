@@ -73,11 +73,31 @@ jobs:
           # Least-privilege: scope the minted token to exactly what this job does —
           # push fixes, reply on review threads, file follow-up issues, toggle labels —
           # so a prompt-injection via untrusted PR/review content can't wield the App's
-          # full installation grant. The token reaches only the precompute, gate, and
-          # poster steps; the producer (agent) step is deliberately given no token.
+          # full installation grant. This WRITE token reaches ONLY the deterministic
+          # steps that mutate: the runaway-loop gate, the label-removal step, the
+          # precompute reads, and the poster. It is NEVER handed to the producer (agent)
+          # step — that step gets the read-only token below instead.
           permission-contents: write
           permission-issues: write
           permission-pull-requests: write
+
+      # A SECOND, READ-ONLY App token, minted exclusively for the producer (agent) step.
+      # claude-code-action wires whatever `github_token` it receives into the agent's
+      # git/gh auth (and that can override `persist-credentials: false`), so handing the
+      # agent the WRITE token above would give it real push/mutate capability — exactly
+      # the wrong thing for a step that processes untrusted human review text (a
+      # prompt-injection surface). With a read-only token, even if the action sets up
+      # git/gh for the agent, it can only READ: no push, no replies, no issue creation,
+      # no thread resolution. The agent's local per-fix commits need no token at all.
+      - name: Generate read-only GitHub App token (for the producer)
+        id: app-token-ro
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
 
       # Cost guard: the review → address-feedback → address-review → push → review
       # cycle is entirely bot-driven once started (review.yml auto-applies
@@ -229,13 +249,20 @@ jobs:
       - name: Address the feedback (edit + commit locally, write .address/, post nothing)
         if: steps.gate.outputs.proceed == 'true'
         uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153
-        # NOTE: deliberately NO GH_TOKEN here. The agent's gh is unauthenticated and the
-        # checkout has no push credential, so the agent CANNOT mutate GitHub or push —
-        # it can only edit code, commit locally, and write files. The poster mutates.
+        # NOTE: deliberately NO GH_TOKEN in env, and the only token handed to the action
+        # is the READ-ONLY app-token-ro. claude-code-action wires its `github_token` into
+        # the agent's git/gh auth (which can override `persist-credentials: false`), so it
+        # MUST be the read-only token: the worst the agent can do through it is read.
+        # Combined with persist-credentials:false and no GH_TOKEN in env, the agent has no
+        # write capability at all — it can only edit code, commit locally, and write
+        # files. The poster (with the write token) does all pushing and mutation.
         env:
           GH_REPO: ${{ github.repository }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Read-only token: even if the action sets up git/gh for the agent, it cannot
+          # push, reply, create issues, label, or resolve threads.
+          github_token: ${{ steps.app-token-ro.outputs.token }}
           # The label may be applied by a maintainer (human) or our App.
           allowed_bots: "smonn[bot]"
           # Code/test changes go through the project `tdd` skill (.claude/skills/tdd),
@@ -257,10 +284,12 @@ jobs:
             to ask you to address their review feedback. The branch is checked out and
             git can commit LOCALLY.
 
-            You are a PRODUCER. You have NO GitHub access: `gh` is UNAUTHENTICATED and
-            git has NO push credential. Do NOT run `gh` (it will fail), do NOT
-            `git push`, do NOT post, reply, resolve threads, create issues, label, or
-            merge. Your job is to edit code, commit each fix LOCALLY, run the CI gate,
+            You are a PRODUCER. You have NO write access to GitHub: any token available
+            to you is READ-ONLY and git has NO push credential, so every mutation will
+            fail. Do NOT run `gh` to read either (use the precomputed files below), and
+            do NOT attempt to `git push`, post, reply, resolve threads, create issues,
+            label, or merge — they cannot succeed. Your job is to edit code, commit each
+            fix LOCALLY, run the CI gate,
             and WRITE your intended GitHub actions to files under a `.address/`
             directory; a later deterministic step reads those files and does ALL pushing
             and posting. Everything you would have fetched from GitHub has been
