@@ -22,3 +22,7 @@ overrides:
   # 4.x — read-yaml-file calls the removed safeLoad API — so it is left to
   # upstream; impact is dev-only changeset parsing.
   js-yaml@^4.1.1: ^4.2.0
+  # GHSA-g7r4-m6w7-qqqr (low): esbuild >=0.27.3 <0.28.1 allows arbitrary file
+  # read via the dev server on Windows. Reached transitively via the website
+  # toolchain (vite -> esbuild). Dev-only; does not affect the published package.
+  esbuild@<0.28.1: ">=0.28.1"
