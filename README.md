@@ -108,6 +108,7 @@ here.
 - `IdsErrorCode` — String-literal union of the eleven stable error codes carried by `IdsError`.
 - `TimestampCodec<Brand>` — Interface of a brand-scoped Timestamp codec instance returned by `createTimestampId()`.
 - `TimestampOptions` — Construction options for `createTimestampId()`: `now`, `rng`, and `allowDuplicateBrand`.
+- `ValidBrand<S>` — Compile-time validation that `S` is a well-formed brand (three lowercase `a–z` characters); intersect it with a codec constructor's brand parameter (`brand: Brand & ValidBrand<Brand>`) to reject malformed brands at the type level.
 
 ### Classes
 
