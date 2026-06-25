@@ -3,7 +3,14 @@ import { createOpaqueLayoutOps } from "./layout.js";
 import { getOpaqueKeyCryptoKey, type OpaqueKey } from "./key.js";
 import { registerBrand } from "../_kernel/registry.js";
 import { defaultRng } from "../_kernel/rng.js";
-import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../../types.js";
+import type {
+  Id,
+  JsonSchema,
+  ParseResult,
+  Prefix,
+  StandardSchemaProps,
+  ValidBrand,
+} from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -97,7 +104,7 @@ export type OpaqueTimestampCodec<Brand extends string> = {
  *   optional `now`, `rng`, and `allowDuplicateBrand` overrides.
  */
 export function createOpaqueTimestampId<Brand extends string>(
-  brand: Brand,
+  brand: Brand & ValidBrand<Brand>,
   opts: OpaqueTimestampOptions,
 ): OpaqueTimestampCodec<Brand> {
   validateBrand(brand);

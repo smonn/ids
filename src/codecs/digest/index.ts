@@ -2,7 +2,14 @@ import { validateBrand } from "../_kernel/brand.js";
 import { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
 import { createDigestLayoutOps } from "./layout.js";
 import { registerBrand } from "../_kernel/registry.js";
-import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../../types.js";
+import type {
+  Id,
+  JsonSchema,
+  ParseResult,
+  Prefix,
+  StandardSchemaProps,
+  ValidBrand,
+} from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 import {
   decodeDigestKey,
@@ -86,7 +93,7 @@ export type DigestCodec<Brand extends string> = {
  * ```
  */
 export function createDigestId<Brand extends string>(
-  brand: Brand,
+  brand: Brand & ValidBrand<Brand>,
   opts: DigestOptions,
 ): DigestCodec<Brand> {
   validateBrand(brand);

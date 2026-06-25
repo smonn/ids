@@ -4,4 +4,4 @@ export {
   type TimestampOptions,
   createTimestampId,
 } from "./codecs/timestamp/index.js";
-export type { Id, JsonSchema, ParseError, ParseResult } from "./types.js";
+export type { Id, JsonSchema, ParseError, ParseResult, ValidBrand } from "./types.js";
