@@ -53,9 +53,15 @@ jobs:
     env:
       ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
     steps:
+      # Checkout first: the app-token steps below use the LOCAL composite action
+      # under .github/actions/app-token, which must be on disk before it runs. This
+      # checkout needs no token, so it is safe to run before the mints.
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: ./.github/actions/app-token
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -74,18 +80,17 @@ jobs:
       # would let the agent mutate the issue despite the "producer posts nothing" design.
       # Minting a read-only token makes the producer mutation-free at the token level, not
       # just by convention: even an injected `gh` call cannot edit or comment on the issue.
+      # Kept as a SEPARATE mint from the write token above — the write/read-only split is
+      # the security boundary; do not merge them.
       - name: Generate read-only GitHub App token (for the producer)
         id: app-token-ro
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: ./.github/actions/app-token
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-contents: read
           permission-issues: read
           permission-pull-requests: read
-
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       # Precompute every input the producer needs and write it under .triage-context/, so
       # the agent runs NO gh and NO git — it reads files and writes files, nothing else.

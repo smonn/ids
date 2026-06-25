@@ -1,0 +1,78 @@
+name: Mint a scoped GitHub App token
+description: >-
+  Wrap actions/create-github-app-token to mint a least-privilege GitHub App
+  installation token for the automation pipeline.
+
+# WHY a composite that takes app-id / private-key as inputs (not secrets):
+# composite actions CANNOT read `secrets.*` themselves — there is no `secrets`
+# context inside a composite. So each caller passes `secrets.APP_ID` /
+# `secrets.APP_PRIVATE_KEY` through these inputs; the composite forwards them to
+# create-github-app-token. (A local composite ALSO requires the repo to be
+# checked out first — the action lives on disk under .github/actions — so callers
+# must run actions/checkout before this step.)
+#
+# WHY only four permission-* inputs, each defaulting to "": these are the only
+# scopes the pipeline mints (contents, issues, pull-requests, actions). Every
+# caller passes ONLY the permissions its mint needs and leaves the rest empty.
+# create-github-app-token treats an EMPTY permission-* input as NOT REQUESTED —
+# verified in its source (lib/get-permissions-from-inputs.js at the pinned SHA
+# bcd2ba49218906704ab6c1aa796996da409d3eb1 / v3.2.0):
+#
+#     if (!value) return permissions;   // empty string => permission omitted
+#
+# so passing `permission-issues: ""` is byte-equivalent to not passing it at all,
+# and the token is scoped to ONLY the non-empty permissions. This is a SECURITY
+# boundary: empty does NOT grant the scope and does NOT error.
+#
+# WHY callers keep the write/read-only split as TWO separate uses of this action
+# rather than merging them: that split is load-bearing. The deterministic
+# mutating steps get a narrowly-scoped WRITE token; the producer (the agent,
+# which processes untrusted issue/PR/review text and is a prompt-injection
+# surface) gets a strictly READ-ONLY token. Minting one combined token would hand
+# the agent write capability and defeat the whole least-privilege design. This
+# composite is a thin wrapper; it deliberately does NOT merge the two mints.
+
+inputs:
+  app-id:
+    description: GitHub App ID (pass secrets.APP_ID — composites can't read secrets).
+    required: true
+  private-key:
+    description: GitHub App private key (pass secrets.APP_PRIVATE_KEY).
+    required: true
+  permission-contents:
+    description: 'Scope for repository contents: "read" or "write". Empty => not requested.'
+    required: false
+    default: ""
+  permission-issues:
+    description: 'Scope for issues: "read" or "write". Empty => not requested.'
+    required: false
+    default: ""
+  permission-pull-requests:
+    description: 'Scope for pull requests: "read" or "write". Empty => not requested.'
+    required: false
+    default: ""
+  permission-actions:
+    description: 'Scope for Actions: "read" or "write". Empty => not requested.'
+    required: false
+    default: ""
+
+outputs:
+  token:
+    description: The minted, scoped GitHub App installation token.
+    value: ${{ steps.mint.outputs.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Mint the scoped token
+      id: mint
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+        # Empty inputs are skipped by the action (see header), so each caller's
+        # token is scoped to exactly the non-empty permissions it passed.
+        permission-contents: ${{ inputs.permission-contents }}
+        permission-issues: ${{ inputs.permission-issues }}
+        permission-pull-requests: ${{ inputs.permission-pull-requests }}
+        permission-actions: ${{ inputs.permission-actions }}
