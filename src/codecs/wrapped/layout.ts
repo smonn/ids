@@ -1,5 +1,5 @@
 import type { webcrypto } from "node:crypto";
-import type { Id, Prefix } from "../../types.js";
+import type { Id, LayoutOps, Prefix } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 
@@ -240,7 +240,10 @@ export function createWrappedLayoutOps<Brand extends string, Kind extends Layout
   brand: Brand,
   kind: Kind,
   keys: readonly LayoutWrappingKey[],
-) {
+): LayoutOps<Brand> & {
+  wrap(lookupKey: LayoutLookupKey<Kind>): Promise<Id<Brand>>;
+  tryUnwrap(id: Id<Brand>): Promise<LayoutLookupKey<Kind> | null>;
+} {
   const wrapKey = keys[0]!;
   // brand + kind are fixed for the codec's lifetime; encode them and build the
   // HMAC-message prefix once instead of on every wrap / unwrap-trial.
@@ -255,6 +258,6 @@ export function createWrappedLayoutOps<Brand extends string, Kind extends Layout
       }
       return null;
     },
-    exampleWireId: (): Id<Brand> => schemaExample(prefix) as Id<Brand>,
+    exampleWireId: (_ms?: number): Id<Brand> => schemaExample(prefix) as Id<Brand>,
   };
 }
