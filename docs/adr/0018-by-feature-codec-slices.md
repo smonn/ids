@@ -75,9 +75,9 @@ codecs/_kernel/
   types.ts, error.ts                  ← root universal leaves
 
 adapters/
-  adapter-types.ts                    ← shared web-adapter type hub
-  express.ts, fastify.ts, hono.ts     ← web framework adapters
-  drizzle.ts, prisma.ts, kysely.ts    ← ORM adapters
+  adapter-types.ts                                         ← shared web-adapter type hub
+  express.ts, fastify.ts, hono.ts, nestjs.ts, graphql.ts  ← web framework adapters
+  drizzle.ts, prisma.ts, kysely.ts, typeorm.ts             ← ORM adapters
     ↓
   types.ts, error.ts                  ← root universal leaves
 ```
