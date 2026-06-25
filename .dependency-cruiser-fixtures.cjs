@@ -204,6 +204,26 @@ module.exports = {
       },
     },
     {
+      name: "crypto-leaf-restricted",
+      severity: "error",
+      comment: "_kernel/crypto is a leaf importable only by layout modules and key-handle modules",
+      from: {
+        path: "^test/fixtures/depcruise.*\\.ts$",
+        pathNot: "^test/fixtures/depcruise/codecs/[^/]+/(layout|key)\\.ts$|\\.test\\.ts$",
+      },
+      to: { path: "^src/codecs/_kernel/crypto\\.ts$" },
+    },
+    {
+      name: "crypto-leaf-no-upward",
+      severity: "error",
+      comment: "_kernel/crypto leaf may only import _kernel/bytes and wire/invariants",
+      from: { path: "^test/fixtures/depcruise/codecs/_kernel/crypto\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/(codecs/_kernel/bytes|wire/invariants)\\.ts$",
+      },
+    },
+    {
       name: "codec-slice-no-cross-codec-imports",
       severity: "error",
       comment:
