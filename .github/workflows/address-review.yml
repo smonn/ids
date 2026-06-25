@@ -11,6 +11,24 @@ name: Address PR review feedback
 # maintainer-gated. The job still checks out and executes the PR branch's code, so it
 # is restricted to same-repo agent/issue-* branches — a forked PR can never run
 # attacker-controlled code with our secrets.
+#
+# PRODUCE / POST split with ENFORCED no-push. This workflow's agent does two kinds of
+# work and only one of them stays with it:
+#   - JUDGMENT (stays): read the feedback, edit code via the `/tdd` skill, make one
+#     LOCAL commit per fix with a good message, run the full CI gate, and decide each
+#     point's resolution (fixed / declined / deferred + follow-up).
+#   - MECHANICAL (moves to a deterministic poster): pushing the branch, posting the
+#     in-thread replies, resolving the fixed threads, filing follow-up issues.
+# The agent is a PRODUCER for everything it writes to GitHub: a precompute step writes
+# the review context under `.address-context/` so the agent runs NO gh to read it, and
+# the agent writes its output (raw reply/issue bodies + a scalars-only manifest) under
+# `.address/` and makes ZERO GitHub mutations. The push itself is denied at the
+# credential level — the checkout uses `persist-credentials: false` and the producer
+# step gets NO `GH_TOKEN` — so the agent's git has no push credential and its gh is
+# unauthenticated. A separate deterministic `post` step (which DOES get the token and
+# sets up push credentials) reads `.address/` and does ALL pushing and posting, with
+# jq doing every bit of JSON encoding from raw body files so bodies can't be corrupted
+# by shell quoting. Mechanical work leaves the agent; only judgment stays.
 
 on:
   pull_request:
@@ -55,10 +73,31 @@ jobs:
           # Least-privilege: scope the minted token to exactly what this job does —
           # push fixes, reply on review threads, file follow-up issues, toggle labels —
           # so a prompt-injection via untrusted PR/review content can't wield the App's
-          # full installation grant.
+          # full installation grant. This WRITE token reaches ONLY the deterministic
+          # steps that mutate: the runaway-loop gate, the label-removal step, the
+          # precompute reads, and the poster. It is NEVER handed to the producer (agent)
+          # step — that step gets the read-only token below instead.
           permission-contents: write
           permission-issues: write
           permission-pull-requests: write
+
+      # A SECOND, READ-ONLY App token, minted exclusively for the producer (agent) step.
+      # claude-code-action wires whatever `github_token` it receives into the agent's
+      # git/gh auth (and that can override `persist-credentials: false`), so handing the
+      # agent the WRITE token above would give it real push/mutate capability — exactly
+      # the wrong thing for a step that processes untrusted human review text (a
+      # prompt-injection surface). With a read-only token, even if the action sets up
+      # git/gh for the agent, it can only READ: no push, no replies, no issue creation,
+      # no thread resolution. The agent's local per-fix commits need no token at all.
+      - name: Generate read-only GitHub App token (for the producer)
+        id: app-token-ro
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
 
       # Cost guard: the review → address-feedback → address-review → push → review
       # cycle is entirely bot-driven once started (review.yml auto-applies
@@ -122,20 +161,25 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: gh pr edit "$PR_NUMBER" --remove-label address-feedback || true
 
+      # ENFORCED no-push: persist-credentials:false leaves NO push credential in the
+      # checkout's git config, so the agent literally cannot push. The poster step
+      # re-establishes a credential (token-in-URL) when it pushes. The pinned SHA still
+      # closes the TOCTOU window.
       - name: Checkout the labelled commit (pinned SHA, not the branch ref)
         if: steps.gate.outputs.proceed == 'true'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ env.EVENT_SHA }}
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - name: Configure git identity and working branch
         if: steps.gate.outputs.proceed == 'true'
         run: |
           git config user.name "smonn[bot]"
           git config user.email "110314539+smonn[bot]@users.noreply.github.com"
-          # We checked out a detached SHA; recreate the branch at it so we can push.
+          # We checked out a detached SHA; recreate the branch at it so the agent can
+          # commit locally. There is no push credential — the poster pushes later.
           git checkout -B "$BRANCH"
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -150,21 +194,83 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: steps.gate.outputs.proceed == 'true'
 
-      - name: Address the feedback
+      # Precompute every GitHub input the agent needs and write it under
+      # .address-context/, so the agent runs NO gh to read the feedback (its gh is
+      # unauthenticated anyway). Records each inline comment's id/path/line as JSON so
+      # the agent can map fixes to threads without any API call.
+      - name: Build address context (reviews, threads, inline comments, issue)
         if: steps.gate.outputs.proceed == 'true'
-        uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .address-context
+
+          # The PR title, body, reviews, and review-thread comments (the summary-level
+          # view) — what `gh pr view --json reviews,comments,title,body` would return.
+          gh pr view "$PR_NUMBER" --json reviews,comments,title,body \
+            > .address-context/pr.json
+
+          # The inline review comments with each comment's id, path, and line (and the
+          # in_reply_to chain), so the agent can act on a thread and the poster can map
+          # REST comment id -> reply target. Kept as raw JSON; the agent reads it.
+          gh api "repos/$GH_REPO/pulls/$PR_NUMBER/comments" --paginate \
+            > .address-context/inline-comments.json
+
+          # A flattened, human-readable digest of the inline comments (id, path, line,
+          # author, body) so the agent doesn't have to parse the full REST objects.
+          jq -r '.[] | "### comment \(.id) — `\(.path)`:\(.line // .original_line // "?") by @\(.user.login)\n\n\(.body)\n"' \
+            .address-context/inline-comments.json > .address-context/inline-comments.md || true
+
+          # The PR body and the originating issue(s) it closes (the Spec / scope source).
+          # Parse Closes/Fixes/Resolves #N from the body and fetch each; never fail the
+          # build if an issue can't be read.
+          pr_body=$(jq -r '(.title // "") + "\n\n" + (.body // "")' .address-context/pr.json)
+          printf '%s\n' "$pr_body" > .address-context/pr.md
+          issues=$(printf '%s' "$pr_body" \
+            | grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]+#[0-9]+' \
+            | grep -oE '[0-9]+' | sort -u || true)
+          {
+            if [ -n "$issues" ]; then
+              for n in $issues; do
+                echo "## Issue #$n"; echo
+                gh issue view "$n" --json title,body --jq '"**" + .title + "**\n\n" + (.body // "")' \
+                  2>/dev/null || echo "(could not fetch issue #$n)"
+                echo; echo "---"; echo
+              done
+            else
+              echo "No originating issue found in the PR body (no Closes/Fixes/Resolves #N)."
+            fi
+          } > .address-context/issue.md
+
+          echo "Context built:"; wc -l .address-context/* 2>/dev/null || true
+
+      - name: Address the feedback (edit + commit locally, write .address/, post nothing)
+        if: steps.gate.outputs.proceed == 'true'
+        uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153
+        # NOTE: deliberately NO GH_TOKEN in env, and the only token handed to the action
+        # is the READ-ONLY app-token-ro. claude-code-action wires its `github_token` into
+        # the agent's git/gh auth (which can override `persist-credentials: false`), so it
+        # MUST be the read-only token: the worst the agent can do through it is read.
+        # Combined with persist-credentials:false and no GH_TOKEN in env, the agent has no
+        # write capability at all — it can only edit code, commit locally, and write
+        # files. The poster (with the write token) does all pushing and mutation.
+        env:
+          GH_REPO: ${{ github.repository }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ steps.app-token.outputs.token }}
+          # Read-only token: even if the action sets up git/gh for the agent, it cannot
+          # push, reply, create issues, label, or resolve threads.
+          github_token: ${{ steps.app-token-ro.outputs.token }}
           # The label may be applied by a maintainer (human) or our App.
           allowed_bots: "smonn[bot]"
           # Code/test changes go through the project `tdd` skill (.claude/skills/tdd),
           # invoked via `/tdd` in the prompt, so review fixes follow red→green→refactor
           # and the testing standards rather than ad-hoc edits; `Skill` is in allowedTools
-          # so it can run (and chain to `/codebase-design`). The skill spends several
+          # so it can run (and chain to `/codebase-design`). Bash stays (the agent needs
+          # git for local commits and pnpm for the CI gate), but the prompt forbids gh
+          # and push and there are no credentials for either. The skill spends several
           # turns per cycle, and a review can carry many threads, so this needs the same
           # generous budget as implement.yml — keep --max-turns and timeout-minutes in
           # step with each other.
@@ -175,94 +281,267 @@ jobs:
           prompt: |
             A human applied the `address-feedback` label to pull request
             #${{ env.PR_NUMBER }} (branch `${{ env.BRANCH }}`) of ${{ github.repository }}
-            to ask you to address their review feedback. The branch is checked out, `gh`
-            is authenticated, and git can push.
+            to ask you to address their review feedback. The branch is checked out and
+            git can commit LOCALLY.
 
-            1. Read all the feedback: the PR's reviews and review threads
-               (`gh pr view ${{ env.PR_NUMBER }} --json reviews,comments,title,body`,
-               and `gh api repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/comments`
-               for inline review comments — record each comment's `id`, `path`, and
-               `line`). Focus on the most recent human review.
+            You are a PRODUCER. You have NO write access to GitHub: any token available
+            to you is READ-ONLY and git has NO push credential, so every mutation will
+            fail. Do NOT run `gh` to read either (use the precomputed files below), and
+            do NOT attempt to `git push`, post, reply, resolve threads, create issues,
+            label, or merge — they cannot succeed. Your job is to edit code, commit each
+            fix LOCALLY, run the CI gate,
+            and WRITE your intended GitHub actions to files under a `.address/`
+            directory; a later deterministic step reads those files and does ALL pushing
+            and posting. Everything you would have fetched from GitHub has been
+            PRECOMPUTED for you — read it, never call gh.
+
+            1. Read all the feedback from the precomputed context (do NOT call gh):
+               - `.address-context/pr.json` — the PR title, body, reviews, and
+                 review-thread comments (what `gh pr view --json
+                 reviews,comments,title,body` returns).
+               - `.address-context/inline-comments.json` — the inline review comments as
+                 raw REST objects; each has `id`, `path`, and `line` (or
+                 `original_line`). This is your source of comment ids.
+               - `.address-context/inline-comments.md` — a readable digest of the same,
+                 one section per comment (id, path, line, author, body).
+               - `.address-context/issue.md` — the originating issue(s) (the Spec /
+                 scope source). If it says none was found, treat the issue as the only
+                 scope anchor.
+               Focus on the most recent human review.
             2. SCOPE RULE (applies to every point): a fix HONES this PR, it never
                extends it. Implement ONLY (a) defects in the lines/files this PR already
                changed and (b) missed or incorrect acceptance criteria from the
                originating issue. If addressing a point would GROW the diff beyond the
                issue's scope — a new file, a new capability, a new rule / abstraction,
                tests for code this PR didn't touch, or a broader refactor — do NOT
-               implement it: file a follow-up issue and link it on the thread (per the
-               OUT OF SCOPE path below). When in doubt, prefer a follow-up over expanding
+               implement it: record a follow-up issue to file (see below) and reply on
+               the thread deferring it. When in doubt, prefer a follow-up over expanding
                the diff. Honing changes (tightening, simplifying, removing, fixing this
                PR's own new code) are always fine.
 
                Address each in-scope actionable point as ITS OWN commit: make the change,
-               then `git commit` it alone with a clear, scoped message (one fix per
-               commit, so each maps to a single hash). Make the changes faithfully. For
-               any point that changes behavior or needs new/changed tests, use the repo's `tdd`
-               skill — invoke it with `/tdd` — so the fix follows red→green→refactor and
-               the testing standards; you are headless, so do NOT pause for the skill's
-               interactive approval steps, proceed on the review comment as the agreed
-               spec. Trivial, non-behavioral edits (typos, comments, renames already
-               covered by tests) do not need the skill. NEVER weaken,
-               skip, or delete tests to satisfy a comment, and NEVER touch a CLOSED design
-               decision (CONTEXT.md, docs/adr/). You do not have to implement every
-               point — for each one you don't, pick the honest resolution:
+               then `git commit` it alone (LOCAL commit, no push) with a clear, scoped
+               message (one fix per commit, so each maps to a single hash). Make the
+               changes faithfully. For any point that changes behavior or needs
+               new/changed tests, use the repo's `tdd` skill — invoke it with `/tdd` — so
+               the fix follows red→green→refactor and the testing standards; you are
+               headless, so do NOT pause for the skill's interactive approval steps,
+               proceed on the review comment as the agreed spec. Trivial, non-behavioral
+               edits (typos, comments, renames already covered by tests) do not need the
+               skill. NEVER weaken, skip, or delete tests to satisfy a comment, and NEVER
+               touch a CLOSED design decision (CONTEXT.md, docs/adr/). You do not have to
+               implement every point — for each one you don't, pick the honest
+               resolution:
                  - DISAGREE / unsafe / conflicts with a CLOSED decision: don't implement;
-                   you'll explain your reasoning on the thread in step 5.
-                 - OUT OF SCOPE but a legitimate improvement: file a follow-up issue with
-                   `gh issue create` and capture its number. Structure the body to match the
-                   matching repo issue form under `.github/ISSUE_TEMPLATE/`
-                   (`feature_request.yml` for an enhancement/refactor, `bug_report.yml` for a
-                   bug), filling each of its fields under the same headings — `gh issue
-                   create` bypasses the web form, so a freeform body would not match what a
-                   human submission produces and triage expects. Give it a clear,
-                   conventional-commit-style title, link this PR #${{ env.PR_NUMBER }} and the
-                   review thread in the body, and label it `needs-triage`. Don't file for
-                   points you merely disagree with, or that are already covered by an existing
-                   issue.
-               Keep a map of {review comment id → commit sha | "declined: reason" |
-               "follow-up: #N"}.
-            3. With every fix committed, re-run the full CI gate exactly as ci.yml does:
-               `pnpm lint`, `pnpm depcruise`, `pnpm fmt:check`, `pnpm typecheck`,
-               `pnpm test:coverage`, `pnpm build`. Everything must pass — add follow-up
-               commits until it does.
-            4. Push to `${{ env.BRANCH }}` with a plain `git push` — NEVER force-push. If
-               the push is rejected because the branch advanced past the labelled commit,
-               stop and post a comment saying the branch moved and the request needs a
-               re-run (re-apply the label), rather than forcing.
-            5. Reply to the feedback IN-THREAD — do NOT post one big catch-all summary
-               comment. ALWAYS author each reply body with the Write tool to a file
-               (e.g. `reply.md`) and pass that file to `gh` — never build a reply inside
-               a shell argument. Inline `-f body='...'` corrupts: it breaks on an
-               apostrophe ("doesn't") and tempts you to backslash-escape markdown. In the
-               file, use plain characters and real newlines; never emit `\n`, `\<`, `\[`,
-               or other backslash escapes (GitHub renders raw markdown). For each inline
-               review comment you acted on, reply on its own thread citing the commit
-               that addressed it (use the pushed short SHA):
-               `gh api -X POST repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/comments/<id>/replies -F body=@reply.md`
-               For a point you declined, reply on its thread explaining why (no commit).
-               For one you deferred, reply linking the follow-up issue, e.g. "Out of scope
-               for this PR — filed #N to track." For feedback NOT anchored to an inline
-               comment (a review summary or a plain PR comment), post a single concise
-               top-level reply with `gh pr comment ${{ env.PR_NUMBER }} --body-file <file>`.
-            6. RESOLVE each inline thread you FIXED so it collapses out of the
-               conversation and the PR stays readable. Resolve ONLY threads you addressed
-               with a commit — leave threads you declined or deferred OPEN so the
-               maintainer can weigh in. Thread IDs are GraphQL node IDs (not the REST
-               comment ids you replied to), so map and resolve via GraphQL: list the PR's
-               review threads with each thread's id and its first comment's databaseId,
-               then for every thread whose first comment matches an inline comment you
-               fixed, call the resolve mutation:
+                   status `declined`, and explain your reasoning in its reply body.
+                 - OUT OF SCOPE but a legitimate improvement: status `deferred`. Write a
+                   follow-up issue body file (see step 4) and have the reply cite it.
+                   Don't file for points you merely disagree with, or that are already
+                   covered by an existing issue.
+            3. With every fix committed LOCALLY, re-run the full CI gate exactly as
+               ci.yml does: `pnpm lint`, `pnpm depcruise`, `pnpm fmt:check`,
+               `pnpm typecheck`, `pnpm test:coverage`, `pnpm build`. Everything must
+               pass — add follow-up commits until it does. After the gate is green,
+               record each fixed comment's SHORT commit sha (these are stable across a
+               plain push, so the poster can cite them verbatim).
+            4. Author every output file with the Write tool, which writes bytes verbatim:
+               use REAL newlines (press enter), never the characters backslash-n. In
+               prose bodies, never emit backslash escapes and never backslash-escape
+               markdown metacharacters (`<`, `>`, `[`, `]`, backtick) — write them as
+               plain characters; GitHub renders them correctly. You never touch JSON
+               escaping or `gh`; the poster does that. Write under `.address/`:
 
-                   gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{id isResolved comments(first:1){nodes{databaseId}}}}}}}' \
-                     -F o=${{ github.repository_owner }} -F r=${{ github.event.repository.name }} -F n=${{ env.PR_NUMBER }}
+               a. `.address/replies/<comment-id>.md` — one raw reply body per inline
+                  comment you ACTED ON, named by the REST comment id from
+                  inline-comments.json. For a FIXED point, cite the commit, e.g. "Fixed
+                  in `<short-sha>`." For a DECLINED point, explain why (no commit). For a
+                  DEFERRED point, cite the follow-up you are filing using the PLACEHOLDER
+                  token `{{followup:<slug>}}` — the poster substitutes it with the real
+                  `#N` once the issue is created, e.g. "Out of scope for this PR — filed
+                  {{followup:retry-backoff}} to track." Use the SAME slug you give the
+                  follow-up in step 4c.
+               b. `.address/toplevel.md` (OPTIONAL) — a single reply body for feedback
+                  NOT anchored to any inline comment (a review summary or a plain PR
+                  discussion comment). Omit the file entirely if there is no such
+                  feedback. It may also use `{{followup:<slug>}}` tokens.
+               c. `.address/followups/<slug>.md` — one raw issue body per follow-up to
+                  file. Choose a short kebab-case `<slug>` per follow-up. Structure the
+                  body to MATCH the matching repo issue form under
+                  `.github/ISSUE_TEMPLATE/` (`feature_request.yml` for an
+                  enhancement/refactor, `bug_report.yml` for a bug), filling each of its
+                  fields under the same headings — `gh issue create` bypasses the web
+                  form, so a freeform body would not match what a human submission
+                  produces and triage expects. Link this PR #${{ env.PR_NUMBER }} and the
+                  review thread in the body.
+               d. `.address/manifest.json` — SCALARS ONLY (ids, statuses, shas, slugs,
+                  file paths, booleans) — never prose, so there is nothing to escape.
+                  Shape:
 
-                   gh api graphql -f query='mutation($t:ID!){resolveReviewThread(input:{threadId:$t}){thread{isResolved}}}' -F t=<THREAD_NODE_ID>
+                      {
+                        "comments": [
+                          { "comment_id": <rest-id>, "status": "fixed",
+                            "sha": "<short-sha>", "reply_file": "replies/<id>.md" },
+                          { "comment_id": <rest-id>, "status": "declined",
+                            "reply_file": "replies/<id>.md" },
+                          { "comment_id": <rest-id>, "status": "deferred",
+                            "reply_file": "replies/<id>.md",
+                            "followup_slug": "<slug>" }
+                        ],
+                        "followups": [
+                          { "slug": "<slug>", "title": "<conventional-commit title>",
+                            "labels": ["enhancement"], "body_file": "followups/<slug>.md" }
+                        ],
+                        "toplevel_file": "toplevel.md",
+                        "escalate": false
+                      }
 
-            Do NOT approve or merge the PR, and do NOT push to main. A human re-reviews.
+                  - One `comments` entry per inline comment you acted on. `sha` is
+                    REQUIRED for `status: "fixed"` (short sha) and omitted otherwise.
+                    `followup_slug` appears on `deferred` entries that file a follow-up.
+                  - `followups` lists every issue to create; `labels` is an array of
+                    strings (the poster always adds `needs-triage` on top). Omit or use
+                    `[]` if none.
+                  - `toplevel_file` is present only if you wrote `.address/toplevel.md`;
+                    omit it otherwise.
+                  - `escalate` is `false` normally. Set it to `true` (and add
+                    `"escalate_reason": "<why>"`) ONLY for the "branch moved / cannot
+                    proceed" path — if you determine you cannot make a coherent set of
+                    fixes against the labelled commit. The poster then posts the
+                    escalation and does NOT push.
+
+               Always write `.address/manifest.json`. The poster takes it from there —
+               do not push and do not call gh.
+            5. Do NOT approve or merge the PR, and do NOT push to main or anywhere. A
+               human re-reviews after the poster pushes your local commits.
+
+      # Deterministic poster: read the agent's local commits + .address/ files and do
+      # ALL GitHub mutation. ORDER MATTERS (clean all-or-nothing):
+      #   1. escalate -> comment + label, no push, stop.
+      #   2. else push the branch FIRST (plain, NEVER force). Non-fast-forward (the
+      #      branch advanced past the labelled commit) -> post "branch moved" + stop;
+      #      nothing else is posted.
+      #   3. create follow-up issues, capture each #N, substitute {{followup:slug}}.
+      #   4. post in-thread replies (one per acted-on inline comment).
+      #   5. post the top-level reply if present.
+      #   6. resolve the GraphQL review threads for comments whose status is "fixed".
+      # The token is re-established here (token-in-URL push) — the only place with push
+      # credentials. jq does all JSON encoding from raw body files via --input -.
+      - name: Push, post replies, file follow-ups, resolve threads
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          test -f .address/manifest.json || { echo "::error::producer wrote no .address/manifest.json"; exit 1; }
+          jq empty .address/manifest.json || { echo "::error::.address/manifest.json is not valid JSON"; exit 1; }
+
+          # --- 1. Escalation path: comment + label, NO push, stop. ---
+          if [ "$(jq -r '.escalate // false' .address/manifest.json)" = "true" ]; then
+            reason=$(jq -r '.escalate_reason // "The agent could not produce a coherent set of fixes against the labelled commit."' .address/manifest.json)
+            printf '%s\n\n%s\n' "$reason" "Re-apply the \`address-feedback\` label to try again." > .address-escalate.md
+            gh pr comment "$PR_NUMBER" --body-file .address-escalate.md
+            gh pr edit "$PR_NUMBER" --add-label needs-human || true
+            echo "Escalated PR #$PR_NUMBER without pushing."
+            exit 0
+          fi
+
+          # --- 2. Push FIRST (plain, never force). ---
+          # Re-establish a push credential here (the checkout had none). A
+          # non-fast-forward rejection means the branch advanced past the labelled
+          # commit: post "branch moved" and stop — post nothing else (all-or-nothing).
+          if git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${BRANCH}"; then
+            echo "Pushed local commits to $BRANCH."
+          else
+            echo "::warning::push to $BRANCH was rejected (branch likely advanced past the labelled commit) — posting branch-moved notice and stopping."
+            printf '%s\n' "The branch moved on past the commit I reviewed, so I did not push my fixes (I never force-push). Please re-apply the \`address-feedback\` label to run again against the current head." > .address-moved.md
+            gh pr comment "$PR_NUMBER" --body-file .address-moved.md
+            exit 0
+          fi
+
+          # --- 3. Create follow-up issues, capture each #N, build the slug->#N map. ---
+          : > .address-followup-map.txt   # lines: "<slug>\t<number>"
+          while IFS= read -r fu; do
+            [ -n "$fu" ] || continue
+            slug=$(printf '%s' "$fu" | jq -r '.slug')
+            title=$(printf '%s' "$fu" | jq -r '.title')
+            body_file=$(printf '%s' "$fu" | jq -r '.body_file')
+            test -f ".address/$body_file" || { echo "::error::follow-up body file $body_file missing"; exit 1; }
+            # Build the --label args: always needs-triage, plus the manifest's labels.
+            label_args=(--label needs-triage)
+            while IFS= read -r lbl; do
+              [ -n "$lbl" ] || continue
+              label_args+=(--label "$lbl")
+            done < <(printf '%s' "$fu" | jq -r '.labels[]? // empty')
+            url=$(gh issue create --title "$title" --body-file ".address/$body_file" "${label_args[@]}")
+            num=$(printf '%s' "$url" | grep -oE '[0-9]+$')
+            printf '%s\t%s\n' "$slug" "$num" >> .address-followup-map.txt
+            echo "Filed follow-up #$num ($slug): $url"
+          done < <(jq -c '.followups[]?' .address/manifest.json)
+
+          # Substitute {{followup:<slug>}} -> #N in a body file, in place.
+          substitute_followups() {
+            f=$1
+            while IFS=$'\t' read -r slug num; do
+              [ -n "$slug" ] || continue
+              # Plain-text replacement; slugs are kebab-case so no regex metachars.
+              sed -i "s|{{followup:${slug}}}|#${num}|g" "$f"
+            done < .address-followup-map.txt
+          }
+
+          # --- 4. Post in-thread replies (one per acted-on inline comment). ---
+          while IFS= read -r c; do
+            [ -n "$c" ] || continue
+            cid=$(printf '%s' "$c" | jq -r '.comment_id')
+            reply_file=$(printf '%s' "$c" | jq -r '.reply_file // empty')
+            [ -n "$reply_file" ] || continue
+            test -f ".address/$reply_file" || { echo "::warning::reply file $reply_file missing for comment $cid — skipping"; continue; }
+            cp ".address/$reply_file" .address-reply.md
+            substitute_followups .address-reply.md
+            # jq reads the body verbatim from the file and does all JSON encoding.
+            jq -n --rawfile body .address-reply.md '{body:$body}' \
+              | gh api -X POST "repos/$GH_REPO/pulls/$PR_NUMBER/comments/$cid/replies" --input - > /dev/null
+            echo "Replied in-thread on comment $cid."
+          done < <(jq -c '.comments[]?' .address/manifest.json)
+
+          # --- 5. Post the top-level reply if present. ---
+          toplevel_file=$(jq -r '.toplevel_file // empty' .address/manifest.json)
+          if [ -n "$toplevel_file" ] && [ -f ".address/$toplevel_file" ]; then
+            cp ".address/$toplevel_file" .address-toplevel.md
+            substitute_followups .address-toplevel.md
+            gh pr comment "$PR_NUMBER" --body-file .address-toplevel.md
+            echo "Posted top-level reply."
+          fi
+
+          # --- 6. Resolve the review threads for comments whose status is "fixed". ---
+          # Map REST comment id -> GraphQL thread node id, then resolve each. Thread ids
+          # are GraphQL node ids (not the REST comment ids), so list the threads with
+          # each thread's id and its first comment's databaseId and match on that.
+          fixed_ids=$(jq -r '.comments[]? | select(.status == "fixed") | .comment_id' .address/manifest.json)
+          if [ -n "$fixed_ids" ]; then
+            threads=$(gh api graphql \
+              -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{id isResolved comments(first:1){nodes{databaseId}}}}}}}' \
+              -F o="$OWNER" -F r="$REPO_NAME" -F n="$PR_NUMBER")
+            for cid in $fixed_ids; do
+              tid=$(printf '%s' "$threads" | jq -r --argjson cid "$cid" \
+                '.data.repository.pullRequest.reviewThreads.nodes[] | select(.comments.nodes[0].databaseId == $cid) | .id' | head -n1)
+              if [ -n "$tid" ] && [ "$tid" != "null" ]; then
+                gh api graphql -f query='mutation($t:ID!){resolveReviewThread(input:{threadId:$t}){thread{isResolved}}}' -F t="$tid" > /dev/null
+                echo "Resolved thread for fixed comment $cid."
+              else
+                echo "::warning::no review thread found for fixed comment $cid — leaving unresolved."
+              fi
+            done
+          fi
+
+          echo "Address-review poster complete."
 
       # No explicit re-review trigger is needed: when the fix push lands it advances the
       # PR head, and review.yml re-reviews automatically via its `synchronize` trigger
       # (deduped per commit). The push-skip path (branch advanced past EVENT_SHA) leaves
-      # the head at EVENT_SHA with no new push — the agent already posted a comment and
-      # stopped — so nothing fires, which is the intended behaviour. `needs-review` stays
-      # available as the manual "re-review now" signal a maintainer can apply by hand.
+      # the head at EVENT_SHA with no new push — the poster already posted the branch-moved
+      # comment and stopped — so nothing fires, which is the intended behaviour.
+      # `needs-review` stays available as the manual "re-review now" signal a maintainer
+      # can apply by hand.
