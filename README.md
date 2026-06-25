@@ -16,7 +16,7 @@ random bits — the same byte layout as a [ULID](https://github.com/ulid/spec).
 ## Quickstart
 
 ```ts
-import { type Id, createTimestampId } from "@smonn/ids";
+import { type Id, type ValidBrand, createTimestampId } from "@smonn/ids";
 
 const users = createTimestampId("usr");
 
