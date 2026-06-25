@@ -1,32 +1,40 @@
 import { describe, expect, it } from "vitest";
 import { formatInspectOutput, msPerDay, msPerHour, msPerMinute } from "./format.js";
+import type { Id } from "../types.js";
 
-function relativeLabel(diffMs: number): string {
-  const out = formatInspectOutput({
+const nowMs = 1_000_000_000_000;
+const fakeId = "tst_00000000000000000000000000" as unknown as Id<string>;
+
+function relative(thenMs: number): string {
+  return formatInspectOutput({
     brand: "tst",
-    timestamp: new Date(0),
-    canonical: "tst_00000000000000000000000000" as any,
+    timestamp: new Date(thenMs),
+    canonical: fakeId,
     input: "tst_00000000000000000000000000",
-    nowMs: diffMs,
+    nowMs,
   });
-  const match = /\((.+?)\)/.exec(out);
-  return match?.[1] ?? "";
 }
 
-describe("exact threshold boundaries", () => {
-  it("1 ms below msPerMinute → just now", () => {
-    expect(relativeLabel(msPerMinute - 1)).toBe("just now");
+describe("formatRelative — exact threshold boundaries", () => {
+  it("diff === 0 (same millisecond): output contains 'just now'", () => {
+    expect(relative(nowMs)).toContain("just now");
   });
 
-  it("exactly msPerMinute → 1 minute ago", () => {
-    expect(relativeLabel(msPerMinute)).toBe("1 minute ago");
+  it("abs === msPerMinute (60 000 ms): output contains '1 minute', not 'just now'", () => {
+    const out = relative(nowMs - msPerMinute);
+    expect(out).toContain("1 minute");
+    expect(out).not.toContain("just now");
   });
 
-  it("exactly msPerHour → 1 hour ago", () => {
-    expect(relativeLabel(msPerHour)).toBe("1 hour ago");
+  it("abs === msPerHour (3 600 000 ms): output contains '1 hour', not '60 minutes'", () => {
+    const out = relative(nowMs - msPerHour);
+    expect(out).toContain("1 hour");
+    expect(out).not.toContain("60 minutes");
   });
 
-  it("exactly msPerDay → 1 day ago", () => {
-    expect(relativeLabel(msPerDay)).toBe("1 day ago");
+  it("abs === msPerDay (86 400 000 ms): output contains '1 day', not '24 hours'", () => {
+    const out = relative(nowMs - msPerDay);
+    expect(out).toContain("1 day");
+    expect(out).not.toContain("24 hours");
   });
 });

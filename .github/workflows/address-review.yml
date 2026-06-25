@@ -341,7 +341,13 @@ jobs:
                proceed on the review comment as the agreed spec. Trivial, non-behavioral
                edits (typos, comments, renames already covered by tests) do not need the
                skill. NEVER weaken, skip, or delete tests to satisfy a comment, and NEVER
-               touch a CLOSED design decision (CONTEXT.md, docs/adr/). You do not have to
+               touch a CLOSED design decision (CONTEXT.md, docs/adr/). NEVER create or
+               modify a GitHub Actions workflow file under `.github/workflows/`: the
+               poster's token lacks the `workflows` permission, so a push touching one is
+               rejected and nothing lands. If a comment asks for a `.github/workflows/*`
+               change, do NOT edit it — resolve that point as `declined` (or `deferred`)
+               and say in the reply that a maintainer must make the workflow change by
+               hand. You do not have to
                implement every point — for each one you don't, pick the honest
                resolution:
                  - DISAGREE / unsafe / conflicts with a CLOSED decision: don't implement;
@@ -457,6 +463,28 @@ jobs:
             gh pr comment "$PR_NUMBER" --body-file .address-escalate.md
             gh pr edit "$PR_NUMBER" --add-label needs-human || true
             echo "Escalated PR #$PR_NUMBER without pushing."
+            exit 0
+          fi
+
+          # WORKFLOW-FILE GUARD: the token lacks the `workflows` permission, so GitHub
+          # rejects any push touching .github/workflows/. Check BEFORE the push below —
+          # otherwise such a rejection would be misread as a non-fast-forward and post the
+          # wrong "branch moved" notice. If the agent's commits (those past the reviewed
+          # head EVENT_SHA) touch a workflow file, escalate to a human instead of pushing.
+          wf_changes=$(git diff --name-only "$EVENT_SHA..HEAD" -- '.github/workflows/')
+          if [ -n "$wf_changes" ]; then
+            {
+              printf 'I addressed the review feedback but the change modifies GitHub '
+              printf 'Actions workflow files:\n\n'
+              printf '%s\n' "$wf_changes" | sed 's/^/- `/; s/$/`/'
+              printf '\nThe automation App token intentionally lacks the `workflows` '
+              printf 'permission (least-privilege), so GitHub rejects any push that '
+              printf 'touches `.github/workflows/`. I did not push. A maintainer needs to '
+              printf 'apply the workflow change by hand. Escalating to `needs-human`.\n'
+            } > .address-workflow-escalate.md
+            echo "Escalating PR #$PR_NUMBER: commits touch .github/workflows/ (token lacks workflows permission)."
+            gh pr comment "$PR_NUMBER" --body-file .address-workflow-escalate.md
+            gh pr edit "$PR_NUMBER" --add-label needs-human || true
             exit 0
           fi
 

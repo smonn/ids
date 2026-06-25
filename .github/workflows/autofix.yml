@@ -236,7 +236,12 @@ jobs:
             2. Fix the ROOT CAUSE. Use `pnpm lint:fix` / `pnpm fmt` for formatting and
                lint. For failing tests, fix the implementation or the test faithfully.
                NEVER weaken, skip, or delete tests just to go green, and NEVER touch a
-               CLOSED design decision (see CONTEXT.md and docs/adr/).
+               CLOSED design decision (see CONTEXT.md and docs/adr/). NEVER create or
+               modify a GitHub Actions workflow file under `.github/workflows/`: the
+               poster's token lacks the `workflows` permission, so a push that touches one
+               is rejected and the fix can never land. If the only safe fix would edit a
+               `.github/workflows/*` file, do NOT commit it — take the escalation path
+               (step 5) so a human can make the workflow change.
             3. Re-run the full gate; everything must pass.
             4. If you fixed it: commit LOCALLY (do NOT push) with a message that starts
                `fix(ci): ` and contains the marker `[ci-autofix]`. Then write
@@ -295,6 +300,25 @@ jobs:
             if [ "$new" -eq 0 ]; then
               echo "::error::manifest says fixed=true but there are no [ci-autofix] commits to push."
               exit 1
+            fi
+            # WORKFLOW-FILE GUARD: the token lacks the `workflows` permission, so GitHub
+            # rejects any push touching .github/workflows/. The producer is told to
+            # escalate rather than edit one, but enforce it here too: if the fix commits
+            # touch a workflow file, escalate to a human instead of the doomed push.
+            wf_changes=$(git diff --name-only "origin/main..HEAD" -- '.github/workflows/')
+            if [ -n "$wf_changes" ]; then
+              {
+                printf 'Autofix produced a fix that modifies GitHub Actions workflow files:\n\n'
+                printf '%s\n' "$wf_changes" | sed 's/^/- `/; s/$/`/'
+                printf '\nThe automation App token intentionally lacks the `workflows` '
+                printf 'permission (least-privilege), so GitHub rejects any push that '
+                printf 'touches `.github/workflows/`. I did not push. A maintainer needs '
+                printf 'to apply the workflow fix by hand. Escalating to `needs-human`.\n'
+              } > .autofix/workflow-escalation.md
+              echo "Escalating PR #$PR_NUMBER: fix commits touch .github/workflows/ (token lacks workflows permission)."
+              gh pr comment "$PR_NUMBER" --body-file .autofix/workflow-escalation.md
+              gh pr edit "$PR_NUMBER" --add-label needs-human
+              exit 0
             fi
             echo "Pushing $new local fix commit(s) to $BRANCH (plain, never force)."
             # Set up push credentials HERE (the producer's checkout had none). Never log

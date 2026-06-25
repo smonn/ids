@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll } from "vitest";
+import * as fc from "fast-check";
 import {
   createSignedTimestampId,
   decodeSigningKey,
@@ -13,6 +14,7 @@ import {
   type IdsErrorCode,
 } from "./index.js";
 import type { Id } from "../../types.js";
+import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 
 describe("@smonn/ids/signed re-exports", () => {
   it("exports importSigningKey as a function", () => {
@@ -411,5 +413,115 @@ describe("createSignedTimestampId", () => {
     // SignedTimestampCodec used as a type annotation via expectTypeOf-equivalent
     const codec: SignedTimestampCodec<"sgn"> | undefined = undefined;
     expect(codec).toBeUndefined();
+  });
+
+  // --- Golden vector ---
+
+  it("golden vector: fixed ts + rng + key yields exact wire string", async () => {
+    // key: 32 bytes of 0x42; ts: 0x123456789abc; rng: all bytes 0xab
+    // The tag region (last 5 bytes of payload = base32 chars 17–24) is
+    // HMAC-SHA-256 over brand ‖ ts6 ‖ rand5, truncated to 5 bytes.
+    const key = await importSigningKey(new Uint8Array(32).fill(0x42));
+    const codec = createSignedTimestampId("sgn", {
+      keys: [key],
+      now: () => 0x123456789abc,
+      rng: (target) => {
+        target.fill(0xab);
+      },
+      allowDuplicateBrand: true,
+    });
+    expect(await codec.generate()).toBe("sgn_28t5cy4tqjntqaxbndcwmngh5m");
+  });
+
+  // --- fast-check property tests ---
+
+  describe("fast-check property tests", () => {
+    let sharedKey: SigningKey;
+
+    beforeAll(async () => {
+      sharedKey = await importSigningKey(new Uint8Array(32).fill(0x42));
+    });
+
+    it("safeParse never throws on arbitrary input", () => {
+      const codec = createSignedTimestampId("sgn", {
+        keys: [sharedKey],
+        allowDuplicateBrand: true,
+      });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          codec.safeParse(s);
+          return true;
+        }),
+      );
+    });
+
+    it("safeParse: when ok, returned id satisfies is()", () => {
+      const codec = createSignedTimestampId("sgn", {
+        keys: [sharedKey],
+        allowDuplicateBrand: true,
+      });
+      fc.assert(
+        fc.property(fc.string(), (s) => {
+          const r = codec.safeParse(s);
+          return !r.ok || codec.is(r.id);
+        }),
+      );
+    });
+
+    it("tamper invariant: flipping any bit in the 128-bit payload causes safeVerify to return verification_failed", async () => {
+      const codec = createSignedTimestampId("sgn", {
+        keys: [sharedKey],
+        now: () => 0x123456789abc,
+        rng: (target) => {
+          target.fill(0xab);
+        },
+        allowDuplicateBrand: true,
+      });
+      const fixedId = await codec.generate();
+      await fc.assert(
+        fc.asyncProperty(fc.integer({ min: 0, max: 127 }), async (bitIndex) => {
+          const payload = payloadBytesFromId("sgn_", fixedId);
+          const tampered = new Uint8Array(payload);
+          const byteIdx = bitIndex >> 3;
+          tampered[byteIdx] = tampered[byteIdx]! ^ (1 << (7 - (bitIndex & 7)));
+          const result = await codec.safeVerify(toWireId("sgn_", tampered));
+          return result.ok === false && result.error === "verification_failed";
+        }),
+      );
+    });
+
+    it("key encode/decode round-trip: encodeSigningKey → decodeSigningKey is identity for all lengths and formats", () => {
+      fc.assert(
+        fc.property(
+          fc.oneof(
+            fc.uint8Array({ minLength: 16, maxLength: 16 }),
+            fc.uint8Array({ minLength: 24, maxLength: 24 }),
+            fc.uint8Array({ minLength: 32, maxLength: 32 }),
+          ),
+          fc.constantFrom("hex" as SigningKeyFormat, "base64url" as SigningKeyFormat),
+          (bytes, fmt) => {
+            const decoded = decodeSigningKey(encodeSigningKey(bytes, fmt), fmt);
+            return decoded.length === bytes.length && decoded.every((b, i) => b === bytes[i]);
+          },
+        ),
+      );
+    });
+
+    it("decodeSigningKey never throws on arbitrary string input", () => {
+      fc.assert(
+        fc.property(
+          fc.string(),
+          fc.constantFrom("hex" as SigningKeyFormat, "base64url" as SigningKeyFormat),
+          (s, fmt) => {
+            try {
+              decodeSigningKey(s, fmt);
+            } catch (e) {
+              return isIdsError(e);
+            }
+            return true;
+          },
+        ),
+      );
+    });
   });
 });
