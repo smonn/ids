@@ -53,6 +53,9 @@ export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<n
   }
   const bytes = new Uint8Array(bits / 8);
   crypto.getRandomValues(bytes);
+  opts.stderr(
+    "Warning: secret key material — redirect to a file (chmod 0600) and avoid shell history.\n",
+  );
   opts.stdout(variant.key.encode(bytes, format) + "\n");
   return Promise.resolve(0);
 }
