@@ -469,7 +469,7 @@ describe("createSignedTimestampId", () => {
   it("safeVerify rejects a correctly-prefixed but truncated base32 payload (wrong-length wire)", async () => {
     const key = await makeKey();
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
-    // 25 base32 chars instead of the required 26 — parse-length guard fires before any HMAC work
+    // 25 base32 chars instead of the required 26
     const shortWire = "sgn_" + "0".repeat(25);
     const result = await codec.safeVerify(shortWire);
     expect(result).toEqual({ ok: false, error: "invalid_base32" });
