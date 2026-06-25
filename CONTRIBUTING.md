@@ -31,6 +31,8 @@ These were considered and rejected for specific reasons. If you have a genuinely
 - **Lenient `is()`.** `is()` is canonical-only by design; the lenient path is `safeParse()`. Restoring lenient `is()` would re-open the footgun ADR-0003 closed. See [ADR-0003](./docs/adr/0003-canonical-strict-is.md).
 - **Monotonicity inside `generate()`.** A stable intra-ms sort would force a breaking change to `TimestampOptions.rng`. If you need this, design it as a separate opt-in API (e.g. `createMonotonicId`) and propose it in an issue first.
 - **Custom epoch.** 48 bits of ms gives ~8919 years of headroom from 1970; there's no bit-budget motivation to rebase. A custom epoch would turn time into a magic number every downstream consumer would have to remember. See [ADR-0002](./docs/adr/0002-payload-layout.md).
+- **Opaque key behavior.** The Opaque Timestamp codec is unauthenticated AES-CBC (strip-and-reconstruct); wrong-key decrypt produces plausible garbage, not an error. Rotation is forward-only and caller-tracked — there is no library-trialled keyring on this codec. See [ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md), [ADR-0006](./docs/adr/0006-async-keyed-codec-contract.md), and [ADR-0013](./docs/adr/0013-opaque-key-rotation.md).
+- **Wire-indistinguishable codec variants.** All codec variants produce the same wire shape (`<brand>_` + 26 Crockford base32 chars); there is no per-codec marker on the wire. Codec choice is a per-brand commitment at construction time, not something that can be inferred from an ID. See [ADR-0007](./docs/adr/0007-wire-indistinguishable-codec-variants.md).
 
 ## Setup
 

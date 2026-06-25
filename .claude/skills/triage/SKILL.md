@@ -44,6 +44,10 @@ These are canonical role names — the actual label strings used in the issue tr
 
 State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time — flag transitions that look unusual and ask before proceeding.
 
+## CI producer model
+
+> **Note:** The interactive/maintainer-loop steps described below — recommend-and-wait, `/grilling` + `/domain-modeling`, post/label/close/write-KB — apply to interactive (human-in-the-loop) sessions. When this skill is invoked under the CI producer model (headless, AFK), the workflow prompt overrides these interactive steps at invocation time; the agent proceeds directly on the issue spec without pausing for approval.
+
 ## Invocation
 
 The maintainer invokes `/triage` and describes what they want in natural language. Interpret the request and act. Examples:
@@ -79,7 +83,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
    - `ready-for-agent` — post an agent brief comment ([AGENT-BRIEF.md](AGENT-BRIEF.md)).
    - `ready-for-human` — same structure as an agent brief, but note why it can't be delegated (judgment calls, external access, design decisions, manual testing).
    - `needs-info` — post triage notes (template below).
-   - `wontfix` — close, with the comment depending on *why*:
+   - `wontfix` — apply the `wontfix` label and post a comment depending on *why* (the issue stays open; the workflow does not automatically close it):
      - **Already implemented** — the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
      - **Rejected (bug)** — polite explanation, then close.
      - **Rejected (enhancement)** — write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).

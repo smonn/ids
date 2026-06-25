@@ -25,4 +25,4 @@ Typical triggers: a file or directory moved by a later refactor, an error code o
 
 **When NOT to use a correction note — prefer a silent rewrite instead.** If the incorrect framing predates any real merge — that is, the ADR was still in draft or on a branch that never reached `main` — there is no historical record to preserve. Rewrite the sentence directly rather than leaving a correction note alongside a claim that was never shipped as written.
 
-**Format reference.** The five correction notes introduced in PR #386 across ADR-0014, ADR-0015, and ADR-0017 are the canonical live examples of this pattern.
+**Format reference.** The seven correction notes across ADR-0014, ADR-0015, and ADR-0017 (dated 2026-06-24, from the ADR-0018 slice refactor) are the canonical live examples of this pattern.

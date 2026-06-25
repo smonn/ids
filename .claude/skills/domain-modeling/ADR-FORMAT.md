@@ -1,5 +1,7 @@
 # ADR Format
 
+> **Note:** This is a lightweight generic template. If the repo already has an established heavier ADR convention — multi-section documents with Status, Decision, Considered Options, Consequences, and Correction notes (e.g. this repo's `docs/adr/` and `docs/adr/ADR-FORMAT.md`) — follow the repo's existing format and correction-note convention instead of this template.
+
 ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
 
 Create the `docs/adr/` directory lazily — only when the first ADR is needed.
