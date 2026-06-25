@@ -1,5 +1,5 @@
 import { validateBrand } from "../_kernel/brand.js";
-import { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
+import { IdsError } from "../../error.js";
 import { createWrappedLayoutOps } from "./layout.js";
 import { registerBrand } from "../_kernel/registry.js";
 import type {
@@ -9,6 +9,7 @@ import type {
   ParseResult,
   Prefix,
   StandardSchemaProps,
+  ValidBrand,
 } from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 import {
@@ -23,7 +24,7 @@ import {
 } from "./key.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
-export { IdsError, isIdsError, type IdsErrorCode };
+export { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
 export {
   decodeWrappingKey,
   encodeWrappingKey,
@@ -230,7 +231,7 @@ function assertLookupKey<Kind extends WrappedKind>(
  * ```
  */
 export function createWrappedKeyId<Brand extends string, Kind extends WrappedKind>(
-  brand: Brand,
+  brand: Brand & ValidBrand<Brand>,
   opts: WrappedKeyOptions<Kind>,
 ): WrappedKeyCodec<Brand, Kind> {
   validateBrand(brand);

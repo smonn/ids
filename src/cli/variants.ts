@@ -254,9 +254,10 @@ export const digestVariant: GeneratorDescriptor = {
       const codec = createDigestId(brand, { ns, key: key as DigestKey, allowDuplicateBrand: true });
       return {
         safeParse: (v: unknown) => codec.safeParse(v),
-        generate(): Promise<string> {
+        async generate(): Promise<string> {
           const reader = opts.readStdin ?? (() => Promise.resolve(""));
-          return reader().then((material) => codec.digest(material));
+          const material = await reader();
+          return codec.digest(material);
         },
       };
     } catch (err) {

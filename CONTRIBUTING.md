@@ -40,7 +40,7 @@ These were considered and rejected for specific reasons. If you have a genuinely
 pnpm install
 ```
 
-Requires Node ≥ 24 and pnpm.
+Requires Node ≥ 22 and pnpm.
 
 ## Dev loop
 

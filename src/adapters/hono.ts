@@ -71,8 +71,7 @@ export function idParam<ParamKey extends string, Brand extends string>(
       if (options?.onError) {
         return options.onError(failure, c);
       }
-      const defaultStatus: ContentfulStatusCode = failure.reason === "brand_mismatch" ? 404 : 400;
-      throw new HTTPException(options?.status?.[failure.reason] ?? defaultStatus);
+      throw new HTTPException(failure.status as ContentfulStatusCode);
     }
     c.set(paramName, result.id);
     await next();

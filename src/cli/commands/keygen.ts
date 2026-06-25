@@ -5,7 +5,7 @@ import type { RunOpts } from "../types.js";
 import { usageKeygen } from "../usage.js";
 import { keygenPolicy } from "../variants.js";
 
-export function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
+export async function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
   if (args.includes("--help") || args.includes("-h")) {
     opts.stdout(usageKeygen());
     return Promise.resolve(0);

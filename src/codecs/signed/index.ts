@@ -1,5 +1,5 @@
 import { validateBrand } from "../_kernel/brand.js";
-import { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
+import { IdsError } from "../../error.js";
 import { createSignedTimestampLayoutOps } from "./layout.js";
 import { registerBrand } from "../_kernel/registry.js";
 import { defaultRng } from "../_kernel/rng.js";
@@ -10,6 +10,7 @@ import type {
   ParseResult,
   Prefix,
   StandardSchemaProps,
+  ValidBrand,
 } from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 import {
@@ -23,8 +24,8 @@ import {
   type SigningKeyFormat,
 } from "./key.js";
 
-/** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported for convenience. */
-export { IdsError, isIdsError, type IdsErrorCode };
+/** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
+export { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
 export {
   decodeSigningKey,
   encodeSigningKey,
@@ -156,7 +157,7 @@ export type SignedTimestampCodec<Brand extends string> = {
  * ```
  */
 export function createSignedTimestampId<Brand extends string>(
-  brand: Brand,
+  brand: Brand & ValidBrand<Brand>,
   opts: SignedTimestampOptions,
 ): SignedTimestampCodec<Brand> {
   validateBrand(brand);

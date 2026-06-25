@@ -12,6 +12,7 @@ import {
 } from "vitest";
 import * as fc from "fast-check";
 import { createTimestampId } from "../timestamp/index.js";
+import { resetBrandRegistry } from "../_kernel/registry.js";
 import {
   createOpaqueTimestampId,
   decodeOpaqueKey,
@@ -237,8 +238,11 @@ describe("opaque", () => {
 
   it("rejects brands that are not exactly three a-z characters", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
+    // @ts-expect-error — "a" (1 char) is not a valid brand; ValidBrand<"a"> = never
     expect(() => createOpaqueTimestampId("a", { key })).toThrow();
+    // @ts-expect-error — "aaaa" (4 chars) is not a valid brand; ValidBrand<"aaaa"> = never
     expect(() => createOpaqueTimestampId("aaaa", { key })).toThrow();
+    // @ts-expect-error — "!@?" (non-alpha) is not a valid brand; ValidBrand<"!@?"> = never
     expect(() => createOpaqueTimestampId("!@?", { key })).toThrow();
   });
 
@@ -344,9 +348,9 @@ describe("opaque", () => {
 });
 
 describe("cross-codec brand registry", () => {
-  // Each test uses a unique brand to avoid module-level registry contamination
-  // across tests in the same process. Distinct from the zaa-zaf range used by
-  // timestamp.test.ts.
+  // resetBrandRegistry() in beforeEach isolates each case from module-level
+  // registry contamination (ADR-0021), so a stable brand can be reused instead
+  // of minting throwaway ones.
   let warnSpy: ReturnType<typeof vi.spyOn>;
   let key: OpaqueKey;
 
@@ -355,51 +359,53 @@ describe("cross-codec brand registry", () => {
   });
 
   beforeEach(() => {
+    resetBrandRegistry();
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
     warnSpy.mockRestore();
     vi.unstubAllEnvs();
+    resetBrandRegistry();
   });
 
   it("warns when a brand registered by createTimestampId is then passed to createOpaqueTimestampId", () => {
-    createTimestampId("zba");
+    createTimestampId("usr");
     expect(warnSpy).not.toHaveBeenCalled();
-    createOpaqueTimestampId("zba", { key });
+    createOpaqueTimestampId("usr", { key });
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
   it("warns when a brand registered by createOpaqueTimestampId is then passed to createTimestampId", () => {
-    createOpaqueTimestampId("zbb", { key });
+    createOpaqueTimestampId("usr", { key });
     expect(warnSpy).not.toHaveBeenCalled();
-    createTimestampId("zbb");
+    createTimestampId("usr");
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
   it("allowDuplicateBrand on createOpaqueTimestampId suppresses the cross-codec warning", () => {
-    createTimestampId("zbc");
-    createOpaqueTimestampId("zbc", { key, allowDuplicateBrand: true });
+    createTimestampId("usr");
+    createOpaqueTimestampId("usr", { key, allowDuplicateBrand: true });
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it("allowDuplicateBrand on createTimestampId suppresses the cross-codec warning", () => {
-    createOpaqueTimestampId("zbd", { key });
-    createTimestampId("zbd", { allowDuplicateBrand: true });
+    createOpaqueTimestampId("usr", { key });
+    createTimestampId("usr", { allowDuplicateBrand: true });
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it("in production: no warning and the brand is not registered across codecs", () => {
     vi.stubEnv("NODE_ENV", "production");
-    createTimestampId("zbe");
-    createOpaqueTimestampId("zbe", { key });
+    createTimestampId("usr");
+    createOpaqueTimestampId("usr", { key });
     expect(warnSpy).not.toHaveBeenCalled();
 
     // Lift production gate; production calls must not have populated the registry.
     vi.unstubAllEnvs();
-    createTimestampId("zbe");
+    createTimestampId("usr");
     expect(warnSpy).not.toHaveBeenCalled();
-    createOpaqueTimestampId("zbe", { key });
+    createOpaqueTimestampId("usr", { key });
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 });

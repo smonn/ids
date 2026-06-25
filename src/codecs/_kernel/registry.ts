@@ -21,3 +21,14 @@ export function registerBrand(brand: string, allowDuplicateBrand: boolean | unde
     registeredBrands.add(brand);
   }
 }
+
+/**
+ * Clears the process-global brand registry. Internal test hook only — not part
+ * of the public API. Lets a test suite reset duplicate-detection state between
+ * cases (e.g. in `beforeEach`) so it can reuse stable brands instead of minting
+ * throwaway ones to dodge cross-test contamination. See ADR-0021.
+ */
+export function resetBrandRegistry(): void {
+  registeredBrands.clear();
+  warnedBrands.clear();
+}
