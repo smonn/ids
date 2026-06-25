@@ -17,7 +17,7 @@ This command is _informed_ by the project's domain model and built on a shared d
 
 ### 1. Explore
 
-Read the project's domain glossary (`CONTEXT.md`) and any ADRs in the area you're touching first.
+Read the project's domain glossary (`CONTEXT.md`) and any ADRs in the area you're touching first. When working in this repo, also read `.dependency-cruiser.cjs` and [ADR-0018](../../docs/adr/0018-by-feature-codec-slices.md) — these are the enforcement source for the internal layer model; any architectural candidate that would violate the layering rules there must note the conflict explicitly.
 
 Then use the Agent tool with `subagent_type=Explore` to walk the codebase. Don't follow rigid heuristics — explore organically and note where you experience friction:
 

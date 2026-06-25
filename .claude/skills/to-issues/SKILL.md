@@ -52,7 +52,7 @@ Iterate until the user approves the breakdown.
 
 ### 5. Publish the issues to the issue tracker
 
-For each approved slice, publish a new issue to the issue tracker. Use the issue body template below. These issues are considered ready for AFK agents, so publish them with the correct triage label unless instructed otherwise.
+For each approved slice, publish a new issue to the issue tracker. Use the issue body template below. Do **not** apply the `ready-for-agent` triage label — lifecycle labels are owned exclusively by the `.github/workflows/` App automations; applying one by hand races the bot and may land the wrong state. File the issues and leave label application to the App.
 
 Publish issues in dependency order (blockers first) so you can reference real issue identifiers in the "Blocked by" field.
 

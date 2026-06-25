@@ -44,6 +44,10 @@ These are canonical role names — the actual label strings used in the issue tr
 
 State transitions: how an issue enters the pipeline depends on its author. **Trusted-author path** (OWNER, MEMBER, COLLABORATOR, or `smonn[bot]`): the triage workflow fires on `opened`/`reopened` and auto-triages the issue directly to a decision label (`needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`) — `needs-triage` is not involved. **Outside-author opt-in**: an issue from an outside author is left unlabeled until a maintainer manually adds `needs-triage`; that label fires the triage pipeline via the `labeled` event. **Unblock re-entry**: `needs-triage` is also the re-entry state after a blocked issue's dependencies close — `unblock.yml` applies it when every blocker is resolved, causing the triage workflow to re-triage the issue. `needs-info` returns toward `needs-triage` once the reporter replies. The maintainer can override at any time — flag transitions that look unusual and ask before proceeding.
 
+## CI producer model
+
+> **Note:** The interactive/maintainer-loop steps described below — recommend-and-wait, `/grilling` + `/domain-modeling`, post/label/close/write-KB — apply to interactive (human-in-the-loop) sessions. When this skill is invoked under the CI producer model (headless, AFK), the workflow prompt overrides these interactive steps at invocation time; the agent proceeds directly on the issue spec without pausing for approval.
+
 ## Invocation
 
 The maintainer invokes `/triage` and describes what they want in natural language. Interpret the request and act. Examples:
@@ -79,10 +83,10 @@ Show counts and a one-line summary per item. Let the maintainer pick.
    - `ready-for-agent` — post an agent brief comment ([AGENT-BRIEF.md](AGENT-BRIEF.md)).
    - `ready-for-human` — same structure as an agent brief, but note why it can't be delegated (judgment calls, external access, design decisions, manual testing).
    - `needs-info` — post triage notes (template below).
-   - `wontfix` — close, with the comment depending on *why*:
+   - `wontfix` — apply the `wontfix` label and post a comment depending on *why* (the issue stays open; the workflow does not automatically close it):
      - **Already implemented** — the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
-     - **Rejected (bug)** — polite explanation, then close.
-     - **Rejected (enhancement)** — write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
+     - **Rejected (bug)** — polite explanation.
+     - **Rejected (enhancement)** — write to `.out-of-scope/`, link to it from a comment ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
    - `needs-triage` — apply the role. Optional comment if there's partial progress.
 
 ## Quick state override
