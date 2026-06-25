@@ -55,6 +55,9 @@ export async function decryptPayload(
 
 export { writeLen32 } from "./bytes.js";
 
+/**
+ * @param info - codec-specific HKDF domain-separation label; see ADR-0019.
+ */
 export async function deriveKey(
   bytes: Uint8Array,
   info: Uint8Array,
