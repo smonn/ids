@@ -57,7 +57,7 @@ try {
 
 `IdsError`, `isIdsError`, and `IdsErrorCode` are re-exported from `@smonn/ids/typeorm` — no
 separate import from `"@smonn/ids"` is needed. For the full list of `IdsErrorCode` values, see
-the error-code reference.
+the [error-code reference](/errors).
 
 :::caution[TypeORM branding caveat]
 TypeORM cannot brand a generated entity field type at the schema level. Annotate

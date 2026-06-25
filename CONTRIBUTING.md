@@ -70,5 +70,5 @@ Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, `pnpm depcruis
 ## Tests
 
 - Add a test for any new public behaviour.
-- Add boundary tests for any new numeric input (compare with `extracts ms at the 48-bit boundary` and friends in `timestamp.test.ts`).
+- Add boundary tests for any new numeric input (compare with `extracts ms at the 48-bit boundary` and friends in `src/codecs/timestamp/index.test.ts`).
 - Use deterministic `rng` and `now` in tests that assert on the encoded form — never snapshot a fully-random ID.

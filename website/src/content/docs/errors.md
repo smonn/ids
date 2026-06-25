@@ -46,6 +46,8 @@ than once in the same process (the ESM + CJS dual-package hazard).
 - `@smonn/ids/drizzle`
 - `@smonn/ids/kysely`
 - `@smonn/ids/prisma`
+- `@smonn/ids/typeorm`
+- `@smonn/ids/mikro-orm`
 
 ```ts
 import { isIdsError } from "@smonn/ids";
