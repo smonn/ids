@@ -28,6 +28,9 @@ type Capture = {
 const testKeyBytes = new Uint8Array(32).fill(0xab);
 const testKeyHex = encodeOpaqueKey(testKeyBytes, "hex");
 
+const KEYGEN_WARNING =
+  "Warning: secret key material — redirect to a file (chmod 0600) and avoid shell history.\n";
+
 async function runCapture(
   argv: string[],
   opts: {
@@ -799,7 +802,7 @@ describe("cli", () => {
     it("emits a 256-bit hex key by default", async () => {
       const result = await runCapture(["keygen"]);
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toBe("");
+      expect(result.stderr).toBe(KEYGEN_WARNING);
       expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
     });
 
@@ -915,6 +918,26 @@ describe("cli", () => {
         "importOpaqueKey, importWrappingKey, importSigningKey, or importDigestKey",
       );
     });
+
+    it("emits sensitivity warning to stderr on default keygen", async () => {
+      const result = await runCapture(["keygen"]);
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe(KEYGEN_WARNING);
+    });
+
+    it("stdout contains only the key — no warning text", async () => {
+      const result = await runCapture(["keygen"]);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+      expect(result.stdout).not.toContain("Warning");
+    });
+
+    it("help text documents safe handling (redirect and chmod 0600)", async () => {
+      const result = await runCapture(["--help"]);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("0600");
+      expect(result.stdout).toContain("redirect");
+    });
   });
 });
 
@@ -925,7 +948,7 @@ describe("cli keygen --wrapped", () => {
   it("emits a 256-bit hex wrapping key by default", async () => {
     const result = await runCapture(["keygen", "--wrapped"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toBe(KEYGEN_WARNING);
     expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
   });
 
@@ -998,6 +1021,19 @@ describe("cli keygen --wrapped", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("--signed");
     expect(result.stdout).toContain("IDS_SIGNING_KEY_FORMAT");
+  });
+
+  it("emits sensitivity warning to stderr for --wrapped", async () => {
+    const result = await runCapture(["keygen", "--wrapped"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe(KEYGEN_WARNING);
+  });
+
+  it("stdout contains only the wrapping key — no warning text", async () => {
+    const result = await runCapture(["keygen", "--wrapped"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.stdout).not.toContain("Warning");
   });
 });
 
@@ -1442,7 +1478,7 @@ describe("cli keygen --signed", () => {
   it("emits a 256-bit hex signing key by default", async () => {
     const result = await runCapture(["keygen", "--signed"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toBe(KEYGEN_WARNING);
     expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
   });
 
@@ -1517,6 +1553,19 @@ describe("cli keygen --signed", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("--signed");
     expect(result.stdout).toContain("IDS_SIGNING_KEY");
+  });
+
+  it("emits sensitivity warning to stderr for --signed", async () => {
+    const result = await runCapture(["keygen", "--signed"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe(KEYGEN_WARNING);
+  });
+
+  it("stdout contains only the signing key — no warning text", async () => {
+    const result = await runCapture(["keygen", "--signed"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.stdout).not.toContain("Warning");
   });
 });
 
@@ -2014,21 +2063,21 @@ describe("cli keygen --digest", () => {
   it("emits a 256-bit hex digest key by default", async () => {
     const result = await runCapture(["keygen", "--digest"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toBe(KEYGEN_WARNING);
     expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("emits a 128-bit hex digest key with --bits 128", async () => {
     const result = await runCapture(["keygen", "--digest", "--bits", "128"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toBe(KEYGEN_WARNING);
     expect(result.stdout.trim()).toMatch(/^[0-9a-f]{32}$/);
   });
 
   it("emits a 256-bit base64url digest key with --key-format base64url", async () => {
     const result = await runCapture(["keygen", "--digest", "--key-format", "base64url"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toBe(KEYGEN_WARNING);
     // base64url 256-bit key is 43 chars (ceil(256/6))
     expect(result.stdout.trim()).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
@@ -2061,6 +2110,19 @@ describe("cli keygen --digest", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("unsupported flag for keygen: --ns\n");
+  });
+
+  it("emits sensitivity warning to stderr for --digest", async () => {
+    const result = await runCapture(["keygen", "--digest"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe(KEYGEN_WARNING);
+  });
+
+  it("stdout contains only the digest key — no warning text", async () => {
+    const result = await runCapture(["keygen", "--digest"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.stdout).not.toContain("Warning");
   });
 });
 

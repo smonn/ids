@@ -26,6 +26,8 @@ export function usage(): string {
     "      --count N > 1 is rejected: same material always produces the same ID.",
     "  keygen, k [--wrapped] [--signed] [--digest] [--bits 128|192|256] [--key-format hex|base64url]",
     "    Emit a random key for importOpaqueKey, importWrappingKey, importSigningKey, or importDigestKey (stdout only).",
+    "    Safe handling: redirect stdout to a 0600 file (e.g. ids keygen > key.hex && chmod 0600 key.hex);",
+    "    do not let the key appear in shell history or CI logs. A warning is printed to stderr on every run.",
     "    --wrapped emits a wrapping key for importWrappingKey instead (IDS_WRAPPING_KEY).",
     "    --signed emits a signing key for importSigningKey instead (IDS_SIGNING_KEY; hex by default; IDS_SIGNING_KEY_FORMAT or --key-format).",
     "    --digest emits a digest key for importDigestKey instead (IDS_DIGEST_KEY; hex by default; IDS_DIGEST_KEY_FORMAT or --key-format).",
