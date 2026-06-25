@@ -1,3 +1,4 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import { afterAll, beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { pgTable } from "drizzle-orm/pg-core";
 import { createTimestampId } from "../codecs/timestamp/index.js";
@@ -25,7 +26,7 @@ describe("drizzle", () => {
 
   it("read-back returns Id<Brand>", () => {
     const id = usr.generate();
-    expect(users.id.mapFromDriverValue(id as unknown as string)).toBe(id);
+    expect(users.id.mapFromDriverValue(fromAny(id))).toBe(id);
   });
 
   it("brand round-trip typing — idColumn infers Brand from codec", () => {
@@ -39,7 +40,7 @@ describe("drizzle", () => {
     const id = usr.generate();
     // Prove compile-time assignability: cast required because Drizzle pgTable
     // collapses custom column data types to unknown in its inference
-    const fromDb = users.id.mapFromDriverValue(id as unknown as string) as unknown as Id<"usr">;
+    const fromDb: Id<"usr"> = fromAny(users.id.mapFromDriverValue(fromAny(id)));
     expect(fromDb).toBe(id);
   });
 
@@ -47,7 +48,7 @@ describe("drizzle", () => {
     const orgId = org.generate();
     let err: unknown;
     try {
-      users.id.mapFromDriverValue(orgId as unknown as string);
+      users.id.mapFromDriverValue(fromAny(orgId));
     } catch (e) {
       err = e;
     }
@@ -72,7 +73,7 @@ describe("drizzle", () => {
   it("rejects a non-string value from DB", () => {
     let err: unknown;
     try {
-      users.id.mapFromDriverValue(null as unknown as string);
+      users.id.mapFromDriverValue(fromAny(null));
     } catch (e) {
       err = e;
     }

@@ -1,3 +1,4 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idType, IdsError, isIdsError, type IdColumnCodec } from "./mikro-orm.js";
@@ -22,7 +23,7 @@ describe("mikro-orm", () => {
 
   it("read-back returns Id<Brand>", () => {
     const id = usr.generate();
-    expect(instance.convertToJSValue(id as unknown as string, undefined as never)).toBe(id);
+    expect(instance.convertToJSValue(fromAny(id), undefined as never)).toBe(id);
   });
 
   it("getColumnType returns text", () => {
@@ -35,7 +36,7 @@ describe("mikro-orm", () => {
       .toMatchTypeOf<IdColumnCodec<"usr">>();
     expectTypeOf(usr).toMatchTypeOf<IdColumnCodec<"usr">>();
     const id = usr.generate();
-    const fromDb = instance.convertToJSValue(id as unknown as string, undefined as never);
+    const fromDb = instance.convertToJSValue(fromAny(id), undefined as never);
     expectTypeOf(fromDb).toEqualTypeOf<Id<"usr">>();
     expect(fromDb).toBe(id);
   });
@@ -48,7 +49,7 @@ describe("mikro-orm", () => {
     const orgId = org.generate();
     let err: unknown;
     try {
-      instance.convertToJSValue(orgId as unknown as string, undefined as never);
+      instance.convertToJSValue(fromAny(orgId), undefined as never);
     } catch (e) {
       err = e;
     }
@@ -60,10 +61,7 @@ describe("mikro-orm", () => {
   it("rejects a malformed value from DB", () => {
     let err: unknown;
     try {
-      instance.convertToJSValue(
-        "usr_!!!!!!!!!!!!!!!!!!!!!!!!!!" as unknown as string,
-        undefined as never,
-      );
+      instance.convertToJSValue(fromAny("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"), undefined as never);
     } catch (e) {
       err = e;
     }
@@ -75,7 +73,7 @@ describe("mikro-orm", () => {
   it("rejects a non-string value from DB", () => {
     let err: unknown;
     try {
-      instance.convertToJSValue(null as unknown as string, undefined as never);
+      instance.convertToJSValue(fromAny(null), undefined as never);
     } catch (e) {
       err = e;
     }

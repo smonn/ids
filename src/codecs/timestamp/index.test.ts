@@ -1,3 +1,4 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import {
   expect,
   describe,
@@ -132,10 +133,13 @@ describe("id", () => {
   });
 
   it("falls back to the default rng when the option is explicitly undefined", () => {
-    const usr = createTimestampId("usr", {
-      now: () => 0,
-      rng: undefined,
-    } as unknown as TimestampOptions);
+    const usr = createTimestampId(
+      "usr",
+      fromAny({
+        now: () => 0,
+        rng: undefined,
+      }),
+    );
     const id = usr.generate();
 
     expect(usr.is(id)).toBe(true);
@@ -144,10 +148,13 @@ describe("id", () => {
 
   it("falls back to the default now when the option is explicitly undefined", () => {
     const before = Date.now();
-    const usr = createTimestampId("usr", {
-      now: undefined,
-      rng: (target: Uint8Array) => target.fill(0x00),
-    } as unknown as TimestampOptions);
+    const usr = createTimestampId(
+      "usr",
+      fromAny({
+        now: undefined,
+        rng: (target: Uint8Array) => target.fill(0x00),
+      }),
+    );
     const id = usr.generate();
     const after = Date.now();
 

@@ -1,3 +1,4 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idTransformer, IdsError, isIdsError, type IdColumnCodec } from "./typeorm.js";
@@ -95,7 +96,7 @@ describe("typeorm", () => {
 
   it("read result is typed as Id<Brand>", () => {
     const id = usr.generate();
-    const result = transformer.from(id) as unknown as Id<"usr">;
+    const result: Id<"usr"> = fromAny(transformer.from(id));
     expectTypeOf(result).toEqualTypeOf<Id<"usr">>();
   });
 });

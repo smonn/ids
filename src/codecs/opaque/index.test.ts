@@ -1,3 +1,4 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import {
   afterAll,
   afterEach,
@@ -137,11 +138,14 @@ describe("opaque", () => {
   it("falls back to default injections when Opaque Timestamp options are explicitly undefined", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const before = Date.now();
-    const usr = createOpaqueTimestampId("usr", {
-      key,
-      now: undefined,
-      rng: undefined,
-    } as unknown as OpaqueTimestampOptions);
+    const usr = createOpaqueTimestampId(
+      "usr",
+      fromAny({
+        key,
+        now: undefined,
+        rng: undefined,
+      }),
+    );
     const id = await usr.generate();
     const after = Date.now();
 
