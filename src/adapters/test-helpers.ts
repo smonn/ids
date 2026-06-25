@@ -1,7 +1,9 @@
 import { vi } from "vitest";
 import type { Id, ParseResult } from "../types.js";
 
-export function makeSpyCodec<Brand extends string>(brand: Brand): {
+export function makeSpyCodec<Brand extends string>(
+  brand: Brand,
+): {
   safeParse: (value: unknown) => ParseResult<Brand>;
   extractTimestamp: () => void;
   wrap: () => void;
