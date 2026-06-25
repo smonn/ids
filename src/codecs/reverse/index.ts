@@ -55,6 +55,10 @@ export type ReverseTimestampCodec<Brand extends string> = {
   /**
    * Decodes the creation `Date` from an `Id<Brand>` by inverting the timestamp bytes.
    * Trusts the type — use `safeParse()` at boundaries first.
+   *
+   * Best-effort: inverts and decodes the timestamp bytes in the payload without any
+   * additional verification. An ID that bypassed `safeParse()` (e.g. via a type
+   * assertion) may return a plausible-looking but incorrect `Date`.
    */
   extractTimestamp(id: Id<Brand>): Date;
   /**
@@ -71,7 +75,11 @@ export type ReverseTimestampCodec<Brand extends string> = {
    * Throws on invalid dates.
    */
   maxIdForTime(date: Date): Id<Brand>;
-  /** JSON Schema for the canonical wire form (`pattern` is canonical-only). */
+  /**
+   * JSON Schema for the canonical wire form. The `pattern` matches the canonical stored
+   * form only and is deliberately stricter than `parse()`/`safeParse()`, which accept
+   * uppercase letters and Crockford aliases (`o`/`i`/`l`) before normalising. See ADR-0003.
+   */
   toJsonSchema(): JsonSchema;
   /** Standard Schema validate entry point. */
   readonly "~standard": StandardSchemaProps<Brand>;

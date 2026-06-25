@@ -20,6 +20,15 @@ The transport-layer adapters inject into the framework's error pipeline using fr
 
 The shared `resolveIdParamFailure` helper in `adapter-types.ts` translates a `ParseError` into `{ reason, status }` for the web adapters (Hono, Express, Fastify, NestJS). The GraphQL adapter has no HTTP status concept and maps directly to `GraphQLError`.
 
+#### `IdParamError` field-name convention
+
+Both `express.ts` and `fastify.ts` define their own `IdParamError` class rather than sharing one. The HTTP-status field is named differently in each — `.status` in the Express adapter and `.statusCode` in the Fastify adapter — intentionally matching each framework's native error convention:
+
+- **Express** error-handling middleware reads `err.status` (Express's own `http-errors` shape); using `.statusCode` would require explicit mapping in every app's error handler.
+- **Fastify** `setErrorHandler` reads `err.statusCode` (Fastify's native error shape); using `.status` would silently fall back to a 500 response unless the handler explicitly checked for `.status`.
+
+This is a deliberate per-framework choice, not an accidental inconsistency. Future transport-adapter `IdParamError` classes should follow the same convention: name the HTTP-status field whatever the target framework's own error-handling pipeline reads natively.
+
 ### ORM adapters: `IdsError("invalid_id")`
 
 The ORM adapters throw `IdsError("invalid_id")` via the shared `readIdColumn` helper in `adapter-types.ts`:
