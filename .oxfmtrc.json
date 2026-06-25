@@ -5,6 +5,7 @@
     ".impl-context/**",
     ".impl/**",
     ".address-context/**",
-    ".address/**"
+    ".address/**",
+    ".review-context/**"
   ]
 }
