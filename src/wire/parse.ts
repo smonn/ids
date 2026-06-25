@@ -14,6 +14,9 @@ export function safeParse<Brand extends string>(
   value: unknown,
 ): ParseResult<Brand> {
   if (typeof value !== "string") return { ok: false, error: "not_string" };
+  if (value.startsWith(prefix) && base32Pattern.test(value.slice(prefix.length))) {
+    return { ok: true, id: value as Id<Brand> };
+  }
   const lowercase = value.toLowerCase();
   if (!lowercase.startsWith(prefix)) return { ok: false, error: "invalid_prefix" };
 
