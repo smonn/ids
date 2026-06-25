@@ -7,6 +7,7 @@ import {
   formatInspectOutput,
   formatSignedInspectOutput,
   formatWrappedInspectOutput,
+  invalidIdPrefix,
 } from "../format.js";
 import { splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, parseKeyFormat } from "../key-io.js";
@@ -82,7 +83,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     }
     const structValidation = tsCodec["~standard"].validate(input);
     if (structValidation.issues) {
-      opts.stderr("invalid_id: " + structValidation.issues[0]!.message + "\n");
+      opts.stderr(invalidIdPrefix + structValidation.issues[0]!.message + "\n");
       return 1;
     }
     verifyCanonical = structValidation.value;
