@@ -121,14 +121,14 @@ cryptographically independent from any `OpaqueKey`, `WrappingKey`, or
 
 ## Errors
 
-| Code                   | When                                                                                                                                                                                            |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `invalid_brand`        | Brand is not three lowercase `a–z` characters                                                                                                                                                   |
-| `invalid_namespace`    | `ns` is empty or whitespace-only                                                                                                                                                                |
-| `invalid_key_length`   | Raw key bytes are not 16, 24, or 32 bytes                                                                                                                                                       |
-| `invalid_key_format`   | Format passed to `encode`/`decode` is not `"hex"` or `"base64url"`                                                                                                                              |
-| `invalid_key_encoding` | Encoded key string is malformed for its format                                                                                                                                                  |
-| `invalid_id`           | Thrown by `parse` on structural failure; `safeParse` returns `{ ok: false, error: … }` instead of throwing. See [#328](https://github.com/smonn/ids/issues/328) for the shared error reference. |
+| Code                   | When                                                                                                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `invalid_brand`        | Brand is not three lowercase `a–z` characters                                                                                                                                       |
+| `invalid_namespace`    | `ns` is empty or whitespace-only                                                                                                                                                    |
+| `invalid_key_length`   | Raw key bytes are not 16, 24, or 32 bytes                                                                                                                                           |
+| `invalid_key_format`   | Format passed to `encode`/`decode` is not `"hex"` or `"base64url"`                                                                                                                  |
+| `invalid_key_encoding` | Encoded key string is malformed for its format                                                                                                                                      |
+| `invalid_id`           | Thrown by `parse` on structural failure; `safeParse` returns `{ ok: false, error: … }` instead of throwing. See the [error-code reference](/errors) for the shared error reference. |
 
 ## Wire methods (sync, no key)
 

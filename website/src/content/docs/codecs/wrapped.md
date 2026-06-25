@@ -113,8 +113,8 @@ and `wrap()` produces).
 
 **`~standard`** implements [Standard Schema v1](https://standardschema.dev/),
 allowing the codec to slot into any validator-aware library (Zod, Valibot,
-ArkType, tRPC, Hono) without boilerplate. See [#329](https://github.com/smonn/ids/issues/329)
-for the shared validation page.
+ArkType, tRPC, Hono) without boilerplate. See the [validation page](/validation)
+for the shared Standard Schema integration details.
 
 ## Fail-closed verification
 

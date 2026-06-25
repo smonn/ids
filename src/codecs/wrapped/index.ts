@@ -32,6 +32,17 @@ export {
   type WrappingKeyFormat,
 };
 
+/**
+ * Integer kind for a {@link WrappedKeyCodec}, fixed at construction time.
+ *
+ * - `"u32"` — unsigned 32-bit integer; JS type `number`, range `[0, 4 294 967 295]`.
+ * - `"i32"` — signed 32-bit integer; JS type `number`, range `[-2 147 483 648, 2 147 483 647]`.
+ * - `"u64"` — unsigned 64-bit integer; JS type `bigint`, range `[0n, 18 446 744 073 709 551 615n]`.
+ * - `"i64"` — signed 64-bit integer; JS type `bigint`, range `[-9 223 372 036 854 775 808n, 9 223 372 036 854 775 807n]`.
+ *
+ * 32-bit kinds use safe JavaScript `number` values; 64-bit kinds always use `bigint`
+ * even when the magnitude would fit in a `number`, preventing silent truncation or sign erasure.
+ */
 export type WrappedKind = "u32" | "i32" | "u64" | "i64";
 
 type LookupKeyForKind<K extends WrappedKind> = K extends "u32" | "i32" ? number : bigint;
@@ -97,9 +108,15 @@ export type WrappedKeyCodec<Brand extends string, Kind extends WrappedKind> = {
   readonly "~standard": StandardSchemaProps<Brand>;
 };
 
+/**
+ * Construction options for {@link createWrappedKeyId}.
+ */
 export type WrappedKeyOptions<K extends WrappedKind> = {
+  /** Integer kind for the codec — fixed for the lifetime of the codec. Drives the JS value type (`number` for 32-bit, `bigint` for 64-bit). */
   kind: K;
+  /** Non-empty ordered wrapping keyring. The first entry is current (used by `wrap`); all entries are tried on `unwrap`. Duplicate operator secrets are rejected at construction. */
   keys: [WrappingKey, ...WrappingKey[]];
+  /** If true, silences the duplicate-brand warning in non-production environments. */
   allowDuplicateBrand?: boolean;
 };
 

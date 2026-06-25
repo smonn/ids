@@ -56,4 +56,4 @@ try {
 
 `IdsError`, `isIdsError`, and `IdsErrorCode` are re-exported from
 `@smonn/ids/mikro-orm` — no separate import from `"@smonn/ids"` is needed. For
-the full list of `IdsErrorCode` values, see the error-code reference.
+the full list of `IdsErrorCode` values, see the [error-code reference](/errors).
