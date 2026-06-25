@@ -47,7 +47,7 @@ export function encodeBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-/** Shifts a 32-bit integer into four big-endian bytes at target[offset..offset+3]. */
+/** Writes a 32-bit integer as four big-endian bytes into target[offset..offset+3]. */
 export function writeLen32(value: number, target: Uint8Array, offset: number): void {
   target[offset] = (value >>> 24) & 0xff;
   target[offset + 1] = (value >>> 16) & 0xff;
