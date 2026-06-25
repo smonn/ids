@@ -180,7 +180,7 @@ need their own ADR before any code.
 - **`ids sql <brand>` — emit native DDL.** The ORM adapters (`src/adapters/`) serve application code;
   raw DDL serves DBAs and hand-written migrations, a different audience TypeID courts with its SQL
   extension. The command would emit a `CREATE DOMAIN <brand>_id AS text CHECK (value ~ '<brand-anchored
-  base32 regex>')` (the canonical-form pattern from [ADR-0003](./adr/0003-canonical-strict-is.md)), and
+base32 regex>')` (the canonical-form pattern from [ADR-0003](./adr/0003-canonical-strict-is.md)), and
   optionally a generator function. Pairs with the UUID-interop sketch above: if a `uuid`-column path
   exists, the emitter could target a `uuid` domain plus a check instead of `text`. Open questions for
   the ADR: which dialects (Postgres first; the regex and domain syntax are not portable to MySQL/SQLite),
