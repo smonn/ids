@@ -131,6 +131,27 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
+      - name: Provision workflow helpers from main if absent
+        # This job checks out an agent/PR branch; local actions (./.github/actions/*)
+        # and scripts (.github/scripts/*) resolve from that branch's tree. A branch that
+        # predates these helpers lacks them, breaking the references below. If any are
+        # missing, fetch them from main and extract as UNTRACKED, git-ignored files:
+        # available on disk for uses:/bash, but never staged into the agent's commits.
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ ! -f .github/actions/setup-node-pnpm/action.yml ] \
+             || [ ! -f .github/scripts/poster-lib.sh ] \
+             || [ ! -f .github/scripts/git-identity.sh ] \
+             || [ ! -f .github/scripts/fetch-closing-issues.sh ]; then
+            echo "Provisioning workflow helpers from main (this branch predates them)."
+            git fetch --no-tags --depth=1 "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" main >/dev/null 2>&1
+            git archive FETCH_HEAD .github/actions .github/scripts | tar -x
+            printf '.github/actions/\n.github/scripts/\n' >> .git/info/exclude
+          fi
+
       - name: Configure git identity and working branch
         env:
           # head.ref is PR-author-controlled; only ever used through this env var in
@@ -138,8 +159,7 @@ jobs:
           # inject. The scope gate above also constrains it to agent/issue-*.
           BRANCH: ${{ steps.pr.outputs.branch }}
         run: |
-          git config user.name "smonn[bot]"
-          git config user.email "110314539+smonn[bot]@users.noreply.github.com"
+          bash .github/scripts/git-identity.sh
           # We checked out a detached SHA; recreate the branch at it so we can push.
           git checkout -B "$BRANCH"
 
@@ -160,14 +180,7 @@ jobs:
             echo "main is ahead — a merge is needed."
           fi
 
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-node-pnpm
 
       - name: Resolve conflicts with Claude
         uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153

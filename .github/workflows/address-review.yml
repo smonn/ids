@@ -64,9 +64,21 @@ jobs:
       # ref, to close the TOCTOU window.
       EVENT_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
+      # Provision the LOCAL composite action (.github/actions/app-token) on disk
+      # before the mints below use it. This is a default-ref checkout that needs no
+      # token, and MUST NOT persist one: the job's built-in token carries write scopes,
+      # and a persisted credential here would survive into the producer's workspace and
+      # defeat the working checkout's persist-credentials: false (the no-push boundary).
+      # The pinned-SHA working checkout runs later, after the gate, and overwrites the
+      # tree at the reviewed commit.
+      - name: Checkout (provision local actions)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: ./.github/actions/app-token
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -89,9 +101,11 @@ jobs:
       # prompt-injection surface). With a read-only token, even if the action sets up
       # git/gh for the agent, it can only READ: no push, no replies, no issue creation,
       # no thread resolution. The agent's local per-fix commits need no token at all.
+      # Kept as a SEPARATE mint from the write token above — the write/read-only
+      # split is the security boundary, never merged into one token.
       - name: Generate read-only GitHub App token (for the producer)
         id: app-token-ro
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: ./.github/actions/app-token
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -173,25 +187,37 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Provision workflow helpers from main if absent
+        if: steps.gate.outputs.proceed == 'true'
+        # This job checks out an agent/PR branch; local actions (./.github/actions/*)
+        # and scripts (.github/scripts/*) resolve from that branch's tree. A branch that
+        # predates these helpers lacks them, breaking the references below. If any are
+        # missing, fetch them from main and extract as UNTRACKED, git-ignored files:
+        # available on disk for uses:/bash, but never staged into the agent's commits.
+        env:
+          GH_TOKEN: ${{ steps.app-token-ro.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ ! -f .github/actions/setup-node-pnpm/action.yml ] \
+             || [ ! -f .github/scripts/poster-lib.sh ] \
+             || [ ! -f .github/scripts/git-identity.sh ] \
+             || [ ! -f .github/scripts/fetch-closing-issues.sh ]; then
+            echo "Provisioning workflow helpers from main (this branch predates them)."
+            git fetch --no-tags --depth=1 "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" main >/dev/null 2>&1
+            git archive FETCH_HEAD .github/actions .github/scripts | tar -x
+            printf '.github/actions/\n.github/scripts/\n' >> .git/info/exclude
+          fi
+
       - name: Configure git identity and working branch
         if: steps.gate.outputs.proceed == 'true'
         run: |
-          git config user.name "smonn[bot]"
-          git config user.email "110314539+smonn[bot]@users.noreply.github.com"
+          bash .github/scripts/git-identity.sh
           # We checked out a detached SHA; recreate the branch at it so the agent can
           # commit locally. There is no push credential — the poster pushes later.
           git checkout -B "$BRANCH"
 
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        if: steps.gate.outputs.proceed == 'true'
-
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        if: steps.gate.outputs.proceed == 'true'
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-node-pnpm
         if: steps.gate.outputs.proceed == 'true'
 
       # Precompute every GitHub input the agent needs and write it under
@@ -228,21 +254,7 @@ jobs:
           # build if an issue can't be read.
           pr_body=$(jq -r '(.title // "") + "\n\n" + (.body // "")' .address-context/pr.json)
           printf '%s\n' "$pr_body" > .address-context/pr.md
-          issues=$(printf '%s' "$pr_body" \
-            | grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]+#[0-9]+' \
-            | grep -oE '[0-9]+' | sort -u || true)
-          {
-            if [ -n "$issues" ]; then
-              for n in $issues; do
-                echo "## Issue #$n"; echo
-                gh issue view "$n" --json title,body --jq '"**" + .title + "**\n\n" + (.body // "")' \
-                  2>/dev/null || echo "(could not fetch issue #$n)"
-                echo; echo "---"; echo
-              done
-            else
-              echo "No originating issue found in the PR body (no Closes/Fixes/Resolves #N)."
-            fi
-          } > .address-context/issue.md
+          printf '%s' "$pr_body" | bash .github/scripts/fetch-closing-issues.sh > .address-context/issue.md
 
           echo "Context built:"; wc -l .address-context/* 2>/dev/null || true
 
@@ -435,8 +447,8 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
         run: |
           set -euo pipefail
-          test -f .address/manifest.json || { echo "::error::producer wrote no .address/manifest.json"; exit 1; }
-          jq empty .address/manifest.json || { echo "::error::.address/manifest.json is not valid JSON"; exit 1; }
+          source .github/scripts/poster-lib.sh
+          require_manifest .address
 
           # --- 1. Escalation path: comment + label, NO push, stop. ---
           if [ "$(jq -r '.escalate // false' .address/manifest.json)" = "true" ]; then
@@ -452,7 +464,7 @@ jobs:
           # Re-establish a push credential here (the checkout had none). A
           # non-fast-forward rejection means the branch advanced past the labelled
           # commit: post "branch moved" and stop — post nothing else (all-or-nothing).
-          if git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${BRANCH}"; then
+          if push_branch "$BRANCH"; then
             echo "Pushed local commits to $BRANCH."
           else
             echo "::warning::push to $BRANCH was rejected (branch likely advanced past the labelled commit) — posting branch-moved notice and stopping."
