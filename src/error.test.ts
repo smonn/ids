@@ -4,6 +4,7 @@ import type { ParseError } from "./types.js";
 
 const ALL_CODES: IdsErrorCode[] = [
   "invalid_brand",
+  "invalid_namespace",
   "invalid_key_format",
   "invalid_key_encoding",
   "invalid_key_length",

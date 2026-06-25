@@ -1,5 +1,5 @@
 import { validateBrand } from "../_kernel/brand.js";
-import { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
+import { IdsError } from "../../error.js";
 import { createWrappedLayoutOps } from "./layout.js";
 import { registerBrand } from "../_kernel/registry.js";
 import type {
@@ -23,7 +23,7 @@ import {
 } from "./key.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
-export { IdsError, isIdsError, type IdsErrorCode };
+export { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
 export {
   decodeWrappingKey,
   encodeWrappingKey,
