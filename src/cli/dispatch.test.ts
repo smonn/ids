@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCodec, deriveAllowedFlags, resolveVariant } from "./dispatch.js";
+import { buildCodec, deriveAllowedFlags, isCodecError, resolveVariant } from "./dispatch.js";
 import {
   digestVariant,
   generatePolicy,
@@ -270,24 +270,30 @@ describe("buildCodec", () => {
     expect(result).not.toBeNull();
   });
 
-  it("returns construct error string when construct fails (invalid brand)", async () => {
+  it("returns CodecError when construct fails (invalid brand)", async () => {
     const result = await buildCodec(timestampVariant, "", new Map(), makeOpts());
-    expect(typeof result).toBe("string");
-    expect(result as string).toContain("invalid_brand");
+    expect(isCodecError(result)).toBe(true);
+    if (!isCodecError(result)) throw new Error("expected CodecError");
+    expect(result.message).toContain("invalid_brand");
+    expect(result.kind).toBe("runtime");
   });
 
-  it("returns key format error when --key-format flag is invalid", async () => {
+  it("returns CodecError(usage) when --key-format flag is invalid", async () => {
     const values = new Map([["--key-format", "bad"]]);
     const result = await buildCodec(opaqueVariant, "tst", values, makeOpts());
-    expect(typeof result).toBe("string");
-    expect(result as string).toContain("--key-format must be");
+    expect(isCodecError(result)).toBe(true);
+    if (!isCodecError(result)) throw new Error("expected CodecError");
+    expect(result.message).toContain("--key-format must be");
+    expect(result.kind).toBe("usage");
   });
 
-  it("returns error string when key env var is missing", async () => {
+  it("returns CodecError(usage) when key env var is missing", async () => {
     const result = await buildCodec(opaqueVariant, "tst", new Map(), makeOpts({}));
-    expect(typeof result).toBe("string");
-    expect(result as string).toContain("missing");
-    expect(result as string).toContain("IDS_KEY");
+    expect(isCodecError(result)).toBe(true);
+    if (!isCodecError(result)) throw new Error("expected CodecError");
+    expect(result.message).toContain("missing");
+    expect(result.message).toContain("IDS_KEY");
+    expect(result.kind).toBe("usage");
   });
 
   it("returns opaque codec when env key is present", async () => {
@@ -304,11 +310,13 @@ describe("buildCodec", () => {
     expect(result).not.toBeNull();
   });
 
-  it("returns error string for wrapped codec when --kind is missing", async () => {
+  it("returns CodecError(usage) for wrapped codec when --kind is missing", async () => {
     const opts = makeOpts({ IDS_WRAPPING_KEY: testWrappingHex });
     const result = await buildCodec(wrappedVariant, "tst", new Map(), opts);
-    expect(typeof result).toBe("string");
-    expect(result as string).toBe("--kind is required with --wrapped");
+    expect(isCodecError(result)).toBe(true);
+    if (!isCodecError(result)) throw new Error("expected CodecError");
+    expect(result.message).toBe("--kind is required with --wrapped");
+    expect(result.kind).toBe("usage");
   });
 
   it("returns wrapped codec with valid key and kind", async () => {
@@ -319,10 +327,12 @@ describe("buildCodec", () => {
     expect(result).not.toBeNull();
   });
 
-  it("returns error when key encoding is bad", async () => {
+  it("returns CodecError(runtime) when key encoding is bad", async () => {
     const opts = makeOpts({ IDS_KEY: "not-valid-hex!!!" });
     const result = await buildCodec(opaqueVariant, "tst", new Map(), opts);
-    expect(typeof result).toBe("string");
+    expect(isCodecError(result)).toBe(true);
+    if (!isCodecError(result)) throw new Error("expected CodecError");
+    expect(result.kind).toBe("runtime");
   });
 
   it("respects --key-format flag (base64url)", async () => {
@@ -336,7 +346,7 @@ describe("buildCodec", () => {
 
   it("codec branch exposes generate() without a cast (timestamp)", async () => {
     const codec = await buildCodec(timestampVariant, "tst", new Map(), makeOpts());
-    if (typeof codec === "string") throw new Error("expected codec object");
+    if (isCodecError(codec)) throw new Error("expected codec object");
     const id = await codec.generate();
     expect(typeof id).toBe("string");
     expect(id).toMatch(/^tst_/);
@@ -345,7 +355,7 @@ describe("buildCodec", () => {
   it("codec branch exposes generate() without a cast (opaque, async)", async () => {
     const opts = makeOpts({ IDS_KEY: testOpaqueHex });
     const codec = await buildCodec(opaqueVariant, "tst", new Map(), opts);
-    if (typeof codec === "string") throw new Error("expected codec object");
+    if (isCodecError(codec)) throw new Error("expected codec object");
     const id = await codec.generate();
     expect(typeof id).toBe("string");
     expect(id).toMatch(/^tst_/);
@@ -359,18 +369,22 @@ describe("buildCodec", () => {
     expect(result).not.toBeNull();
   });
 
-  it("returns error string for digest codec when --ns is missing", async () => {
+  it("returns CodecError(usage) for digest codec when --ns is missing", async () => {
     const opts = makeOpts({ IDS_DIGEST_KEY: testDigestHex });
     const result = await buildCodec(digestVariant, "tst", new Map(), opts);
-    expect(typeof result).toBe("string");
-    expect(result as string).toBe("--ns is required with --digest");
+    expect(isCodecError(result)).toBe(true);
+    if (!isCodecError(result)) throw new Error("expected CodecError");
+    expect(result.message).toBe("--ns is required with --digest");
+    expect(result.kind).toBe("usage");
   });
 
-  it("returns error string for digest codec when IDS_DIGEST_KEY is missing", async () => {
+  it("returns CodecError(usage) for digest codec when IDS_DIGEST_KEY is missing", async () => {
     const values = new Map([["--ns", "checkout"]]);
     const result = await buildCodec(digestVariant, "tst", values, makeOpts({}));
-    expect(typeof result).toBe("string");
-    expect(result as string).toContain("IDS_DIGEST_KEY");
+    expect(isCodecError(result)).toBe(true);
+    if (!isCodecError(result)) throw new Error("expected CodecError");
+    expect(result.message).toContain("IDS_DIGEST_KEY");
+    expect(result.kind).toBe("usage");
   });
 
   it("digest codec generate() is deterministic via readStdin", async () => {
@@ -381,13 +395,48 @@ describe("buildCodec", () => {
     const values = new Map([["--ns", "test"]]);
     const codec1 = await buildCodec(digestVariant, "tst", values, opts);
     const codec2 = await buildCodec(digestVariant, "tst", values, opts);
-    if (typeof codec1 === "string" || typeof codec2 === "string") {
+    if (isCodecError(codec1) || isCodecError(codec2)) {
       throw new Error("expected codec objects");
     }
     const id1 = await codec1.generate();
     const id2 = await codec2.generate();
     expect(id1).toBe(id2);
     expect(id1).toMatch(/^tst_/);
+  });
+
+  it("returns CodecError(usage) when key env-var format is invalid", async () => {
+    const opts = makeOpts({ IDS_KEY_FORMAT: "bad" });
+    const result = await buildCodec(opaqueVariant, "tst", new Map(), opts);
+    expect(isCodecError(result)).toBe(true);
+    if (!isCodecError(result)) throw new Error("expected CodecError");
+    expect(result.message).toContain("IDS_KEY_FORMAT");
+    expect(result.kind).toBe("usage");
+  });
+});
+
+describe("isCodecError", () => {
+  it("returns true for a usage CodecError", () => {
+    expect(isCodecError({ kind: "usage", message: "oops" })).toBe(true);
+  });
+
+  it("returns true for a runtime CodecError", () => {
+    expect(isCodecError({ kind: "runtime", message: "oops" })).toBe(true);
+  });
+
+  it("returns false for a codec object", () => {
+    expect(isCodecError({ safeParse: () => ({}) })).toBe(false);
+  });
+
+  it("returns false for a string", () => {
+    expect(isCodecError("error message")).toBe(false);
+  });
+
+  it("returns false for null", () => {
+    expect(isCodecError(null)).toBe(false);
+  });
+
+  it("returns false for an object with unknown kind", () => {
+    expect(isCodecError({ kind: "other", message: "oops" })).toBe(false);
   });
 });
 

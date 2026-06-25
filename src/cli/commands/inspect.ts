@@ -1,7 +1,7 @@
 import { createTimestampId, type TimestampCodec } from "../../codecs/timestamp/index.js";
 import type { Id } from "../../types.js";
 import { codecOpts } from "../codec-options.js";
-import { buildCodec, deriveAllowedFlags, resolveVariant } from "../dispatch.js";
+import { buildCodec, deriveAllowedFlags, isCodecError, resolveVariant } from "../dispatch.js";
 import {
   formatCliError,
   formatInspectOutput,
@@ -71,7 +71,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     const fmtCheck = parseKeyFormat(values, opts, variant.key!);
     if (isKeyFormatError(fmtCheck)) {
       opts.stderr(fmtCheck + "\n");
-      return values.has("--key-format") ? 2 : 1;
+      return 2;
     }
     let tsCodec: TimestampCodec<string>;
     try {
@@ -91,7 +91,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
   }
 
   const codecOrError = await buildCodec(variant, brand, values, opts);
-  if (typeof codecOrError === "string") {
+  if (isCodecError(codecOrError)) {
     if (cap.mode === "verify") {
       opts.stdout(
         formatSignedInspectOutput({
@@ -103,11 +103,11 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
           verification: "unavailable",
         }),
       );
-      opts.stderr(codecOrError + "\n");
+      opts.stderr(codecOrError.message + "\n");
       return 1;
     }
-    opts.stderr(codecOrError + "\n");
-    return codecOrError.startsWith("--") ? 2 : 1;
+    opts.stderr(codecOrError.message + "\n");
+    return codecOrError.kind === "usage" ? 2 : 1;
   }
 
   // Structural validation for non-verify, non-unsupported cases
