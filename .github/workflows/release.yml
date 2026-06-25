@@ -32,8 +32,6 @@ jobs:
           registry-url: https://registry.npmjs.org
           install: "false"
 
-      - run: npm install -g npm@latest
-
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm build
