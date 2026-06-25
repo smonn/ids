@@ -7,6 +7,7 @@ import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index
 import { createReverseTimestampId } from "../codecs/reverse/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
+import { makeSpyCodec } from "./test-helpers.js";
 
 type MockRequest = {
   params: Record<string, unknown>;
@@ -304,6 +305,19 @@ describe("idParam", () => {
       expect(err).toBeInstanceOf(IdParamError);
       expect((err as IdParamError).reason).toBe("malformed");
       expect((err as IdParamError).statusCode).toBe(400);
+    });
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("preHandler calls only safeParse on the codec", async () => {
+      const spyCodec = makeSpyCodec("spy");
+      const handler = idParam("id", spyCodec);
+      const req = makeReq("id", "any_value");
+      await handler(asReq(req), asReply());
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
   });
 });

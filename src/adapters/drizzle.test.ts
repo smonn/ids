@@ -4,6 +4,7 @@ import { pgTable } from "drizzle-orm/pg-core";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idColumn, IdsError, isIdsError, type IdColumnCodec } from "./drizzle.js";
 import type { Id } from "../types.js";
+import { makeSpyCodec } from "./test-helpers.js";
 
 describe("drizzle", () => {
   let warnSilencer: ReturnType<typeof vi.spyOn>;
@@ -85,5 +86,17 @@ describe("drizzle", () => {
   it("IdColumnCodec accepts any codec variant with safeParse", () => {
     // structural type check: TimestampCodec satisfies IdColumnCodec<Brand>
     expectTypeOf(usr).toMatchTypeOf<IdColumnCodec<"usr">>();
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("mapFromDriverValue calls only safeParse on the codec", () => {
+      const spyCodec = makeSpyCodec("spy");
+      const tbl = pgTable("spy_users", { id: idColumn(spyCodec) });
+      tbl.id.mapFromDriverValue("any_value");
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
   });
 });

@@ -4,6 +4,7 @@ import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idColumn, IdsError, isIdsError, type IdColumnCodec, type IdColumnType } from "./kysely.js";
 import type { Id } from "../types.js";
 import type { ColumnType } from "kysely";
+import { makeSpyCodec } from "./test-helpers.js";
 
 describe("kysely", () => {
   let warnSilencer: ReturnType<typeof vi.spyOn>;
@@ -87,5 +88,16 @@ describe("kysely", () => {
 
   it("IdColumnCodec accepts any codec variant with safeParse", () => {
     expectTypeOf(usr).toMatchTypeOf<IdColumnCodec<"usr">>();
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("fromDriver calls only safeParse on the codec", () => {
+      const spyCodec = makeSpyCodec("spy");
+      idColumn(spyCodec).fromDriver("any_value");
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
   });
 });

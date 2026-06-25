@@ -3,6 +3,7 @@ import type { StringValueNode, IntValueNode } from "graphql";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idScalar } from "./graphql.js";
+import { makeSpyCodec } from "./test-helpers.js";
 
 function makeStringNode(value: string): StringValueNode {
   return { kind: Kind.STRING, value };
@@ -40,14 +41,23 @@ describe("idScalar", () => {
     it("brand-mismatch input throws GraphQLError", () => {
       const orgId = org.generate();
       expect(() => scalar.parseValue(orgId)).toThrow(GraphQLError);
+      expect(() => scalar.parseValue(orgId)).toThrow(
+        expect.objectContaining({ message: expect.stringContaining("invalid_prefix") }),
+      );
     });
 
     it("malformed input throws GraphQLError", () => {
       expect(() => scalar.parseValue("usr_uuuuuuuuuuuuuuuuuuuuuuuuuu")).toThrow(GraphQLError);
+      expect(() => scalar.parseValue("usr_uuuuuuuuuuuuuuuuuuuuuuuuuu")).toThrow(
+        expect.objectContaining({ message: expect.stringContaining("invalid_base32") }),
+      );
     });
 
     it("non-string input throws GraphQLError", () => {
       expect(() => scalar.parseValue(42)).toThrow(GraphQLError);
+      expect(() => scalar.parseValue(42)).toThrow(
+        expect.objectContaining({ message: expect.stringContaining("not_string") }),
+      );
     });
   });
 
@@ -65,16 +75,25 @@ describe("idScalar", () => {
     it("Kind.STRING AST node with brand-mismatch value throws GraphQLError", () => {
       const orgId = org.generate();
       expect(() => scalar.parseLiteral(makeStringNode(orgId), {})).toThrow(GraphQLError);
+      expect(() => scalar.parseLiteral(makeStringNode(orgId), {})).toThrow(
+        expect.objectContaining({ message: expect.stringContaining("invalid_prefix") }),
+      );
     });
 
     it("Kind.STRING AST node with malformed value throws GraphQLError", () => {
       expect(() =>
         scalar.parseLiteral(makeStringNode("usr_uuuuuuuuuuuuuuuuuuuuuuuuuu"), {}),
       ).toThrow(GraphQLError);
+      expect(() =>
+        scalar.parseLiteral(makeStringNode("usr_uuuuuuuuuuuuuuuuuuuuuuuuuu"), {}),
+      ).toThrow(expect.objectContaining({ message: expect.stringContaining("invalid_base32") }));
     });
 
     it("non-string AST kind throws GraphQLError", () => {
       expect(() => scalar.parseLiteral(makeIntNode("123"), {})).toThrow(GraphQLError);
+      expect(() => scalar.parseLiteral(makeIntNode("123"), {})).toThrow(
+        expect.objectContaining({ message: expect.stringContaining("must be a string literal") }),
+      );
     });
   });
 
@@ -93,10 +112,16 @@ describe("idScalar", () => {
     it("wrong-brand ID throws GraphQLError", () => {
       const orgId = org.generate();
       expect(() => scalar.serialize(orgId)).toThrow(GraphQLError);
+      expect(() => scalar.serialize(orgId)).toThrow(
+        expect.objectContaining({ message: expect.stringContaining("invalid_prefix") }),
+      );
     });
 
     it("invalid string throws GraphQLError", () => {
       expect(() => scalar.serialize("not-an-id-at-all")).toThrow(GraphQLError);
+      expect(() => scalar.serialize("not-an-id-at-all")).toThrow(
+        expect.objectContaining({ message: expect.stringContaining("invalid_prefix") }),
+      );
     });
   });
 
@@ -112,6 +137,18 @@ describe("idScalar", () => {
     it("description is undefined when not provided", () => {
       const s = idScalar(usr, { name: "UserId2" });
       expect(s.description).toBeUndefined();
+    });
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("parseValue calls only safeParse on the codec", () => {
+      const spyCodec = makeSpyCodec("spy");
+      const spyScalar = idScalar(spyCodec, { name: "SpyId" });
+      spyScalar.parseValue("any_input");
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
   });
 });
