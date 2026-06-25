@@ -281,6 +281,17 @@ jobs:
             about correctness, design, architecture, API surface, and naming; do NOT run
             or re-verify the static-analysis gate.
 
+            You are NOT limited to the changed lines: the whole repo is checked out, so use
+            Read/Grep/Glob to consult precedent BEYOND the diff when it sharpens a finding —
+            how a similar API/type/error is named and shaped elsewhere, the conventions in
+            sibling modules and their tests, existing helpers a change should have reused.
+            A change can be locally fine yet inconsistent with an established pattern; judge
+            it against the surrounding code, not the diff alone. (Only git HISTORY is
+            unavailable — you can read any file's current contents, just not blame/log.)
+            This widens your evidence, not your scope: precedent informs the verdict on the
+            PR's own changes; it never licenses findings about untouched code (those remain
+            FOLLOW-UP per the scope rules below).
+
             SCOPE DISCIPLINE — a review HONES scope, it never grows it. Classify every
             finding before you record it:
               - IN-SCOPE: a defect in the lines/files THIS PR changes, or a missed,
