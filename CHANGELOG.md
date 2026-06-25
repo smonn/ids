@@ -1,5 +1,14 @@
 # @smonn/ids
 
+## 0.12.0
+
+### Minor Changes
+
+- 9a0bfca: Add `@smonn/ids/graphql` adapter — `idScalar` builds a `GraphQLScalarType` for any codec.
+- f60ad8f: Add MikroORM adapter at `@smonn/ids/mikro-orm` with `idType(codec)` factory.
+- 9ec89d4: Add `@smonn/ids/nestjs` subpath export with `ParseIdPipe` for NestJS route param validation.
+- 552cf93: Add TypeORM column transformer adapter at `@smonn/ids/typeorm`.
+
 ## 0.11.0
 
 ### Minor Changes
