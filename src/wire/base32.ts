@@ -49,6 +49,10 @@ export function decodeBase32(str: string): Uint8Array {
   let index = 0;
 
   for (let i = 0; i < str.length; i++) {
+    // Input is pre-validated by the upstream parse regex (safeParse / safeVerify /
+    // safeUnwrap), so every charCode is in [0, 255] and in the Crockford alphabet.
+    // No per-char bounds guard is needed here — contrast decodeHex, which guards
+    // `hiCode >= hexCharCodeToNibble.length` because it receives untrusted caller input.
     const v = charCodeToValue[str.charCodeAt(i)]!;
     value = (value << 5) | v;
     bits += 5;

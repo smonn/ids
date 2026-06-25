@@ -59,6 +59,8 @@ choice is therefore a per-brand commitment.
 | Wrapped key       | `@smonn/ids/wrapped` | None                      | Yes (wrapping key) | N/A — not timestamp-family |
 | Digest            | `@smonn/ids/digest`  | None                      | Yes (digest key)   | N/A — not timestamp-family |
 
+The Timestamp codec is the default and ships from the root `@smonn/ids` entry — it has no `/timestamp` subpath by design. If you try `import ... from "@smonn/ids/timestamp"` you will get a module-resolution error; use `@smonn/ids` directly. Every other codec uses a named subpath (`/reverse`, `/signed`, `/opaque`, `/wrapped`, `/digest`); this asymmetry is intentional and permanent.
+
 - **Newest-first scans** on forward-only KV stores → [Reverse Timestamp](https://ids.smonn.se/codecs/reverse/)
 - **Tamper-evident share links** verified without a DB lookup → [Signed Timestamp](https://ids.smonn.se/codecs/signed/) (integrity)
 - **IDs that must not leak creation time** → [Opaque Timestamp](https://ids.smonn.se/codecs/opaque/) (confidentiality)

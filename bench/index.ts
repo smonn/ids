@@ -30,14 +30,50 @@ const wrappingKey = await importWrappingKey(new Uint8Array(32));
 const wrp = createWrappedKeyId("wrp", { kind: "u32", keys: [wrappingKey] });
 const wrappedId = await wrp.wrap(42);
 
+// Non-matching wrapping keys for multi-key keyring trial scenarios (distinct raw bytes → distinct tags).
+const wrappingKeyA = await importWrappingKey(new Uint8Array(32).fill(0xaa));
+const wrappingKeyB = await importWrappingKey(new Uint8Array(32).fill(0xbb));
+const wrappingKeyC = await importWrappingKey(new Uint8Array(32).fill(0xcc));
+// 3-key wrapping keyring — matching key in last position (worst-case trial order).
+const wrp3 = createWrappedKeyId("wrp", {
+  kind: "u32",
+  keys: [wrappingKeyA, wrappingKeyB, wrappingKey],
+  allowDuplicateBrand: true,
+});
+// No-match wrapping keyring — all three trials fail; safeUnwrap returns failure without throwing.
+const wrpNoMatch = createWrappedKeyId("wrp", {
+  kind: "u32",
+  keys: [wrappingKeyA, wrappingKeyB, wrappingKeyC],
+  allowDuplicateBrand: true,
+});
+
 // Pre-import the signing key once; bench measures steady-state HMAC cost, not key import.
 const signingKey = await importSigningKey(new Uint8Array(32));
 const sgn = createSignedTimestampId("sgn", { keys: [signingKey] });
 const signedId = await sgn.generate();
 
+// Non-matching signing keys for multi-key keyring trial scenarios (distinct raw bytes → distinct tags).
+const signingKeyA = await importSigningKey(new Uint8Array(32).fill(0xaa));
+const signingKeyB = await importSigningKey(new Uint8Array(32).fill(0xbb));
+const signingKeyC = await importSigningKey(new Uint8Array(32).fill(0xcc));
+// 3-key signing keyring — matching key in last position (worst-case trial order).
+const sgn3 = createSignedTimestampId("sgn", {
+  keys: [signingKeyA, signingKeyB, signingKey],
+  allowDuplicateBrand: true,
+});
+// No-match signing keyring — all three trials fail; safeVerify returns failure without throwing.
+const sgnNoMatch = createSignedTimestampId("sgn", {
+  keys: [signingKeyA, signingKeyB, signingKeyC],
+  allowDuplicateBrand: true,
+});
+
 // Pre-import the digest key once; bench measures steady-state HMAC cost, not key import.
 const digestKey = await importDigestKey(new Uint8Array(32));
 const dgst = createDigestId("dgs", { ns: "bench", key: digestKey });
+
+// Rejection-path inputs: wrong brand prefix and invalid base32 payload character.
+const wrongBrandString = "org_01h7b3k9rqxn1cw3p9r8t2sgkw";
+const malformedPayload = "usr_!1h7b3k9rqxn1cw3p9r8t2sgkw";
 
 type Case =
   | { name: string; fn: () => unknown; async?: false }
@@ -64,6 +100,16 @@ const cases: Case[] = [
   { name: "signed.verify", fn: () => sgn.verify(signedId), async: true },
   // digest.* uses HMAC-SHA-256 async crypto; same async-bench variance handling as opaque.* / wrapped.* / signed.*
   { name: "digest.digest", fn: () => dgst.digest("bench-material"), async: true },
+  // Multi-key trial: wrapped.* — 3-key keyring last-match and no-match (measures linear trial cost)
+  { name: "wrapped.unwrap(3-key-last)", fn: () => wrp3.unwrap(wrappedId), async: true },
+  { name: "wrapped.unwrap(no-match)", fn: () => wrpNoMatch.safeUnwrap(wrappedId), async: true },
+  // Multi-key trial: signed.* — 3-key keyring last-match and no-match (measures linear trial cost)
+  { name: "signed.verify(3-key-last)", fn: () => sgn3.verify(signedId), async: true },
+  { name: "signed.verify(no-match)", fn: () => sgnNoMatch.safeVerify(signedId), async: true },
+  // Rejection-path: is()/safeParse() on wrong-brand and invalid-base32 input
+  { name: "is(non-matching)", fn: () => usr.is(wrongBrandString) },
+  { name: "safeParse(invalid-prefix)", fn: () => usr.safeParse(wrongBrandString) },
+  { name: "safeParse(invalid-base32)", fn: () => usr.safeParse(malformedPayload) },
 ];
 
 type Bench = {
