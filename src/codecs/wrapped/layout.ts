@@ -1,11 +1,10 @@
 import type { webcrypto } from "node:crypto";
 import type { Id, Prefix } from "../../types.js";
+import { decryptPayload, encryptPayload, timingSafeEqual } from "../_kernel/crypto.js";
 import { writeLen32 } from "../_kernel/bytes.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 
-const zeroIv = new Uint8Array(payloadByteLength);
-const pkcsPad = 0x10;
 const laneByteLength = 8;
 const tagByteLength = 8;
 
@@ -148,47 +147,6 @@ async function computeTag(
   return signature.subarray(0, tagByteLength);
 }
 
-function tagsEqual(a: Uint8Array, b: Uint8Array): boolean {
-  /* v8 ignore next -- defensive guard; both call sites always pass tagByteLength-byte arrays */
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
-  return diff === 0;
-}
-
-async function encryptPayload(key: LayoutWrappingKey, plaintext: Uint8Array): Promise<Uint8Array> {
-  const encrypted = new Uint8Array(
-    await crypto.subtle.encrypt(
-      { name: "AES-CBC", iv: zeroIv },
-      key.aesKey,
-      plaintext as Uint8Array<ArrayBuffer>,
-    ),
-  );
-  return encrypted.subarray(0, payloadByteLength);
-}
-
-async function decryptPayload(key: LayoutWrappingKey, c1: Uint8Array): Promise<Uint8Array> {
-  const c2Input = new Uint8Array(payloadByteLength);
-  for (let i = 0; i < payloadByteLength; i++) c2Input[i] = pkcsPad ^ c1[i]!;
-  const c2Encrypted = new Uint8Array(
-    await crypto.subtle.encrypt(
-      { name: "AES-CBC", iv: zeroIv },
-      key.aesKey,
-      c2Input as Uint8Array<ArrayBuffer>,
-    ),
-  );
-  const ciphertext = new Uint8Array(payloadByteLength * 2);
-  ciphertext.set(c1, 0);
-  ciphertext.set(c2Encrypted.subarray(0, payloadByteLength), payloadByteLength);
-  return new Uint8Array(
-    await crypto.subtle.decrypt(
-      { name: "AES-CBC", iv: zeroIv },
-      key.aesKey,
-      ciphertext as Uint8Array<ArrayBuffer>,
-    ),
-  );
-}
-
 function buildPlaintext(lane: Uint8Array, tag: Uint8Array): Uint8Array {
   const plaintext = new Uint8Array(payloadByteLength);
   plaintext.set(lane, 0);
@@ -206,7 +164,7 @@ async function wrapLookupKey<Brand extends string, Kind extends LayoutWrappedKin
   const lane = new Uint8Array(laneByteLength);
   writeLane(kind, lookupKey, lane);
   const tag = await computeTag(key, template, lane);
-  const encrypted = await encryptPayload(key, buildPlaintext(lane, tag));
+  const encrypted = await encryptPayload(key.aesKey, buildPlaintext(lane, tag));
   return toWireId(prefix, encrypted);
 }
 
@@ -217,11 +175,11 @@ async function tryUnwrapLookupKey<Brand extends string, Kind extends LayoutWrapp
   kind: Kind,
   id: Id<Brand>,
 ): Promise<LayoutLookupKey<Kind> | null> {
-  const plaintext = await decryptPayload(key, payloadBytesFromId(prefix, id));
+  const plaintext = await decryptPayload(key.aesKey, payloadBytesFromId(prefix, id));
   const lane = plaintext.subarray(0, laneByteLength);
   const tag = plaintext.subarray(laneByteLength, payloadByteLength);
   const expected = await computeTag(key, template, lane);
-  if (!tagsEqual(tag, expected)) return null;
+  if (!timingSafeEqual(tag, expected)) return null;
   return readLane(kind, lane);
 }
 

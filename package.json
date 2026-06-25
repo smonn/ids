@@ -97,7 +97,7 @@
     "bench:build": "tsdown -c tsdown.bench.config.ts",
     "bench": "pnpm -s bench:build 1>&2 && node bench/dist/index.mjs",
     "bench:compare": "pnpm -s bench:build 1>&2 && node bench/dist/compare.mjs",
-    "version-packages": "changeset version && pnpm fmt"
+    "version-packages": "changeset version"
   },
   "devDependencies": {
     "@changesets/cli": "2.31.0",

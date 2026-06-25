@@ -129,12 +129,12 @@ module.exports = {
       name: "layouts-wire-imports-allowlist",
       severity: "error",
       comment:
-        "layouts may import wire/envelope, wire/invariants, wire/timestamp-bytes, types, and codecs/_kernel/bytes only",
+        "layouts may import wire/envelope, wire/invariants, wire/timestamp-bytes, types, codecs/_kernel/bytes, and codecs/_kernel/crypto only",
       from: { path: "^src/codecs/[^/]+/layout\\.ts$" },
       to: {
         path: "^src",
         pathNot:
-          "^src/(wire/(envelope|invariants|timestamp-bytes)|types)\\.ts$|^src/codecs/_kernel/bytes\\.ts$",
+          "^src/(wire/(envelope|invariants|timestamp-bytes)|types)\\.ts$|^src/codecs/_kernel/(bytes|crypto)\\.ts$",
       },
     },
     {
@@ -184,6 +184,26 @@ module.exports = {
       to: {
         path: "^src",
         pathNot: "^src/(codecs/_kernel/bytes|error)\\.ts$",
+      },
+    },
+    {
+      name: "crypto-leaf-restricted",
+      severity: "error",
+      comment: "_kernel/crypto is a leaf importable only by layout modules and key-handle modules",
+      from: {
+        path: "^src.*\\.ts$",
+        pathNot: "^src/codecs/[^/]+/(layout|key)\\.ts$|\\.test\\.ts$",
+      },
+      to: { path: "^src/codecs/_kernel/crypto\\.ts$" },
+    },
+    {
+      name: "crypto-leaf-no-upward",
+      severity: "error",
+      comment: "_kernel/crypto leaf may only import _kernel/bytes and wire/invariants",
+      from: { path: "^src/codecs/_kernel/crypto\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/(codecs/_kernel/bytes|wire/invariants)\\.ts$",
       },
     },
     {
