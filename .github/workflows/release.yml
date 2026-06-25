@@ -31,6 +31,7 @@ jobs:
       - run: pnpm build
 
       - name: Create release PR or publish
+        id: changesets
         uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         with:
           version: pnpm version-packages
@@ -38,3 +39,30 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
+
+      # Round out supply-chain transparency alongside npm provenance: on every
+      # publish (not on release-PR-only runs), generate a CycloneDX SBOM and
+      # attach it to each published package's GitHub release. Uploaded with the
+      # runner's gh CLI, so no new SHA-pinned action is introduced.
+      - name: Generate and attach CycloneDX SBOM
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        run: |
+          set -euo pipefail
+          # cyclonedx-npm reads an npm lockfile; the repo uses pnpm, so derive a
+          # throwaway package-lock.json. --package-lock-only never touches
+          # node_modules and the lockfile is discarded with the runner.
+          npm install --package-lock-only --ignore-scripts --legacy-peer-deps
+          echo "$PUBLISHED_PACKAGES" | jq -c '.[]' | while read -r pkg; do
+            name=$(echo "$pkg" | jq -r '.name')
+            version=$(echo "$pkg" | jq -r '.version')
+            slug=$(echo "${name}" | tr '/@' '--' | sed 's/^-//')
+            sbom="${slug}-${version}.cdx.json"
+            npx --yes @cyclonedx/cyclonedx-npm@^4 \
+              --package-lock-only \
+              --output-format JSON \
+              --output-file "$sbom"
+            gh release upload "${name}@${version}" "$sbom" --clobber --repo "${{ github.repository }}"
+          done
