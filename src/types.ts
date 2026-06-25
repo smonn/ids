@@ -42,10 +42,8 @@ type LowerChar =
  */
 export type ValidBrand<S extends string> = string extends S
   ? S
-  : S extends `${infer A extends LowerChar}${infer B extends LowerChar}${infer C extends LowerChar}`
-    ? [A, B, C] extends [LowerChar, LowerChar, LowerChar]
-      ? S
-      : never
+  : S extends `${infer _A extends LowerChar}${infer _B extends LowerChar}${infer _C extends LowerChar}`
+    ? S
     : never;
 
 /** The brand plus trailing separator — e.g. `usr_` for brand `usr`. */
