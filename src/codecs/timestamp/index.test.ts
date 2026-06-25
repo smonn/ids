@@ -158,9 +158,10 @@ describe("id", () => {
 
   it("default rng harvests exact bytes from crypto.randomUUID via hexCharCodeToNibble table", () => {
     // Stub randomUUID so the default fastTenByteRng runs against a known input.
-    // UUID "00112233-4455-4677-8899-aabbccddeeff" exercises both for-loops:
-    //   L66: digit nibbles '0'-'9' → positions 0-7, 9-12 → bytes 0x00-0x55
-    //   L67: letter nibbles 'a'-'f' → positions 24-31 → bytes 0xaa-0xdd
+    // UUID "00112233-4455-4677-8899-aabbccddeeff" exercises both for-loops in
+    // src/codecs/_kernel/rng.ts (L9/L10, hexCharCodeToNibble initialization):
+    //   digit nibbles '0'-'5' → positions 0-7, 9-12 → bytes 0x00-0x55
+    //   letter nibbles 'a'-'f' → positions 24-31 → bytes 0xaa-0xdd
     const spy = vi
       .spyOn(crypto, "randomUUID")
       .mockReturnValue("00112233-4455-4677-8899-aabbccddeeff");
