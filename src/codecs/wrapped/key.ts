@@ -1,4 +1,5 @@
 import type { webcrypto } from "node:crypto";
+import { timingSafeEqual } from "../_kernel/crypto.js";
 import {
   assertValidKeyMaterialByteLength,
   assertValidKeyring,
@@ -13,8 +14,6 @@ export type WrappingKeyFormat = "hex" | "base64url";
 
 const aesInfo = new TextEncoder().encode("@smonn/ids/wrapped/aes");
 const hmacInfo = new TextEncoder().encode("@smonn/ids/wrapped/hmac");
-
-const SHA256_DIGEST_BYTES = 32;
 
 declare const wrappingKeyBrand: unique symbol;
 
@@ -97,13 +96,10 @@ export function decodeWrappingKey(encoded: string, format: WrappingKeyFormat): U
  * not leak the position of the first differing byte through a timing side channel.
  */
 export function wrappingKeysEqual(a: WrappingKey, b: WrappingKey): boolean {
-  const aDigest = getWrappingKeyInternals(a).keyDigest;
-  const bDigest = getWrappingKeyInternals(b).keyDigest;
-  let diff = 0;
-  for (let i = 0; i < SHA256_DIGEST_BYTES; i++) {
-    diff |= aDigest[i]! ^ bDigest[i]!;
-  }
-  return diff === 0;
+  return timingSafeEqual(
+    getWrappingKeyInternals(a).keyDigest,
+    getWrappingKeyInternals(b).keyDigest,
+  );
 }
 
 export function getWrappingKeyMaterial(key: WrappingKey): WrappingKeyMaterial {
