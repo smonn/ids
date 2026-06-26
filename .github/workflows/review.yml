@@ -488,9 +488,23 @@ jobs:
           comments_json=$(jq -s '.' "$comments")
           summary_body=$(cat ".review/$summary_file"; [ -s "$demoted" ] && cat "$demoted"; true)
 
-          jq -n --arg commit "$HEAD_SHA" --arg body "$summary_body" --argjson comments "$comments_json" \
-            '{commit_id:$commit, event:"COMMENT", body:$body, comments:$comments}' \
-            | gh api -X POST "repos/$GH_REPO/pulls/$PR_NUMBER/reviews" --input - > /dev/null
+          review_json=$(jq -n --arg commit "$HEAD_SHA" --arg body "$summary_body" --argjson comments "$comments_json" \
+            '{commit_id:$commit, event:"COMMENT", body:$body, comments:$comments}')
+
+          # Pre-flight corruption guard: a body still carrying literal escape sequences
+          # (\n, \<, \[) means the producer wrote escapes into its .review/ files instead
+          # of verbatim markdown — the bodies reach here unmodified (cat + jq --arg encode
+          # them faithfully), so this is the producer's output, not shell-quoting. Reject
+          # BEFORE the POST so a corrupted review never lands on the PR; the post-hoc
+          # "Verify the review was posted" step stays as the backstop for anything that
+          # slips through. Same regex as that step, applied to every body we are about to
+          # send (summary + each inline comment).
+          if [ "$(printf '%s' "$review_json" | jq '[.body] + [.comments[].body] | map(select(test("\\\\n|\\\\<|\\\\\\["))) | length')" -gt 0 ]; then
+            echo "::error::A review body for $HEAD_SHA contains literal escape sequences (\\n, \\<, \\[) instead of rendered markdown — the producer wrote escapes into .review/ instead of verbatim bytes. Not posting; fix body authoring and re-review."
+            exit 1
+          fi
+
+          printf '%s' "$review_json" | gh api -X POST "repos/$GH_REPO/pulls/$PR_NUMBER/reviews" --input - > /dev/null
           echo "Posted a COMMENT review for $HEAD_SHA with $(echo "$comments_json" | jq 'length') inline comment(s)."
 
           # Hand off to the fix loop only when the producer flagged in-scope hard findings.
