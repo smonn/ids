@@ -15,7 +15,7 @@ pnpm add @smonn/ids
 import { createTimestampId } from "@smonn/ids";
 
 const users = createTimestampId("usr");
-const id = users.generate(); // "usr_01h7b3k9rqxn4cw3p9r8t2sgkw"
+const id = users.generate(); // "usr_06f80z92d2dbsqqg28t5cy4tqg"
 ```
 
 Each ID is a three-letter brand, an underscore, then 26 Crockford base32

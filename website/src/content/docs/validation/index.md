@@ -68,8 +68,8 @@ const users = createTimestampId("usr");
 
 const Body = type({ userId: users });
 
-const r = Body({ userId: "USR_01H7B3K9RQXN1CW3P9R8T2SGKW" });
-// → { userId: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw" } typed as { userId: Id<"usr"> }
+const r = Body({ userId: "USR_06F80Z92D2DBSQQG28T5CY4TQG" });
+// → { userId: "usr_06f80z92d2dbsqqg28t5cy4tqg" } typed as { userId: Id<"usr"> }
 ```
 
 The same pattern works with Valibot, tRPC, and any other library that reads the
@@ -100,7 +100,7 @@ users.toJsonSchema();
 //   type: "string",
 //   pattern: "^usr_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$",
 //   description: "Branded ID for 'usr'",
-//   example: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw",
+//   example: "usr_06f80z92d2dbsqqg28t5cy4tqg",
 // }
 ```
 

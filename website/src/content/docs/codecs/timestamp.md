@@ -12,7 +12,7 @@ divergences](https://github.com/smonn/ids/blob/main/docs/adr/0002-payload-layout
 import { createTimestampId } from "@smonn/ids";
 
 const users = createTimestampId("usr");
-const id = users.generate(); // "usr_01h7b3k9rqxn4cw3p9r8t2sgkw"
+const id = users.generate(); // "usr_06f80z92d2dbsqqg28t5cy4tqg"
 ```
 
 Most of the behavior on this page — lenient parsing, error handling, Standard
@@ -31,10 +31,10 @@ character falls outside that set is invalid: `safeParse` returns
 (`code: 'invalid_id'`, `cause: 'invalid_base32'`); `is` returns `false`.
 
 ```ts
-users.safeParse("usr_01h7b3k9rqxn1cw3p9r8t2sgkw"); // canonical
-users.safeParse("USR_01H7B3K9RQXN1CW3P9R8T2SGKW"); // uppercase
-users.safeParse("usr_Olh7b3k9rqxnIcw3p9r8t2sgkw"); // o, I, l aliased
-// → { ok: true, id: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw" } for all three
+users.safeParse("usr_06f80z92d2dbsqqg28t5cy4tqg"); // canonical
+users.safeParse("USR_06F80Z92D2DBSQQG28T5CY4TQG"); // uppercase
+users.safeParse("usr_o6f8oz92d2dbsqqg28t5cy4tqg"); // o aliased to 0 (i, l alias to 1)
+// → { ok: true, id: "usr_06f80z92d2dbsqqg28t5cy4tqg" } for all three
 ```
 
 Equality checks on canonical strings work as expected. For untrusted input,
@@ -182,8 +182,8 @@ import { type } from "arktype";
 
 const Body = type({ userId: users });
 
-const r = Body({ userId: "USR_01H7B3K9RQXN1CW3P9R8T2SGKW" });
-// → { userId: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw" } typed as Id<"usr">
+const r = Body({ userId: "USR_06F80Z92D2DBSQQG28T5CY4TQG" });
+// → { userId: "usr_06f80z92d2dbsqqg28t5cy4tqg" } typed as Id<"usr">
 ```
 
 `validate` is synchronous, wraps `safeParse`, and returns the canonical
@@ -198,7 +198,7 @@ users.toJsonSchema();
 //   type: "string",
 //   pattern: "^usr_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$",
 //   description: "Branded ID for 'usr'",
-//   example: "usr_01h7b3k9rqxn1cw3p9r8t2sgkw",
+//   example: "usr_06f80z92d2dbsqqg28t5cy4tqg",
 // }
 ```
 

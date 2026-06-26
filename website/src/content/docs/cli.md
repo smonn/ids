@@ -12,10 +12,10 @@ Decode an ID and print brand, timestamp (or lookup key), canonical form, and
 whether the input was already canonical.
 
 ```bash
-$ npx @smonn/ids inspect usr_01h7b3k9rqxn1cw3p9r8t2sgkw
+$ npx @smonn/ids inspect usr_06f80z92d2dbsqqg28t5cy4tqg
 brand:     usr
-timestamp: 1983-05-27T10:24:22.469Z (43 years ago)
-canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw
+timestamp: 2026-06-01T00:02:25.000Z (25 days ago)
+canonical: usr_06f80z92d2dbsqqg28t5cy4tqg
 input:     canonical
 ```
 
