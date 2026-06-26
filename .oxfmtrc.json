@@ -1,6 +1,13 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": [".claude/**", ".impl-context/**", ".address-context/**", ".review-context/**"],
+  "ignorePatterns": [
+    ".claude/**",
+    ".impl-context/**",
+    ".impl/**",
+    ".address-context/**",
+    ".address/**",
+    ".review-context/**"
+  ],
   "overrides": [
     {
       "files": ["**/*.md", "**/*.mdx"],
