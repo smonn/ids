@@ -14,7 +14,7 @@ Next.js all integrate through the universal surfaces that
 [every codec already exposes](/validation/):
 
 - **`~standard`** — [Standard Schema v1](https://standardschema.dev/), so the
-  codec drops into any boundary that *consumes* a Standard Schema validator.
+  codec drops into any boundary that _consumes_ a Standard Schema validator.
 - **`toJsonSchema()`** — synchronous JSON Schema for OpenAPI generation.
 - **`safeParse` / `is`** — boundary validation anywhere else.
 
@@ -39,7 +39,7 @@ a codec slots straight in. The result is the canonical `Id<Brand>`, fully typed.
 ### tRPC
 
 `procedure.input()` accepts [any Standard Schema validator](https://trpc.io/docs/server/validators).
-When the whole input *is* the ID, pass the codec:
+When the whole input _is_ the ID, pass the codec:
 
 ```ts
 import { createTimestampId } from "@smonn/ids";
@@ -131,10 +131,7 @@ const users = createTimestampId("usr");
 >
   {(field) => (
     // field validates against the codec; errors surface in field.state.meta
-    <input
-      value={field.state.value}
-      onChange={(e) => field.handleChange(e.target.value)}
-    />
+    <input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} />
   )}
 </form.Field>;
 ```
@@ -161,7 +158,7 @@ function: `register("userId", { validate: (v) => users.safeParse(v).ok })`.
 ## 2. Compose inside a schema library
 
 Schema libraries (ArkType, Zod, Valibot) **produce** Standard Schema. Whether
-you can embed a codec as a *member* of one of their object schemas depends on
+you can embed a codec as a _member_ of one of their object schemas depends on
 whether that library also **consumes** foreign Standard Schemas.
 
 ### ArkType — embed directly
@@ -278,15 +275,15 @@ documents.
 
 ## Summary
 
-| Library                      | Mechanism                              | What you pass                          |
-| ---------------------------- | -------------------------------------- | -------------------------------------- |
-| tRPC, oRPC, Elysia           | Consumes Standard Schema at the input  | The codec directly                     |
-| TanStack (Router / Start)    | Consumes Standard Schema               | Codec (search/server fn); `~standard.validate` for path params |
-| TanStack Form                | Consumes Standard Schema per field     | The codec in `validators.onChange`     |
-| React Hook Form              | Consumes a whole-form Standard Schema  | ArkType-composed schema via `standardSchemaResolver` |
-| ArkType                      | Consumes Standard Schema as a member   | The codec inside `type({ … })`         |
-| Zod, Valibot, Effect Schema  | Produce only — no foreign consume      | `z.custom` / `v.custom` / `S.filter` around `safeParse` |
-| Next.js, SvelteKit, Remix, Nuxt | No schema hook                      | `safeParse` at the boundary; `toJsonSchema()` for OpenAPI |
+| Library                         | Mechanism                             | What you pass                                                  |
+| ------------------------------- | ------------------------------------- | -------------------------------------------------------------- |
+| tRPC, oRPC, Elysia              | Consumes Standard Schema at the input | The codec directly                                             |
+| TanStack (Router / Start)       | Consumes Standard Schema              | Codec (search/server fn); `~standard.validate` for path params |
+| TanStack Form                   | Consumes Standard Schema per field    | The codec in `validators.onChange`                             |
+| React Hook Form                 | Consumes a whole-form Standard Schema | ArkType-composed schema via `standardSchemaResolver`           |
+| ArkType                         | Consumes Standard Schema as a member  | The codec inside `type({ … })`                                 |
+| Zod, Valibot, Effect Schema     | Produce only — no foreign consume     | `z.custom` / `v.custom` / `S.filter` around `safeParse`        |
+| Next.js, SvelteKit, Remix, Nuxt | No schema hook                        | `safeParse` at the boundary; `toJsonSchema()` for OpenAPI      |
 
 If your library isn't listed, the rule still holds: **does it consume a Standard
 Schema?** If yes, pass the codec. If no, call `safeParse` at the boundary. For
