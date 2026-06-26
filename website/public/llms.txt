@@ -43,5 +43,6 @@ Every codec implements Standard Schema v1 and exports a JSON Schema via `toJsonS
 ## Optional
 
 - [CLI](https://ids.smonn.se/cli/): Brand-agnostic inspect, generate, and keygen subcommands — no install required.
+- [Wire format & porting](https://ids.smonn.se/porting/): Links to SPEC.md (wire-format spec) and spec/vectors.json (conformance oracle) for cross-language porters.
 - [API reference](https://ids.smonn.se/api/readme/): Full TypeDoc-generated API reference for every public entry point.
 - [GitHub repository](https://github.com/smonn/ids): Source code, issues, and changelog.
