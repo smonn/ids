@@ -31,7 +31,7 @@ const xprisma = prisma.$extends({
 await xprisma.user.create({ data: { id: userIdField.write(usr.generate()), name: "Alice" } });
 ```
 
-`idField(codec)` works with any codec variant that exposes a synchronous `generate()` method — the **Timestamp codec** and **Reverse Timestamp codec**. Async-generate codecs (Opaque, Signed, Wrapped, Digest) are unsupported by `defaultQuery` but still work for `computeField` and `read`/`write`.
+`idField(codec)` requires `IdGeneratingCodec` — a codec variant exposing a synchronous `generate()`. Only the **Timestamp codec** and **Reverse Timestamp codec** satisfy this constraint; the Opaque, Signed, Wrapped, and Digest codecs do not expose a synchronous `generate()` and cannot be passed to `idField()` at all.
 
 - **Write path:** `write` is an identity function — `Id<Brand>` is already canonical.
 - **Read path:** values are normalised via `codec.safeParse()`. An unrecognised value throws at read time so corrupt data surfaces immediately.
