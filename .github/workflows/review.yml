@@ -473,8 +473,10 @@ jobs:
             # wholesale-escaped (it arrived as ~one physical line): the escaped-"\n"
             # count meets or outnumbers the real newlines. That protects a legitimate
             # "\n" inside a code span in an otherwise well-formed multi-line body.
+            # `|| true` keeps grep's no-match exit 1 from tripping `set -o pipefail`
+            # (and thus `set -e`) when the body has no literal "\n" at all.
             real=$(tr -cd '\n' < "$f" | wc -c)
-            esc=$(grep -oE '\\n' "$f" | wc -l)
+            esc=$({ grep -oE '\\n' "$f" || true; } | wc -l)
             if [ "$esc" -gt 0 ] && [ "$esc" -ge "$real" ]; then
               perl -0pi -e 's/\\n/\n/g' "$f"
             fi
