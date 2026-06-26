@@ -131,6 +131,10 @@ export type IdTransform<Brand extends string> = {
  * field definition — the brand is carried through Prisma's type machinery
  * automatically and no per-call-site cast is required.
  *
+ * For codecs that do not expose a synchronous `generate()` (Opaque Timestamp,
+ * Signed Timestamp, Wrapped key, Digest), use {@link idFieldReadOnly} instead —
+ * it accepts any {@link IdColumnCodec} and omits `defaultQuery`.
+ *
  * @example
  * ```ts
  * import { idField } from "@smonn/ids/prisma";
@@ -203,6 +207,63 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
               : args;
           return query(nextArgs);
         },
+      };
+    },
+    computeNullableField(fieldName: string) {
+      return {
+        needs: { [fieldName]: true },
+        compute: (model: Record<string, unknown>): Id<Brand> | null =>
+          readIdColumnNullable(codec, model[fieldName]),
+      };
+    },
+  };
+}
+
+/**
+ * Read-only sibling of {@link idField} for codec variants that do not expose a
+ * synchronous `generate()` — Opaque Timestamp, Signed Timestamp, Wrapped key,
+ * and Digest codecs all qualify.
+ *
+ * Accepts any {@link IdColumnCodec} (the wider constraint that only requires
+ * `safeParse`) and returns the full read/transform surface of {@link IdTransform}
+ * **minus `defaultQuery`**. Because `defaultQuery` is the only method that calls
+ * `generate()`, callers who only need the read path are not forced to provide a
+ * synchronous generator.
+ *
+ * @example
+ * ```ts
+ * import { idFieldReadOnly } from "@smonn/ids/prisma";
+ * import { createOpaqueTimestampId } from "@smonn/ids/opaque";
+ *
+ * const inv = createOpaqueTimestampId("inv", { key });
+ * const invoiceIdField = idFieldReadOnly(inv);
+ *
+ * const xprisma = prisma.$extends({
+ *   result: {
+ *     invoice: { id: invoiceIdField.computeField("id") },
+ *   },
+ * });
+ * // xprisma.invoice.findUnique(…).id is typed as Id<"inv"> — no cast required
+ * ```
+ */
+export function idFieldReadOnly<Brand extends string>(
+  codec: IdColumnCodec<Brand>,
+): Omit<IdTransform<Brand>, "defaultQuery"> {
+  return {
+    read(value: unknown): Id<Brand> {
+      return readIdColumn(codec, value);
+    },
+    readNullable(value: unknown): Id<Brand> | null {
+      return readIdColumnNullable(codec, value);
+    },
+    write(value: Id<Brand>): string {
+      return value;
+    },
+    computeField(fieldName: string) {
+      return {
+        needs: { [fieldName]: true },
+        compute: (model: Record<string, unknown>): Id<Brand> =>
+          readIdColumn(codec, model[fieldName]),
       };
     },
     computeNullableField(fieldName: string) {
