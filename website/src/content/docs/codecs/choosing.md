@@ -11,7 +11,7 @@ different trade-offs. Pick by what you need from the payload.
 | [Timestamp](/codecs/timestamp/)       | `@smonn/ids`         | Ascending (oldest-first)  | No                 | Always (plaintext)         | `minIdForTime(t_old)` → `maxIdForTime(t_new)`                                |
 | [Reverse Timestamp](/codecs/reverse/) | `@smonn/ids/reverse` | Descending (newest-first) | No                 | Always (plaintext)         | `minIdForTime(t_new)` → `maxIdForTime(t_old)` (bounds flipped)               |
 | [Signed Timestamp](/codecs/signed/)   | `@smonn/ids/signed`  | Ascending (oldest-first)  | Yes (signing key)  | Always (plaintext)         | `minIdForTime(t_old)` → `maxIdForTime(t_new)` (sentinels carry no valid tag) |
-| [Opaque Timestamp](/codecs/opaque/)   | `@smonn/ids/opaque`  | None (encrypted)          | Yes (AES key)      | With key only              | None — encrypted payloads do not sort by time                                |
+| [Opaque Timestamp](/codecs/opaque/)   | `@smonn/ids/opaque`  | None (encrypted)          | Yes (key material) | With key only              | None — encrypted payloads do not sort by time                                |
 | [Wrapped key](/codecs/wrapped/)       | `@smonn/ids/wrapped` | None                      | Yes (wrapping key) | N/A — not timestamp-family | None                                                                         |
 | [Digest](/codecs/digest/)             | `@smonn/ids/digest`  | None                      | Yes (digest key)   | N/A — not timestamp-family | None                                                                         |
 

@@ -52,6 +52,30 @@ describe("opaque", () => {
     await expect(usr.extractTimestamp(id)).resolves.toEqual(fixed);
   });
 
+  it("derives the AES key via HKDF, not raw import (ADR-0027)", async () => {
+    // The operator bytes are HKDF input keying material, not the AES key
+    // itself. The fixed inputs below produced this id under the pre-ADR-0027
+    // raw-import construction; HKDF derivation must yield a different id.
+    const key = await importOpaqueKey(new Uint8Array(16).map((_, i) => i));
+    const now = () => 0x123456789abc;
+    const rng = (t: Uint8Array): void => {
+      t.fill(0x42);
+    };
+    const usr = createOpaqueTimestampId("usr", { key, now, rng });
+    expect(await usr.generate()).not.toBe("usr_mkfn9zzq1pjz1zkk9qpwr0e9q4");
+  });
+
+  it.each([16, 24, 32])(
+    "round-trips through extractTimestamp for a %d-byte key (always AES-256 via HKDF)",
+    async (len) => {
+      const key = await importOpaqueKey(new Uint8Array(len).map((_, i) => i));
+      const fixed = new Date("2026-05-28T12:00:00Z");
+      const codec = createOpaqueTimestampId("usr", { key, now: () => fixed.getTime() });
+      const id = await codec.generate();
+      await expect(codec.extractTimestamp(id)).resolves.toEqual(fixed);
+    },
+  );
+
   it("different keys produce different ids for the same plaintext", async () => {
     const keyA = await importOpaqueKey(new Uint8Array(16).fill(0xaa));
     const keyB = await importOpaqueKey(new Uint8Array(16).fill(0xbb));
@@ -276,7 +300,9 @@ describe("opaque", () => {
 
   it("golden vector: fixed ts + rng + AES key yields exact wire string", async () => {
     // key: 16 bytes of 0x11; ts: 0x123456789abc; rng: all bytes 0x55
-    // AES-CBC(key, zero-IV, ts6 ‖ rand10) → first 16 bytes → base32 payload.
+    // The 16 bytes are HKDF input keying material (ADR-0027): the AES-256 key is
+    // HKDF(bytes, "@smonn/ids/opaque/aes"). AES-CBC(derivedKey, zero-IV,
+    // ts6 ‖ rand10) → first 16 bytes → base32 payload.
     const key = await importOpaqueKey(new Uint8Array(16).fill(0x11));
     const opc = createOpaqueTimestampId("opc", {
       key,
@@ -285,7 +311,7 @@ describe("opaque", () => {
         target.fill(0x55);
       },
     });
-    expect(await opc.generate()).toBe("opc_vwpbpgz86xc98hvyk801n1n43m");
+    expect(await opc.generate()).toBe("opc_ncb9yfq6hjamwep9jmfyyy1wsw");
   });
 
   // --- fast-check property tests ---

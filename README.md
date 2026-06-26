@@ -43,7 +43,7 @@ All six codecs share the same `<brand>_<26 chars>` wire shape but make different
 | Timestamp | `@smonn/ids` | Ascending (oldest-first) | No | Always (plaintext) |
 | Reverse Timestamp | `@smonn/ids/reverse` | Descending (newest-first) | No | Always (plaintext) |
 | Signed Timestamp | `@smonn/ids/signed` | Ascending (oldest-first) | Yes (signing key) | Always (plaintext) |
-| Opaque Timestamp | `@smonn/ids/opaque` | None (encrypted) | Yes (AES key) | With key only |
+| Opaque Timestamp | `@smonn/ids/opaque` | None (encrypted) | Yes (key material) | With key only |
 | Wrapped key | `@smonn/ids/wrapped` | None | Yes (wrapping key) | N/A — not timestamp-family |
 | Digest | `@smonn/ids/digest` | None | Yes (digest key) | N/A — not timestamp-family |
 
