@@ -267,6 +267,14 @@ jobs:
                  ESCALATION path below instead of implementing — do NOT commit the change
                  and do NOT write a PR body; a human must make the workflow edit. (Other
                  files under `.github/`, e.g. actions or scripts, are fine.)
+               - FROZEN WIRE ORACLE: `spec/vectors.json` and `SPEC.md` are the frozen wire
+                 oracle. A failing vector assertion means the CODE drifted from the frozen
+                 wire format — fix the code; NEVER edit `spec/vectors.json` or `SPEC.md` to
+                 match the implementation's output (that silently un-freezes the contract
+                 over a wire break). If the acceptance criteria would require changing
+                 `spec/vectors.json` or `SPEC.md`, take the ESCALATION path below instead
+                 of implementing — do NOT commit the change and do NOT write a PR body; a
+                 human owns spec edits.
             4. Make the FULL CI gate pass locally before finishing, exactly as
                ci.yml runs it (use `pnpm lint:fix` / `pnpm fmt` to auto-resolve):
                `pnpm lint` && `pnpm depcruise` && `pnpm fmt:check` && `pnpm typecheck`

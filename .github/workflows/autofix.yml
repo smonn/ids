@@ -261,6 +261,13 @@ jobs:
                is rejected and the fix can never land. If the only safe fix would edit a
                `.github/workflows/*` file, do NOT commit it — take the escalation path
                (step 5) so a human can make the workflow change.
+               FROZEN WIRE ORACLE: `spec/vectors.json` and `SPEC.md` are the frozen wire
+               oracle. A failing vector assertion means the CODE drifted from the frozen
+               wire format — fix the code; NEVER edit `spec/vectors.json` or `SPEC.md` to
+               match the implementation's output (that silently un-freezes the contract
+               over a wire break). If the only way to clear a vector failure would be to
+               change `spec/vectors.json` or `SPEC.md`, do NOT commit it — take the
+               escalation path (step 5) so a human can decide.
             3. Re-run the full gate; everything must pass.
             4. If you fixed it: commit LOCALLY (do NOT push) with a message that starts
                `fix(ci): ` and contains the marker `[ci-autofix]`. Then write

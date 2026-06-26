@@ -363,7 +363,14 @@ jobs:
                rejected and nothing lands. If a comment asks for a `.github/workflows/*`
                change, do NOT edit it — resolve that point as `declined` (or `deferred`)
                and say in the reply that a maintainer must make the workflow change by
-               hand. You do not have to
+               hand. FROZEN WIRE ORACLE: `spec/vectors.json` and `SPEC.md` are the frozen
+               wire oracle. A failing vector assertion means the CODE drifted from the
+               frozen wire format — fix the code; NEVER edit `spec/vectors.json` or
+               `SPEC.md` to make a vector pass (that silently un-freezes the contract over
+               a wire break). If a comment asks for a change to `spec/vectors.json` or
+               `SPEC.md`, do NOT edit it — resolve that point as `declined` (or `deferred`)
+               and say in the reply that a maintainer must make the spec change by hand.
+               You do not have to
                implement every point — for each one you don't, pick the honest
                resolution:
                  - DISAGREE / unsafe / conflicts with a CLOSED decision: don't implement;
