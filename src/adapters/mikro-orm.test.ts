@@ -94,4 +94,36 @@ describe("mikro-orm", () => {
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
   });
+
+  describe("columnType option", () => {
+    it("getColumnType defaults to 'text' with no options (backward compat)", () => {
+      const DefaultType = idType(usr);
+      expect(new DefaultType().getColumnType(undefined as never, undefined as never)).toBe("text");
+    });
+
+    it("getColumnType returns the provided columnType", () => {
+      const VarcharType = idType(usr, { columnType: "varchar(30)" });
+      expect(new VarcharType().getColumnType(undefined as never, undefined as never)).toBe(
+        "varchar(30)",
+      );
+    });
+
+    it("write path is unaffected by columnType option", () => {
+      const VarcharType = idType(usr, { columnType: "varchar(30)" });
+      const id = usr.generate();
+      expect(new VarcharType().convertToDatabaseValue(id, undefined as never)).toBe(id);
+    });
+
+    it("read path is unaffected by columnType option", () => {
+      const VarcharType = idType(usr, { columnType: "varchar(30)" });
+      const id = usr.generate();
+      expect(new VarcharType().convertToJSValue(fromAny(id), undefined as never)).toBe(id);
+    });
+
+    it("accepts columnType as an optional string in its type signature", () => {
+      expectTypeOf(idType<"usr">)
+        .parameter(1)
+        .toMatchTypeOf<{ columnType?: string } | undefined>();
+    });
+  });
 });

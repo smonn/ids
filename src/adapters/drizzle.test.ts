@@ -99,4 +99,38 @@ describe("drizzle", () => {
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
   });
+
+  describe("columnType option", () => {
+    it("getSQLType defaults to 'text' with no options (backward compat)", () => {
+      const tbl = pgTable("usr_default_col_type", { id: idColumn(usr) });
+      expect(tbl.id.getSQLType()).toBe("text");
+    });
+
+    it("getSQLType returns the provided columnType", () => {
+      const tbl = pgTable("usr_varchar_col_type", {
+        id: idColumn(usr, { columnType: "varchar(30)" }),
+      });
+      expect(tbl.id.getSQLType()).toBe("varchar(30)");
+    });
+
+    it("write path is unaffected by columnType option", () => {
+      const tbl = pgTable("usr_varchar_write", {
+        id: idColumn(usr, { columnType: "varchar(30)" }),
+      });
+      const id = usr.generate();
+      expect(tbl.id.mapToDriverValue(id)).toBe(id);
+    });
+
+    it("read path is unaffected by columnType option", () => {
+      const tbl = pgTable("usr_varchar_read", { id: idColumn(usr, { columnType: "varchar(30)" }) });
+      const id = usr.generate();
+      expect(tbl.id.mapFromDriverValue(fromAny(id))).toBe(id);
+    });
+
+    it("accepts columnType as an optional string in its type signature", () => {
+      expectTypeOf(idColumn<"usr">)
+        .parameter(1)
+        .toMatchTypeOf<{ columnType?: string } | undefined>();
+    });
+  });
 });
