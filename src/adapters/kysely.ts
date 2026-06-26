@@ -89,7 +89,7 @@ export function idColumn<Brand extends string>(
  * ```ts
  * import { idPlugin } from "@smonn/ids/kysely";
  * import { createTimestampId } from "@smonn/ids";
- * import Kysely from "kysely";
+ * import { Kysely } from "kysely";
  *
  * const usr = createTimestampId("usr");
  *
