@@ -152,7 +152,7 @@ describe("cli", () => {
     it("rejects duplicate --opaque flags", async () => {
       const result = await runCapture(
         ["inspect", "usr_00000000000000000000000000", "--opaque", "--opaque"],
-        { env: { IDS_KEY: testKeyHex } },
+        { env: { IDS_OPAQUE_KEY: testKeyHex } },
       );
       expect(result.exitCode).toBe(2);
       expect(result.stdout).toBe("");
@@ -282,13 +282,13 @@ describe("cli", () => {
       });
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe(
-        "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY\n",
+        "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_OPAQUE_KEY or IDS_KEY\n",
       );
       // stdout contract unchanged: same fields, same format
       expect(result.stdout).toContain("timestamp: 1983-05-27T10:24:22.469Z");
     });
 
-    it("--opaque without IDS_KEY exits 2", async () => {
+    it("--opaque without IDS_OPAQUE_KEY or IDS_KEY exits 2", async () => {
       const result = await runCapture(["inspect", "usr_00000000000000000000000000", "--opaque"], {
         env: {},
       });
@@ -298,7 +298,7 @@ describe("cli", () => {
     it("--opaque rejects an invalid --key-format", async () => {
       const result = await runCapture(
         ["inspect", "usr_00000000000000000000000000", "--opaque", "--key-format", "bogus"],
-        { env: { IDS_KEY: testKeyHex } },
+        { env: { IDS_OPAQUE_KEY: testKeyHex } },
       );
       expect(result.exitCode).toBe(2);
     });
@@ -306,7 +306,7 @@ describe("cli", () => {
     it("--opaque rejects a missing --key-format value", async () => {
       const result = await runCapture(
         ["inspect", "usr_00000000000000000000000000", "--opaque", "--key-format"],
-        { env: { IDS_KEY: testKeyHex } },
+        { env: { IDS_OPAQUE_KEY: testKeyHex } },
       );
       expect(result.exitCode).toBe(2);
     });
@@ -324,7 +324,7 @@ describe("cli", () => {
 
     it("--opaque rejects an invalid brand", async () => {
       const result = await runCapture(["inspect", "12X_00000000000000000000000000", "--opaque"], {
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain("invalid_brand");
@@ -332,13 +332,13 @@ describe("cli", () => {
 
     it("--opaque rejects invalid base32 payload", async () => {
       const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgk!", "--opaque"], {
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain("invalid_id");
     });
 
-    it("--opaque rejects malformed IDS_KEY", async () => {
+    it("--opaque rejects malformed key via IDS_KEY fallback", async () => {
       const result = await runCapture(["inspect", "usr_00000000000000000000000000", "--opaque"], {
         env: { IDS_KEY: "aabbcc" },
       });
@@ -360,7 +360,7 @@ describe("cli", () => {
           stdout += s;
         },
         stderr: () => {},
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
       });
       expect(exitCode).toBe(0);
       expect(stdout).toContain("timestamp: 2026-05-28T12:00:00.000Z");
@@ -376,16 +376,34 @@ describe("cli", () => {
       });
       const id = await usr.generate();
       const result = await runCapture(["inspect", id, "--opaque"], {
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
         now: () => new Date("2026-06-01T00:00:00Z").getTime(),
       });
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toContain("note: timestamp assumes IDS_KEY matches");
+      expect(result.stderr).toContain("note: timestamp assumes IDS_OPAQUE_KEY or IDS_KEY matches");
       expect(result.stdout).toContain("timestamp: 2026-05-28T12:00:00.000Z");
       expect(result.stdout).toContain(`canonical: ${id}`);
     });
 
-    it("--opaque reads base64url IDS_KEY when IDS_KEY_FORMAT is set", async () => {
+    it("--opaque reads base64url IDS_OPAQUE_KEY when IDS_OPAQUE_KEY_FORMAT is set", async () => {
+      const key = await importOpaqueKey(testKeyBytes);
+      const fixed = new Date("2026-05-28T12:00:00Z");
+      const usr = createOpaqueTimestampId("usr", {
+        key,
+        now: () => fixed.getTime(),
+        rng: (target) => target.fill(0x42),
+      });
+      const id = await usr.generate();
+      const keyB64 = encodeOpaqueKey(testKeyBytes, "base64url");
+      const result = await runCapture(["inspect", id, "--opaque"], {
+        env: { IDS_OPAQUE_KEY: keyB64, IDS_OPAQUE_KEY_FORMAT: "base64url" },
+        now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("timestamp: 2026-05-28T12:00:00.000Z");
+    });
+
+    it("--opaque reads base64url IDS_KEY (fallback) when IDS_KEY_FORMAT is set", async () => {
       const key = await importOpaqueKey(testKeyBytes);
       const fixed = new Date("2026-05-28T12:00:00Z");
       const usr = createOpaqueTimestampId("usr", {
@@ -477,7 +495,7 @@ describe("cli", () => {
 
     it("rejects a misspelled --opaque flag before generating", async () => {
       const result = await runCapture(["generate", "usr", "--opqaue"], {
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(2);
       expect(result.stdout).toBe("");
@@ -485,7 +503,7 @@ describe("cli", () => {
 
     it("rejects a misspelled --opaque flag with an inline value by flag name", async () => {
       const result = await runCapture(["generate", "usr", "--opqaue=true"], {
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(2);
       expect(result.stdout).toBe("");
@@ -594,12 +612,12 @@ describe("cli", () => {
       for (const id of ids) expect(id).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
     });
 
-    it("--opaque without IDS_KEY exits 2", async () => {
+    it("--opaque without IDS_OPAQUE_KEY or IDS_KEY exits 2", async () => {
       const result = await runCapture(["generate", "usr", "--opaque"], { env: {} });
       expect(result.exitCode).toBe(2);
     });
 
-    it("--opaque rejects --count above the CLI ceiling before loading IDS_KEY", async () => {
+    it("--opaque rejects --count above the CLI ceiling before loading IDS_OPAQUE_KEY", async () => {
       const result = await runCapture(["generate", "usr", "--opaque", "--count", "10001"], {
         env: {},
       });
@@ -610,7 +628,7 @@ describe("cli", () => {
 
     it("rejects an inline value for --opaque", async () => {
       const result = await runCapture(["generate", "usr", "--opaque=true"], {
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(2);
       expect(result.stdout).toBe("");
@@ -618,26 +636,28 @@ describe("cli", () => {
 
     it("--opaque rejects an invalid --key-format", async () => {
       const result = await runCapture(["generate", "usr", "--opaque", "--key-format", "bogus"], {
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(2);
     });
 
     it("--opaque rejects an invalid brand", async () => {
       const result = await runCapture(["generate", "BAD", "--opaque"], {
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
       });
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain("invalid_brand");
     });
 
     it("--opaque rejects a missing brand", async () => {
-      const result = await runCapture(["generate", "--opaque"], { env: { IDS_KEY: testKeyHex } });
+      const result = await runCapture(["generate", "--opaque"], {
+        env: { IDS_OPAQUE_KEY: testKeyHex },
+      });
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain("invalid_brand");
     });
 
-    it("--opaque rejects malformed IDS_KEY", async () => {
+    it("--opaque rejects malformed key via IDS_KEY fallback", async () => {
       const result = await runCapture(["generate", "usr", "--opaque"], {
         env: { IDS_KEY: "not-hex!" },
       });
@@ -645,7 +665,7 @@ describe("cli", () => {
       expect(result.stderr).toContain("invalid_key_encoding");
     });
 
-    it("--opaque rejects a base64url IDS_KEY when --key-format=hex", async () => {
+    it("--opaque rejects a base64url IDS_KEY (fallback) when --key-format=hex", async () => {
       const keyB64 = encodeOpaqueKey(testKeyBytes, "base64url");
       const result = await runCapture(["generate", "usr", "--opaque", "--key-format=hex"], {
         env: { IDS_KEY: keyB64 },
@@ -654,7 +674,7 @@ describe("cli", () => {
       expect(result.stderr).toContain("invalid_key_encoding");
     });
 
-    it("--opaque reads IDS_KEY from process.env when env is not injected", async () => {
+    it("--opaque reads IDS_KEY (fallback) from process.env when env is not injected", async () => {
       const previous = process.env.IDS_KEY;
       process.env.IDS_KEY = testKeyHex;
       try {
@@ -679,7 +699,7 @@ describe("cli", () => {
       });
       const expected = await usr.generate();
       const result = await runCapture(["generate", "usr", "--opaque"], {
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
         now: () => 0x123456789abc,
         rng: (target) => target.fill(0x00),
       });
@@ -690,7 +710,7 @@ describe("cli", () => {
     it("--opaque --count N prints N IDs, one per line", async () => {
       let counter = 0;
       const result = await runCapture(["generate", "usr", "--opaque", "--count", "2"], {
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
         now: () => 0x123456789abc,
         rng: (target) => {
           target.fill(0);
@@ -708,7 +728,7 @@ describe("cli", () => {
 
     it("--opaque accepts the upper --count boundary", async () => {
       const result = await runCapture(["generate", "usr", "--opaque", "--count", "10000"], {
-        env: { IDS_KEY: testKeyHex },
+        env: { IDS_OPAQUE_KEY: testKeyHex },
         now: () => 0x123456789abc,
       });
       expect(result.exitCode).toBe(0);
@@ -716,7 +736,7 @@ describe("cli", () => {
       expect(result.stdout.trimEnd().split("\n")).toHaveLength(10_000);
     });
 
-    it("--key-format on the command line wins over IDS_KEY_FORMAT", async () => {
+    it("--key-format on the command line wins over IDS_OPAQUE_KEY_FORMAT", async () => {
       const key = await importOpaqueKey(testKeyBytes);
       const expected = await createOpaqueTimestampId("usr", {
         key,
@@ -724,7 +744,7 @@ describe("cli", () => {
         rng: (target) => target.fill(0x00),
       }).generate();
       const result = await runCapture(["generate", "usr", "--opaque", "--key-format=hex"], {
-        env: { IDS_KEY: testKeyHex, IDS_KEY_FORMAT: "base64url" },
+        env: { IDS_OPAQUE_KEY: testKeyHex, IDS_OPAQUE_KEY_FORMAT: "base64url" },
         now: () => 0x123456789abc,
         rng: (target) => target.fill(0x00),
       });
@@ -749,6 +769,67 @@ describe("cli", () => {
       ]);
       expect(result.exitCode).toBe(2);
       expect(result.stdout).toBe("");
+    });
+
+    it("--opaque uses IDS_KEY fallback when IDS_OPAQUE_KEY is unset", async () => {
+      const key = await importOpaqueKey(testKeyBytes);
+      const expected = await createOpaqueTimestampId("usr", {
+        key,
+        now: () => 0x123456789abc,
+        rng: (target) => target.fill(0x00),
+      }).generate();
+      const result = await runCapture(["generate", "usr", "--opaque"], {
+        env: { IDS_KEY: testKeyHex },
+        now: () => 0x123456789abc,
+        rng: (target) => target.fill(0x00),
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toBe(`${expected}\n`);
+    });
+
+    it("--opaque: IDS_OPAQUE_KEY wins over IDS_KEY when both are set", async () => {
+      const key = await importOpaqueKey(testKeyBytes);
+      const expected = await createOpaqueTimestampId("usr", {
+        key,
+        now: () => 0x123456789abc,
+        rng: (target) => target.fill(0x00),
+      }).generate();
+      const wrongKeyHex = encodeOpaqueKey(new Uint8Array(32).fill(0xff), "hex");
+      const result = await runCapture(["generate", "usr", "--opaque"], {
+        env: { IDS_OPAQUE_KEY: testKeyHex, IDS_KEY: wrongKeyHex },
+        now: () => 0x123456789abc,
+        rng: (target) => target.fill(0x00),
+      });
+      expect(result.exitCode).toBe(0);
+      // Output matches using IDS_OPAQUE_KEY (testKeyHex), not the wrong IDS_KEY
+      expect(result.stdout).toBe(`${expected}\n`);
+    });
+
+    it("--signed uses IDS_KEY fallback when IDS_SIGNING_KEY is unset", async () => {
+      const result = await runCapture(["generate", "usr", "--signed"], {
+        env: { IDS_KEY: testKeyHex },
+        now: () => 0x123456789abc,
+        rng: (target) => target.fill(0x00),
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}\n$/);
+    });
+
+    it("--signed: IDS_SIGNING_KEY wins over IDS_KEY when both are set", async () => {
+      const key = await importSigningKey(testSigningKeyBytes);
+      const expected = await createSignedTimestampId("usr", {
+        keys: [key],
+        now: () => 0x123456789abc,
+        rng: (target) => target.fill(0x00),
+        allowDuplicateBrand: true,
+      }).generate();
+      const result = await runCapture(["generate", "usr", "--signed"], {
+        env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_KEY: testKeyHex },
+        now: () => 0x123456789abc,
+        rng: (target) => target.fill(0x00),
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toBe(`${expected}\n`);
     });
   });
 
@@ -1282,6 +1363,38 @@ describe("cli inspect --wrapped", () => {
       else process.env.IDS_WRAPPING_KEY_FORMAT = previousFmt;
     }
   });
+
+  it("--wrapped uses IDS_KEY fallback when IDS_WRAPPING_KEY is unset", async () => {
+    const key = await importWrappingKey(testWrappingKeyBytes);
+    const inv = createWrappedKeyId("irg", {
+      kind: "u32",
+      keys: [key],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(7);
+    const result = await runCapture(["inspect", id, "--wrapped", "--kind", "u32"], {
+      env: { IDS_KEY: testWrappingKeyHex },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("lookup-key: 7");
+  });
+
+  it("--wrapped: IDS_WRAPPING_KEY wins over IDS_KEY when both are set", async () => {
+    const key = await importWrappingKey(testWrappingKeyBytes);
+    const inv = createWrappedKeyId("irh", {
+      kind: "u32",
+      keys: [key],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(8);
+    const wrongKeyBytes = new Uint8Array(32).fill(0x11);
+    const wrongKeyHex = encodeWrappingKey(wrongKeyBytes, "hex");
+    const result = await runCapture(["inspect", id, "--wrapped", "--kind", "u32"], {
+      env: { IDS_WRAPPING_KEY: testWrappingKeyHex, IDS_KEY: wrongKeyHex },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("lookup-key: 8");
+  });
 });
 
 describe("cli generate --reverse", () => {
@@ -1331,7 +1444,7 @@ describe("cli generate --reverse", () => {
 
   it("--reverse with --opaque emits a conflict error and exits 2", async () => {
     const result = await runCapture(["generate", "usr", "--reverse", "--opaque"], {
-      env: { IDS_KEY: testKeyHex },
+      env: { IDS_OPAQUE_KEY: testKeyHex },
     });
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
@@ -1359,7 +1472,7 @@ describe("cli inspect --reverse", () => {
     });
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe(
-      "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY\n",
+      "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_OPAQUE_KEY or IDS_KEY\n",
     );
     expect(result.stdout).toContain("brand:     usr");
     expect(result.stdout).toContain(`timestamp: ${expectedTimestamp}`);
@@ -1403,7 +1516,7 @@ describe("cli inspect --reverse", () => {
   it("--reverse with --opaque emits a conflict error and exits 2", async () => {
     const result = await runCapture(
       ["inspect", "usr_00000000000000000000000000", "--reverse", "--opaque"],
-      { env: { IDS_KEY: testKeyHex } },
+      { env: { IDS_OPAQUE_KEY: testKeyHex } },
     );
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
@@ -1536,7 +1649,7 @@ describe("cli generate --signed", () => {
 
   it("rejects --signed and --opaque together", async () => {
     const result = await runCapture(["generate", "usr", "--signed", "--opaque"], {
-      env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_KEY: testKeyHex },
+      env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_OPAQUE_KEY: testKeyHex },
     });
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
@@ -1797,7 +1910,7 @@ describe("cli inspect --signed", () => {
   it("rejects --signed and --opaque together", async () => {
     const result = await runCapture(
       ["inspect", "usr_00000000000000000000000000", "--signed", "--opaque"],
-      { env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_KEY: testKeyHex } },
+      { env: { IDS_SIGNING_KEY: testSigningKeyHex, IDS_OPAQUE_KEY: testKeyHex } },
     );
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
@@ -2173,6 +2286,41 @@ describe("cli generate --digest", () => {
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("cannot use");
   });
+
+  it("--digest uses IDS_KEY fallback when IDS_DIGEST_KEY is unset", async () => {
+    const run1 = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout"],
+      "order-123",
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    const run2 = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout"],
+      "order-123",
+      { env: { IDS_KEY: testDigestKeyHex } },
+    );
+    expect(run1.exitCode).toBe(0);
+    expect(run2.exitCode).toBe(0);
+    // Same key material → same ID (IDS_KEY imported through digest's own HKDF label)
+    expect(run1.stdout).toBe(run2.stdout);
+  });
+
+  it("--digest: IDS_DIGEST_KEY wins over IDS_KEY when both are set", async () => {
+    const run1 = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout"],
+      "order-123",
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    const wrongKeyHex = encodeDigestKey(new Uint8Array(32).fill(0xff), "hex");
+    const run2 = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout"],
+      "order-123",
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex, IDS_KEY: wrongKeyHex } },
+    );
+    expect(run1.exitCode).toBe(0);
+    expect(run2.exitCode).toBe(0);
+    // IDS_DIGEST_KEY wins → same output regardless of IDS_KEY
+    expect(run1.stdout).toBe(run2.stdout);
+  });
 });
 
 describe("cli generate --digest --count > 1 guard", () => {
@@ -2369,7 +2517,7 @@ describe("cli inspect uuid: line", () => {
     });
     const id = await usr.generate();
     const result = await runCapture(["inspect", id, "--opaque"], {
-      env: { IDS_KEY: testKeyHex },
+      env: { IDS_OPAQUE_KEY: testKeyHex },
       now: () => new Date("2026-06-01T00:00:00Z").getTime(),
     });
     expect(result.exitCode).toBe(0);
@@ -2473,7 +2621,7 @@ describe("cli generate --uuid", () => {
 
   it("--uuid works with --opaque", async () => {
     const result = await runCapture(["generate", "usr", "--opaque", "--uuid"], {
-      env: { IDS_KEY: testKeyHex },
+      env: { IDS_OPAQUE_KEY: testKeyHex },
       now: () => 0x123456789abc,
       rng: (target) => target.fill(0x00),
     });
