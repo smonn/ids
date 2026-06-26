@@ -89,7 +89,7 @@ events.generate(); // deterministic output
 The injection contract is the same as the Timestamp codec — `rng` writes random
 bytes into the provided target (a 10-byte view into the codec's persistent
 buffer). Both codecs use the same `crypto.randomUUID`-backed fast-path
-(`fastTenByteRng`) as the default RNG.
+as the default RNG.
 
 ## Inversion is reversible by anyone
 
