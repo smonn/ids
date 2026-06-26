@@ -11,7 +11,8 @@
     "ids": "./dist/cli.mjs"
   },
   "files": [
-    "dist"
+    "dist",
+    "spec/vectors.json"
   ],
   "type": "module",
   "types": "./dist/index.d.mts",

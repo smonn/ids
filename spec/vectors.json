@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "vectors": [
+    {
+      "name": "timestamp_extract_running_example",
+      "category": "codec:timestamp",
+      "operation": "extract",
+      "input": "usr_06f80z92d2dbsqqg28t5cy4tqg",
+      "expected": 1780272145000
+    },
+    {
+      "name": "timestamp_generate_running_example",
+      "category": "codec:timestamp",
+      "operation": "generate",
+      "input": { "timestamp": 1780272145000, "rng": "9abcdef0123456789abc" },
+      "expected": "usr_06f80z92d2dbsqqg28t5cy4tqg"
+    },
+    {
+      "name": "reverse_extract_running_example",
+      "description": "the 6 timestamp bytes are bitwise-inverted before encoding; extract re-inverts them",
+      "category": "codec:reverse",
+      "operation": "extract",
+      "input": "usr_zsgqz0pxjydbsqqg28t5cy4tqg",
+      "expected": 1780272145000
+    },
+    {
+      "name": "reverse_generate_running_example",
+      "category": "codec:reverse",
+      "operation": "generate",
+      "input": { "timestamp": 1780272145000, "rng": "9abcdef0123456789abc" },
+      "expected": "usr_zsgqz0pxjydbsqqg28t5cy4tqg"
+    },
+    {
+      "name": "to_uuid_running_example",
+      "description": "the 16 payload bytes written verbatim as an RFC 9562 lowercase hyphenated UUID",
+      "category": "wire",
+      "operation": "to_uuid",
+      "input": "usr_06f80z92d2dbsqqg28t5cy4tqg",
+      "expected": "019e807d-2268-9abc-def0-123456789abc"
+    },
+    {
+      "name": "from_uuid_running_example",
+      "category": "wire",
+      "operation": "from_uuid",
+      "input": "019e807d-2268-9abc-def0-123456789abc",
+      "expected": { "ok": true, "id": "usr_06f80z92d2dbsqqg28t5cy4tqg" }
+    },
+    {
+      "name": "from_uuid_uppercase_accept",
+      "description": "RFC 9562 parsers accept uppercase hex; output is the same canonical id",
+      "category": "wire",
+      "operation": "from_uuid",
+      "input": "019E807D-2268-9ABC-DEF0-123456789ABC",
+      "expected": { "ok": true, "id": "usr_06f80z92d2dbsqqg28t5cy4tqg" }
+    },
+    {
+      "name": "from_uuid_reject_braces",
+      "description": "braced {…} form is rejected; only the hyphenated 8-4-4-4-12 form is accepted",
+      "category": "wire",
+      "operation": "from_uuid",
+      "input": "{019e807d-2268-9abc-def0-123456789abc}",
+      "expected": { "ok": false, "layer": "uuid" }
+    },
+    {
+      "name": "canonicalize_uppercase",
+      "description": "ASCII A-Z folds to lowercase",
+      "category": "wire",
+      "operation": "canonicalize",
+      "input": "USR_06F80Z92D2DBSQQG28T5CY4TQG",
+      "expected": { "ok": true, "id": "usr_06f80z92d2dbsqqg28t5cy4tqg" }
+    },
+    {
+      "name": "canonicalize_alias_o_to_zero",
+      "description": "Crockford visual alias o/O resolves to 0 before validation",
+      "category": "wire",
+      "operation": "canonicalize",
+      "input": "usr_o6f8oz92d2dbsqqg28t5cy4tqg",
+      "expected": { "ok": true, "id": "usr_06f80z92d2dbsqqg28t5cy4tqg" }
+    },
+    {
+      "name": "canonicalize_reject_padding_bit",
+      "description": "final base32 char '1' has non-zero low 2 bits (not in [048cgmrw])",
+      "category": "wire",
+      "operation": "canonicalize",
+      "input": "usr_00000000000000000000000001",
+      "expected": { "ok": false, "layer": "base32" }
+    },
+    {
+      "name": "canonicalize_reject_wrong_prefix",
+      "description": "a well-formed id of a different brand is rejected at the prefix layer (vectors are authored against brand usr)",
+      "category": "wire",
+      "operation": "canonicalize",
+      "input": "org_06f80z92d2dbsqqg28t5cy4tqg",
+      "expected": { "ok": false, "layer": "prefix" }
+    }
+  ]
+}
