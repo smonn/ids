@@ -60,6 +60,7 @@ Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, `pnpm depcruis
 
 ## Style
 
+- **Soft-wrap Markdown prose.** Write one source line per paragraph with no hard line breaks mid-paragraph — let the renderer wrap. This is enforced by oxfmt (`proseWrap: "never"` in `.oxfmtrc.json`); `pnpm fmt:check` catches drift and `pnpm fmt` reflows. The Starlight site under `website/` is exempt because oxfmt corrupts its `:::` directives.
 - **Don't mock the clock or RNG.** Inject them via `TimestampOptions` (`now`, `rng`) — see the existing tests for how.
 - **New exports → update the API surface section in [`README.md`](./README.md).**
 - **New ORM adapter → also update the `IdCodec` and `Error code` enumeration entries in [`CONTEXT.md`](./CONTEXT.md)** to include the new adapter subpath (IdCodec entry) and its read adapter name (Error code entry).
