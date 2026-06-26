@@ -1,5 +1,30 @@
 # @smonn/ids
 
+## 1.0.0-rc.0
+
+### Major Changes
+
+- 9f03ba0: Rename CLI `IDS_KEY` → `IDS_OPAQUE_KEY` (and `IDS_KEY_FORMAT` → `IDS_OPAQUE_KEY_FORMAT`) for the Opaque codec; the freed `IDS_KEY` / `IDS_KEY_FORMAT` become a primary-secret fallback for all four keyed subcommands (opaque, wrapped, signed, digest).
+- 9b363d2: **Breaking — Opaque Timestamp codec key derivation.** `importOpaqueKey` no longer imports the operator's bytes directly as the AES key. The bytes are now HKDF **input keying material**, and the codec derives an **AES-256** key from them via HKDF under the domain-separation label `@smonn/ids/opaque/aes` ([ADR-0027](https://github.com/smonn/ids/blob/main/docs/adr/0027-opaque-hkdf-uniform-key-derivation.md)).
+
+  Consequences:
+
+  - **Every existing Opaque ID is invalidated** — the encryption key changes, so previously issued IDs no longer decrypt. There is no wire key-id to trial the old construction against, so this is a hard cutover: regenerate all Opaque IDs.
+  - Opaque encryption is **always AES-256** regardless of key length. 16/24/32-byte keys are still accepted but now set the entropy floor only (a 16-byte key yields AES-256 with a 128-bit entropy floor); AES-128/192 Opaque ciphertexts can no longer be produced.
+  - `importOpaqueKey`'s signature is unchanged.
+
+  This completes the uniform key-derivation model in which no operator secret is ever used directly as a primitive key, so one **primary secret** may safely feed all four keyed codecs (each derives independently under its own HKDF label).
+
+### Minor Changes
+
+- ecbcd71: Add optional `columnType` option to `idColumn` (Drizzle) and `idType` (MikroORM) to override the hardcoded `"text"` SQL column type.
+- 4051383: Add `idColumnMysql` and `idColumnSqlite` to the Drizzle adapter for MySQL and SQLite dialect support alongside the existing `idColumn` (PostgreSQL).
+- 52ae685: Add `idQuery` to Hono, Express, and Fastify adapters for validating query-string params with the same failure contract as `idParam`.
+- 050c296: Add `idPlugin(map)` to the Kysely adapter — a `KyselyPlugin` that automatically runs `fromDriver` on configured columns in query results, eliminating per-call-site `fromDriver` invocations.
+- e1dd636: Add nullable read helpers for all five ORM adapters (`readIdColumnNullable`, `nullableIdColumn`, `nullableIdTransformer`, `nullableIdType`, `readNullable`/`computeNullableField`) so optional foreign keys and `LEFT JOIN` results no longer throw on `null`.
+- dd0c7fd: Add `defaultQuery` to the Prisma adapter's `IdTransform` for client-side ID auto-generation on `create`, `createMany`, and `upsert`.
+- df5d1cc: Add `idFieldReadOnly` to `@smonn/ids/prisma` — a read-only sibling of `idField` that accepts any `IdColumnCodec` (no synchronous `generate()` required) and returns the full read/transform surface minus `defaultQuery`.
+
 ## 0.15.0
 
 ### Minor Changes
