@@ -5,6 +5,10 @@ import { mysqlTable } from "drizzle-orm/mysql-core";
 import { sqliteTable } from "drizzle-orm/sqlite-core";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { createReverseTimestampId } from "../codecs/reverse/index.js";
+import type { OpaqueTimestampCodec } from "../codecs/opaque/index.js";
+import type { SignedTimestampCodec } from "../codecs/signed/index.js";
+import type { WrappedKeyCodec } from "../codecs/wrapped/index.js";
+import type { DigestCodec } from "../codecs/digest/index.js";
 import {
   idColumn,
   idColumnMysql,
@@ -166,6 +170,22 @@ describe("drizzle", () => {
         safeParse: (_value: unknown) => ({ ok: false as const, error: "not_string" as const }),
       };
       expectTypeOf(minimalCodec).not.toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("OpaqueTimestampCodec does not satisfy IdGeneratingCodec (async generate)", () => {
+      expectTypeOf<OpaqueTimestampCodec<"usr">>().not.toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("SignedTimestampCodec does not satisfy IdGeneratingCodec (async generate)", () => {
+      expectTypeOf<SignedTimestampCodec<"usr">>().not.toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("WrappedKeyCodec does not satisfy IdGeneratingCodec (no generate)", () => {
+      expectTypeOf<WrappedKeyCodec<"usr", "u32">>().not.toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("DigestCodec does not satisfy IdGeneratingCodec (no generate)", () => {
+      expectTypeOf<DigestCodec<"usr">>().not.toMatchTypeOf<IdGeneratingCodec<"usr">>();
     });
   });
 
