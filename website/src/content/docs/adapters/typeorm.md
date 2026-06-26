@@ -33,6 +33,28 @@ class User {
 - **Read path:** values are normalised via `codec.safeParse()`. An unrecognised
   value throws at read time so corrupt data surfaces immediately.
 
+## Nullable columns
+
+`nullableIdTransformer(codec)` returns a TypeORM `ValueTransformer` whose `from` returns `null` for `null` / `undefined` database values and whose `to` passes `null` / `undefined` through unchanged. Use it for optional foreign keys.
+
+```ts
+import { nullableIdTransformer } from "@smonn/ids/typeorm";
+import { createTimestampId } from "@smonn/ids";
+import type { Id } from "@smonn/ids";
+import { Column, Entity } from "typeorm";
+
+const usr = createTimestampId("usr");
+
+@Entity()
+class Post {
+  @Column({ type: "text", nullable: true, transformer: nullableIdTransformer(usr) })
+  authorId!: Id<"usr"> | null;
+}
+```
+
+- **Read path (`from`):** returns `null` for `null` / `undefined` database values. Non-null values go through `codec.safeParse()` and throw `IdsError("invalid_id")` if they do not parse as a valid `Id<Brand>`.
+- **Write path (`to`):** `null` and `undefined` are passed through unchanged; `Id<Brand>` values are passed through as canonical strings.
+
 ## Error handling
 
 The read path throws `IdsError` with code `"invalid_id"` when the stored value does not parse
