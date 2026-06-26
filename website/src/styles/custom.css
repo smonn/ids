@@ -13,6 +13,21 @@
   --sl-color-accent-high: #312e81;
 }
 
+/* The splash homepage forces Starlight's sidebar on so the mobile hamburger
+   renders (see src/starlightRouteData.ts). On desktop we don't want a sidebar
+   column there — hide it and drop the content offset so the hero stays
+   full-width. `.hero` only exists on the splash homepage, so this is scoped to
+   it. Mobile keeps the sidebar nav (and its hamburger) untouched. */
+@media (min-width: 50rem) {
+  :root:has(.hero) {
+    --sl-content-inline-start: 0;
+  }
+
+  :root:has(.hero) .sidebar {
+    display: none;
+  }
+}
+
 /* Center the splash hero when no image fills the right column (desktop only). */
 @media (min-width: 50rem) {
   .hero:not(:has(> img, > .hero-html)) {

@@ -39,6 +39,10 @@ export default defineConfig({
       logo: { src: "./src/assets/logo.svg", alt: "@smonn/ids" },
       favicon: "/favicon.svg",
       customCss: ["./src/styles/custom.css"],
+      // Force the sidebar on for the splash homepage so the mobile hamburger
+      // renders there (see src/starlightRouteData.ts). custom.css hides the
+      // sidebar column on desktop to keep the hero full-width.
+      routeMiddleware: "./src/starlightRouteData.ts",
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/smonn/ids" }],
       editLink: {
         baseUrl: "https://github.com/smonn/ids/edit/main/website/",
@@ -87,18 +91,31 @@ export default defineConfig({
         { label: "Validation", link: "/validation/" },
         { label: "Playground", link: "/playground/" },
         {
+          // Split into nested groups so the sidebar shows a divider (group
+          // header) between the request/API-layer adapters and the
+          // persistence-layer ones. Items within each group are alphabetical.
           label: "Adapters",
           items: [
-            { label: "Hono", link: "/adapters/hono/" },
-            { label: "Express", link: "/adapters/express/" },
-            { label: "Fastify", link: "/adapters/fastify/" },
-            { label: "NestJS", link: "/adapters/nestjs/" },
-            { label: "Drizzle", link: "/adapters/drizzle/" },
-            { label: "Kysely", link: "/adapters/kysely/" },
-            { label: "MikroORM", link: "/adapters/mikro-orm/" },
-            { label: "Prisma", link: "/adapters/prisma/" },
-            { label: "TypeORM", link: "/adapters/typeorm/" },
-            { label: "GraphQL", link: "/adapters/graphql/" },
+            {
+              label: "Web & API",
+              items: [
+                { label: "Express", link: "/adapters/express/" },
+                { label: "Fastify", link: "/adapters/fastify/" },
+                { label: "GraphQL", link: "/adapters/graphql/" },
+                { label: "Hono", link: "/adapters/hono/" },
+                { label: "NestJS", link: "/adapters/nestjs/" },
+              ],
+            },
+            {
+              label: "ORMs & query builders",
+              items: [
+                { label: "Drizzle", link: "/adapters/drizzle/" },
+                { label: "Kysely", link: "/adapters/kysely/" },
+                { label: "MikroORM", link: "/adapters/mikro-orm/" },
+                { label: "Prisma", link: "/adapters/prisma/" },
+                { label: "TypeORM", link: "/adapters/typeorm/" },
+              ],
+            },
           ],
         },
         { label: "CLI", link: "/cli/" },
