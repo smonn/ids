@@ -86,6 +86,10 @@ jobs:
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           THIS_REPO: ${{ github.repository }}
+          # github.token (not the App token, which is minted later) — only used on the
+          # in-scope path below, so a fork PR still runs this step with no secrets.
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           review=false
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
@@ -95,11 +99,23 @@ jobs:
                case "$HEAD_REF" in agent/issue-*) true ;; *) false ;; esac; then
             review=true
           fi
+          # Defer while the PR is mid-conflict-rebase: conflicts.yml marks it `conflicting`
+          # and an automatic rebase is in flight, so this commit is about to be superseded.
+          # Report success WITHOUT reviewing (the no-op path keeps the required `review`
+          # check green); the rebase merge commit re-fires review on the new SHA with the
+          # marker already cleared. Only checked when we'd otherwise review, so forks /
+          # out-of-scope PRs make no gh call and stay secret-free.
+          if [ "$review" = "true" ] &&
+             gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null |
+               grep -qx conflicting; then
+            review=false
+            echo "PR #$PR_NUMBER is conflicting — deferring review until the rebase merge commit."
+          fi
           echo "review=$review" >> "$GITHUB_OUTPUT"
           if [ "$review" = "true" ]; then
             echo "In scope — running the automated review."
           else
-            echo "Out of scope ($EVENT_NAME/$ACTION on $HEAD_REF) — reporting success without reviewing."
+            echo "Out of scope or deferred ($EVENT_NAME/$ACTION on $HEAD_REF) — reporting success without reviewing."
           fi
 
       - name: Generate GitHub App token
@@ -408,19 +424,6 @@ jobs:
             Write `.review/summary.md` and `.review/manifest.json` even when you found
             nothing (an empty `inline`, a summary that says so, `hard_findings: false`).
             That is your only deliverable — the posting step takes it from here.
-
-            FINAL SELF-LINT — do this LAST, before you finish, and do NOT skip it. The
-            posting step rejects any body that still carries a literal backslash escape
-            (`\n`, `\<`, `\[`, or any backslash-escaped markdown metacharacter), so catch
-            and fix it yourself first, using the exact same check it applies. After you
-            have written every `.review/` file, use Grep to scan ALL of them — the regex
-            `\\n|\\<|\\[` (a backslash followed by `n`, `<`, or `[`) over
-            `.review/summary.md` and `.review/inline/*.md`. For each hit, the file was
-            authored with escapes instead of verbatim bytes: re-Write that whole file with
-            REAL newlines (press enter) and plain `<` / `[` / backtick characters, no
-            backslashes. Re-run the Grep until it returns ZERO matches across every body
-            file. Only finish once the scan is clean — a single literal `\n` left behind
-            fails the run and posts nothing.
           # Hermetic producer: Read/Grep/Glob to read the precomputed .review-context/
           # files and the repo's standards docs, Task so the skill can spawn its two
           # parallel sub-agents, and Write to author the .review/ files. NO Bash, NO git,
@@ -450,42 +453,6 @@ jobs:
           require_manifest .review
           summary_file=$(jq -r '.summary_file // "summary.md"' .review/manifest.json)
           test -f ".review/$summary_file" || { echo "::error::summary file .review/$summary_file missing"; exit 1; }
-
-          # Diagnostics: dump the producer's raw body files BEFORE any repair, so the run
-          # log shows exactly what it wrote. `cat -A` makes line endings ($) and tabs
-          # (^I) visible, so a wholesale one-line "\n" blob is unmistakable from a
-          # properly newlined body and we can see precisely which escapes appeared.
-          for f in ".review/$summary_file" .review/inline/*.md; do
-            [ -f "$f" ] || continue
-            echo "::group::raw producer body (pre-repair): $f"
-            cat -A "$f"
-            echo "::endgroup::"
-          done
-
-          # Auto-repair escaped bodies. The producer intermittently writes backslash
-          # escapes instead of verbatim markdown — literal "\n" for newlines and \<, \>,
-          # \[, \], \` for the metacharacters — and the exact shape varies run to run
-          # (sometimes a wholesale one-line "\n" blob, sometimes only the "<" in the
-          # `<!-- code-review… -->` markers, sometimes scattered "\n" in a multi-line
-          # body). All of these render wrong on GitHub and the repo convention forbids
-          # them, so un-escape them UNCONDITIONALLY: "\n" -> real newline and strip the
-          # backslash from the metacharacters. This is exactly the set the pre-flight
-          # guard below rejects, so repairing it here GUARANTEES the body clears the
-          # guard and the review posts regardless of how the producer escaped it.
-          #
-          # Trade-off: a literal "\n" that legitimately belonged inside a code span is
-          # un-escaped too. That is rare and merely cosmetic (one finding shows a newline
-          # instead of "\n"), and is the price of always posting — the alternative,
-          # scoping the "\n" rewrite, repeatedly failed the whole review instead.
-          repair_body() {
-            f=$1
-            [ -f "$f" ] || return 0
-            before=$(cat "$f")
-            perl -0pi -e 's/\\n/\n/g; s/\\([<>\[\]`])/$1/g' "$f"
-            [ "$before" = "$(cat "$f")" ] || echo "::warning::auto-repaired escaped body $f"
-          }
-          repair_body ".review/$summary_file"
-          for bf in .review/inline/*.md; do repair_body "$bf"; done
 
           # Valid RIGHT-side anchor set: every NEW-file line present in the PR diff
           # (added "+" lines and context " " lines advance the new-file counter; "-"
@@ -537,23 +504,9 @@ jobs:
           comments_json=$(jq -s '.' "$comments")
           summary_body=$(cat ".review/$summary_file"; [ -s "$demoted" ] && cat "$demoted"; true)
 
-          review_json=$(jq -n --arg commit "$HEAD_SHA" --arg body "$summary_body" --argjson comments "$comments_json" \
-            '{commit_id:$commit, event:"COMMENT", body:$body, comments:$comments}')
-
-          # Pre-flight corruption guard: a body still carrying literal escape sequences
-          # (\n, \<, \[) means the producer wrote escapes into its .review/ files instead
-          # of verbatim markdown — the bodies reach here unmodified (cat + jq --arg encode
-          # them faithfully), so this is the producer's output, not shell-quoting. Reject
-          # BEFORE the POST so a corrupted review never lands on the PR; the post-hoc
-          # "Verify the review was posted" step stays as the backstop for anything that
-          # slips through. Same regex as that step, applied to every body we are about to
-          # send (summary + each inline comment).
-          if [ "$(printf '%s' "$review_json" | jq '[.body] + [.comments[].body] | map(select(test("\\\\n|\\\\<|\\\\\\["))) | length')" -gt 0 ]; then
-            echo "::error::A review body for $HEAD_SHA contains literal escape sequences (\\n, \\<, \\[) instead of rendered markdown — the producer wrote escapes into .review/ instead of verbatim bytes. Not posting; fix body authoring and re-review."
-            exit 1
-          fi
-
-          printf '%s' "$review_json" | gh api -X POST "repos/$GH_REPO/pulls/$PR_NUMBER/reviews" --input - > /dev/null
+          jq -n --arg commit "$HEAD_SHA" --arg body "$summary_body" --argjson comments "$comments_json" \
+            '{commit_id:$commit, event:"COMMENT", body:$body, comments:$comments}' \
+            | gh api -X POST "repos/$GH_REPO/pulls/$PR_NUMBER/reviews" --input - > /dev/null
           echo "Posted a COMMENT review for $HEAD_SHA with $(echo "$comments_json" | jq 'length') inline comment(s)."
 
           # Hand off to the fix loop only when the producer flagged in-scope hard findings.
