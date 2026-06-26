@@ -6,7 +6,12 @@
     ".impl/**",
     ".address-context/**",
     ".address/**",
-    ".review-context/**"
+    ".review-context/**",
+    ".review/**",
+    ".triage-context/**",
+    ".triage/**",
+    ".autofix-context/**",
+    ".autofix/**"
   ],
   "overrides": [
     {

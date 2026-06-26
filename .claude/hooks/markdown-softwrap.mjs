@@ -45,6 +45,15 @@ const result = spawnSync(oxfmt, ["--check", rel], {
 if (result.error || typeof result.status !== "number") process.exit(0);
 if (result.status === 0) process.exit(0); // already soft-wrapped — all good
 
+// oxfmt exits 2 ("Expected at least one target file") when every matched file
+// was excluded by .oxfmtrc.json ignore rules — i.e. the edited file lives under
+// an ephemeral/generated dir we deliberately don't format (.impl/, .address/,
+// .impl-context/, .address-context/, .review-context/, .claude/). There is
+// nothing to check, so fail open rather than nagging the agent into editing
+// .oxfmtrc.json or .gitignore to "fix" the false positive. Only a genuine
+// format drift (exit 1) should block.
+if (result.status !== 1) process.exit(0);
+
 const reason =
   `${rel} is not soft-wrapped. This repo wraps Markdown prose with oxfmt's ` +
   `proseWrap: "never" — one source line per paragraph, no hard line breaks ` +

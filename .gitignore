@@ -143,8 +143,16 @@ dist
 
 # End of https://www.toptal.com/developers/gitignore/api/node
 
-# CI harness implementation context (ephemeral, not developer-authored)
+# CI harness scratch dirs (ephemeral, not developer-authored): each agent
+# pipeline reads from a `*-context/` input dir and writes a producer-output dir
+# consumed by its workflow's poster step. None of these belong in a commit.
 .impl-context/
-
-# CI harness producer output (ephemeral, consumed by the implement.yml poster)
 .impl/
+.address-context/
+.address/
+.review-context/
+.review/
+.triage-context/
+.triage/
+.autofix-context/
+.autofix/
