@@ -2,6 +2,7 @@ import { IdsError } from "../error.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../types.js";
 import { base32CharClass, base32FinalCharClass, payloadBase32Length } from "./invariants.js";
 import { is, safeParse, standardValidate } from "./parse.js";
+import { fromUUID, safeFromUUID, toUUID } from "./uuid.js";
 
 type WireMethods<Brand extends string> = {
   is: (value: unknown) => value is Id<Brand>;
@@ -9,6 +10,9 @@ type WireMethods<Brand extends string> = {
   safeParse: (value: unknown) => ParseResult<Brand>;
   toJsonSchema: (brand: Brand, example: string) => JsonSchema;
   "~standard": StandardSchemaProps<Brand>;
+  toUUID: (id: Id<Brand>) => string;
+  fromUUID: (value: string) => Id<Brand>;
+  safeFromUUID: (value: unknown) => ParseResult<Brand>;
 };
 
 /** Wire-only methods shared by every codec variant for a fixed prefix. */
@@ -33,5 +37,8 @@ export function wireMethods<Brand extends string>(prefix: Prefix<Brand>): WireMe
       example,
     }),
     "~standard": standard,
+    toUUID: (id: Id<Brand>): string => toUUID(prefix, id),
+    fromUUID: (value: string): Id<Brand> => fromUUID(prefix, value),
+    safeFromUUID: (value: unknown): ParseResult<Brand> => safeFromUUID(prefix, value),
   };
 }

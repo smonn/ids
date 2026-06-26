@@ -87,11 +87,11 @@ module.exports = {
     {
       name: "codec-shell-parse-invariants-only",
       severity: "error",
-      comment: "codec-shell may import only wire/parse and wire/invariants",
+      comment: "codec-shell may import only wire/parse, wire/invariants, and wire/uuid",
       from: { path: "^src/wire/codec-shell\\.ts$" },
       to: {
         path: "^src/wire",
-        pathNot: "^src/wire/(parse|invariants)\\.ts$",
+        pathNot: "^src/wire/(parse|invariants|uuid)\\.ts$",
       },
     },
     {

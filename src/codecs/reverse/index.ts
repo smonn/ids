@@ -89,6 +89,23 @@ export type ReverseTimestampCodec<Brand extends string> = {
   toJsonSchema(): JsonSchema;
   /** Standard Schema validate entry point. */
   readonly "~standard": StandardSchemaProps<Brand>;
+  /**
+   * Converts a trusted `Id<Brand>` to an RFC 9562 canonical (lowercase, hyphenated)
+   * UUID string by reinterpreting the 16-byte payload verbatim. Total — cannot fail.
+   * Returns a plain `string` (brand is shed). See ADR-0024.
+   */
+  toUUID(id: Id<Brand>): string;
+  /**
+   * Parses a UUID string into an `Id<Brand>`. Accepts case-insensitive `8-4-4-4-12`
+   * hyphenated form only. Throws `IdsError` with `code: "invalid_id"` on bad input.
+   * See ADR-0024.
+   */
+  fromUUID(value: string): Id<Brand>;
+  /**
+   * Non-throwing UUID parse. Returns `{ ok: true, id }` or
+   * `{ ok: false, error: "not_string" | "invalid_uuid" }`. See ADR-0024.
+   */
+  safeFromUUID(value: unknown): ParseResult<Brand>;
 };
 
 /**
@@ -132,5 +149,8 @@ export function createReverseTimestampId<Brand extends string>(
     maxIdForTime: (date: Date) => layout.maxIdForTime(date.getTime()),
     toJsonSchema: () => wire.toJsonSchema(brand, layout.exampleWireId()),
     "~standard": wire["~standard"],
+    toUUID: wire.toUUID,
+    fromUUID: wire.fromUUID,
+    safeFromUUID: wire.safeFromUUID,
   };
 }

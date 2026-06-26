@@ -40,15 +40,15 @@ export function is<Brand extends string>(
   return base32Pattern.test(value.slice(prefix.length));
 }
 
+const parseErrorMessages: Record<Exclude<ParseError, "invalid_prefix">, string> = {
+  not_string: "expected string",
+  invalid_base32: "invalid base32 payload",
+  invalid_uuid: "invalid UUID",
+};
+
 function errorMessage<Brand extends string>(prefix: Prefix<Brand>, error: ParseError): string {
-  switch (error) {
-    case "not_string":
-      return "expected string";
-    case "invalid_prefix":
-      return `expected prefix '${prefix}'`;
-    case "invalid_base32":
-      return "invalid base32 payload";
-  }
+  if (error === "invalid_prefix") return `expected prefix '${prefix}'`;
+  return parseErrorMessages[error];
 }
 
 export function standardValidate<Brand extends string>(

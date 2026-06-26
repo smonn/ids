@@ -694,6 +694,69 @@ describe("wrapped", () => {
   });
 });
 
+describe("Wrapped Key codec — UUID methods", () => {
+  let wrapKey: Awaited<ReturnType<typeof importWrappingKey>>;
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(async () => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+    wrapKey = await importWrappingKey(new Uint8Array(32));
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  it("toUUID returns a 36-char lowercase hyphenated UUID", () => {
+    const wrp = createWrappedKeyId("wrp", {
+      kind: "u32",
+      keys: [wrapKey],
+      allowDuplicateBrand: true,
+    });
+    const id = wrp.parse("wrp_" + "0".repeat(26));
+    expect(wrp.toUUID(id)).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+  });
+
+  it("fromUUID(toUUID(id)) === id (round-trip)", () => {
+    const wrp = createWrappedKeyId("wrp", {
+      kind: "u32",
+      keys: [wrapKey],
+      allowDuplicateBrand: true,
+    });
+    const id = wrp.parse("wrp_" + "0".repeat(26));
+    expect(wrp.fromUUID(wrp.toUUID(id))).toBe(id);
+  });
+
+  it("safeFromUUID returns ok:true for a valid UUID and result passes is()", () => {
+    const wrp = createWrappedKeyId("wrp", {
+      kind: "u32",
+      keys: [wrapKey],
+      allowDuplicateBrand: true,
+    });
+    const result = wrp.safeFromUUID("01234567-89ab-cdef-0123-456789abcdef");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(wrp.is(result.id)).toBe(true);
+  });
+
+  it("safeFromUUID returns not_string for non-string", () => {
+    const wrp = createWrappedKeyId("wrp", {
+      kind: "u32",
+      keys: [wrapKey],
+      allowDuplicateBrand: true,
+    });
+    expect(wrp.safeFromUUID(null)).toEqual({ ok: false, error: "not_string" });
+  });
+
+  it("safeFromUUID returns invalid_uuid for malformed UUID", () => {
+    const wrp = createWrappedKeyId("wrp", {
+      kind: "u32",
+      keys: [wrapKey],
+      allowDuplicateBrand: true,
+    });
+    expect(wrp.safeFromUUID("bad")).toEqual({ ok: false, error: "invalid_uuid" });
+  });
+});
+
 async function nonCanonicalU32Id(
   prefix: "inv_",
   brand: "inv",

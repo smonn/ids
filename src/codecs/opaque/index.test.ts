@@ -415,3 +415,47 @@ describe("cross-codec brand registry", () => {
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Opaque Timestamp codec — UUID methods", () => {
+  let opqKey: OpaqueKey;
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(async () => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+    opqKey = await importOpaqueKey(new Uint8Array(16));
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  it("toUUID returns a 36-char lowercase hyphenated UUID for a parsed id", () => {
+    const opq = createOpaqueTimestampId("opq", { key: opqKey, allowDuplicateBrand: true });
+    // Use parse to get a valid Id<Brand> without async generate.
+    const id = opq.parse("opq_" + "0".repeat(26));
+    expect(opq.toUUID(id)).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+  });
+
+  it("fromUUID(toUUID(id)) === id (round-trip)", () => {
+    const opq = createOpaqueTimestampId("opq", { key: opqKey, allowDuplicateBrand: true });
+    const id = opq.parse("opq_" + "0".repeat(26));
+    expect(opq.fromUUID(opq.toUUID(id))).toBe(id);
+  });
+
+  it("safeFromUUID returns ok:true for a valid UUID and result passes is()", () => {
+    const opq = createOpaqueTimestampId("opq", { key: opqKey, allowDuplicateBrand: true });
+    const result = opq.safeFromUUID("01234567-89ab-cdef-0123-456789abcdef");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(opq.is(result.id)).toBe(true);
+  });
+
+  it("safeFromUUID returns not_string for non-string", () => {
+    const opq = createOpaqueTimestampId("opq", { key: opqKey, allowDuplicateBrand: true });
+    expect(opq.safeFromUUID(null)).toEqual({ ok: false, error: "not_string" });
+  });
+
+  it("safeFromUUID returns invalid_uuid for malformed UUID", () => {
+    const opq = createOpaqueTimestampId("opq", { key: opqKey, allowDuplicateBrand: true });
+    expect(opq.safeFromUUID("not-a-uuid")).toEqual({ ok: false, error: "invalid_uuid" });
+  });
+});
