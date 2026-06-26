@@ -1,12 +1,15 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
+import { createReverseTimestampId } from "../codecs/reverse/index.js";
 import {
   idTransformer,
   nullableIdTransformer,
+  beforeInsertHook,
   IdsError,
   isIdsError,
   type IdColumnCodec,
+  type IdGeneratingCodec,
 } from "./typeorm.js";
 import type { Id } from "../types.js";
 import { makeSpyCodec } from "./test-helpers.js";
@@ -115,6 +118,53 @@ describe("typeorm", () => {
       expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("beforeInsertHook", () => {
+    it("sets the field when it is undefined", () => {
+      const hook = beforeInsertHook("id", usr);
+      const entity: Record<string, unknown> = { name: "Alice" };
+      hook(entity);
+      expect(typeof entity.id).toBe("string");
+      expect(usr.is(entity.id as string)).toBe(true);
+    });
+
+    it("sets the field when it is null", () => {
+      const hook = beforeInsertHook("id", usr);
+      const entity: Record<string, unknown> = { id: null, name: "Alice" };
+      hook(entity);
+      expect(typeof entity.id).toBe("string");
+      expect(usr.is(entity.id as string)).toBe(true);
+    });
+
+    it("does not overwrite a field that already has a value", () => {
+      const existingId = usr.generate();
+      const hook = beforeInsertHook("id", usr);
+      const entity: Record<string, unknown> = { id: existingId, name: "Alice" };
+      hook(entity);
+      expect(entity.id).toBe(existingId);
+    });
+
+    it("return type of the hook function is void", () => {
+      const hook = beforeInsertHook("id", usr);
+      expectTypeOf(hook).returns.toEqualTypeOf<void>();
+    });
+
+    it("IdGeneratingCodec accepts the Timestamp codec", () => {
+      expectTypeOf(usr).toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("IdGeneratingCodec accepts the Reverse Timestamp codec", () => {
+      const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+      expectTypeOf(rev).toMatchTypeOf<IdGeneratingCodec<"rev">>();
+    });
+
+    it("a safeParse-only codec does not satisfy IdGeneratingCodec (type-level)", () => {
+      const minimalCodec: IdColumnCodec<"spy"> = fromAny({
+        safeParse: () => ({ ok: false as const, error: "not_string" as const }),
+      });
+      expectTypeOf(minimalCodec).not.toMatchTypeOf<IdGeneratingCodec<"spy">>();
     });
   });
 

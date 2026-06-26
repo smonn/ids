@@ -14,6 +14,18 @@ export type { IdColumnCodec } from "./adapter-types.js";
 export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 
 /**
+ * Extension of {@link IdColumnCodec} that also exposes synchronous `generate()`.
+ * Required by {@link insertId} so that the insert-time call site can produce a
+ * fresh `Id<Brand>` with a compile-time constraint enforcing codec capability.
+ * Only the **Timestamp codec** and **Reverse Timestamp codec** satisfy this;
+ * async-generate codecs (Opaque, Signed, Wrapped, Digest) do not and are
+ * therefore rejected at the TypeScript level.
+ */
+export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
+  generate(): Id<Brand>;
+};
+
+/**
  * Kysely column type mapping for `Id<Brand>`.
  *
  * Use this in your Kysely `Database` interface to type a column as `Id<Brand>` at
@@ -94,6 +106,28 @@ export function idColumn<Brand extends string>(
       return readIdColumn(codec, value);
     },
   };
+}
+
+/**
+ * Generates a fresh `Id<Brand>` for use at a Kysely insert call site.
+ *
+ * Requires a codec variant that exposes a synchronous `generate()` — see
+ * {@link IdGeneratingCodec}. Only the **Timestamp codec** and **Reverse
+ * Timestamp codec** qualify; Opaque, Signed, Wrapped, and Digest codecs
+ * are rejected at compile time.
+ *
+ * @example
+ * ```ts
+ * import { insertId } from "@smonn/ids/kysely";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ *
+ * await db.insertInto("users").values({ id: insertId(usr), name: "Alice" }).execute();
+ * ```
+ */
+export function insertId<Brand extends string>(codec: IdGeneratingCodec<Brand>): Id<Brand> {
+  return codec.generate();
 }
 
 /**

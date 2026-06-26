@@ -4,11 +4,13 @@ import { createTimestampId } from "../codecs/timestamp/index.js";
 import {
   idColumn,
   idPlugin,
+  insertId,
   nullableIdColumn,
   IdsError,
   isIdsError,
   type IdColumnCodec,
   type IdColumnType,
+  type IdGeneratingCodec,
   type NullableIdColumnType,
 } from "./kysely.js";
 import type { Id } from "../types.js";
@@ -197,6 +199,35 @@ describe("kysely", () => {
         fromAny({ queryId: {}, result: { rows: [{ id: usrId }] } }),
       );
       expect(result.rows[0]!.id).toBe(usrId);
+    });
+  });
+
+  describe("insertId", () => {
+    it("returns a valid Id<Brand>", () => {
+      const id = insertId(usr);
+      expect(usr.is(id)).toBe(true);
+      expectTypeOf(id).toEqualTypeOf<Id<"usr">>();
+    });
+
+    it("accepts a codec that satisfies IdGeneratingCodec", () => {
+      expectTypeOf(usr).toMatchTypeOf<IdGeneratingCodec<"usr">>();
+      expectTypeOf(insertId<"usr">)
+        .parameter(0)
+        .toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("IdGeneratingCodec export matches the shape from prisma.ts", () => {
+      type Expected = IdColumnCodec<"usr"> & { generate(): Id<"usr"> };
+      expectTypeOf<IdGeneratingCodec<"usr">>().toMatchTypeOf<Expected>();
+      expectTypeOf<Expected>().toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("each call returns a fresh Id<Brand>", () => {
+      const a = insertId(usr);
+      const b = insertId(usr);
+      expect(typeof a).toBe("string");
+      expect(typeof b).toBe("string");
+      expect(a).not.toBe(b);
     });
   });
 

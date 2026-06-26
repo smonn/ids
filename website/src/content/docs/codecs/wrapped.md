@@ -43,9 +43,11 @@ const key64 = await orders.unwrap(id); // → 42n (bigint)
 ## Key import and storage
 
 Import raw operator secret bytes with `importWrappingKey`. It accepts **16, 24,
-or 32 bytes** (AES-128 / AES-192 / AES-256 strength) and returns an opaque
-`WrappingKey` handle. One raw secret derives into AES and HMAC subkeys held
-inside the handle; the raw bytes are not retained.
+or 32 bytes** of input keying material; the input size sets the entropy floor
+only. One raw secret derives — via HKDF — into an **AES-256** subkey (label
+`@smonn/ids/wrapped/aes`) and an HMAC-SHA-256 subkey (label
+`@smonn/ids/wrapped/hmac`), held inside the returned opaque `WrappingKey` handle;
+the raw bytes are not retained.
 
 To store or transport key material, use `encodeWrappingKey` / `decodeWrappingKey`
 with `"hex"` or `"base64url"` — not Crockford base32, which is reserved for ID
