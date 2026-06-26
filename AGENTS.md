@@ -27,6 +27,12 @@ The review-lifecycle labels `address-feedback` and `needs-review` are the except
 
 Single-context repo: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+### Harness scratch dirs
+
+The CI harness runs five agent pipelines (implement, address, review, triage, autofix). Each writes a `*-context/` input dir and a producer-output dir into the working tree: `.impl{,-context}/`, `.address{,-context}/`, `.review{,-context}/`, `.triage{,-context}/`, `.autofix{,-context}/`. These are ephemeral and not developer-authored — every one is listed in both `.gitignore` and `.oxfmtrc.json`'s `ignorePatterns`. **Never commit them and never `git add -f` them into a PR**; a PR's diff should only ever contain the change it ships.
+
+If a tool complains about a file under one of these dirs (e.g. a formatter or hook), **fix the tool, not the ignore lists** — do not edit `.gitignore` or `.oxfmtrc.json` to un-ignore a scratch dir, and do not commit a scratch file to satisfy a check. The soft-wrap hook already treats oxfmt's "no target files" exit (a file excluded by `ignorePatterns`) as a pass for exactly this reason. PR #621 regressed by removing patterns and committing `.impl/` output to silence the hook; that is the anti-pattern this rule exists to prevent.
+
 ## Markdown style
 
 Write Markdown prose **soft-wrapped**: one source line per paragraph, with no hard line breaks mid-paragraph — let the editor/renderer wrap. Do not manually break a paragraph across multiple source lines at a fixed column. This applies to all `.md`/`.mdx` files in the repo (the same rule covers prose inside list items and blockquotes).
