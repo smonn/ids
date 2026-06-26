@@ -34,7 +34,9 @@ Reverse Timestamp, Signed Timestamp, Digest, and Wrapped key codecs all qualify)
 - **Read path:** `convertToJSValue` normalises the raw DB value via
   `codec.safeParse()`. An unrecognised value throws at read time so corrupt
   data surfaces immediately.
-- **Column type:** `getColumnType` returns `"text"`.
+- **Column type:** `getColumnType` returns `"text"` by default; pass
+  `{ columnType: "..." }` as the second argument to `idType` to override
+  (e.g. `idType(usr, { columnType: "varchar(30)" })`).
 
 ## Error handling
 

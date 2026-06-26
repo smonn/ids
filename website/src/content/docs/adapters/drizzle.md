@@ -62,6 +62,7 @@ key codecs all qualify).
 
 - **Write path:** `Id<Brand>` is already canonical, so it is passed to the driver unchanged.
 - **Read path:** values are normalised via `codec.safeParse()` rather than the strict `is()`. Data at rest should already be canonical ([ADR-0003](https://github.com/smonn/ids/blob/main/docs/adr/0003-canonical-strict-is.md)), but `safeParse` is a safe boundary for stale non-canonical values. An unrecognised value throws at read time so corrupt data surfaces immediately.
+- **Column type:** `dataType()` returns `"text"` by default; pass `{ columnType: "..." }` as the second argument to `idColumn` to override (e.g. `idColumn(usr, { columnType: "varchar(30)" })`).
 
 ## Error handling
 
