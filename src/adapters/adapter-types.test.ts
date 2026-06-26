@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { isIdsError } from "../error.js";
 import type { ParseError } from "../types.js";
-import { readIdColumn, resolveIdParamFailure } from "./adapter-types.js";
+import { readIdColumn, readIdColumnNullable, resolveIdParamFailure } from "./adapter-types.js";
 import { makeSpyCodec } from "./test-helpers.js";
 
 describe("readIdColumn", () => {
@@ -27,6 +27,46 @@ describe("readIdColumn", () => {
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("readIdColumnNullable", () => {
+  const codec = {
+    safeParse: (value: unknown) => {
+      if (typeof value !== "string") return { ok: false as const, error: "not_string" as const };
+      if (!value.startsWith("spy_"))
+        return { ok: false as const, error: "invalid_prefix" as const };
+      return {
+        ok: true as const,
+        id: value as ReturnType<typeof readIdColumnNullable<"spy">> & string,
+      };
+    },
+  };
+
+  it("returns null for null input", () => {
+    expect(readIdColumnNullable(codec, null)).toBeNull();
+  });
+
+  it("returns null for undefined input", () => {
+    expect(readIdColumnNullable(codec, undefined)).toBeNull();
+  });
+
+  it("returns Id<Brand> for a valid string", () => {
+    expect(readIdColumnNullable(codec, "spy_00000000000000000000000000")).toBe(
+      "spy_00000000000000000000000000",
+    );
+  });
+
+  it("throws IdsError(invalid_id) for an invalid string", () => {
+    expect.assertions(2);
+    try {
+      readIdColumnNullable(codec, "bad_value");
+    } catch (err) {
+      if (isIdsError(err)) {
+        expect(err.code).toBe("invalid_id");
+        expect(err.cause).toBe("invalid_prefix");
+      }
+    }
   });
 });
 

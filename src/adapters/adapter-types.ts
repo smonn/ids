@@ -28,6 +28,17 @@ export function readIdColumn<Brand extends string>(
   return result.id;
 }
 
+/** Like {@link readIdColumn} but returns `null` when `value` is `null` or `undefined`. Delegates to `readIdColumn` for all other values. */
+export function readIdColumnNullable<Brand extends string>(
+  codec: IdCodec<Brand>,
+  value: unknown,
+): Id<Brand> | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return readIdColumn(codec, value);
+}
+
 /**
  * Maps a `ParseError` to `{ reason, status }` for web adapter failure handling.
  *

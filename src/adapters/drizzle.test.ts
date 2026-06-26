@@ -8,6 +8,7 @@ import {
   idColumn,
   idColumnMysql,
   idColumnSqlite,
+  nullableIdColumn,
   IdsError,
   isIdsError,
   type IdColumnCodec,
@@ -106,6 +107,43 @@ describe("drizzle", () => {
       expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("nullableIdColumn", () => {
+    const posts = pgTable("posts", { authorId: nullableIdColumn(usr) });
+
+    it("null driver value → null", () => {
+      expect(posts.authorId.mapFromDriverValue(fromAny(null))).toBeNull();
+    });
+
+    it("undefined driver value → null", () => {
+      expect(posts.authorId.mapFromDriverValue(fromAny(undefined))).toBeNull();
+    });
+
+    it("valid string driver value → Id<Brand>", () => {
+      const id = usr.generate();
+      expect(posts.authorId.mapFromDriverValue(fromAny(id))).toBe(id);
+    });
+
+    it("invalid string driver value → throws IdsError(invalid_id)", () => {
+      let err: unknown;
+      try {
+        posts.authorId.mapFromDriverValue(fromAny("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"));
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("write path passes null through unchanged", () => {
+      expect(posts.authorId.mapToDriverValue(fromAny(null))).toBeNull();
+    });
+
+    it("write path passes Id<Brand> through unchanged", () => {
+      const id = usr.generate();
+      expect(posts.authorId.mapToDriverValue(id)).toBe(id);
     });
   });
 });

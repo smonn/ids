@@ -1,5 +1,5 @@
 import type { ColumnType } from "kysely";
-import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
+import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 export type { IdColumnCodec } from "./adapter-types.js";
@@ -24,6 +24,29 @@ export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
  * ```
  */
 export type IdColumnType<Brand extends string> = ColumnType<Id<Brand>, Id<Brand>, Id<Brand>>;
+
+/**
+ * Kysely column type mapping for a nullable `Id<Brand>` column.
+ *
+ * Use in your Kysely `Database` interface for optional foreign keys or any
+ * column that can be `NULL`. Pair with `nullableIdColumn(codec)` for runtime
+ * transformation.
+ *
+ * @example
+ * ```ts
+ * import type { NullableIdColumnType } from "@smonn/ids/kysely";
+ * import type { Id } from "@smonn/ids";
+ *
+ * interface Database {
+ *   posts: { authorId: NullableIdColumnType<"usr"> };
+ * }
+ * ```
+ */
+export type NullableIdColumnType<Brand extends string> = ColumnType<
+  Id<Brand> | null,
+  Id<Brand> | null,
+  Id<Brand> | null
+>;
 
 /**
  * Kysely column adapter bound to a codec.
@@ -62,6 +85,41 @@ export function idColumn<Brand extends string>(
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);
+    },
+  };
+}
+
+/**
+ * Kysely column adapter for a **nullable** `Id<Brand>` column.
+ *
+ * Behaves like {@link idColumn} but `fromDriver` returns `null` for `null` /
+ * `undefined` driver values and `toDriver` passes `null` through unchanged.
+ * Use for optional foreign keys and `LEFT JOIN` results.
+ *
+ * @example
+ * ```ts
+ * import { nullableIdColumn } from "@smonn/ids/kysely";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ * const authorCol = nullableIdColumn(usr);
+ *
+ * // In a query result handler:
+ * const authorId = authorCol.fromDriver(row.author_id); // Id<"usr"> | null
+ * ```
+ */
+export function nullableIdColumn<Brand extends string>(
+  codec: IdColumnCodec<Brand>,
+): {
+  toDriver(value: Id<Brand> | null): string | null;
+  fromDriver(value: string | null): Id<Brand> | null;
+} {
+  return {
+    toDriver(value: Id<Brand> | null): string | null {
+      return value;
+    },
+    fromDriver(value: string | null): Id<Brand> | null {
+      return readIdColumnNullable(codec, value);
     },
   };
 }
