@@ -1,6 +1,6 @@
 # @smonn/ids
 
-> Public-facing branded IDs for TypeScript apps — type-safe, sortable, and codec-pluggable. Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkw`: a three-letter brand, an underscore, then 26 Crockford base32 characters of payload.
+> Public-facing branded IDs for TypeScript apps — type-safe, sortable, and codec-pluggable. Each ID looks like `usr_06f80z92d2dbsqqg28t5cy4tqg`: a three-letter brand, an underscore, then 26 Crockford base32 characters of payload.
 
 The default Timestamp codec encodes a 48-bit millisecond Unix timestamp followed by 80 random bits — the same byte layout as a ULID. All six codecs share the same `<brand>_<26 chars>` wire shape but make different trade-offs (sortability, confidentiality, integrity). They are wire-indistinguishable at runtime, so codec choice is a per-brand commitment. Branded types mean `Id<"usr">` and `Id<"org">` are not interchangeable. `safeParse` is lenient on input (mixed case, Crockford visual aliases) and always returns the canonical lowercase form.
 
