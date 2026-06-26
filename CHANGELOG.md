@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 0.13.1
+
+### Patch Changes
+
+- bbf5f2c: fix(cli): map unexpected throws in run() to exit code 1 instead of unhandled rejection
+
 ## 0.13.0
 
 ### Minor Changes
