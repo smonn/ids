@@ -1,0 +1,5 @@
+# Freeze guard: any PR touching the wire spec or conformance vectors requires
+# a code-owner review (ADR-0025, layer 3). Enable "Require review from code
+# owners" in branch protection settings for this rule to have mechanical bite.
+/SPEC.md @smonn
+/spec/ @smonn
