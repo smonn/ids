@@ -145,3 +145,6 @@ dist
 
 # CI harness implementation context (ephemeral, not developer-authored)
 .impl-context/
+
+# CI harness producer output (ephemeral, consumed by the implement.yml poster)
+.impl/
