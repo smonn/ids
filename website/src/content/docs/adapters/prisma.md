@@ -102,6 +102,8 @@ import { createTimestampId } from "@smonn/ids";
 
 const usr = createTimestampId("usr");
 const userIdField = idField(usr);
+const pst = createTimestampId("pst");
+const postIdField = idField(pst);
 
 const xprisma = prisma.$extends({
   result: {
