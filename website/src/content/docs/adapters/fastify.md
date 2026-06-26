@@ -60,7 +60,7 @@ const usr = createTimestampId("usr");
 
 // GET /users?userId=usr_...
 fastify.get("/users", { preHandler: idQuery("userId", usr) }, (request, reply) => {
-  const userId = (request.query as Record<string, string>).userId; // Id<"usr"> at runtime
+  const userId = request.query.userId; // string (compile-time); Id<"usr"> at runtime
 });
 
 // Override: consumer fully owns the error response
@@ -78,7 +78,7 @@ fastify.get(
 
 Same options shape and failure contract as `idParam` — same `IdParamOptions`,
 same `IdParamError` thrown into `setErrorHandler`, same `onError` / `status` —
-but reads `(request.query as Record<string, string | undefined>)[name]` instead
+but reads `request.query[name]` instead
 of `request.params[name]`. A missing query param is treated as malformed (status
 400). The canonical `Id<Brand>` is stored in `request.query` under the query name.
 
