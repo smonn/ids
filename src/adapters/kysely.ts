@@ -1,4 +1,11 @@
-import type { ColumnType } from "kysely";
+import type {
+  ColumnType,
+  KyselyPlugin,
+  PluginTransformQueryArgs,
+  PluginTransformResultArgs,
+  QueryResult,
+  UnknownRow,
+} from "kysely";
 import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
@@ -85,6 +92,69 @@ export function idColumn<Brand extends string>(
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);
+    },
+  };
+}
+
+/**
+ * Kysely plugin that automatically transforms result columns using the provided codec map.
+ *
+ * Keys in `map` are plain column names (`"id"`) or `"table.column"` qualified names
+ * (`"users.id"`). Plain names match any result column with that name; qualified names
+ * match by the column-name part (after the last `.`). If both a plain key and a qualified
+ * key resolve to the same column name, the qualified key takes precedence.
+ *
+ * `transformResult` calls `readIdColumn(codec, rawValue)` for each matched column, returning
+ * a branded `Id<Brand>` on success and throwing `IdsError("invalid_id")` on parse failure.
+ * `transformQuery` is a no-op identity pass-through.
+ *
+ * @example
+ * ```ts
+ * import { idPlugin } from "@smonn/ids/kysely";
+ * import { createTimestampId } from "@smonn/ids";
+ * import { Kysely } from "kysely";
+ *
+ * const usr = createTimestampId("usr");
+ *
+ * const db = new Kysely<Database>({
+ *   // ...
+ *   plugins: [idPlugin({ "users.id": usr })],
+ * });
+ *
+ * // result.id is automatically validated and branded as Id<"usr">
+ * const row = await db.selectFrom("users").selectAll().executeTakeFirstOrThrow();
+ * ```
+ */
+export function idPlugin(map: Record<string, IdColumnCodec<string>>): KyselyPlugin {
+  // Build a lookup keyed by the bare column name.
+  // Plain keys ("id") are added first; qualified keys ("users.id") are added second
+  // so they override the plain key when both resolve to the same column name.
+  const lookup = new Map<string, IdColumnCodec<string>>();
+  for (const [key, codec] of Object.entries(map)) {
+    if (!key.includes(".")) {
+      lookup.set(key, codec);
+    }
+  }
+  for (const [key, codec] of Object.entries(map)) {
+    if (key.includes(".")) {
+      lookup.set(key.slice(key.lastIndexOf(".") + 1), codec);
+    }
+  }
+
+  return {
+    transformQuery(args: PluginTransformQueryArgs) {
+      return args.node;
+    },
+    async transformResult(args: PluginTransformResultArgs): Promise<QueryResult<UnknownRow>> {
+      const rows = args.result.rows.map((row) => {
+        const newRow: Record<string, unknown> = {};
+        for (const [colName, value] of Object.entries(row)) {
+          const codec = lookup.get(colName);
+          newRow[colName] = codec !== undefined ? readIdColumn(codec, value) : value;
+        }
+        return newRow;
+      });
+      return { ...args.result, rows };
     },
   };
 }
