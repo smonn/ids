@@ -124,8 +124,8 @@ export function idParam<ParamKey extends string, Brand extends string>(
  * via `safeParse`.
  *
  * Same failure contract as `idParam` — same `IdParamOptions` / `IdParamFailure` shape, same
- * `IdParamError` thrown into `setErrorHandler` — but reads
- * `(request.query as Record<string, string | undefined>)[queryName]` instead of `request.params`.
+ * `IdParamError` thrown into `setErrorHandler` — but reads `request.query[queryName]` instead of
+ * `request.params`.
  *
  * **Default (no options):** throws `IdParamError` carrying `statusCode` and `reason` so the
  * app's existing `setErrorHandler` controls rendering. The adapter does not write a response
@@ -151,7 +151,7 @@ export function idParam<ParamKey extends string, Brand extends string>(
  * // Default: throws IdParamError → setErrorHandler renders it
  * // GET /users?userId=usr_...
  * fastify.get("/users", { preHandler: idQuery("userId", usr) }, (request, reply) => {
- *   const userId = (request.query as Record<string, string>).userId; // Id<"usr"> at runtime
+ *   const userId = request.query.userId; // string (compile-time); Id<"usr"> at runtime
  * });
  *
  * // Override: consumer fully owns the error response
@@ -168,11 +168,11 @@ export function idQuery<ParamKey extends string, Brand extends string>(
   codec: IdCodec<Brand>,
   options?: IdParamOptions,
 ): (
-  request: FastifyRequest<{ Querystring: Record<string, string | undefined> }>,
+  request: FastifyRequest<{ Querystring: Record<string, Id<Brand>> }>,
   reply: FastifyReply,
 ) => Promise<void> {
   return async (request, reply): Promise<void> => {
-    const raw = (request.query as Record<string, string | undefined>)[queryName];
+    const raw = request.query[queryName];
     const result = codec.safeParse(raw);
     if (!result.ok) {
       const failure = resolveIdParamFailure(result.error, options);
@@ -182,6 +182,6 @@ export function idQuery<ParamKey extends string, Brand extends string>(
       }
       throw new IdParamError(failure.reason, failure.status);
     }
-    (request.query as Record<string, unknown>)[queryName] = result.id;
+    request.query[queryName] = result.id;
   };
 }
