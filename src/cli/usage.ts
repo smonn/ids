@@ -3,8 +3,9 @@ import { maxGenerateCount } from "./constants.js";
 export function usageInspect(): string {
   return [
     "Usage: ids inspect, i <id> [--opaque] [--wrapped --kind u32|i32|u64|i64] [--reverse] [--signed] [--key-format hex|base64url]",
+    "       ids inspect --from-uuid <uuid> --brand <brand>",
     "",
-    "  Decode an ID and print brand, timestamp (or lookup key), and canonical form.",
+    "  Decode an ID and print brand, timestamp (or lookup key), canonical form, and UUID.",
     "  --opaque reads the AES key from IDS_KEY (hex by default; IDS_KEY_FORMAT or --key-format).",
     "  --wrapped reads the wrapping key from IDS_WRAPPING_KEY (hex by default; IDS_WRAPPING_KEY_FORMAT or --key-format).",
     "  --kind is required with --wrapped: u32, i32, u64, or i64.",
@@ -12,13 +13,15 @@ export function usageInspect(): string {
     "  --signed decodes a Signed Timestamp ID; reads signing key from IDS_SIGNING_KEY (hex by default; IDS_SIGNING_KEY_FORMAT or --key-format).",
     "  Without IDS_SIGNING_KEY, --signed prints the timestamp only (no verification). With IDS_SIGNING_KEY, prints verification: ok or failed.",
     "  Note: --digest is not supported for inspect (Digest IDs are one-way; there is no reverse path).",
+    "  --from-uuid <uuid> converts a raw UUID back to a canonical Id<Brand>. Requires --brand <brand>.",
+    "  --brand <brand> specifies the entity type brand for --from-uuid (e.g. usr).",
     "",
   ].join("\n");
 }
 
 export function usageGenerate(): string {
   return [
-    `Usage: ids generate, g <brand> [--count, -c N] [--opaque] [--reverse] [--signed] [--digest --ns <ns>] [--key-format hex|base64url]`,
+    `Usage: ids generate, g <brand> [--count, -c N] [--opaque] [--reverse] [--signed] [--digest --ns <ns>] [--uuid] [--key-format hex|base64url]`,
     "",
     `  Mint 1..${maxGenerateCount} canonical IDs for the given brand.`,
     "  --opaque reads the AES key from IDS_KEY (hex by default; IDS_KEY_FORMAT or --key-format).",
@@ -29,6 +32,7 @@ export function usageGenerate(): string {
     "    Reads the digest key from IDS_DIGEST_KEY (hex by default; IDS_DIGEST_KEY_FORMAT or --key-format).",
     "    Same material + ns + key always produces the same ID. Digest IDs are one-way.",
     "    --count N > 1 is rejected: same material always produces the same ID.",
+    "  --uuid emits the raw UUID form of each generated ID instead of the canonical ID.",
     "",
   ].join("\n");
 }
@@ -51,7 +55,8 @@ export function usage(): string {
     "",
     "Subcommands:",
     "  inspect, i <id> [--opaque] [--wrapped --kind u32|i32|u64|i64] [--reverse] [--signed] [--key-format hex|base64url]",
-    "    Decode an ID and print brand, timestamp (or lookup key), and canonical form.",
+    "  inspect, i --from-uuid <uuid> --brand <brand>",
+    "    Decode an ID and print brand, timestamp (or lookup key), canonical form, and UUID.",
     "    --opaque reads the AES key from IDS_KEY (hex by default; IDS_KEY_FORMAT or --key-format).",
     "    --wrapped reads the wrapping key from IDS_WRAPPING_KEY (hex by default; IDS_WRAPPING_KEY_FORMAT or --key-format).",
     "    --kind is required with --wrapped: u32, i32, u64, or i64.",
@@ -59,7 +64,9 @@ export function usage(): string {
     "    --signed decodes a Signed Timestamp ID; reads signing key from IDS_SIGNING_KEY (hex by default; IDS_SIGNING_KEY_FORMAT or --key-format).",
     "    Without IDS_SIGNING_KEY, --signed prints the timestamp only (no verification). With IDS_SIGNING_KEY, prints verification: ok or failed.",
     "    Note: --digest is not supported for inspect (Digest IDs are one-way; there is no reverse path).",
-    "  generate, g <brand> [--count, -c N] [--opaque] [--reverse] [--signed] [--digest --ns <ns>] [--key-format hex|base64url]",
+    "    --from-uuid <uuid> converts a raw UUID back to a canonical Id<Brand>. Requires --brand <brand>.",
+    "    --brand <brand> specifies the entity type brand for --from-uuid (e.g. usr).",
+    "  generate, g <brand> [--count, -c N] [--opaque] [--reverse] [--signed] [--digest --ns <ns>] [--uuid] [--key-format hex|base64url]",
     `    Mint 1..${maxGenerateCount} canonical IDs for the given brand.`,
     "    --opaque reads the AES key from IDS_KEY (hex by default; IDS_KEY_FORMAT or --key-format).",
     "    --reverse mints Reverse Timestamp IDs (newest-first sort order).",
@@ -69,6 +76,7 @@ export function usage(): string {
     "      Reads the digest key from IDS_DIGEST_KEY (hex by default; IDS_DIGEST_KEY_FORMAT or --key-format).",
     "      Same material + ns + key always produces the same ID. Digest IDs are one-way.",
     "      --count N > 1 is rejected: same material always produces the same ID.",
+    "    --uuid emits the raw UUID form of each generated ID instead of the canonical ID.",
     "  keygen, k [--wrapped] [--signed] [--digest] [--bits 128|192|256] [--key-format hex|base64url]",
     "    Emit a random key for importOpaqueKey, importWrappingKey, importSigningKey, or importDigestKey (key on stdout; warning on stderr).",
     "    Safe handling: redirect stdout to a 0600 file (e.g. ids keygen > key.hex && chmod 0600 key.hex);",

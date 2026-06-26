@@ -71,6 +71,15 @@ export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): P
     opts.stderr(codec.message + "\n");
     return codec.kind === "usage" ? 2 : 1;
   }
-  for (let i = 0; i < count; i++) opts.stdout((await codec.generate()) + "\n");
+  const emitUuid = flags.has("--uuid");
+  for (let i = 0; i < count; i++) {
+    const id = await codec.generate();
+    if (emitUuid) {
+      const uuid = (codec as unknown as { toUUID(id: string): string }).toUUID(id);
+      opts.stdout(uuid + "\n");
+    } else {
+      opts.stdout(id + "\n");
+    }
+  }
   return 0;
 }

@@ -280,13 +280,13 @@ export const conflictPriorityOrder: readonly Descriptor[] = [
 export const generatePolicy: GeneratePolicy = {
   default: timestampVariant,
   selectable: [opaqueVariant, reverseVariant, signedVariant, digestVariant],
-  intrinsicFlags: ["--count", "-c"],
+  intrinsicFlags: ["--count", "-c", "--uuid"],
 };
 
 export const inspectPolicy: Policy = {
   default: timestampVariant,
   selectable: [reverseVariant, wrappedVariant, opaqueVariant, signedVariant],
-  intrinsicFlags: [],
+  intrinsicFlags: ["--from-uuid", "--brand"],
 };
 
 export const keygenPolicy: Policy = {
