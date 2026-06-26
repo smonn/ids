@@ -11,7 +11,7 @@ pnpm add @mikro-orm/core
 ```
 
 ```ts
-import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
+import { Entity, PrimaryKey } from "@mikro-orm/core";
 import { idType } from "@smonn/ids/mikro-orm";
 import { createTimestampId } from "@smonn/ids";
 import type { Id } from "@smonn/ids";

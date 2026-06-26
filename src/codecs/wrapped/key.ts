@@ -53,6 +53,7 @@ const internals = new WeakMap<WrappingKey, WrappingKeyInternals>();
  * {@link decodeWrappingKey} (`"hex"` or `"base64url"` — not Crockford base32).
  *
  * @param bytes - 16, 24, or 32 raw key bytes.
+ * @throws {IdsError} `invalid_key_length` if `bytes.length` is not 16, 24, or 32.
  */
 export async function importWrappingKey(bytes: Uint8Array): Promise<WrappingKey> {
   assertValidKeyMaterialByteLength(bytes.length, "wrapping");
@@ -75,6 +76,9 @@ export async function importWrappingKey(bytes: Uint8Array): Promise<WrappingKey>
  *
  * Supports `"hex"` (lowercase) and `"base64url"`. Output round-trips through
  * {@link decodeWrappingKey} back to the original bytes.
+ *
+ * @throws {IdsError} `invalid_key_format` if `format` is not `"hex"` or `"base64url"`.
+ * @throws {IdsError} `invalid_key_length` if `bytes.length` is not 16, 24, or 32.
  */
 export function encodeWrappingKey(bytes: Uint8Array, format: WrappingKeyFormat): string {
   return encodeKeyMaterial(bytes, format, "wrapping", "wrapping");
@@ -84,6 +88,10 @@ export function encodeWrappingKey(bytes: Uint8Array, format: WrappingKeyFormat):
  * Decode key material emitted by {@link encodeWrappingKey} back to raw bytes.
  *
  * The result can be passed directly to {@link importWrappingKey}.
+ *
+ * @throws {IdsError} `invalid_key_format` if `format` is not `"hex"` or `"base64url"`.
+ * @throws {IdsError} `invalid_key_encoding` if the string is malformed for its format.
+ * @throws {IdsError} `invalid_key_length` if the decoded bytes are not 16, 24, or 32 bytes.
  */
 export function decodeWrappingKey(encoded: string, format: WrappingKeyFormat): Uint8Array {
   return decodeKeyMaterial(encoded, format, "wrapping", "wrapping");

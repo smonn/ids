@@ -24,7 +24,7 @@ shares.extractTimestamp(id); // Date — sync, timestamp is plaintext
 await shares.verify(id); // passes; throws IdsError verification_failed on tamper
 ```
 
-`generate`, `generateAt`, and `verify` are **async** (WebCrypto). `is`, `parse`,
+`generate`, `generateAt`, `verify`, and `safeVerify` are **async** (WebCrypto). `is`, `parse`,
 `safeParse`, `extractTimestamp`, `minIdForTime`, `maxIdForTime`, and
 `toJsonSchema` stay sync — they work on the wire form only
 ([ADR-0006](https://github.com/smonn/ids/blob/main/docs/adr/0006-async-keyed-codec-contract.md)).
@@ -116,12 +116,6 @@ duplicate-keyring detection; the raw bytes are not retained after import.
 Signing-key material is a **separate secret domain** from Opaque and Wrapping
 keys — same `hex` / `base64url` encoding conventions, but a distinct `SigningKey`
 handle and HKDF label, so one raw secret cannot silently serve multiple codecs.
-
-`SigningKey` is an **opaque frozen object** — the underlying non-extractable
-`CryptoKey` and a SHA-256 digest of the raw import bytes are held in a
-module-internal `WeakMap` and never exposed to callers. The digest enables
-constant-time duplicate-keyring detection; neither the raw bytes nor any
-recoverable form of the secret persists after import.
 
 ```ts
 import { encodeSigningKey, decodeSigningKey } from "@smonn/ids/signed";

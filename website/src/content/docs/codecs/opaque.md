@@ -68,6 +68,7 @@ The [CLI](/cli/) `keygen` command emits keys in this format.
 `generateAt(date)` rejects invalid input and throws a plain `Error` (not an `IdsError`):
 
 - **negative timestamp** — `date.getTime() < 0`
+- **non-integer timestamp** — `date.getTime()` is a float (e.g. `1.5`)
 - **timestamp exceeds 48-bit range** — `date.getTime() >= 2 ** 48`
 - **`Invalid Date`** — `date.getTime()` is `NaN`
 
