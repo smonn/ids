@@ -1,14 +1,16 @@
 ---
 title: Express adapter
-description: Validate route params against an @smonn/ids codec in Express.
+description: Validate route and query-string params against an @smonn/ids codec in Express.
 ---
 
-`@smonn/ids/express` provides the `idParam` factory for Express. Express is an
-**optional peer dependency**.
+`@smonn/ids/express` provides the `idParam` and `idQuery` factories for Express.
+Express is an **optional peer dependency**.
 
 ```bash
 pnpm add express
 ```
+
+## `idParam` — route params
 
 ```ts
 import { idParam, IdParamError } from "@smonn/ids/express";
@@ -48,6 +50,35 @@ app.get(
 - **`options.onError`:** when provided, the hook owns the response; the adapter
   does not call `next(err)`.
 - **`options.status`:** remaps the default HTTP status for a failure reason.
+
+## `idQuery` — query-string params
+
+```ts
+import { idQuery, IdParamError } from "@smonn/ids/express";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+// GET /users?userId=usr_...
+app.get("/users", idQuery("userId", usr), (req, res) => {
+  const userId = res.locals.userId; // Id<"usr">, canonical
+});
+
+// Override: consumer fully owns the error response
+app.get(
+  "/search",
+  idQuery("cursor", usr, {
+    onError: (failure, req, res) => res.status(failure.status).json({ error: failure.reason }),
+  }),
+  handler,
+);
+```
+
+Same options shape and failure contract as `idParam` — same `IdParamOptions`,
+same `IdParamError` forwarded to `next(err)`, same `onError` / `status` — but
+reads `req.query[name]` instead of `req.params[name]`. A missing query param is
+treated as malformed (status 400). The canonical `Id<Brand>` is stored in
+`res.locals` under the query name.
 
 ## `IdParamFailure` shape
 

@@ -1,15 +1,17 @@
 ---
 title: Hono adapter
-description: Validate route params against an @smonn/ids codec in Hono.
+description: Validate route and query-string params against an @smonn/ids codec in Hono.
 ---
 
-`@smonn/ids/hono` provides `idParam` — a middleware factory that validates a
-named route param against a codec and exposes the canonical `Id<Brand>` to the
-handler. Hono is an **optional peer dependency**.
+`@smonn/ids/hono` provides `idParam` and `idQuery` — middleware factories that validate
+a named route param or query-string param against a codec and expose the canonical
+`Id<Brand>` to the handler. Hono is an **optional peer dependency**.
 
 ```bash
 pnpm add hono
 ```
+
+## `idParam` — route params
 
 ```ts
 import { idParam } from "@smonn/ids/hono";
@@ -43,6 +45,33 @@ app.get("/things/:id", idParam("id", thing, { status: { brand_mismatch: 400 } })
   controls content negotiation.
 - **`options.onError`:** when provided, the hook owns the response entirely.
 - **`options.status`:** remaps the default HTTP status for a failure reason.
+
+## `idQuery` — query-string params
+
+```ts
+import { idQuery } from "@smonn/ids/hono";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+// GET /users?userId=usr_...
+app.get("/users", idQuery("userId", usr), (c) => {
+  const userId = c.get("userId"); // Id<"usr">, canonical
+});
+
+// Override: consumer fully owns the error response
+app.get(
+  "/search",
+  idQuery("cursor", usr, {
+    onError: (failure, c) => c.json({ error: failure.reason }, failure.status),
+  }),
+  handler,
+);
+```
+
+Same options shape and failure contract as `idParam` — same `IdParamOptions`, same
+`IdParamFailure`, same `onError` / `status` — but reads `c.req.query(name)` instead
+of `c.req.param(name)`. A missing query param is treated as malformed (status 400).
 
 ## `IdParamFailure` shape
 

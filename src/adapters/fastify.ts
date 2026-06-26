@@ -20,7 +20,7 @@ export class IdParamError extends Error {
   }
 }
 
-/** Options for `idParam`. All fields are optional. */
+/** Options for `idParam` and `idQuery`. All fields are optional. */
 export type IdParamOptions = {
   /**
    * Called instead of throwing when provided. The hook owns the response entirely —
@@ -116,5 +116,72 @@ export function idParam<ParamKey extends string, Brand extends string>(
       throw new IdParamError(failure.reason, failure.status);
     }
     request.params[paramName] = result.id;
+  };
+}
+
+/**
+ * Fastify `preHandler` hook factory that validates a named query-string param against a codec
+ * via `safeParse`.
+ *
+ * Same failure contract as `idParam` — same `IdParamOptions` / `IdParamFailure` shape, same
+ * `IdParamError` thrown into `setErrorHandler` — but reads
+ * `(request.query as Record<string, string | undefined>)[queryName]` instead of `request.params`.
+ *
+ * **Default (no options):** throws `IdParamError` carrying `statusCode` and `reason` so the
+ * app's existing `setErrorHandler` controls rendering. The adapter does not write a response
+ * body itself.
+ *
+ * **`options.onError`:** when provided, the hook calls `onError` and does not throw; the
+ * consumer fully owns the response via `reply`.
+ *
+ * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
+ *
+ * - **Brand mismatch (`invalid_prefix`) → `reason: "brand_mismatch"`, default 404**
+ * - **Malformed or missing query param → `reason: "malformed"`, default 400**
+ *
+ * On success, stores the canonical `Id<Brand>` in `request.query` under `queryName`.
+ *
+ * @example
+ * ```ts
+ * import { idQuery, IdParamError } from "@smonn/ids/fastify";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ *
+ * // Default: throws IdParamError → setErrorHandler renders it
+ * // GET /users?userId=usr_...
+ * fastify.get("/users", { preHandler: idQuery("userId", usr) }, (request, reply) => {
+ *   const userId = (request.query as Record<string, string>).userId; // Id<"usr"> at runtime
+ * });
+ *
+ * // Override: consumer fully owns the error response
+ * fastify.get("/search", {
+ *   preHandler: idQuery("cursor", usr, {
+ *     onError: (failure, request, reply) =>
+ *       reply.status(failure.status).send({ error: failure.reason }),
+ *   }),
+ * }, handler);
+ * ```
+ */
+export function idQuery<ParamKey extends string, Brand extends string>(
+  queryName: ParamKey,
+  codec: IdCodec<Brand>,
+  options?: IdParamOptions,
+): (
+  request: FastifyRequest<{ Querystring: Record<string, string | undefined> }>,
+  reply: FastifyReply,
+) => Promise<void> {
+  return async (request, reply): Promise<void> => {
+    const raw = (request.query as Record<string, string | undefined>)[queryName];
+    const result = codec.safeParse(raw);
+    if (!result.ok) {
+      const failure = resolveIdParamFailure(result.error, options);
+      if (options?.onError) {
+        await options.onError(failure, request, reply);
+        return;
+      }
+      throw new IdParamError(failure.reason, failure.status);
+    }
+    (request.query as Record<string, unknown>)[queryName] = result.id;
   };
 }

@@ -1,7 +1,7 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { IdParamError, idParam } from "./fastify.js";
+import { IdParamError, idParam, idQuery } from "./fastify.js";
 import type { IdParamFailure } from "./fastify.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createReverseTimestampId } from "../codecs/reverse/index.js";
@@ -13,11 +13,23 @@ type MockRequest = {
   params: Record<string, unknown>;
 };
 
+type MockQueryRequest = {
+  query: Record<string, unknown>;
+};
+
 function makeReq(paramName: string, value: string | undefined): MockRequest {
   return { params: { [paramName]: value } };
 }
 
+function makeQueryReq(queryName: string, value: string | undefined): MockQueryRequest {
+  return { query: { [queryName]: value } };
+}
+
 function asReq<T extends FastifyRequest = FastifyRequest>(req: MockRequest): T {
+  return fromAny(req);
+}
+
+function asQueryReq<T extends FastifyRequest = FastifyRequest>(req: MockQueryRequest): T {
   return fromAny(req);
 }
 
@@ -314,6 +326,129 @@ describe("idParam", () => {
       const handler = idParam("id", spyCodec);
       const req = makeReq("id", "any_value");
       await handler(asReq(req), asReply());
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("idQuery", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+  const org = createTimestampId("org", { allowDuplicateBrand: true });
+
+  it("valid canonical query param stores canonical Id on request.query and resolves", async () => {
+    const handler = idQuery("userId", usr);
+    const validId = usr.generate();
+    const req = makeQueryReq("userId", validId);
+
+    await handler(asQueryReq(req), asReply());
+
+    expect(req.query["userId"]).toBe(validId);
+  });
+
+  it("valid non-canonical query param is normalized to canonical form in request.query", async () => {
+    const handler = idQuery("userId", usr);
+    const canonicalId = usr.generate();
+    const nonCanonical = canonicalId.toUpperCase();
+    const req = makeQueryReq("userId", nonCanonical);
+
+    await handler(asQueryReq(req), asReply());
+
+    expect(req.query["userId"]).toBe(canonicalId);
+  });
+
+  it("wrong brand (invalid_prefix) throws IdParamError with reason=brand_mismatch and statusCode=404", async () => {
+    const handler = idQuery("userId", usr);
+    const req = makeQueryReq("userId", org.generate());
+
+    const err = await catchError(() => handler(asQueryReq(req), asReply()));
+
+    expect(err).toBeInstanceOf(IdParamError);
+    expect((err as IdParamError).reason).toBe("brand_mismatch");
+    expect((err as IdParamError).statusCode).toBe(404);
+  });
+
+  it("malformed base32 payload (invalid_base32) throws IdParamError with reason=malformed and statusCode=400", async () => {
+    const handler = idQuery("userId", usr);
+    const req = makeQueryReq("userId", "usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+
+    const err = await catchError(() => handler(asQueryReq(req), asReply()));
+
+    expect(err).toBeInstanceOf(IdParamError);
+    expect((err as IdParamError).reason).toBe("malformed");
+    expect((err as IdParamError).statusCode).toBe(400);
+  });
+
+  it("missing query param (undefined) throws IdParamError with reason=malformed and statusCode=400", async () => {
+    const handler = idQuery("userId", usr);
+    const req = makeQueryReq("userId", undefined);
+
+    const err = await catchError(() => handler(asQueryReq(req), asReply()));
+
+    expect(err).toBeInstanceOf(IdParamError);
+    expect((err as IdParamError).reason).toBe("malformed");
+    expect((err as IdParamError).statusCode).toBe(400);
+  });
+
+  it("onError override: consumer fully owns the response for brand mismatch", async () => {
+    const captured: IdParamFailure[] = [];
+    const handler = idQuery("userId", usr, {
+      onError: (failure) => {
+        captured.push(failure);
+      },
+    });
+    const req = makeQueryReq("userId", org.generate());
+
+    await handler(asQueryReq(req), asReply());
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]?.reason).toBe("brand_mismatch");
+    expect(captured[0]?.status).toBe(404);
+  });
+
+  it("onError override: consumer fully owns the response for malformed ID", async () => {
+    const captured: IdParamFailure[] = [];
+    const handler = idQuery("userId", usr, {
+      onError: (failure) => {
+        captured.push(failure);
+      },
+    });
+    const req = makeQueryReq("userId", "usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+
+    await handler(asQueryReq(req), asReply());
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]?.reason).toBe("malformed");
+    expect(captured[0]?.status).toBe(400);
+  });
+
+  it("status remap: brand_mismatch remapped to 400 in thrown IdParamError", async () => {
+    const handler = idQuery("userId", usr, { status: { brand_mismatch: 400 } });
+    const req = makeQueryReq("userId", org.generate());
+
+    const err = await catchError(() => handler(asQueryReq(req), asReply()));
+
+    expect(err).toBeInstanceOf(IdParamError);
+    expect((err as IdParamError).reason).toBe("brand_mismatch");
+    expect((err as IdParamError).statusCode).toBe(400);
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("preHandler calls only safeParse on the codec", async () => {
+      const spyCodec = makeSpyCodec("spy");
+      const handler = idQuery("id", spyCodec);
+      const req = makeQueryReq("id", "any_value");
+      await handler(asQueryReq(req), asReply());
       expect(spyCodec.safeParse).toHaveBeenCalled();
       expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
       expect(spyCodec.wrap).not.toHaveBeenCalled();
