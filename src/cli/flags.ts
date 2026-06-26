@@ -72,6 +72,9 @@ const knownFlags = new Set([
   "--count",
   "-c",
   "--bits",
+  "--uuid",
+  "--from-uuid",
+  "--brand",
 ]);
 
 export function unsupportedFlagForCommand(

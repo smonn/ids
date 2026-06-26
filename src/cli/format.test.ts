@@ -10,6 +10,7 @@ function relative(thenMs: number): string {
     brand: "tst",
     timestamp: new Date(thenMs),
     canonical: fakeId,
+    uuid: "00000000-0000-0000-0000-000000000000",
     input: "tst_00000000000000000000000000",
     nowMs,
   });

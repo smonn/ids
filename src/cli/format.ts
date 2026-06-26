@@ -5,6 +5,7 @@ type InspectOutput = {
   brand: string;
   timestamp: Date;
   canonical: Id<string>;
+  uuid: string;
   input: string;
   nowMs: number;
 };
@@ -17,6 +18,7 @@ type WrappedInspectOutput = {
   brand: string;
   lookupKey: number | bigint;
   canonical: Id<string>;
+  uuid: string;
   input: string;
 };
 
@@ -36,6 +38,7 @@ export function formatWrappedInspectOutput(result: WrappedInspectOutput): string
     `brand:      ${result.brand}`,
     `lookup-key: ${result.lookupKey.toString()}`,
     `canonical:  ${result.canonical}`,
+    `uuid:       ${result.uuid}`,
     `input:      ${inputLine}`,
     "",
   ].join("\n");
@@ -50,7 +53,12 @@ export function formatSignedInspectOutput(result: SignedInspectOutput): string {
   ];
   // "verification:" is the spec-mandated key name; the extra chars vs. other labels are intentional.
   lines.push(`verification: ${result.verification}`);
-  lines.push(`canonical: ${result.canonical}`, `input:     ${inputLine}`, "");
+  lines.push(
+    `canonical: ${result.canonical}`,
+    `uuid:      ${result.uuid}`,
+    `input:     ${inputLine}`,
+    "",
+  );
   return lines.join("\n");
 }
 
@@ -61,6 +69,7 @@ export function formatInspectOutput(result: InspectOutput): string {
     `brand:     ${result.brand}`,
     `timestamp: ${result.timestamp.toISOString()} (${relative})`,
     `canonical: ${result.canonical}`,
+    `uuid:      ${result.uuid}`,
     `input:     ${inputLine}`,
     "",
   ].join("\n");

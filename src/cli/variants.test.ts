@@ -435,8 +435,9 @@ describe("inspectPolicy", () => {
     expect(inspectPolicy.selectable).not.toContain(timestampVariant);
   });
 
-  it("intrinsicFlags is empty", () => {
-    expect(inspectPolicy.intrinsicFlags).toHaveLength(0);
+  it("intrinsicFlags contains --from-uuid and --brand", () => {
+    expect(inspectPolicy.intrinsicFlags).toContain("--from-uuid");
+    expect(inspectPolicy.intrinsicFlags).toContain("--brand");
   });
 });
 

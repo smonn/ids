@@ -36,6 +36,35 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     opts.stderr(errors[0] + "\n");
     return 2;
   }
+
+  // --from-uuid path: convert a UUID to a canonical Id<Brand>
+  const fromUuidValue = values.get("--from-uuid");
+  if (fromUuidValue !== undefined) {
+    if (fromUuidValue === "") {
+      opts.stderr("--from-uuid requires a value\n");
+      return 2;
+    }
+    const brandValue = values.get("--brand");
+    if (brandValue === undefined || brandValue === "") {
+      opts.stderr("--from-uuid requires --brand\n");
+      return 2;
+    }
+    let tsCodec: TimestampCodec<string>;
+    try {
+      tsCodec = createTimestampId(brandValue, codecOpts(opts));
+    } catch (err) {
+      opts.stderr(formatCliError(err) + "\n");
+      return 1;
+    }
+    const result = tsCodec.safeFromUUID(fromUuidValue);
+    if (!result.ok) {
+      opts.stderr("invalid_uuid: not a valid RFC 9562 UUID\n");
+      return 1;
+    }
+    opts.stdout(result.id + "\n");
+    return 0;
+  }
+
   const [input] = positionals;
   if (input === undefined) {
     opts.stderr(usageInspect());
@@ -68,6 +97,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
   let verifyTimestamp: Date | undefined;
   let verifyCanonical: Id<string> | undefined;
   let verifyNowMs: number | undefined;
+  let verifyTsCodec: TimestampCodec<string> | undefined;
   if (cap.mode === "verify") {
     const fmtCheck = parseKeyFormat(values, opts, variant.key!);
     if (isKeyFormatError(fmtCheck)) {
@@ -86,6 +116,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
       opts.stderr(invalidIdPrefix + structValidation.issues[0]!.message + "\n");
       return 1;
     }
+    verifyTsCodec = tsCodec;
     verifyCanonical = structValidation.value;
     verifyTimestamp = tsCodec.extractTimestamp(verifyCanonical);
     verifyNowMs = (opts.now ?? Date.now)();
@@ -94,11 +125,13 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
   const codecOrError = await buildCodec(variant, brand, values, opts);
   if (isCodecError(codecOrError)) {
     if (cap.mode === "verify") {
+      const uuid = verifyTsCodec!.toUUID(verifyCanonical!);
       opts.stdout(
         formatSignedInspectOutput({
           brand,
           timestamp: verifyTimestamp!,
           canonical: verifyCanonical!,
+          uuid,
           input,
           nowMs: verifyNowMs!,
           verification: "unavailable",
@@ -122,20 +155,31 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     canonical = parsed.value;
   }
 
+  // Helper to call toUUID on any codec via unsafe cast
+  function codecToUUID(id: Id<string>): string {
+    return (codecOrError as unknown as { toUUID(id: Id<string>): string }).toUUID(id);
+  }
+
   // Dispatch on capability mode for output shapes
   switch (cap.mode) {
     case "readable": {
       const timestamp = cap.extractTimestamp(codecOrError, canonical!);
       const nowMs = (opts.now ?? Date.now)();
+      const uuid = codecToUUID(canonical!);
       opts.stderr(cap.note + "\n");
-      opts.stdout(formatInspectOutput({ brand, timestamp, canonical: canonical!, input, nowMs }));
+      opts.stdout(
+        formatInspectOutput({ brand, timestamp, canonical: canonical!, uuid, input, nowMs }),
+      );
       return 0;
     }
     case "keyed-readable": {
       const timestamp = await cap.extractTimestamp(codecOrError, canonical!);
       const nowMs = (opts.now ?? Date.now)();
+      const uuid = codecToUUID(canonical!);
       opts.stderr(cap.note + "\n");
-      opts.stdout(formatInspectOutput({ brand, timestamp, canonical: canonical!, input, nowMs }));
+      opts.stdout(
+        formatInspectOutput({ brand, timestamp, canonical: canonical!, uuid, input, nowMs }),
+      );
       return 0;
     }
     case "unwrap": {
@@ -146,10 +190,14 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
         opts.stderr(formatCliError(err) + "\n");
         return 1;
       }
-      opts.stdout(formatWrappedInspectOutput({ brand, lookupKey, canonical: canonical!, input }));
+      const uuid = codecToUUID(canonical!);
+      opts.stdout(
+        formatWrappedInspectOutput({ brand, lookupKey, canonical: canonical!, uuid, input }),
+      );
       return 0;
     }
     case "verify": {
+      const uuid = verifyTsCodec!.toUUID(verifyCanonical!);
       const verifyResult = await cap.safeVerify(codecOrError, input);
       if (!verifyResult.ok) {
         /* v8 ignore next 4 -- defensive: both codecs share the same wire parse so ParseError
@@ -163,6 +211,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
             brand,
             timestamp: verifyTimestamp!,
             canonical: verifyCanonical!,
+            uuid,
             input,
             nowMs: verifyNowMs!,
             verification: "failed",
@@ -176,6 +225,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
           brand,
           timestamp: verifyTimestamp!,
           canonical: verifyResult.id,
+          uuid,
           input,
           nowMs: verifyNowMs!,
           verification: "ok",
