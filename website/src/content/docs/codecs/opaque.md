@@ -32,15 +32,24 @@ await invoices.extractTimestamp(id); // Date — same key required
 not a raw `CryptoKey`. The underlying `CryptoKey` is held internally and is never
 exposed to callers.
 
-Accepts **16, 24, or 32 bytes** (AES-128, AES-192, or AES-256):
+The bytes are HKDF **input keying material**, not the AES key itself: the codec
+derives an **AES-256** key from them via HKDF under the label
+`@smonn/ids/opaque/aes` ([ADR-0027](https://github.com/smonn/ids/blob/main/docs/adr/0027-opaque-hkdf-uniform-key-derivation.md)).
+Accepts **16, 24, or 32 bytes**; the input size sets the entropy floor only —
+every handle yields AES-256, and a 16-byte handle carries a 128-bit entropy
+floor:
 
 ```ts
-const key128 = await importOpaqueKey(new Uint8Array(16)); // AES-128
-const key192 = await importOpaqueKey(new Uint8Array(24)); // AES-192
-const key256 = await importOpaqueKey(new Uint8Array(32)); // AES-256
+const key128 = await importOpaqueKey(new Uint8Array(16)); // AES-256, 128-bit entropy floor
+const key192 = await importOpaqueKey(new Uint8Array(24)); // AES-256, 192-bit entropy floor
+const key256 = await importOpaqueKey(new Uint8Array(32)); // AES-256, 256-bit entropy floor
 ```
 
 Any other byte length throws `invalid_key_length`.
+
+Because the key is HKDF-derived under a codec-specific label, the same raw secret
+may safely serve every keyed codec — a **primary secret**. Each codec still needs
+its own explicit import.
 
 ## Storing key material
 

@@ -1,4 +1,5 @@
 import type { webcrypto } from "node:crypto";
+import { deriveKey } from "../_kernel/crypto.js";
 import {
   assertValidKeyMaterialByteLength,
   decodeKeyMaterial,
@@ -8,17 +9,22 @@ import {
 /** Wire encoding for opaque AES key material (not Crockford base32). */
 export type OpaqueKeyFormat = "hex" | "base64url";
 
+// HKDF domain-separation label for the Opaque AES key; see ADR-0019 / ADR-0027.
+const aesInfo = new TextEncoder().encode("@smonn/ids/opaque/aes");
+
 declare const opaqueKeyBrand: unique symbol;
 
 /**
- * Opaque imported handle for one AES key used by the Opaque Timestamp codec.
+ * Opaque imported handle for the Opaque Timestamp codec's AES-256 key.
  *
  * Holds the underlying `webcrypto.CryptoKey` internally; callers never access it directly.
  * Obtain handles via {@link importOpaqueKey} and pass them to
  * `createOpaqueTimestampId` as the `key` option.
  *
- * Distinct from the `WrappingKey` used by `@smonn/ids/wrapped` — one raw
- * secret must not silently serve both codecs without an explicit import.
+ * The same raw secret may safely back an `OpaqueKey` and any other codec's
+ * handle (a **primary secret**): each codec derives its key under a distinct
+ * HKDF label, so the derived keys are independent — but each codec needs its
+ * own explicit import. See ADR-0027.
  */
 export type OpaqueKey = {
   readonly [opaqueKeyBrand]: "OpaqueKey";
@@ -27,25 +33,26 @@ export type OpaqueKey = {
 const opaqueKeyInternals = new WeakMap<OpaqueKey, webcrypto.CryptoKey>();
 
 /**
- * Imports raw AES key bytes into an {@link OpaqueKey} handle for the Opaque
+ * Imports operator key material into an {@link OpaqueKey} handle for the Opaque
  * Timestamp codec.
  *
- * Accepts 16, 24, or 32 bytes (AES-128 / AES-192 / AES-256 strength).
- * To store or transport key material, use {@link encodeOpaqueKey} /
- * {@link decodeOpaqueKey} (`"hex"` or `"base64url"` — not Crockford base32).
+ * The bytes are HKDF **input keying material**, not the AES key itself: the
+ * codec derives an **AES-256** key from them via HKDF under the label
+ * `@smonn/ids/opaque/aes` (ADR-0027). Accepts 16, 24, or 32 bytes; the input
+ * size sets the entropy floor only — a 16-byte handle still yields AES-256 with
+ * a 128-bit entropy floor. To store or transport key material, use
+ * {@link encodeOpaqueKey} / {@link decodeOpaqueKey} (`"hex"` or `"base64url"` —
+ * not Crockford base32).
  *
- * @param bytes - 16, 24, or 32 raw key bytes.
+ * @param bytes - 16, 24, or 32 bytes of raw key material.
  * @throws {IdsError} `invalid_key_length` if `bytes.length` is not 16, 24, or 32.
  */
 export async function importOpaqueKey(bytes: Uint8Array): Promise<OpaqueKey> {
   assertValidKeyMaterialByteLength(bytes.length, "AES");
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    bytes as Uint8Array<ArrayBuffer>,
-    "AES-CBC",
-    false,
-    ["encrypt", "decrypt"],
-  );
+  const cryptoKey = await deriveKey(bytes, aesInfo, { name: "AES-CBC", length: 256 }, [
+    "encrypt",
+    "decrypt",
+  ]);
   const key = Object.freeze({}) as OpaqueKey;
   opaqueKeyInternals.set(key, cryptoKey);
   return key;
