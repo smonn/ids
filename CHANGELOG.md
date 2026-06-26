@@ -1,5 +1,15 @@
 # @smonn/ids
 
+## 1.0.0-rc.1
+
+### Minor Changes
+
+- edde2d4: feat(drizzle): add generatedIdColumn, generatedIdColumnMysql, generatedIdColumnSqlite with client-side .$defaultFn wiring for auto-generated IDs on insert.
+- c8f1bfa: feat(kysely): add `insertId` helper and `IdGeneratingCodec` export for insert-time ID generation
+- 5aaac56: Add `idField` and `IdGeneratingCodec` to `@smonn/ids/mikro-orm` for automatic ID generation via the MikroORM `onCreate` lifecycle hook.
+- 5a595b2: Add standalone `nullableIdField` and `NullableIdTransform` to `@smonn/ids/prisma` for adapter-surface symmetry with Drizzle, Kysely, MikroORM, and TypeORM.
+- 13dd941: Add `beforeInsertHook` and `IdGeneratingCodec` to `@smonn/ids/typeorm` for auto-generation parity with the Prisma adapter.
+
 ## 1.0.0-rc.0
 
 ### Major Changes
