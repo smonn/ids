@@ -30,19 +30,19 @@ Because `code` carries the discrimination, message text is freed to be standardi
 
 ### The code union
 
-| `code`                    | meaning                                                                              | thrown by                                        | caller remedy                                   |
-| ------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------- |
-| `invalid_brand`           | brand isn't three lowercase `a–z` characters                                         | `create*Id(brand)` construction                  | fix the brand literal                           |
-| `invalid_key_format`      | declared key format isn't `hex` / `base64url`                                        | `decodeOpaqueKey`, `decodeWrappingKey`           | pass a supported format                         |
-| `invalid_key_encoding`    | encoded key string is malformed for its format (odd-length / non-hex, bad base64url) | `decodeOpaqueKey`, `decodeWrappingKey`           | fix the encoded key string                      |
-| `invalid_key_length`      | raw key isn't 16 / 24 / 32 bytes                                                     | `importOpaqueKey`, `importWrappingKey`, decoders | supply 128 / 192 / 256-bit material             |
-| `invalid_kind`            | wrapped `kind` isn't `u32` / `i32` / `u64` / `i64`                                   | `createWrappedKeyId({ kind })`                   | pass a supported kind                           |
-| `empty_keyring`           | wrapping keyring has no entries                                                      | `createWrappedKeyId({ keys })`                   | supply at least one key                         |
-| `duplicate_keyring_entry` | two keyring entries share raw secret material                                        | `createWrappedKeyId({ keys })`                   | de-duplicate the ring                           |
-| `invalid_lookup_key`      | lookup key out of range / wrong type for the kind                                    | `wrap(lookupKey)`                                | pass an in-range value of the kind's JS type    |
-| `verification_failed`     | no keyring entry verifies the payload tag                                            | `unwrap(id)`                                     | wrong/revoked key, or a tampered ID             |
-| `invalid_id`              | string isn't a valid ID for the brand (carries the `ParseError` on `cause`)          | `parse()`, prisma/drizzle/kysely read hooks      | use `safeParse`/`safeUnwrap`, or fix the source |
-| `invalid_namespace`       | ns is empty or whitespace-only                                                       | `createDigestId({ ns })` construction            | supply a non-empty, non-whitespace namespace    |
+| `code` | meaning | thrown by | caller remedy |
+| --- | --- | --- | --- |
+| `invalid_brand` | brand isn't three lowercase `a–z` characters | `create*Id(brand)` construction | fix the brand literal |
+| `invalid_key_format` | declared key format isn't `hex` / `base64url` | `decodeOpaqueKey`, `decodeWrappingKey` | pass a supported format |
+| `invalid_key_encoding` | encoded key string is malformed for its format (odd-length / non-hex, bad base64url) | `decodeOpaqueKey`, `decodeWrappingKey` | fix the encoded key string |
+| `invalid_key_length` | raw key isn't 16 / 24 / 32 bytes | `importOpaqueKey`, `importWrappingKey`, decoders | supply 128 / 192 / 256-bit material |
+| `invalid_kind` | wrapped `kind` isn't `u32` / `i32` / `u64` / `i64` | `createWrappedKeyId({ kind })` | pass a supported kind |
+| `empty_keyring` | wrapping keyring has no entries | `createWrappedKeyId({ keys })` | supply at least one key |
+| `duplicate_keyring_entry` | two keyring entries share raw secret material | `createWrappedKeyId({ keys })` | de-duplicate the ring |
+| `invalid_lookup_key` | lookup key out of range / wrong type for the kind | `wrap(lookupKey)` | pass an in-range value of the kind's JS type |
+| `verification_failed` | no keyring entry verifies the payload tag | `unwrap(id)` | wrong/revoked key, or a tampered ID |
+| `invalid_id` | string isn't a valid ID for the brand (carries the `ParseError` on `cause`) | `parse()`, prisma/drizzle/kysely read hooks | use `safeParse`/`safeUnwrap`, or fix the source |
+| `invalid_namespace` | ns is empty or whitespace-only | `createDigestId({ ns })` construction | supply a non-empty, non-whitespace namespace |
 
 All eleven codes are **public stability contract**. The shape is, in TypeScript terms:
 
@@ -70,12 +70,12 @@ export function isIdsError(value: unknown): value is IdsError;
 
 ### What stays plain `Error`
 
-| site                                                 | message today                                                     | why it stays plain                                                                                                                        |
-| ---------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `bytes.ts` `decodeHex`                               | `invalid hex`                                                     | internal helper; the public key decoders validate hex themselves and raise `invalid_key_encoding` before this is reached on a public path |
-| `opaque-key.ts` / `wrapping-key.ts` handle-not-found | `invalid opaque key` / `invalid wrapping key`                     | only reachable with a forged/foreign handle (requires a cast past the branded type); a misuse/bug, not caller data                        |
-| `wire/timestamp-bytes.ts`                            | `timestamp is not a number` / `negative` / `exceeds 48-bit range` | guards an internal encoding invariant; only trippable by injecting a pathological `TimestampOptions.now`                                  |
-| `hono.ts`                                            | `HTTPException`                                                   | deliberately a framework error on the no-`onError` path; converting it would break the adapter's contract                                 |
+| site | message today | why it stays plain |
+| --- | --- | --- |
+| `bytes.ts` `decodeHex` | `invalid hex` | internal helper; the public key decoders validate hex themselves and raise `invalid_key_encoding` before this is reached on a public path |
+| `opaque-key.ts` / `wrapping-key.ts` handle-not-found | `invalid opaque key` / `invalid wrapping key` | only reachable with a forged/foreign handle (requires a cast past the branded type); a misuse/bug, not caller data |
+| `wire/timestamp-bytes.ts` | `timestamp is not a number` / `negative` / `exceeds 48-bit range` | guards an internal encoding invariant; only trippable by injecting a pathological `TimestampOptions.now` |
+| `hono.ts` | `HTTPException` | deliberately a framework error on the no-`onError` path; converting it would break the adapter's contract |
 
 ## Considered Options
 

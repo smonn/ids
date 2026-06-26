@@ -122,6 +122,23 @@ jobs:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: gh pr edit "$PR_NUMBER" --remove-label needs-rebase || true
 
+      - name: Clear the conflicting marker EARLY (before the merge commit is pushed)
+        # conflicts.yml applies `conflicting` to pause our PR-triggered workflows while a
+        # rebase is dispatched. We MUST remove it here — before the agent (below) merges
+        # main and pushes the merge commit — so that the clean merge commit's CI / review
+        # / bench run UNBLOCKED and the required checks settle green on the new head. If
+        # we cleared it only at the end of this job, the merge-commit push would fire
+        # those workflows WHILE the marker is still present; they would self-cancel / skip
+        # and never re-run (no further push), stranding the required `ci` check on the
+        # good commit. Clearing early also means an escalated (needs-human) PR ends with
+        # no `conflicting` — correct, a human now owns it. Harmless when the label is
+        # absent (e.g. a manual needs-rebase run where conflicts.yml never flagged it).
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: gh pr edit "$PR_NUMBER" --remove-label conflicting || true
+
       - name: Checkout the labelled commit (pinned SHA, not the branch ref)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:

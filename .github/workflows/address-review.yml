@@ -140,6 +140,18 @@ jobs:
             echo "proceed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # Defer while the PR is mid-conflict-rebase (conflicts.yml marked it
+          # `conflicting` and an automatic rebase is in flight). The current commit is
+          # about to be superseded, so addressing feedback now would be wasted and could
+          # race the rebase's push. No-op here; review.yml re-applies `address-feedback`
+          # after the rebase merge commit is re-reviewed, which re-fires this workflow.
+          # NB: the "Remove the address-feedback label" step below is guarded on
+          # proceed==true, so this no-op does NOT consume the trigger label.
+          if echo "$labels" | grep -qx 'conflicting'; then
+            echo "PR #$PR_NUMBER conflicts with main — deferring address-review until the rebase lands."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           # Read the current round from the lone auto-round-N label (0 if none present).
           round_label=$(echo "$labels" | grep -oE '^auto-round-[0-9]+$' | head -n1)
           count=0
@@ -170,6 +182,10 @@ jobs:
           echo "proceed=true" >> "$GITHUB_OUTPUT"
 
       - name: Remove the address-feedback label (so it can be re-applied)
+        # Guard on proceed: a no-op gate (already escalated, cap reached, or deferred
+        # because the PR is mid-conflict-rebase) must NOT consume the trigger label —
+        # otherwise the feedback would never be addressed once the PR is ready again.
+        if: steps.gate.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}

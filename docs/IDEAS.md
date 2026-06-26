@@ -1,276 +1,91 @@
 # Deferred ideas
 
-Rough sketches kept for future evaluation. Not commitments. Each entry is a hypothetical
-shape, not a designed API.
+Rough sketches kept for future evaluation. Not commitments. Each entry is a hypothetical shape, not a designed API.
 
 ## Codec variants (separate factories)
 
-If more variants ship before v1, each gets its own explicit factory. Timestamp-family
-variants carry `Timestamp` in the name (`createTimestampId` becoming the explicit name
-for the current main-entry codec). They do not share a `TimestampCodec` contract — same wire skin,
-different invariants.
+If more variants ship before v1, each gets its own explicit factory. Timestamp-family variants carry `Timestamp` in the name (`createTimestampId` becoming the explicit name for the current main-entry codec). They do not share a `TimestampCodec` contract — same wire skin, different invariants.
 
-- ~~`createOpaqueTimestampId(brand, {key})`~~ — shipped. See [ADR-0004](./adr/0004-aes-cbc-strip-trick.md),
-  [ADR-0005](./adr/0005-codec-variant-subpath-exports.md), [ADR-0006](./adr/0006-async-keyed-codec-contract.md),
-  [ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md).
-- ~~**`createSignedTimestampId(brand, {keys})`**~~ — shipped. See [ADR-0012](./adr/0012-signed-timestamp-construction.md).
-  Glossary: **Signed Timestamp codec**, **Signing key**, **Signing keyring** in [CONTEXT.md](../CONTEXT.md).
-- ~~**`createDigestId(brand, {ns, key})`**~~ — shipped (`@smonn/ids/digest`). See
-  [ADR-0017](./adr/0017-digest-codec-construction.md); implemented in #291, CLI support in #304.
-  One-way deterministic keyed digest of caller material; same material gives the same public ID,
-  material is unrecoverable. Single key, no keyring; `ns` is required domain separation.
-  Glossary: **Digest codec**, **Digest key**, **Namespace** in [CONTEXT.md](../CONTEXT.md).
-- ~~**`createReverseTimestampId(brand)`**~~ — shipped. See [ADR-0010](./adr/0010-reverse-timestamp-inversion.md).
-  Bitwise-inverted timestamp bytes; lexicographic order = newest first. For KV stores where descending range scans are awkward.
-- ~~**`createWrappedKeyId(brand, {kind, keys})`**~~ — shipped (`@smonn/ids/wrapped`).
-  Reversible verified wrapping of a storage lookup key. See
-  [ADR-0009](./adr/0009-wrapped-key-compact-construction.md); CLI support in #99.
-  Glossary: **Wrapped key codec**, **Lookup key**, **Wrapping key** in [CONTEXT.md](../CONTEXT.md).
+- ~~`createOpaqueTimestampId(brand, {key})`~~ — shipped. See [ADR-0004](./adr/0004-aes-cbc-strip-trick.md), [ADR-0005](./adr/0005-codec-variant-subpath-exports.md), [ADR-0006](./adr/0006-async-keyed-codec-contract.md), [ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md).
+- ~~**`createSignedTimestampId(brand, {keys})`**~~ — shipped. See [ADR-0012](./adr/0012-signed-timestamp-construction.md). Glossary: **Signed Timestamp codec**, **Signing key**, **Signing keyring** in [CONTEXT.md](../CONTEXT.md).
+- ~~**`createDigestId(brand, {ns, key})`**~~ — shipped (`@smonn/ids/digest`). See [ADR-0017](./adr/0017-digest-codec-construction.md); implemented in #291, CLI support in #304. One-way deterministic keyed digest of caller material; same material gives the same public ID, material is unrecoverable. Single key, no keyring; `ns` is required domain separation. Glossary: **Digest codec**, **Digest key**, **Namespace** in [CONTEXT.md](../CONTEXT.md).
+- ~~**`createReverseTimestampId(brand)`**~~ — shipped. See [ADR-0010](./adr/0010-reverse-timestamp-inversion.md). Bitwise-inverted timestamp bytes; lexicographic order = newest first. For KV stores where descending range scans are awkward.
+- ~~**`createWrappedKeyId(brand, {kind, keys})`**~~ — shipped (`@smonn/ids/wrapped`). Reversible verified wrapping of a storage lookup key. See [ADR-0009](./adr/0009-wrapped-key-compact-construction.md); CLI support in #99. Glossary: **Wrapped key codec**, **Lookup key**, **Wrapping key** in [CONTEXT.md](../CONTEXT.md).
 
 ### Future codec variants (unbuilt)
 
-Sibling variants the accepting ADRs left open. Both were **evaluated and rejected (2026-06-25)**
-with no concrete consumer on file (no open issue requested either). Kept here so the questions are
-not reopened without new evidence; each would still need its own ADR before any code.
+Sibling variants the accepting ADRs left open. Both were **evaluated and rejected (2026-06-25)** with no concrete consumer on file (no open issue requested either). Kept here so the questions are not reopened without new evidence; each would still need its own ADR before any code.
 
-- ~~**Randomized Wrapped key variant.**~~ **Rejected.** A sibling to the compact Wrapped key codec
-  that spends payload bits on a nonce, trading away tag strength _and_ determinism (so no equality
-  leakage). Inside the fixed 16-byte payload the lane (64 bits) must stay, so a meaningful nonce
-  (~32 bits) comes straight out of the tag — dropping it to **32 bits, the exact width
-  [ADR-0009](./adr/0009-wrapped-key-compact-construction.md) rejected as too weak** for
-  correctness-grade unwrap. That trades the codec's headline property (verified, correctness-grade
-  unwrap) for a niche leak: equality leakage only bites when "these two IDs wrap the same lookup
-  key" is itself sensitive, not the common stable-public-token case (where determinism is a
-  feature). When unlinkability genuinely matters you almost always want integrity too, and the
-  honest construction (AEAD with a stored nonce) does not fit 16 bytes — ADR-0009 already rejected
-  AES-CTR/GCM for that reason. So the in-budget variant is strictly worse than the correct answer
-  ("use a wider format / different tool") and adds a third wire-indistinguishable Wrapped-family
-  skin ([ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md)). Reopen only with a
-  concrete consumer that needs unlinkable reversible tokens _and_ accepts 32-bit integrity. See
-  ADR-0009 (Consequences) and the **Wrapped key codec** entry in [CONTEXT.md](../CONTEXT.md).
-- ~~**Signed Timestamp alternate tail-budget split.**~~ **Rejected.** A variant dividing the tail
-  differently — e.g. a larger tag where same-millisecond volume is known to be low. ADR-0012's own
-  2026-06-24 refinement undercuts the general case: over a year the **random field is the tighter
-  axis, not the tag**, so shifting bits from random to tag hardens the already-comfortable axis
-  (40-bit tag ≈ 1.7 years to one online forgery at 10⁴/s) at the cost of the already-tight one. The
-  only coherent regime is genuinely low write volume, and there the forgery axis is online-only and
-  server-adjudicated — **verify-endpoint rate limiting** (wanted anyway) caps it for free without
-  spending wire bits. Exposing the split as a knob also fights wire-indistinguishability: a 40/40 ID
-  verified under a different split reads the wrong bytes as tag and silently always fails. Of the two
-  this is the closer call (coherent niche, near-zero construction cost), but it stays rejected absent
-  a concrete low-volume-token consumer to justify the operator-confusion surface. See
-  [ADR-0012](./adr/0012-signed-timestamp-construction.md).
+- ~~**Randomized Wrapped key variant.**~~ **Rejected.** A sibling to the compact Wrapped key codec that spends payload bits on a nonce, trading away tag strength _and_ determinism (so no equality leakage). Inside the fixed 16-byte payload the lane (64 bits) must stay, so a meaningful nonce (~32 bits) comes straight out of the tag — dropping it to **32 bits, the exact width [ADR-0009](./adr/0009-wrapped-key-compact-construction.md) rejected as too weak** for correctness-grade unwrap. That trades the codec's headline property (verified, correctness-grade unwrap) for a niche leak: equality leakage only bites when "these two IDs wrap the same lookup key" is itself sensitive, not the common stable-public-token case (where determinism is a feature). When unlinkability genuinely matters you almost always want integrity too, and the honest construction (AEAD with a stored nonce) does not fit 16 bytes — ADR-0009 already rejected AES-CTR/GCM for that reason. So the in-budget variant is strictly worse than the correct answer ("use a wider format / different tool") and adds a third wire-indistinguishable Wrapped-family skin ([ADR-0007](./adr/0007-wire-indistinguishable-codec-variants.md)). Reopen only with a concrete consumer that needs unlinkable reversible tokens _and_ accepts 32-bit integrity. See ADR-0009 (Consequences) and the **Wrapped key codec** entry in [CONTEXT.md](../CONTEXT.md).
+- ~~**Signed Timestamp alternate tail-budget split.**~~ **Rejected.** A variant dividing the tail differently — e.g. a larger tag where same-millisecond volume is known to be low. ADR-0012's own 2026-06-24 refinement undercuts the general case: over a year the **random field is the tighter axis, not the tag**, so shifting bits from random to tag hardens the already-comfortable axis (40-bit tag ≈ 1.7 years to one online forgery at 10⁴/s) at the cost of the already-tight one. The only coherent regime is genuinely low write volume, and there the forgery axis is online-only and server-adjudicated — **verify-endpoint rate limiting** (wanted anyway) caps it for free without spending wire bits. Exposing the split as a knob also fights wire-indistinguishability: a 40/40 ID verified under a different split reads the wrong bytes as tag and silently always fails. Of the two this is the closer call (coherent niche, near-zero construction cost), but it stays rejected absent a concrete low-volume-token consumer to justify the operator-confusion surface. See [ADR-0012](./adr/0012-signed-timestamp-construction.md).
 
 ## Wrapped key codec
 
-_Shipped — `@smonn/ids/wrapped`. Full design lives in
-[ADR-0009](./adr/0009-wrapped-key-compact-construction.md); vocabulary in [CONTEXT.md](../CONTEXT.md)._
+_Shipped — `@smonn/ids/wrapped`. Full design lives in [ADR-0009](./adr/0009-wrapped-key-compact-construction.md); vocabulary in [CONTEXT.md](../CONTEXT.md)._
 
 One sub-idea from the original design remains unbuilt:
 
-- **Detailed unwrap.** A future detailed unwrap could return the matched key id (for
-  observability or rewrapping) while the common `unwrap` path returns only the recovered
-  value. Not implemented today — `unwrap` / `safeUnwrap` surface the value alone.
+- **Detailed unwrap.** A future detailed unwrap could return the matched key id (for observability or rewrapping) while the common `unwrap` path returns only the recovered value. Not implemented today — `unwrap` / `safeUnwrap` surface the value alone.
 
 ## Opaque key management
 
 Three related threads around operating the Opaque Timestamp codec's key. Sketches, not commitments.
 
-- ~~**Key rotation is caller-driven, not transparent.** Forward-only, caller-tracked
-  rotation (`generate` uses the current key; `extractTimestamp` needs the key from the
-  ID's epoch, which the caller tracks out-of-band); a probabilistic trial-decrypt variant
-  rejected as dashboard-grade-only; transparent try-all-keys deferred to the authenticated
-  Signed Timestamp codec; a wire key-id rejected for the same reasons GCM was in
-  ADR-0004.~~ — decided in [ADR-0013](./adr/0013-opaque-key-rotation.md) (Option 1,
-  caller-driven, no API change). Transparent correctness-grade rotation lives on the
-  Signed Timestamp codec's **Signing keyring** ([ADR-0012](./adr/0012-signed-timestamp-construction.md)).
-  Glossary updated with a **Key epoch** entry; the probabilistic and wire-key-id options
-  are recorded as rejected.
-- ~~**`ids keygen [--bits 128|256] [--key-format hex|base64url]`** — emit a random AES key
-  (default 256-bit) for `importOpaqueKey`. Needs a documented decode helper so the
-  emitted string round-trips back to raw bytes. Format is `hex`/`base64url` (secret
-  conventions), not Crockford base32 (that's the payload encoding). Stdout only; it's a
-  secret.~~ — shipped. See `encodeOpaqueKey` / `decodeOpaqueKey` on `@smonn/ids/opaque`.
-- ~~**Opaque generation from the CLI, key via env var.** `ids generate <brand> --opaque`
-  (and `inspect --opaque`) reading the key from `IDS_KEY`, decoded with the same format
-  as `keygen`. Env over argv deliberately — argv leaks via `ps` and shell history. A
-  missing or malformed `IDS_KEY` is a clear stderr error, exit 1. Consequence: the
-  Opaque Timestamp codec's `generate`/`extractTimestamp` are async, so `run()` would return a
-  Promise and `bin/cli.ts` would await it — a contained change to the otherwise-sync CLI.~~
-  — shipped.
+- ~~**Key rotation is caller-driven, not transparent.** Forward-only, caller-tracked rotation (`generate` uses the current key; `extractTimestamp` needs the key from the ID's epoch, which the caller tracks out-of-band); a probabilistic trial-decrypt variant rejected as dashboard-grade-only; transparent try-all-keys deferred to the authenticated Signed Timestamp codec; a wire key-id rejected for the same reasons GCM was in ADR-0004.~~ — decided in [ADR-0013](./adr/0013-opaque-key-rotation.md) (Option 1, caller-driven, no API change). Transparent correctness-grade rotation lives on the Signed Timestamp codec's **Signing keyring** ([ADR-0012](./adr/0012-signed-timestamp-construction.md)). Glossary updated with a **Key epoch** entry; the probabilistic and wire-key-id options are recorded as rejected.
+- ~~**`ids keygen [--bits 128|256] [--key-format hex|base64url]`** — emit a random AES key (default 256-bit) for `importOpaqueKey`. Needs a documented decode helper so the emitted string round-trips back to raw bytes. Format is `hex`/`base64url` (secret conventions), not Crockford base32 (that's the payload encoding). Stdout only; it's a secret.~~ — shipped. See `encodeOpaqueKey` / `decodeOpaqueKey` on `@smonn/ids/opaque`.
+- ~~**Opaque generation from the CLI, key via env var.** `ids generate <brand> --opaque` (and `inspect --opaque`) reading the key from `IDS_KEY`, decoded with the same format as `keygen`. Env over argv deliberately — argv leaks via `ps` and shell history. A missing or malformed `IDS_KEY` is a clear stderr error, exit 1. Consequence: the Opaque Timestamp codec's `generate`/`extractTimestamp` are async, so `run()` would return a Promise and `bin/cli.ts` would await it — a contained change to the otherwise-sync CLI.~~ — shipped.
 
 ## Adapter integrations (subpath exports)
 
-_Shipped — all six live as subpath exports inside `@smonn/ids` with optional peer deps on
-the third-party lib (see `src/adapters/`, `package.json` exports, and [CONTEXT.md](../CONTEXT.md))._
+_Shipped — all six live as subpath exports inside `@smonn/ids` with optional peer deps on the third-party lib (see `src/adapters/`, `package.json` exports, and [CONTEXT.md](../CONTEXT.md))._
 
-- ~~**`@smonn/ids/<orm>`** (Drizzle / Kysely / Prisma) — column codecs that preserve
-  `Id<Brand>` through storage without per-app boilerplate.~~ — shipped (Drizzle #126,
-  Prisma #135, Kysely).
-- ~~**`@smonn/ids/<web>`** (Hono / Express / Fastify) — route-param middleware that
-  validates against a codec and 404s on brand mismatch (not 400 — distinguishes
-  "wrong kind of ID" from "malformed ID").~~ — shipped (Hono #124, Express #132, Fastify).
+- ~~**`@smonn/ids/<orm>`** (Drizzle / Kysely / Prisma) — column codecs that preserve `Id<Brand>` through storage without per-app boilerplate.~~ — shipped (Drizzle #126, Prisma #135, Kysely).
+- ~~**`@smonn/ids/<web>`** (Hono / Express / Fastify) — route-param middleware that validates against a codec and 404s on brand mismatch (not 400 — distinguishes "wrong kind of ID" from "malformed ID").~~ — shipped (Hono #124, Express #132, Fastify).
 
 ## Developer-facing documentation
 
-- ~~**JSDoc on public codec methods.** `TimestampCodec` / `OpaqueTimestampCodec` method names are
-  self-describing once you've read the README, but consumer IDE tooltips
-  currently surface nothing about the contracts. The two most consequential to
-  document inline: `extractTimestamp` trusts the `Id<Brand>` type (ADR-0002)
-  and the `is()` strict / `safeParse()` lenient split (ADR-0003). Probably one
-  pass across both codec types, linking to the relevant ADR per method.~~ — shipped in #41.
+- ~~**JSDoc on public codec methods.** `TimestampCodec` / `OpaqueTimestampCodec` method names are self-describing once you've read the README, but consumer IDE tooltips currently surface nothing about the contracts. The two most consequential to document inline: `extractTimestamp` trusts the `Id<Brand>` type (ADR-0002) and the `is()` strict / `safeParse()` lenient split (ADR-0003). Probably one pass across both codec types, linking to the relevant ADR per method.~~ — shipped in #41.
 
 ## Interop & portability
 
-Adjacent-library gaps. The closest competitor is [TypeID](https://github.com/jetify-com/typeid)
-(`prefix_<base32 UUIDv7>`): same prefix-plus-base32 silhouette, but its headline properties are
-native-UUID interop and a cross-language spec with ~25 ports. We have neither. Both sketches below
-need their own ADR before any code.
+Adjacent-library gaps. The closest competitor is [TypeID](https://github.com/jetify-com/typeid) (`prefix_<base32 UUIDv7>`): same prefix-plus-base32 silhouette, but its headline properties are native-UUID interop and a cross-language spec with ~25 ports. We have neither. Both sketches below need their own ADR before any code.
 
-- **UUID interop on the timestamp-family codecs (`toUUID` / `fromUUID`).** The Timestamp payload is a
-  128-bit value whose layout (48-bit big-endian ms + 80 random bits, [ADR-0002](./adr/0002-payload-layout.md))
-  is UUIDv7's data layout minus the version/variant nibbles. A conversion pair would let an
-  `Id<Brand>` stay branded and sortable at the app edge while persisting into a native `uuid` column
-  (migration off UUID PKs; DBAs who want a real indexed UUID type). The live design fork is the whole
-  decision: a **lossless raw-128-bit mapping** (round-trips perfectly but is not a spec-valid UUIDv7 —
-  no version/variant bits) versus a **spec-valid UUIDv7 mapping** (sets the 6 version/variant bits,
-  costing 6 of the 80 random bits — a bounded, documented entropy hit that must be reconciled against
-  the ADR-0015 collision budget). Scope fence: plaintext timestamp/reverse codecs only. The keyed and
-  opaque codecs deliberately expose no extractable structure, so they stay out — a `toUUID` on an
-  opaque ID would either leak nothing useful or break the confidentiality promise. Reverse Timestamp
-  is in scope but its inverted bytes are not a UUIDv7 timestamp, so it would convert to the raw form
-  only. Reopen as an ADR with a concrete UUID-column consumer; resolve the mapping fork there.
+- **UUID interop on the timestamp-family codecs (`toUUID` / `fromUUID`).** The Timestamp payload is a 128-bit value whose layout (48-bit big-endian ms + 80 random bits, [ADR-0002](./adr/0002-payload-layout.md)) is UUIDv7's data layout minus the version/variant nibbles. A conversion pair would let an `Id<Brand>` stay branded and sortable at the app edge while persisting into a native `uuid` column (migration off UUID PKs; DBAs who want a real indexed UUID type). The live design fork is the whole decision: a **lossless raw-128-bit mapping** (round-trips perfectly but is not a spec-valid UUIDv7 — no version/variant bits) versus a **spec-valid UUIDv7 mapping** (sets the 6 version/variant bits, costing 6 of the 80 random bits — a bounded, documented entropy hit that must be reconciled against the ADR-0015 collision budget). Scope fence: plaintext timestamp/reverse codecs only. The keyed and opaque codecs deliberately expose no extractable structure, so they stay out — a `toUUID` on an opaque ID would either leak nothing useful or break the confidentiality promise. Reverse Timestamp is in scope but its inverted bytes are not a UUIDv7 timestamp, so it would convert to the raw form only. Reopen as an ADR with a concrete UUID-column consumer; resolve the mapping fork there.
 
-- **Frozen wire spec + cross-language conformance vectors.** TypeID's portability rests on a published
-  spec and a shared test-vector file, not on the format itself. Every construction here is already
-  pinned in prose by an ADR (base32 canonicalization [ADR-0003](./adr/0003-canonical-strict-is.md), the
-  AES-CBC strip trick [ADR-0004](./adr/0004-aes-cbc-strip-trick.md), the Signed/Digest HMAC layouts
-  [ADR-0012](./adr/0012-signed-timestamp-construction.md)/[ADR-0017](./adr/0017-digest-codec-construction.md)).
-  A `SPEC.md` plus a versioned JSON vector file (input → canonical output per codec, keyed codecs run
-  under fixed published test keys) would turn that prose into a CI-enforceable oracle, lock the
-  now-settled 128-bit format ([ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md)), and let
-  others port the format without reverse-engineering it. Lowest-risk item of this batch and a natural
-  pairing with the UUID-interop fork (a UUID mapping is exactly the kind of thing vectors should pin).
-  Open questions for the ADR: vector-file versioning vs. the format version, whether the keyed-codec
-  test keys live in-repo, and whether the spec is normative (others may claim conformance) or
-  descriptive (documents the reference implementation only).
+- **Frozen wire spec + cross-language conformance vectors.** TypeID's portability rests on a published spec and a shared test-vector file, not on the format itself. Every construction here is already pinned in prose by an ADR (base32 canonicalization [ADR-0003](./adr/0003-canonical-strict-is.md), the AES-CBC strip trick [ADR-0004](./adr/0004-aes-cbc-strip-trick.md), the Signed/Digest HMAC layouts [ADR-0012](./adr/0012-signed-timestamp-construction.md)/[ADR-0017](./adr/0017-digest-codec-construction.md)). A `SPEC.md` plus a versioned JSON vector file (input → canonical output per codec, keyed codecs run under fixed published test keys) would turn that prose into a CI-enforceable oracle, lock the now-settled 128-bit format ([ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md)), and let others port the format without reverse-engineering it. Lowest-risk item of this batch and a natural pairing with the UUID-interop fork (a UUID mapping is exactly the kind of thing vectors should pin). Open questions for the ADR: vector-file versioning vs. the format version, whether the keyed-codec test keys live in-repo, and whether the spec is normative (others may claim conformance) or descriptive (documents the reference implementation only).
 
 ## Tooling (sibling packages / CLI)
 
-- **ESLint plugin (typed rules).** A library this committed to branding could make the branding
-  enforceable instead of advisory. Candidate typed-lint rules: forbid comparing or concatenating a
-  branded `Id<Brand>` with a raw `string`; forbid logging the decoded form of an opaque-codec ID;
-  require the brand string literal at a `create*Id(...)` call site to match the codec's prefix. Likely
-  a separate published package (own peer dep on `typescript-eslint`), not a subpath export, since its
-  dependency and release cadence differ from the core. Needs an ADR scoping which rules are
-  type-aware (require the TS program) versus syntactic, and how a rule recognizes an `Id<Brand>` at a
-  use site without import tracing every value.
+- **ESLint plugin (typed rules).** A library this committed to branding could make the branding enforceable instead of advisory. Candidate typed-lint rules: forbid comparing or concatenating a branded `Id<Brand>` with a raw `string`; forbid logging the decoded form of an opaque-codec ID; require the brand string literal at a `create*Id(...)` call site to match the codec's prefix. Likely a separate published package (own peer dep on `typescript-eslint`), not a subpath export, since its dependency and release cadence differ from the core. Needs an ADR scoping which rules are type-aware (require the TS program) versus syntactic, and how a rule recognizes an `Id<Brand>` at a use site without import tracing every value.
 
-- **Testing / fixture helpers (`@smonn/ids/testing`).** The `rng` option already permits deterministic
-  generation, but every consumer rewrites the same boilerplate for stable snapshots. A thin, blessed
-  surface over capabilities we already have: seeded deterministic generation (stable IDs in snapshot
-  diffs), a sequential generator, and a frozen-clock helper for `generateAt`. Additive and non-breaking
-  — it ships no new wire behavior, only ergonomics. Scope fence for the ADR: it must not become a
-  second generation path with its own invariants; it is sugar over the existing `rng` / `generateAt`
-  contracts, and anything it cannot express by injecting those is out of scope. Open question: whether
-  determinism is keyed per-brand or globally, and how it composes with the async keyed codecs.
+- **Testing / fixture helpers (`@smonn/ids/testing`).** The `rng` option already permits deterministic generation, but every consumer rewrites the same boilerplate for stable snapshots. A thin, blessed surface over capabilities we already have: seeded deterministic generation (stable IDs in snapshot diffs), a sequential generator, and a frozen-clock helper for `generateAt`. Additive and non-breaking — it ships no new wire behavior, only ergonomics. Scope fence for the ADR: it must not become a second generation path with its own invariants; it is sugar over the existing `rng` / `generateAt` contracts, and anything it cannot express by injecting those is out of scope. Open question: whether determinism is keyed per-brand or globally, and how it composes with the async keyed codecs.
 
 ## SQL/DDL emitter (CLI)
 
-- **`ids sql <brand>` — emit native DDL.** The ORM adapters (`src/adapters/`) serve application code;
-  raw DDL serves DBAs and hand-written migrations, a different audience TypeID courts with its SQL
-  extension. The command would emit a `CREATE DOMAIN <brand>_id AS text CHECK (value ~ '<brand-anchored
-base32 regex>')` (the canonical-form pattern from [ADR-0003](./adr/0003-canonical-strict-is.md)), and
-  optionally a generator function. Pairs with the UUID-interop sketch above: if a `uuid`-column path
-  exists, the emitter could target a `uuid` domain plus a check instead of `text`. Open questions for
-  the ADR: which dialects (Postgres first; the regex and domain syntax are not portable to MySQL/SQLite),
-  whether a generator function is in scope at all (server-side generation re-raises the custom-epoch and
-  RNG-quality questions ADR-0002 settled for the library), and how this stays in sync with the canonical
-  form so the emitted regex never drifts from the parser.
+- **`ids sql <brand>` — emit native DDL.** The ORM adapters (`src/adapters/`) serve application code; raw DDL serves DBAs and hand-written migrations, a different audience TypeID courts with its SQL extension. The command would emit a `CREATE DOMAIN <brand>_id AS text CHECK (value ~ '<brand-anchored base32 regex>')` (the canonical-form pattern from [ADR-0003](./adr/0003-canonical-strict-is.md)), and optionally a generator function. Pairs with the UUID-interop sketch above: if a `uuid`-column path exists, the emitter could target a `uuid` domain plus a check instead of `text`. Open questions for the ADR: which dialects (Postgres first; the regex and domain syntax are not portable to MySQL/SQLite), whether a generator function is in scope at all (server-side generation re-raises the custom-epoch and RNG-quality questions ADR-0002 settled for the library), and how this stays in sync with the canonical form so the emitted regex never drifts from the parser.
 
 ## Wire payload width (16 → 20 bytes)
 
-_**Rejected (2026-06-24)** — width is settled at 128 bits. See
-[ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md) (Status: Rejected) for the full
-evaluation; this entry is kept only so the question is not reopened._
+_**Rejected (2026-06-24)** — width is settled at 128 bits. See [ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md) (Status: Rejected) for the full evaluation; this entry is kept only so the question is not reopened._
 
-The shared 16-byte payload is not a multiple of 5, so 26 Crockford base32 chars carry 2 surplus
-padding bits in the final character — the root of the non-canonical trailing-bit issue (#210). The
-permanent fix pins those bits to zero in the canonical form
-([ADR-0003](./adr/0003-canonical-strict-is.md)). Widening to 20 bytes (160 bits → 32 chars, no
-padding) was the proposed structural alternative, deferred to v1 and then **evaluated and rejected**.
+The shared 16-byte payload is not a multiple of 5, so 26 Crockford base32 chars carry 2 surplus padding bits in the final character — the root of the non-canonical trailing-bit issue (#210). The permanent fix pins those bits to zero in the canonical form ([ADR-0003](./adr/0003-canonical-strict-is.md)). Widening to 20 bytes (160 bits → 32 chars, no padding) was the proposed structural alternative, deferred to v1 and then **evaluated and rejected**.
 
-Why rejected, in one breath: the #210 hole is already closed, so this was only ever a quality
-change; the collision budget shows 80 random bits already clears any realistic rate (112 would only
-reach UUIDv4 parity nobody observes); under the per-codec promise lens the _only_ genuine beneficiary
-is the Digest codec, which is HMAC-only and would widen for free, while the wide-block-PRP crypto cost
-falls entirely on Opaque/Wrapped, which gain nothing; no alternative width is better (intermediate
-char counts are unreachable or still padded, and a two-AES-block / 256-bit payload is too long and
-still padded); 128 bits is the cryptographic sweet spot (payload = exactly one AES PRP, zero
-construction, shortest base32 form above the entropy floor); and the one construction that would
-"fit" base32 cleanly — FPE — is disqualified after FF3/FF3-1 were withdrawn from NIST (Feb 2025),
-leaving FF1 a monoculture unfit to anchor a permanent wire format. A sync API does not change any of
-this. **128 bits stands; 20 bytes and all other widths are rejected.**
+Why rejected, in one breath: the #210 hole is already closed, so this was only ever a quality change; the collision budget shows 80 random bits already clears any realistic rate (112 would only reach UUIDv4 parity nobody observes); under the per-codec promise lens the _only_ genuine beneficiary is the Digest codec, which is HMAC-only and would widen for free, while the wide-block-PRP crypto cost falls entirely on Opaque/Wrapped, which gain nothing; no alternative width is better (intermediate char counts are unreachable or still padded, and a two-AES-block / 256-bit payload is too long and still padded); 128 bits is the cryptographic sweet spot (payload = exactly one AES PRP, zero construction, shortest base32 form above the entropy floor); and the one construction that would "fit" base32 cleanly — FPE — is disqualified after FF3/FF3-1 were withdrawn from NIST (Feb 2025), leaving FF1 a monoculture unfit to anchor a permanent wire format. A sync API does not change any of this. **128 bits stands; 20 bytes and all other widths are rejected.**
 
 ## Undecided
 
-Deliberately left open by an ADR — no proposal, no rejection, revisited only if a concrete
-consumer appears.
+Deliberately left open by an ADR — no proposal, no rejection, revisited only if a concrete consumer appears.
 
-- **Opaque codec via HKDF (uniform key-derivation model).** Unlike the other keyed codecs, the
-  Opaque Timestamp codec imports the operator's 16/24/32 raw bytes **directly** as the AES-CBC key
-  (`importOpaqueKey`, no HKDF), because an AES-128/192/256 key is exactly what the operator hands it —
-  raw import is the conventional, correct construction, and opaque is already cryptographically
-  independent of the HKDF codecs precisely because its key is the raw bytes rather than an HKDF output.
-  Routing opaque through a labelled HKDF (`@smonn/ids/opaque/aes`) would buy only **uniformity** ("every
-  keyed codec derives via a labelled HKDF, no exceptions") plus marginal domain separation against an
-  _external_ system reusing the same secret as raw AES — not a load-bearing security gain. It would be a
-  breaking change (re-derives every Opaque ID), so the cheapest moment to fold it in is alongside another
-  keyed-codec break. Deliberately left **undecided** while standardizing the HKDF label namespace (#388,
-  ADR-0019): that issue keeps opaque out of scope and documents the asymmetry as principled. Revisit only
-  if the no-exceptions uniform model becomes a goal; it would need its own ADR.
-- **Sync keyed codec.** The keyed codecs (Opaque Timestamp, Signed Timestamp, Digest,
-  Wrapped key) have async key-dependent methods because WebCrypto's `SubtleCrypto` — the only
-  cross-runtime crypto API — is async-only. A sync variant would require bundling a pure-JS
-  AES/HMAC implementation (~5–10KB per algorithm, ongoing review burden), rejected in
-  [ADR-0006](./adr/0006-async-keyed-codec-contract.md) for lack of a compelling consumer. The
-  async contract was designed so this stays reversible: async signatures accept sync
-  implementations under the same Promise contract, so a sync keyed codec can be added later
-  without breaking the existing API. Nothing to decide until someone needs it.
-  **Interaction with the 20-byte width ([ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md)):**
-  pulling in a pure-JS crypto dep for sync does _not_ discount the 20-byte wide-block Feistel —
-  it would have to live in both the WebCrypto and pure-JS backends (the wide-block PRP ×2), and the
-  one load-bearing 20-byte benefit (Digest) is HMAC-only and independent of any AES primitive. Sync
-  is additive and non-breaking; 20 bytes is a hard v1 break — keep them unbatched, and if both
-  happen, do sync first so the chosen library can reveal whether a standardized PRP (FF1-style) is
-  available before the 20-byte crypto is committed to a hand-rolled one. See ADR-0015's
-  "Interaction with a possible sync keyed-codec API."
+- **Opaque codec via HKDF (uniform key-derivation model).** Unlike the other keyed codecs, the Opaque Timestamp codec imports the operator's 16/24/32 raw bytes **directly** as the AES-CBC key (`importOpaqueKey`, no HKDF), because an AES-128/192/256 key is exactly what the operator hands it — raw import is the conventional, correct construction, and opaque is already cryptographically independent of the HKDF codecs precisely because its key is the raw bytes rather than an HKDF output. Routing opaque through a labelled HKDF (`@smonn/ids/opaque/aes`) would buy only **uniformity** ("every keyed codec derives via a labelled HKDF, no exceptions") plus marginal domain separation against an _external_ system reusing the same secret as raw AES — not a load-bearing security gain. It would be a breaking change (re-derives every Opaque ID), so the cheapest moment to fold it in is alongside another keyed-codec break. Deliberately left **undecided** while standardizing the HKDF label namespace (#388, ADR-0019): that issue keeps opaque out of scope and documents the asymmetry as principled. Revisit only if the no-exceptions uniform model becomes a goal; it would need its own ADR.
+- **Sync keyed codec.** The keyed codecs (Opaque Timestamp, Signed Timestamp, Digest, Wrapped key) have async key-dependent methods because WebCrypto's `SubtleCrypto` — the only cross-runtime crypto API — is async-only. A sync variant would require bundling a pure-JS AES/HMAC implementation (~5–10KB per algorithm, ongoing review burden), rejected in [ADR-0006](./adr/0006-async-keyed-codec-contract.md) for lack of a compelling consumer. The async contract was designed so this stays reversible: async signatures accept sync implementations under the same Promise contract, so a sync keyed codec can be added later without breaking the existing API. Nothing to decide until someone needs it. **Interaction with the 20-byte width ([ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md)):** pulling in a pure-JS crypto dep for sync does _not_ discount the 20-byte wide-block Feistel — it would have to live in both the WebCrypto and pure-JS backends (the wide-block PRP ×2), and the one load-bearing 20-byte benefit (Digest) is HMAC-only and independent of any AES primitive. Sync is additive and non-breaking; 20 bytes is a hard v1 break — keep them unbatched, and if both happen, do sync first so the chosen library can reveal whether a standardized PRP (FF1-style) is available before the 20-byte crypto is committed to a hand-rolled one. See ADR-0015's "Interaction with a possible sync keyed-codec API."
 
 ## Explicitly rejected
 
 - **Monotonic intra-ms ordering.** See ADR-0002 — non-goal for public-facing IDs.
-- **`prefixForDay(date)`.** Leaky abstraction (prefix length varies by date
-  boundary). `min/maxIdForTime` covers the actual range-query use case on any
-  btree-indexed column.
-- **Migration CLI subcommand.** Replaced by `codec.generateAt(date)` — migrations
-  are a 5-line user script using `generateAt` + the source format's timestamp.
-- **Digest keyring / multiple live digest keys.** See [ADR-0017](./adr/0017-digest-codec-construction.md).
-  The Digest codec's value is a stable-forever map (same material → same ID), so a keyring is
-  actively harmful — rotation would silently break idempotency and content-address stability.
-  Re-keying is an explicit breaking operator action, not in-band rotation. Only revisited if a
-  future use case genuinely warrants it, with its own ADR and verification story.
-- **Public `@smonn/ids/wire` subpath (parse-without-codec).** See [ADR-0008](./adr/0008-internal-module-layering.md).
-  Rejected for now — adapters use `codec["~standard"]`. Can ship later if a concrete adapter need appears.
-- **Randomized Wrapped key variant.** See the **Future codec variants (unbuilt)** section above and
-  [ADR-0009](./adr/0009-wrapped-key-compact-construction.md). Rejected (2026-06-25) — a meaningful
-  nonce forces the tag down to the 32-bit floor ADR-0009 already rejected, to solve a niche leak
-  better handled by a wider format. Reopen only with a consumer needing unlinkable reversible tokens
-  that also accepts 32-bit integrity.
-- **Signed Timestamp alternate tail-budget split.** See the **Future codec variants (unbuilt)**
-  section above and [ADR-0012](./adr/0012-signed-timestamp-construction.md). Rejected (2026-06-25) —
-  ADR-0012's 2026-06-24 refinement makes the random field the tighter axis, and verify-endpoint rate
-  limiting covers the forgery axis for free. Reopen only with a concrete low-volume-token consumer.
-- **Changing the payload width (20 bytes / any non-128-bit length).** See
-  [ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md) (Rejected) and the **Wire payload width**
-  section above. Width is settled at 128 bits — the cryptographic and length sweet spot; #210's padding
-  bits are permanently fixed by ADR-0003's canonical form.
+- **`prefixForDay(date)`.** Leaky abstraction (prefix length varies by date boundary). `min/maxIdForTime` covers the actual range-query use case on any btree-indexed column.
+- **Migration CLI subcommand.** Replaced by `codec.generateAt(date)` — migrations are a 5-line user script using `generateAt` + the source format's timestamp.
+- **Digest keyring / multiple live digest keys.** See [ADR-0017](./adr/0017-digest-codec-construction.md). The Digest codec's value is a stable-forever map (same material → same ID), so a keyring is actively harmful — rotation would silently break idempotency and content-address stability. Re-keying is an explicit breaking operator action, not in-band rotation. Only revisited if a future use case genuinely warrants it, with its own ADR and verification story.
+- **Public `@smonn/ids/wire` subpath (parse-without-codec).** See [ADR-0008](./adr/0008-internal-module-layering.md). Rejected for now — adapters use `codec["~standard"]`. Can ship later if a concrete adapter need appears.
+- **Randomized Wrapped key variant.** See the **Future codec variants (unbuilt)** section above and [ADR-0009](./adr/0009-wrapped-key-compact-construction.md). Rejected (2026-06-25) — a meaningful nonce forces the tag down to the 32-bit floor ADR-0009 already rejected, to solve a niche leak better handled by a wider format. Reopen only with a consumer needing unlinkable reversible tokens that also accepts 32-bit integrity.
+- **Signed Timestamp alternate tail-budget split.** See the **Future codec variants (unbuilt)** section above and [ADR-0012](./adr/0012-signed-timestamp-construction.md). Rejected (2026-06-25) — ADR-0012's 2026-06-24 refinement makes the random field the tighter axis, and verify-endpoint rate limiting covers the forgery axis for free. Reopen only with a concrete low-volume-token consumer.
+- **Changing the payload width (20 bytes / any non-128-bit length).** See [ADR-0015](./adr/0015-twenty-byte-payload-wide-block-prp.md) (Rejected) and the **Wire payload width** section above. Width is settled at 128 bits — the cryptographic and length sweet spot; #210's padding bits are permanently fixed by ADR-0003's canonical form.

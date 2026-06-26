@@ -9,8 +9,7 @@ For general contribution guidance see [CONTRIBUTING.md](../../CONTRIBUTING.md).
 When a shipped ADR contains a stale claim — for example, a file path moved by a later refactor, or a status that changed after the ADR reached `main` — annotate it with a dated blockquote immediately after the affected paragraph:
 
 ```markdown
-> **Correction (YYYY-MM-DD):** _Description of what changed and why, with links to the
-> relevant ADR or PR._
+> **Correction (YYYY-MM-DD):** _Description of what changed and why, with links to the relevant ADR or PR._
 ```
 
 **Placement.** The correction note goes immediately after the prose being corrected, not at the end of the ADR. Keeping it adjacent lets a reader see the original reasoning and the update together without jumping to a changelog section.

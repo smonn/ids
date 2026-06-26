@@ -31,17 +31,7 @@ A 40-bit (5-byte) tag puts online forgery at ≈ `2⁻⁴⁰` per attempt — at
 
 **False-accept bound.** With a **Signing keyring** of `n` entries, an attacker's per-`verify` success probability is ≈ `n / 2⁴⁰` (one trial per keyring entry). Small rings stay correctness-grade — this mirrors the Wrapped key codec's `keyring_size / 2⁶⁴`, scaled to the narrower tag.
 
-> **Refinement (2026-06-24, cross-ref [ADR-0015](./0015-twenty-byte-payload-wide-block-prp.md)).**
-> The per-millisecond birthday figure above is correct, but accumulated over a year the **random
-> field — not the tag — is the tighter axis.** At ~1,000 IDs/s sustained on one brand, 40-bit
-> random expects ~1.4 × 10⁻² same-ms collisions/year, whereas one online tag forgery needs years
-> of `verify`-endpoint saturation (~10¹² failing calls at `2⁻⁴⁰` each). The 40 / 40 split still
-> stands: collisions are usually caught by a UNIQUE index on the backing store (demoting them to a
-> regenerate-and-retry), and the random field cannot be widened inside 16 bytes without dropping
-> the tag below the 32-bit floor ADR-0009 rejected. But framing collisions as the "safe" axis holds
-> only **under a unique-index backstop** — for stateless high-volume verification the random field
-> is the constraint (40-bit random covers only ~8 IDs/s/brand at a stringent collision bar). That
-> asymmetry is the crux ADR-0015 weighs for the 20-byte width.
+> **Refinement (2026-06-24, cross-ref [ADR-0015](./0015-twenty-byte-payload-wide-block-prp.md)).** The per-millisecond birthday figure above is correct, but accumulated over a year the **random field — not the tag — is the tighter axis.** At ~1,000 IDs/s sustained on one brand, 40-bit random expects ~1.4 × 10⁻² same-ms collisions/year, whereas one online tag forgery needs years of `verify`-endpoint saturation (~10¹² failing calls at `2⁻⁴⁰` each). The 40 / 40 split still stands: collisions are usually caught by a UNIQUE index on the backing store (demoting them to a regenerate-and-retry), and the random field cannot be widened inside 16 bytes without dropping the tag below the 32-bit floor ADR-0009 rejected. But framing collisions as the "safe" axis holds only **under a unique-index backstop** — for stateless high-volume verification the random field is the constraint (40-bit random covers only ~8 IDs/s/brand at a stringent collision bar). That asymmetry is the crux ADR-0015 weighs for the 20-byte width.
 
 ## Key handling
 
@@ -73,14 +63,14 @@ This gives signed share links a rotation story out of the box, and is the authen
 
 ## How it differs from the other keyed codecs
 
-|               | Signed Timestamp           | Opaque Timestamp                                                                                      | Wrapped key                         |
-| ------------- | -------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| Security goal | integrity (tamper-evident) | confidentiality (hide the time)                                                                       | reversible tokenization + integrity |
-| Timestamp     | readable, sortable         | encrypted, not readable                                                                               | n/a (not timestamp-family)          |
-| Crypto        | HMAC tag, no encryption    | AES-CBC, no auth tag                                                                                  | AES block + 64-bit HMAC tag         |
-| Payload       | `ts6 ‖ rand5 ‖ tag5`       | encrypted `ts6 ‖ rand10`                                                                              | `enc(lane8 ‖ tag8)`                 |
-| Verifies?     | yes (`verify`)             | no (wrong key never throws; no padding oracle; SubtleCrypto call can throw under abnormal conditions) | yes (`unwrap`)                      |
-| Wrong key     | tag mismatch → rejected    | plausible garbage timestamp                                                                           | tag mismatch → rejected             |
+|  | Signed Timestamp | Opaque Timestamp | Wrapped key |
+| --- | --- | --- | --- |
+| Security goal | integrity (tamper-evident) | confidentiality (hide the time) | reversible tokenization + integrity |
+| Timestamp | readable, sortable | encrypted, not readable | n/a (not timestamp-family) |
+| Crypto | HMAC tag, no encryption | AES-CBC, no auth tag | AES block + 64-bit HMAC tag |
+| Payload | `ts6 ‖ rand5 ‖ tag5` | encrypted `ts6 ‖ rand10` | `enc(lane8 ‖ tag8)` |
+| Verifies? | yes (`verify`) | no (wrong key never throws; no padding oracle; SubtleCrypto call can throw under abnormal conditions) | yes (`unwrap`) |
+| Wrong key | tag mismatch → rejected | plausible garbage timestamp | tag mismatch → rejected |
 
 It is **wire-indistinguishable** from the Timestamp, Reverse Timestamp, and Opaque Timestamp codecs ([ADR-0007](./0007-wire-indistinguishable-codec-variants.md)): the wire shape is `<brand>_` + 26 base32 chars over a 16-byte payload. An operator must know which variant a brand uses; the brand registry warns on cross-codec reuse in dev.
 

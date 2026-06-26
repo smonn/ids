@@ -24,9 +24,32 @@ jobs:
   changes:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    permissions:
+      # The conflict guard below reads the PR's labels and self-cancels when the PR is
+      # mid-rebase. Cancelling this gate cancels the whole run (the `bench` job needs it).
+      pull-requests: read
+      actions: write
     outputs:
       run: ${{ steps.filter.outputs.run }}
     steps:
+      # Pause the bench while this PR is mid-conflict-rebase (same rationale as ci.yml's
+      # guard). Self-cancel rather than skip: a cancelled run is neutral and won't strand
+      # the required `bench` check; the rebase merge commit runs a fresh bench. Placed
+      # before checkout so we cancel ahead of any expensive work. Fail-open on a read
+      # error. bench is pull_request-only, so no event guard is needed.
+      - name: Pause while this PR conflicts with main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || true)
+          if echo "$labels" | grep -qx conflicting; then
+            echo "PR #$PR_NUMBER is marked conflicting — cancelling; the rebase merge commit will run a fresh bench."
+            gh run cancel "$GITHUB_RUN_ID" || true
+            sleep 30  # let the cancellation land so later steps don't run
+          fi
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
