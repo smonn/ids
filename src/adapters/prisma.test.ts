@@ -27,6 +27,7 @@ import { createTimestampId } from "../codecs/timestamp/index.js";
 import {
   idField,
   idFieldReadOnly,
+  nullableIdField,
   IdsError,
   isIdsError,
   type IdColumnCodec,
@@ -34,6 +35,7 @@ import {
   type IdQueryField,
   type IdTransform,
   type NullableIdComputeField,
+  type NullableIdTransform,
 } from "./prisma.js";
 import type { Id } from "../types.js";
 
@@ -558,6 +560,116 @@ describe("prisma", () => {
       const minimalCodec = makeMinimalSpyCodec("spy");
       idFieldReadOnly(minimalCodec).read("any_value");
       expect(minimalCodec.safeParse).toHaveBeenCalled();
+    });
+  });
+
+  describe("nullableIdField", () => {
+    function makeMinimalSpyCodec<Brand extends string>(brand: Brand): IdColumnCodec<Brand> {
+      const fakeId: Id<Brand> = fromAny(`${brand}_00000000000000000000000000`);
+      return {
+        safeParse: fromAny(vi.fn(() => ({ ok: true as const, id: fakeId }))),
+      };
+    }
+
+    it("accepts a safeParse-only codec (no generate required)", () => {
+      const minimalCodec = makeMinimalSpyCodec("spy");
+      const result = nullableIdField(minimalCodec);
+      expect(result).toBeDefined();
+    });
+
+    it("return type has no defaultQuery property", () => {
+      const result = nullableIdField(usr);
+      expect("defaultQuery" in result).toBe(false);
+    });
+
+    it("return type excludes defaultQuery at the TypeScript level", () => {
+      const result = nullableIdField(usr);
+      expectTypeOf(result).not.toHaveProperty("defaultQuery");
+    });
+
+    it("readNullable returns null for null", () => {
+      const result = nullableIdField(usr);
+      expect(result.readNullable(null)).toBeNull();
+    });
+
+    it("readNullable returns null for undefined", () => {
+      const result = nullableIdField(usr);
+      expect(result.readNullable(undefined)).toBeNull();
+    });
+
+    it("readNullable returns Id<Brand> for a valid canonical string", () => {
+      const result = nullableIdField(usr);
+      const id = usr.generate();
+      expect(result.readNullable(id)).toBe(id);
+      expectTypeOf(result.readNullable(id)).toEqualTypeOf<Id<"usr"> | null>();
+    });
+
+    it("readNullable throws IdsError(invalid_id) for an invalid string", () => {
+      const result = nullableIdField(usr);
+      let err: unknown;
+      try {
+        result.readNullable("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("write passes Id<Brand> through unchanged", () => {
+      const result = nullableIdField(usr);
+      const id = usr.generate();
+      expect(result.write(id)).toBe(id);
+    });
+
+    it("computeNullableField returns a { needs, compute } object", () => {
+      const result = nullableIdField(usr);
+      const field = result.computeNullableField("authorId");
+      expect(field).toHaveProperty("needs", { authorId: true });
+      expect(typeof field.compute).toBe("function");
+    });
+
+    it("computeNullableField.compute is typed to return Id<Brand> | null", () => {
+      const result = nullableIdField(usr);
+      const field = result.computeNullableField("authorId");
+      expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr"> | null>();
+    });
+
+    it("computeNullableField.compute returns null for a null field", () => {
+      const result = nullableIdField(usr);
+      const field = result.computeNullableField("authorId");
+      expect(field.compute({ authorId: null })).toBeNull();
+    });
+
+    it("computeNullableField.compute returns null for an undefined field", () => {
+      const result = nullableIdField(usr);
+      const field = result.computeNullableField("authorId");
+      expect(field.compute({ authorId: undefined })).toBeNull();
+    });
+
+    it("computeNullableField.compute returns Id<Brand> for a valid field value", () => {
+      const result = nullableIdField(usr);
+      const field = result.computeNullableField("authorId");
+      const id = usr.generate();
+      expect(field.compute({ authorId: id })).toBe(id);
+    });
+
+    it("computeNullableField.compute throws IdsError(invalid_id) for an invalid non-null value", () => {
+      const result = nullableIdField(usr);
+      const field = result.computeNullableField("authorId");
+      let err: unknown;
+      try {
+        field.compute({ authorId: "not-a-valid-id" });
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("NullableIdTransform<Brand> type is satisfied by the returned object", () => {
+      const result = nullableIdField(usr);
+      expectTypeOf(result).toMatchTypeOf<NullableIdTransform<"usr">>();
     });
   });
 });

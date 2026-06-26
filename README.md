@@ -62,7 +62,7 @@ Try them all live in the [playground](https://ids.smonn.se/playground/).
 Framework and ORM adapters ship as optional subpath exports (each requires its own peer dependency):
 
 - **HTTP params:** [Hono](https://ids.smonn.se/adapters/hono/), [Express](https://ids.smonn.se/adapters/express/), [Fastify](https://ids.smonn.se/adapters/fastify/) — `idParam`, `idQuery` middleware; [NestJS](https://ids.smonn.se/adapters/nestjs/) — `ParseIdPipe`
-- **ORM columns:** [Drizzle](https://ids.smonn.se/adapters/drizzle/) — `idColumn`, `idColumnMysql`, `idColumnSqlite`, [Kysely](https://ids.smonn.se/adapters/kysely/) — `idPlugin` / `idColumn`, [MikroORM](https://ids.smonn.se/adapters/mikro-orm/) — `idType`, [Prisma](https://ids.smonn.se/adapters/prisma/) — `idField`, [TypeORM](https://ids.smonn.se/adapters/typeorm/) — `idTransformer`
+- **ORM columns:** [Drizzle](https://ids.smonn.se/adapters/drizzle/) — `idColumn`, `idColumnMysql`, `idColumnSqlite`, [Kysely](https://ids.smonn.se/adapters/kysely/) — `idPlugin` / `idColumn`, [MikroORM](https://ids.smonn.se/adapters/mikro-orm/) — `idType`, [Prisma](https://ids.smonn.se/adapters/prisma/) — `idField`, `nullableIdField`, [TypeORM](https://ids.smonn.se/adapters/typeorm/) — `idTransformer`
 - **GraphQL:** [GraphQL](https://ids.smonn.se/adapters/graphql/) — `idScalar` custom scalar
 - **CLI:** brand-agnostic `inspect` / `generate` / `keygen` — `npx @smonn/ids --help` ([docs](https://ids.smonn.se/cli/))
 
