@@ -125,7 +125,7 @@ export type IdTransform<Brand extends string> = {
 /**
  * Creates a read/write transform pair for use with Prisma's `$extends` extension model.
  *
- * Works with any codec variant exposing `safeParse`.
+ * Requires a codec variant that exposes a synchronous `generate()` in addition to `safeParse` — see {@link IdGeneratingCodec}. Only the **Timestamp codec** and **Reverse Timestamp codec** qualify; Opaque, Signed, Wrapped, and Digest codecs cannot be passed to `idField()`.
  *
  * Use `computeField(fieldName)` to produce a typed `$extends` result-component
  * field definition — the brand is carried through Prisma's type machinery
