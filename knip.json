@@ -5,6 +5,8 @@
     ".": {
       "project": ["src/**/*.ts", "bench/**/*.ts"]
     },
-    "website": {}
+    "website": {
+      "entry": ["src/starlightRouteData.ts"]
+    }
   }
 }
