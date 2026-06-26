@@ -20,6 +20,7 @@ Every comment or issue posted to the issue tracker during triage **must** start 
 
 - [AGENT-BRIEF.md](AGENT-BRIEF.md) — how to write durable agent briefs
 - [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md) — how the `.out-of-scope/` knowledge base works
+- [ADR-0025](docs/adr/0025-frozen-wire-spec-conformance-vectors.md) — three-layer guard against automated un-freezing; defines what counts as a wire-changing issue
 
 ## Roles
 
