@@ -11,6 +11,10 @@ concurrency:
 
 permissions:
   contents: read
+  # The conflict guard (first step below) reads the PR's labels and, when the PR is
+  # mid-rebase, self-cancels this run — both need slightly more than the default.
+  pull-requests: read
+  actions: write
 
 jobs:
   ci:
@@ -31,6 +35,29 @@ jobs:
       - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
+
+      # Pause CI while this PR is mid-conflict-rebase. conflicts.yml marks a PR that
+      # conflicts with main `conflicting` and dispatches an automatic rebase; running
+      # CI on the soon-to-be-superseded commit is wasted work. We SELF-CANCEL (not a
+      # job-level `if` skip): a cancelled run is neutral — it does not fail branch
+      # protection and does not strand the required `ci` check "Expected" — and the
+      # rebase merge commit then runs FRESH CI that reports green on the new head
+      # (rebase.yml clears `conflicting` BEFORE pushing that commit). Only guards PR
+      # runs; push-to-main CI is never paused. Fail-open: if the label read errors we
+      # proceed and run CI (better than wrongly cancelling).
+      - name: Pause while this PR conflicts with main
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || true)
+          if echo "$labels" | grep -qx conflicting; then
+            echo "PR #$PR_NUMBER is marked conflicting — cancelling; the rebase merge commit will run fresh CI."
+            gh run cancel "$GITHUB_RUN_ID" || true
+            sleep 30  # let the cancellation land so later steps don't run
+          fi
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 

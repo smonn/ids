@@ -137,6 +137,16 @@ jobs:
             exit 0
           fi
           echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          # Defer while the PR is mid-conflict-rebase (conflicts.yml marked it
+          # `conflicting` and an automatic rebase is in flight). The CI failure that
+          # triggered us is likely the doomed pre-rebase commit; fixing it now would
+          # waste compute AND burn an attempt from the cap below. The rebase merge commit
+          # re-runs CI, and autofix only re-fires if THAT fails. Check before the cap.
+          if gh pr view "$pr" --json labels --jq '.labels[].name' 2>/dev/null | grep -qx 'conflicting'; then
+            echo "PR #$pr conflicts with main — deferring autofix until the rebase lands."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git fetch -q origin main
           attempts=$(git log origin/main..HEAD --grep='ci-autofix' --oneline | wc -l | tr -d ' ')
           echo "PR #$pr — prior autofix attempts on this branch: $attempts (cap $MAX_ATTEMPTS)."
