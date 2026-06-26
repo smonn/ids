@@ -8,12 +8,17 @@
   "changesets": [
     "drizzle-mikroorm-column-type",
     "drizzle-mysql-sqlite-dialects",
+    "generated-id-column-drizzle",
     "idquery-web-adapters",
     "ids-opaque-key-rename",
     "kysely-idplugin",
+    "kysely-insert-id",
+    "mikro-orm-id-field",
+    "nullable-id-field-prisma",
     "nullable-orm-adapters",
     "opaque-hkdf-aes256",
     "prisma-default-query",
-    "prisma-id-field-read-only"
+    "prisma-id-field-read-only",
+    "typeorm-before-insert-hook"
   ]
 }
