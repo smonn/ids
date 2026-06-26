@@ -193,7 +193,8 @@ describe("cli", () => {
       const lines = result.stdout.trimEnd().split("\n");
       expect(lines[0]).toBe("brand:     usr");
       expect(lines[2]).toBe("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw");
-      expect(lines[3]).toBe("input:     not canonical (was uppercase)");
+      expect(lines[3]).toMatch(/^uuid:/);
+      expect(lines[4]).toBe("input:     not canonical (was uppercase)");
     });
 
     it("non-canonical (aliases only) reports 'used Crockford aliases'", async () => {
@@ -203,7 +204,8 @@ describe("cli", () => {
       expect(result.exitCode).toBe(0);
       const lines = result.stdout.trimEnd().split("\n");
       expect(lines[2]).toBe("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw");
-      expect(lines[3]).toBe("input:     not canonical (used Crockford aliases)");
+      expect(lines[3]).toMatch(/^uuid:/);
+      expect(lines[4]).toBe("input:     not canonical (used Crockford aliases)");
     });
 
     it("non-canonical (uppercase + aliases) reports both", async () => {
@@ -213,7 +215,8 @@ describe("cli", () => {
       expect(result.exitCode).toBe(0);
       const lines = result.stdout.trimEnd().split("\n");
       expect(lines[2]).toBe("canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw");
-      expect(lines[3]).toBe("input:     not canonical (was uppercase + used Crockford aliases)");
+      expect(lines[3]).toMatch(/^uuid:/);
+      expect(lines[4]).toBe("input:     not canonical (was uppercase + used Crockford aliases)");
     });
 
     it("`i` is an alias for inspect", async () => {
@@ -256,7 +259,7 @@ describe("cli", () => {
       expect(result.stdout).toContain(`(${relative})`);
     });
 
-    it("prints brand/timestamp/canonical/input for a canonical ID and exits 0", async () => {
+    it("prints brand/timestamp/canonical/uuid/input for a canonical ID and exits 0", async () => {
       const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw"], {
         now: () => new Date("2026-06-01T00:00:00Z").getTime(),
       });
@@ -266,6 +269,7 @@ describe("cli", () => {
           "brand:     usr",
           "timestamp: 1983-05-27T10:24:22.469Z (43 years ago)",
           "canonical: usr_01h7b3k9rqxn1cw3p9r8t2sgkw",
+          "uuid:      0062758e-69c5-fb50-b383-b2708d0b309f",
           "input:     canonical",
           "",
         ].join("\n"),
@@ -1786,7 +1790,8 @@ describe("cli inspect --signed", () => {
     expect(lines[1]).toMatch(/^timestamp:/);
     expect(lines[2]).toBe("verification: ok");
     expect(lines[3]).toMatch(/^canonical:/);
-    expect(lines[4]).toMatch(/^input:/);
+    expect(lines[4]).toMatch(/^uuid:/);
+    expect(lines[5]).toMatch(/^input:/);
   });
 
   it("rejects --signed and --opaque together", async () => {
@@ -2321,5 +2326,276 @@ describe("cli exit code contract", () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toBeTruthy();
+  });
+});
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+describe("cli inspect uuid: line", () => {
+  it("inspect <id> output contains a uuid: line with a valid UUID value", async () => {
+    const result = await runCapture(["inspect", "usr_01h7b3k9rqxn1cw3p9r8t2sgkw"], {
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(
+      /uuid:\s+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
+    );
+    expect(result.stdout).toContain("uuid:      0062758e-69c5-fb50-b383-b2708d0b309f");
+  });
+
+  it("inspect --reverse <id> output includes a uuid: line", async () => {
+    const codec = createReverseTimestampId("usr", {
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x00),
+      allowDuplicateBrand: true,
+    });
+    const id = codec.generate();
+    const result = await runCapture(["inspect", id, "--reverse"], {
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(0);
+    const uuidLine = result.stdout.split("\n").find((l) => l.startsWith("uuid:"));
+    expect(uuidLine).toBeDefined();
+    expect(uuidLine!.trim().split(/\s+/)[1]).toMatch(uuidPattern);
+  });
+
+  it("inspect --opaque <id> output includes a uuid: line", async () => {
+    const key = await importOpaqueKey(testKeyBytes);
+    const usr = createOpaqueTimestampId("usr", {
+      key,
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x42),
+      allowDuplicateBrand: true,
+    });
+    const id = await usr.generate();
+    const result = await runCapture(["inspect", id, "--opaque"], {
+      env: { IDS_KEY: testKeyHex },
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(0);
+    const uuidLine = result.stdout.split("\n").find((l) => l.startsWith("uuid:"));
+    expect(uuidLine).toBeDefined();
+    expect(uuidLine!.trim().split(/\s+/)[1]).toMatch(uuidPattern);
+  });
+
+  it("inspect --wrapped <id> output includes a uuid: line", async () => {
+    const key = await importWrappingKey(testWrappingKeyBytes);
+    const inv = createWrappedKeyId("inv", {
+      kind: "u32",
+      keys: [key],
+      allowDuplicateBrand: true,
+    });
+    const id = await inv.wrap(42);
+    const result = await runCapture(["inspect", id, "--wrapped", "--kind", "u32"], {
+      env: { IDS_WRAPPING_KEY: testWrappingKeyHex },
+    });
+    expect(result.exitCode).toBe(0);
+    const uuidLine = result.stdout.split("\n").find((l) => l.startsWith("uuid:"));
+    expect(uuidLine).toBeDefined();
+    expect(uuidLine!.trim().split(/\s+/)[1]).toMatch(uuidPattern);
+  });
+
+  it("inspect --signed <id> output includes a uuid: line (verification ok)", async () => {
+    const key = await importSigningKey(testSigningKeyBytes);
+    const usr = createSignedTimestampId("usr", {
+      keys: [key],
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x42),
+      allowDuplicateBrand: true,
+    });
+    const id = await usr.generate();
+    const result = await runCapture(["inspect", id, "--signed"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(0);
+    const uuidLine = result.stdout.split("\n").find((l) => l.startsWith("uuid:"));
+    expect(uuidLine).toBeDefined();
+    expect(uuidLine!.trim().split(/\s+/)[1]).toMatch(uuidPattern);
+  });
+
+  it("inspect --signed <id> without key still includes a uuid: line (verification unavailable)", async () => {
+    const key = await importSigningKey(testSigningKeyBytes);
+    const usr = createSignedTimestampId("usr", {
+      keys: [key],
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x42),
+      allowDuplicateBrand: true,
+    });
+    const id = await usr.generate();
+    const result = await runCapture(["inspect", id, "--signed"], {
+      env: {},
+      now: () => new Date("2026-06-01T00:00:00Z").getTime(),
+    });
+    expect(result.exitCode).toBe(1);
+    const uuidLine = result.stdout.split("\n").find((l) => l.startsWith("uuid:"));
+    expect(uuidLine).toBeDefined();
+    expect(uuidLine!.trim().split(/\s+/)[1]).toMatch(uuidPattern);
+  });
+});
+
+describe("cli generate --uuid", () => {
+  it("emits the UUID form of the generated ID and exits 0", async () => {
+    const result = await runCapture(["generate", "usr", "--uuid"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trimEnd()).toMatch(uuidPattern);
+  });
+
+  it("emits a deterministic UUID for known now/rng", async () => {
+    const result = await runCapture(["generate", "usr", "--uuid"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("12345678-9abc-0000-0000-000000000000\n");
+  });
+
+  it("--uuid --count N emits N UUID lines", async () => {
+    let counter = 0;
+    const result = await runCapture(["generate", "usr", "--uuid", "--count", "3"], {
+      rng: (target) => {
+        target.fill(0);
+        target[9] = counter++;
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const lines = result.stdout.split("\n");
+    expect(lines.at(-1)).toBe("");
+    const uuids = lines.slice(0, -1);
+    expect(uuids).toHaveLength(3);
+    for (const uuid of uuids) expect(uuid).toMatch(uuidPattern);
+  });
+
+  it("--uuid is listed in generate usage text", async () => {
+    const result = await runCapture(["generate", "--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--uuid");
+  });
+
+  it("--uuid works with --opaque", async () => {
+    const result = await runCapture(["generate", "usr", "--opaque", "--uuid"], {
+      env: { IDS_KEY: testKeyHex },
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x00),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trimEnd()).toMatch(uuidPattern);
+  });
+
+  it("--uuid works with --reverse", async () => {
+    const result = await runCapture(["generate", "usr", "--reverse", "--uuid"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trimEnd()).toMatch(uuidPattern);
+  });
+
+  it("--uuid works with --signed", async () => {
+    const result = await runCapture(["generate", "usr", "--signed", "--uuid"], {
+      env: { IDS_SIGNING_KEY: testSigningKeyHex },
+      now: () => 0x123456789abc,
+      rng: (target) => target.fill(0x00),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trimEnd()).toMatch(uuidPattern);
+  });
+
+  it("--uuid works with --digest", async () => {
+    const result = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout", "--uuid"],
+      "order-123",
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trimEnd()).toMatch(uuidPattern);
+  });
+});
+
+describe("cli inspect --from-uuid", () => {
+  it("--from-uuid <valid-uuid> --brand usr writes the canonical id to stdout and exits 0", async () => {
+    const result = await runCapture([
+      "inspect",
+      "--from-uuid",
+      "0062758e-69c5-fb50-b383-b2708d0b309f",
+      "--brand",
+      "usr",
+    ]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("usr_01h7b3k9rqxn1cw3p9r8t2sgkw\n");
+  });
+
+  it("--from-uuid round-trips through toUUID (generate then inspect)", async () => {
+    const generateResult = await runCapture(["generate", "usr", "--uuid"]);
+    expect(generateResult.exitCode).toBe(0);
+    const uuid = generateResult.stdout.trim();
+    const inspectResult = await runCapture(["inspect", "--from-uuid", uuid, "--brand", "usr"]);
+    expect(inspectResult.exitCode).toBe(0);
+    expect(inspectResult.stdout.trim()).toMatch(/^usr_[0-9a-hjkmnp-tv-z]{26}$/);
+    const backUuid = await runCapture(["generate", "usr", "--uuid"]);
+    expect(backUuid.stdout.trim()).toBe(uuid);
+  });
+
+  it("--from-uuid <invalid-uuid> --brand usr writes invalid_uuid: to stderr and exits 1", async () => {
+    const result = await runCapture([
+      "inspect",
+      "--from-uuid",
+      "not-a-valid-uuid",
+      "--brand",
+      "usr",
+    ]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toMatch(/^invalid_uuid:/);
+  });
+
+  it("--from-uuid without --brand exits 2 with a usage error", async () => {
+    const result = await runCapture([
+      "inspect",
+      "--from-uuid",
+      "0062758e-69c5-fb50-b383-b2708d0b309f",
+    ]);
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBeTruthy();
+  });
+
+  it("--from-uuid without a value exits 2", async () => {
+    const result = await runCapture(["inspect", "--from-uuid", "--brand", "usr"]);
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+  });
+
+  it("--from-uuid with invalid brand exits 1 with a brand error", async () => {
+    const result = await runCapture([
+      "inspect",
+      "--from-uuid",
+      "0062758e-69c5-fb50-b383-b2708d0b309f",
+      "--brand",
+      "BAD",
+    ]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("invalid_brand");
+  });
+
+  it("--from-uuid accepts uppercase UUID (case-insensitive)", async () => {
+    const result = await runCapture([
+      "inspect",
+      "--from-uuid",
+      "0062758E-69C5-FB50-B383-B2708D0B309F",
+      "--brand",
+      "usr",
+    ]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("usr_01h7b3k9rqxn1cw3p9r8t2sgkw\n");
+  });
+
+  it("--from-uuid is listed in inspect usage text", async () => {
+    const result = await runCapture(["inspect", "--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--from-uuid");
+    expect(result.stdout).toContain("--brand");
   });
 });

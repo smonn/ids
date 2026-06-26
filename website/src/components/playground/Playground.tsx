@@ -80,6 +80,7 @@ function PlainPanel({ codec }: { codec: "timestamp" | "reverse" }) {
   const factory = codec === "timestamp" ? createTimestampId : createReverseTimestampId;
   const [brand, setBrand] = useState(codec === "timestamp" ? "usr" : "evt");
   const [id, setId] = useState("");
+  const [uuid, setUuid] = useState("");
   const [out, setOut] = useState<Outcome>(null);
 
   const generate = () => {
@@ -100,6 +101,30 @@ function PlainPanel({ codec }: { codec: "timestamp" | "reverse" }) {
       setOut({ kind: "ok", text: `timestamp: ${c.extractTimestamp(parsed).toISOString()}` });
     } catch (err) {
       setOut({ kind: "err", text: describeError(err) });
+    }
+  };
+
+  // Lossless round-trip into a native `uuid` column: the 16-byte payload is
+  // reinterpreted verbatim as 128 bits, so toUUID → fromUUID returns the same ID.
+  const toUuid = () => {
+    try {
+      const c = factory(brand, { allowDuplicateBrand: true });
+      const value = c.toUUID(c.parse(id));
+      setUuid(value);
+      setOut({ kind: "ok", text: value });
+    } catch (err) {
+      setOut({ kind: "err", text: describeError(err) });
+    }
+  };
+
+  const fromUuid = () => {
+    const c = factory(brand, { allowDuplicateBrand: true });
+    const r = c.safeFromUUID(uuid);
+    if (r.ok) {
+      setId(r.id);
+      setOut({ kind: "ok", text: r.id });
+    } else {
+      setOut({ kind: "err", text: `invalid_id: ${r.error}` });
     }
   };
 
@@ -124,7 +149,29 @@ function PlainPanel({ codec }: { codec: "timestamp" | "reverse" }) {
         <button type="button" onClick={extract} disabled={!id}>
           Extract timestamp
         </button>
+        <button type="button" onClick={toUuid} disabled={!id}>
+          To UUID
+        </button>
       </Row>
+      <label class={styles.field}>
+        <span>UUID to import (8-4-4-4-12)</span>
+        <input
+          class={styles.mono}
+          value={uuid}
+          spellcheck={false}
+          onInput={(e) => setUuid((e.target as HTMLInputElement).value.trim())}
+        />
+      </label>
+      <Row>
+        <button type="button" onClick={fromUuid} disabled={!uuid}>
+          From UUID
+        </button>
+      </Row>
+      <p class={styles.hint}>
+        Round-trip an ID through a native <code>uuid</code> column: <strong>To UUID</strong> emits
+        the 16-byte payload as a canonical UUID, and <strong>From UUID</strong> reads it back to the
+        same branded ID. Available on every codec.
+      </p>
       <OutcomeLine outcome={out} />
     </div>
   );

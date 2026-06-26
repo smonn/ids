@@ -208,6 +208,49 @@ and `is()`, but rejects the uppercase and aliases that `safeParse()` tolerates
 (see [ADR-0003](https://github.com/smonn/ids/blob/main/docs/adr/0003-canonical-strict-is.md)).
 `example` is freshly generated on each call, so it always matches the `pattern`.
 
+## Native `uuid` column storage
+
+Every codec exposes three methods for converting between a branded `Id<Brand>`
+and an [RFC 9562](https://www.rfc-editor.org/rfc/rfc9562) UUID string. They
+reinterpret the 16-byte payload verbatim as 128 bits — a **lossless
+round-trip** that lets you persist an ID into a native `uuid` column and read it
+back as a branded ID. This is useful when migrating off UUID primary keys while
+keeping the existing column types and indexes.
+
+```ts
+const users = createTimestampId("usr");
+const id = users.generate(); // "usr_06f80z92d2dbsqqg28t5cy4tqg"
+
+const uuid = users.toUUID(id); // "019e807d-2268-9abc-def0-123456789abc"
+users.fromUUID(uuid); // back to Id<"usr"> — same 16 bytes
+```
+
+- **`toUUID(id)`** — Takes a trusted `Id<Brand>`, returns the payload as a
+  canonical lowercase-hyphenated UUID `string`. Total — cannot fail. The brand
+  is shed; the output is a plain `string`, not a branded type.
+- **`fromUUID(value)`** — Takes an untrusted `string`, returns `Id<Brand>`.
+  Throws `IdsError` (`code: "invalid_id"`) with the originating `ParseError` on
+  `cause` (`"invalid_uuid"`, or `"not_string"` for untyped JavaScript callers)
+  on malformed input.
+- **`safeFromUUID(value)`** — Takes `unknown`, returns `ParseResult<Brand>`
+  (`{ ok: true, id }` or `{ ok: false, error }`, where `error` is `"not_string"`
+  or `"invalid_uuid"`). Never throws.
+
+`fromUUID` and `safeFromUUID` accept the case-insensitive `8-4-4-4-12`
+hyphenated form only — braces, the `urn:uuid:` prefix, and hyphenless 32-char
+forms are rejected (see the [`invalid_uuid` ParseError](/errors/#the-returned-channel-parseerror)).
+
+:::caution
+`toUUID` produces a **raw, unversioned** UUID: all 128 payload bits are
+preserved verbatim, so the version and variant nibble positions hold real data,
+not `0x7` / `0b10`. It is **not** a spec-valid UUIDv7. Only the Timestamp and
+Reverse Timestamp codecs produce time-sortable UUIDs whose leading 48 bits are a
+real millisecond timestamp. Importing a non-time-ordered UUID (e.g. a UUIDv4)
+into a timestamp-family codec via `fromUUID` yields a structurally valid
+`Id<Brand>` with a meaningless timestamp and random sort order — the same
+wire-indistinguishable contract that already governs the codec variants.
+:::
+
 ## Not for hiding creation time
 
 The Timestamp codec exposes the creation time by design — that's what makes

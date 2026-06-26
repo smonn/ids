@@ -35,6 +35,7 @@ const opaqueKeyInternals = new WeakMap<OpaqueKey, webcrypto.CryptoKey>();
  * {@link decodeOpaqueKey} (`"hex"` or `"base64url"` — not Crockford base32).
  *
  * @param bytes - 16, 24, or 32 raw key bytes.
+ * @throws {IdsError} `invalid_key_length` if `bytes.length` is not 16, 24, or 32.
  */
 export async function importOpaqueKey(bytes: Uint8Array): Promise<OpaqueKey> {
   assertValidKeyMaterialByteLength(bytes.length, "AES");
@@ -63,6 +64,8 @@ export function getOpaqueKeyCryptoKey(key: OpaqueKey): webcrypto.CryptoKey {
  *
  * @param bytes - 16, 24, or 32 raw key bytes (AES-128/192/256).
  * @param format - `hex` (lowercase) or `base64url`.
+ * @throws {IdsError} `invalid_key_format` if `format` is not `"hex"` or `"base64url"`.
+ * @throws {IdsError} `invalid_key_length` if `bytes.length` is not 16, 24, or 32.
  */
 export function encodeOpaqueKey(bytes: Uint8Array, format: OpaqueKeyFormat): string {
   return encodeKeyMaterial(bytes, format, "opaque", "AES");
@@ -73,6 +76,9 @@ export function encodeOpaqueKey(bytes: Uint8Array, format: OpaqueKeyFormat): str
  *
  * @param encoded - Hex or base64url string.
  * @param format - Must match how the string was encoded.
+ * @throws {IdsError} `invalid_key_format` if `format` is not `"hex"` or `"base64url"`.
+ * @throws {IdsError} `invalid_key_encoding` if the string is malformed for its format.
+ * @throws {IdsError} `invalid_key_length` if the decoded bytes are not 16, 24, or 32 bytes.
  */
 export function decodeOpaqueKey(encoded: string, format: OpaqueKeyFormat): Uint8Array {
   return decodeKeyMaterial(encoded, format, "opaque", "AES");

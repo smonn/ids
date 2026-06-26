@@ -4,6 +4,8 @@ Add a conversion pair — `toUUID` / `fromUUID` (plus `safeFromUUID`) — betwee
 
 This is a design-acceptance gate. Implementation — the wire functions, the per-codec methods, the new `ParseError` reason, tests, README, and CLI — is deferred to follow-up issues filed after this ADR reaches `main`.
 
+> **Correction (2026-06-26):** UUID interop has shipped. `toUUID`, `fromUUID`, and `safeFromUUID` are available on every codec instance; the `"invalid_uuid"` `ParseError` reason is part of the stability contract. The CLI surface also shipped: `inspect` emits a `uuid:` line, `generate --uuid` emits raw UUID output, and `inspect --from-uuid <uuid> --brand <brand>` converts back. The "deferred to follow-up issues" and "README left untouched until the feature ships" statements above are now historical. The deferred items listed in Consequences (spec-valid `toUUIDv7`, version-asserting `fromUUIDv7`, wider input leniency, ORM native-uuid storage mode, SQL DDL emitter, `SPEC.md` conformance vectors) remain deferred.
+
 ## Why this clears the "no consumer" bar that rejected the recent variants
 
 The randomized Wrapped key variant and the Signed Timestamp tail-budget split were both **rejected (2026-06-25)** for lack of a concrete consumer ([docs/IDEAS.md](../IDEAS.md)). That bar applies far more weakly here, and the difference is structural, not a matter of demand:

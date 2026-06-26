@@ -16,6 +16,7 @@ $ npx @smonn/ids inspect usr_06f80z92d2dbsqqg28t5cy4tqg
 brand:     usr
 timestamp: 2026-06-01T00:02:25.000Z (25 days ago)
 canonical: usr_06f80z92d2dbsqqg28t5cy4tqg
+uuid:      019e807d-2268-9abc-def0-123456789abc
 input:     canonical
 ```
 
@@ -23,13 +24,14 @@ Accepts non-canonical input (uppercase, Crockford aliases). Pass the flag that
 matches the codec used at generation — without a flag, the **Timestamp codec** is
 assumed.
 
-| Flag                   | Codec variant     | Env var                      | Notes                                                                                                              |
-| ---------------------- | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| _(none)_               | Timestamp         | —                            | Timestamp readable directly; always prints a note to stderr (see below)                                            |
-| `--opaque`             | Opaque Timestamp  | `IDS_KEY`                    | Wrong key yields a plausible-but-wrong timestamp, not an error; always prints a note to stderr (see below)         |
-| `--reverse`            | Reverse Timestamp | —                            | No key; timestamp decoded from inverted bytes; always prints a note to stderr (see below)                          |
-| `--wrapped --kind <k>` | Wrapped key       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`/`i32`/`u64`/`i64`; prints `lookup-key`                                                    |
-| `--signed`             | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Three verification states (see below); `failed` and `unavailable` exit 1 and write to stderr in addition to stdout |
+| Flag                                 | Codec variant     | Env var                      | Notes                                                                                                              |
+| ------------------------------------ | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| _(none)_                             | Timestamp         | —                            | Timestamp readable directly; always prints a note to stderr (see below)                                            |
+| `--opaque`                           | Opaque Timestamp  | `IDS_KEY`                    | Wrong key yields a plausible-but-wrong timestamp, not an error; always prints a note to stderr (see below)         |
+| `--reverse`                          | Reverse Timestamp | —                            | No key; timestamp decoded from inverted bytes; always prints a note to stderr (see below)                          |
+| `--wrapped --kind <k>`               | Wrapped key       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`/`i32`/`u64`/`i64`; prints `lookup-key`                                                    |
+| `--signed`                           | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Three verification states (see below); `failed` and `unavailable` exit 1 and write to stderr in addition to stdout |
+| `--from-uuid <uuid> --brand <brand>` | (any)             | —                            | Converts a UUID back to a canonical `Id<Brand>`; `--brand` required (e.g. `usr`); no codec flag needed             |
 
 The bare path (no codec flag) and `--reverse` both read the timestamp as
 plaintext. Since Opaque-encoded IDs are wire-indistinguishable from plaintext
@@ -56,12 +58,13 @@ note: timestamp assumes IDS_KEY matches the key used at generation; a wrong key 
 IDS_WRAPPING_KEY=<hex-or-base64url-key> npx @smonn/ids inspect ord_… --wrapped --kind u64
 ```
 
-`--wrapped` output uses four labels:
+`--wrapped` output uses five labels:
 
 ```
 brand:      ord
 lookup-key: 12345
 canonical:  ord_…
+uuid:       xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 input:      canonical
 ```
 
@@ -101,6 +104,7 @@ usr_…
 | `--reverse`          | Reverse Timestamp | —                 | Newest-first sort order                                                                                                                                                                                                                                         |
 | `--signed`           | Signed Timestamp  | `IDS_SIGNING_KEY` | Same env var and format rules as `inspect --signed`                                                                                                                                                                                                             |
 | `--digest --ns <ns>` | Digest            | `IDS_DIGEST_KEY`  | Reads material from stdin; `--ns` (non-secret namespace) required. Key format set by `IDS_DIGEST_KEY_FORMAT` or `--key-format`. Same `(material, ns, key)` always produces the same ID. `--count N > 1` is rejected: same material always produces the same ID. |
+| `--uuid`             | (any)             | —                 | Emits the raw UUID form of each generated ID instead of the canonical `Id<Brand>`                                                                                                                                                                               |
 
 Flags: `--count` / `-c N` (default 1, max 10000); `--key-format hex|base64url`.
 
@@ -162,7 +166,7 @@ command line wins. Key-format env vars do not affect `keygen` — only
 ### Mutually exclusive codec-selector flags
 
 Codec-selector flags (`--opaque`, `--reverse`, `--wrapped`, `--signed`, `--digest`) are
-mutually exclusive. Combining any two exits 1 and prints to stderr:
+mutually exclusive. Combining any two exits 2 and prints to stderr:
 
 ```
 cannot use --signed and --opaque together
@@ -172,7 +176,7 @@ cannot use --signed and --opaque together
 
 | Situation                                   | stderr message                                                                       | Exit |
 | ------------------------------------------- | ------------------------------------------------------------------------------------ | ---- |
-| Unknown flag                                | `unsupported flag: <flag>`                                                           | 1    |
-| Known flag not supported by this subcommand | `unsupported flag for <cmd>: <flag>`                                                 | 1    |
-| Same flag passed more than once             | `duplicate flag: <flag>`                                                             | 1    |
-| `--digest` with `--count N > 1`             | `--count N > 1 is rejected with --digest: same material always produces the same ID` | 1    |
+| Unknown flag                                | `unsupported flag: <flag>`                                                           | 2    |
+| Known flag not supported by this subcommand | `unsupported flag for <cmd>: <flag>`                                                 | 2    |
+| Same flag passed more than once             | `duplicate flag: <flag>`                                                             | 2    |
+| `--digest` with `--count N > 1`             | `--count N > 1 is rejected with --digest: same material always produces the same ID` | 2    |

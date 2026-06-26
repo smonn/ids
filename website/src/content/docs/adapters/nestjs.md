@@ -68,6 +68,8 @@ Unlike Hono or Express, `PipeTransform.transform` receives only the raw value an
 response inline.
 
 ```ts
+import { UnprocessableEntityException } from "@nestjs/common";
+
 const pipe = new ParseIdPipe(usr, {
   onError: (failure) => {
     throw new UnprocessableEntityException(`ID invalid: ${failure.reason}`);

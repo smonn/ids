@@ -37,6 +37,6 @@ If a tool complains about a file under one of these dirs (e.g. a formatter or ho
 
 Write Markdown prose **soft-wrapped**: one source line per paragraph, with no hard line breaks mid-paragraph — let the editor/renderer wrap. Do not manually break a paragraph across multiple source lines at a fixed column. This applies to all `.md`/`.mdx` files in the repo (the same rule covers prose inside list items and blockquotes).
 
-This is enforced statically by oxfmt: `.oxfmtrc.json` sets `proseWrap: "never"` for Markdown, and CI runs `pnpm fmt:check`. Run `pnpm fmt` (`oxfmt --write`) to reflow before committing. A `PostToolUse` hook (`.claude/hooks/markdown-softwrap.mjs`) also re-checks any Markdown you write or edit and asks you to reflow if it drifts.
+This is enforced statically by oxfmt: `.oxfmtrc.json` sets `proseWrap: "never"` for Markdown, and CI runs `pnpm fmt:check`. Run `pnpm fmt` (`oxfmt`) to reflow before committing. A `PostToolUse` hook (`.claude/hooks/markdown-softwrap.mjs`) also re-checks any Markdown you write or edit and asks you to reflow if it drifts.
 
 The Starlight docs site under `website/` is the one exception: oxfmt's CommonMark/GFM formatter corrupts Starlight `:::` container directives (asides), so `website/**` is excluded from the `proseWrap` override and keeps oxfmt's default `preserve`. Don't add the soft-wrap override to `website/`.

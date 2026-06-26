@@ -6,6 +6,8 @@ The **Signed Timestamp codec** keeps the 6-byte millisecond timestamp **readable
 
 This is the design-acceptance gate (issue [#100](https://github.com/smonn/ids/issues/100), modeled on the [#60](https://github.com/smonn/ids/issues/60) → [#61](https://github.com/smonn/ids/issues/61) Wrapped key precedent); implementation is the separate blocked [#106](https://github.com/smonn/ids/issues/106).
 
+> **Correction (2026-06-26):** the Signed Timestamp codec has shipped. `createSignedTimestampId` and `importSigningKey` are available on `@smonn/ids/signed`; the README documents the full API including `verify`, `safeVerify`, and the signing keyring. The construction described here is unchanged.
+
 ## Byte layout
 
 Decoding the 16-byte **Payload** yields:
@@ -100,4 +102,7 @@ It is **wire-indistinguishable** from the Timestamp, Reverse Timestamp, and Opaq
 - `verify` throws the existing `verification_failed` `IdsError` code — no addition to the `IdsErrorCode` union ([ADR-0011](./0011-coded-ids-error.md)).
 - `CONTEXT.md` promotes **Signed Timestamp codec** to a concrete timestamp-family variant and adds **Signing key** / **Signing keyring**.
 - Implementation (#106), consumer docs + the README "choosing a codec variant" row (#116), CLI `--signed` (#113), and bench coverage (#120) follow this acceptance. The README consumer tables are intentionally left untouched until the codec ships (#116) so consumers are not pointed at an unbuildable `@smonn/ids/signed` import.
+
+  > **Correction (2026-06-26):** the codec has shipped; the README consumer tables and "choosing a codec variant" row were updated when `@smonn/ids/signed` landed.
+
 - A future variant could split the tail budget differently (e.g. a larger tag where same-ms volume is known to be low), but would need its own tag-budget analysis and ADR.

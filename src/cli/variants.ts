@@ -254,6 +254,7 @@ export const digestVariant: GeneratorDescriptor = {
       const codec = createDigestId(brand, { ns, key: key as DigestKey, allowDuplicateBrand: true });
       return {
         safeParse: (v: unknown) => codec.safeParse(v),
+        toUUID: (id: string) => codec.toUUID(id as Id<typeof brand>),
         async generate(): Promise<string> {
           const reader = opts.readStdin ?? (() => Promise.resolve(""));
           const material = await reader();
@@ -280,13 +281,13 @@ export const conflictPriorityOrder: readonly Descriptor[] = [
 export const generatePolicy: GeneratePolicy = {
   default: timestampVariant,
   selectable: [opaqueVariant, reverseVariant, signedVariant, digestVariant],
-  intrinsicFlags: ["--count", "-c"],
+  intrinsicFlags: ["--count", "-c", "--uuid"],
 };
 
 export const inspectPolicy: Policy = {
   default: timestampVariant,
   selectable: [reverseVariant, wrappedVariant, opaqueVariant, signedVariant],
-  intrinsicFlags: [],
+  intrinsicFlags: ["--from-uuid", "--brand"],
 };
 
 export const keygenPolicy: Policy = {
