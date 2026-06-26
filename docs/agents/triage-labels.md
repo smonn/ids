@@ -1,5 +1,7 @@
 # Triage Labels
 
+> **Planned migration.** This file documents the **current** flat label set. A namespaced `namespace:value` taxonomy (`issue:`, `pr:`, `type:`, `size:`, `codec:`, `area:`, `changeset:`, `released:`, `do:*`, …) has been accepted in [ADR-0029](../adr/0029-namespaced-label-taxonomy.md) and [ADR-0030](../adr/0030-label-status-vs-triggers.md), with implementation deferred to follow-up issues. Until those phases land, the flat labels below remain authoritative; the ADRs describe what they migrate to (e.g. `ready-for-agent` → `issue:ready-agent` status plus a `do:implement` trigger).
+
 The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
 
 | Label in mattpocock/skills | Label in our tracker | Meaning                                  |
