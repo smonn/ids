@@ -3,7 +3,6 @@
   "ignorePatterns": [
     ".claude/**",
     ".impl-context/**",
-    ".impl/**",
     ".address-context/**",
     ".address/**",
     ".review-context/**"
