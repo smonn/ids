@@ -5,5 +5,15 @@
     "@smonn/ids": "0.15.0",
     "@smonn/ids-website": "0.0.0"
   },
-  "changesets": []
+  "changesets": [
+    "drizzle-mikroorm-column-type",
+    "drizzle-mysql-sqlite-dialects",
+    "idquery-web-adapters",
+    "ids-opaque-key-rename",
+    "kysely-idplugin",
+    "nullable-orm-adapters",
+    "opaque-hkdf-aes256",
+    "prisma-default-query",
+    "prisma-id-field-read-only"
+  ]
 }
