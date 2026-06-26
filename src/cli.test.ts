@@ -37,6 +37,7 @@ async function runCapture(
     now?: () => number;
     rng?: (target: Uint8Array) => void;
     env?: Readonly<Record<string, string | undefined>>;
+    readStdin?: () => Promise<string>;
   } = {},
 ): Promise<Capture> {
   let stdout = "";
@@ -52,6 +53,7 @@ async function runCapture(
     now: opts.now ?? (() => 0x123456789abc),
     rng: opts.rng ?? ((target) => target.fill(0x00)),
     ...(opts.env !== undefined ? { env: opts.env } : {}),
+    ...(opts.readStdin !== undefined ? { readStdin: opts.readStdin } : {}),
   });
   return { stdout, stderr, exitCode };
 }
@@ -2310,24 +2312,14 @@ describe("cli exit code contract", () => {
     expect(result.stdout).toContain("2");
   });
 
-  // run() currently has no top-level try/catch — an unexpected throw escapes as an
-  // unhandled rejection. This it.fails documents the desired behavior: any unexpected
-  // throw should map to exit 1. Remove it.fails once a top-level try/catch is added
-  // to src/cli/index.ts.
-  it.fails("an unexpected throw (e.g. throwing readStdin) maps to exit 1, not an unhandled rejection", async () => {
-    let stderr = "";
-    const exitCode = await run({
-      argv: ["generate", "idk", "--digest", "--ns", "test"],
-      stdout: () => {},
-      stderr: (s) => {
-        stderr += s;
-      },
-      readStdin: () => {
-        throw new Error("simulated readStdin failure");
-      },
+  it("unexpected throw escaping a command handler maps to exit 1", async () => {
+    const result = await runCapture(["generate", "idk", "--digest", "--ns", "test"], {
       env: { IDS_DIGEST_KEY: testDigestKeyHex },
+      readStdin: () => {
+        throw new Error("boom");
+      },
     });
-    expect(exitCode).toBe(1);
-    expect(stderr).toBeTruthy();
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBeTruthy();
   });
 });
