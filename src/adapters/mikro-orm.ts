@@ -26,7 +26,7 @@ export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
  * Timestamp codec** qualify; Opaque, Signed, Wrapped, and Digest codecs cannot
  * be passed here.
  *
- * Spread the result into a `@Property()` decorator options object:
+ * Pass the result as options to `@PrimaryKey()` (the typical case for auto-generated primary keys) or any other MikroORM property decorator:
  *
  * @example
  * ```ts
