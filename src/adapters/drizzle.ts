@@ -263,6 +263,7 @@ export function generatedIdColumn<Brand extends string>(
  * Wrapped, and Digest codecs are a compile-time error.
  *
  * @param codec - The brand-scoped codec used to generate and parse values.
+ *   Column type is always `text` and cannot be overridden.
  *
  * @example
  * ```ts
@@ -311,6 +312,7 @@ export function generatedIdColumnMysql<Brand extends string>(
  * Wrapped, and Digest codecs are a compile-time error.
  *
  * @param codec - The brand-scoped codec used to generate and parse values.
+ *   Column type is always `text` and cannot be overridden.
  *
  * @example
  * ```ts
