@@ -31,7 +31,7 @@ const xprisma = prisma.$extends({
 await xprisma.user.create({ data: { id: userIdField.write(usr.generate()), name: "Alice" } });
 ```
 
-`idField(codec)` requires `IdGeneratingCodec` — a codec variant exposing a synchronous `generate()`. Only the **Timestamp codec** and **Reverse Timestamp codec** satisfy this constraint; the Opaque, Signed, Wrapped, and Digest codecs do not expose a synchronous `generate()` and cannot be passed to `idField()` at all.
+`idField(codec)` requires `IdGeneratingCodec` — a codec variant exposing a synchronous `generate()`. Only the **Timestamp codec** and **Reverse Timestamp codec** satisfy this constraint; the Opaque, Signed, Wrapped, and Digest codecs do not expose a synchronous `generate()` and cannot be passed to `idField()`. For those codecs, use [`idFieldReadOnly`](#read-only-path-for-non-generating-codecs-idFieldReadOnly) instead.
 
 - **Write path:** `write` is an identity function — `Id<Brand>` is already canonical.
 - **Read path:** values are normalised via `codec.safeParse()`. An unrecognised value throws at read time so corrupt data surfaces immediately.
@@ -65,6 +65,30 @@ The schema keeps a plain `String @id` with no `@default(…)`; the extension sup
 - **`upsert`** — injects into `args.create` (the new-row data) when the field is absent or `null`; the `update` side is left unchanged.
 
 An explicitly supplied value is always passed through unchanged. `update` and `updateMany` are never intercepted — they never create new rows.
+
+## Read-only path for non-generating codecs — `idFieldReadOnly`
+
+Codecs that do not expose a synchronous `generate()` — the **Opaque Timestamp**, **Signed Timestamp**, **Wrapped key**, and **Digest** codecs — cannot be passed to `idField()`. Use `idFieldReadOnly` for those variants. It accepts any `IdColumnCodec` (only `safeParse` is required) and returns the same read/transform surface as `idField` minus `defaultQuery`:
+
+```ts
+import { idFieldReadOnly } from "@smonn/ids/prisma";
+import { createOpaqueTimestampId, importOpaqueKey } from "@smonn/ids/opaque";
+
+const key = await importOpaqueKey(rawKeyBytes);
+const inv = createOpaqueTimestampId("inv", { key });
+const invoiceIdField = idFieldReadOnly(inv);
+
+const xprisma = prisma.$extends({
+  result: {
+    invoice: { id: invoiceIdField.computeField("id") },
+  },
+});
+// xprisma.invoice.findUnique(…).id is typed as Id<"inv"> — no cast required
+```
+
+`idFieldReadOnly` returns `read`, `readNullable`, `write`, `computeField`, and `computeNullableField` — identical in behaviour to their `idField` counterparts. It does **not** return `defaultQuery`; that method requires `generate()`, which these codecs do not provide. The omission is enforced at the TypeScript type level: the return type is `Omit<IdTransform<Brand>, "defaultQuery">`.
+
+If you need `defaultQuery` (auto-generating IDs on `create`/`createMany`/`upsert`), use `idField` with a Timestamp or Reverse Timestamp codec instead.
 
 ## Error handling
 
