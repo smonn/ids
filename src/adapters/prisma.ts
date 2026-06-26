@@ -7,6 +7,17 @@ export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 export type { IdColumnCodec };
 
 /**
+ * Typed `$extends` result-component field definition produced by
+ * {@link IdTransform.computeField} — a `{ needs, compute }` pair whose `compute`
+ * return type is statically `Id<Brand>`, so the extended-client model field is
+ * typed correctly without a per-call-site cast.
+ */
+export type IdComputeField<Brand extends string> = {
+  needs: Record<string, boolean>;
+  compute: (model: Record<string, unknown>) => Id<Brand>;
+};
+
+/**
  * Read/write transform pair and `$extends` result-component factory for
  * integrating `Id<Brand>` with Prisma extensions.
  */
@@ -30,8 +41,8 @@ export type IdTransform<Brand extends string> = {
    * `Id<Brand>` through Prisma's type machinery without a per-call-site cast.
    *
    * @param fieldName - The model field to read from (e.g. `"id"`).
-   * @returns A `{ needs, compute }` object whose `compute` return type is
-   * statically `Id<Brand>`, so the extended-client model field is typed correctly.
+   * @returns An {@link IdComputeField} whose `compute` return type is statically
+   * `Id<Brand>`, so the extended-client model field is typed correctly.
    *
    * @example
    * ```ts
@@ -43,10 +54,7 @@ export type IdTransform<Brand extends string> = {
    * // xprisma.user.findUnique(…).id is typed as Id<"usr"> — no cast required
    * ```
    */
-  computeField(fieldName: string): {
-    needs: Record<string, boolean>;
-    compute: (model: Record<string, unknown>) => Id<Brand>;
-  };
+  computeField(fieldName: string): IdComputeField<Brand>;
 };
 
 /**

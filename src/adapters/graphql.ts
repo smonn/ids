@@ -3,6 +3,9 @@ import type { ValueNode } from "graphql";
 import type { IdCodec } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
+/** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
+export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
+
 /**
  * Builds a `GraphQLScalarType` for the given codec and brand.
  *
