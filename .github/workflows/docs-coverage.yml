@@ -1,0 +1,78 @@
+name: Docs coverage
+
+# Advisory nudge: when a PR changes source whose hand-written website page
+# (website/src/content/docs/**) was NOT updated in the same diff, post a sticky
+# comment listing the pages that may need attention. The slice architecture
+# gives a near 1:1 source↔docs mapping (see check-docs-coverage.sh); the TypeDoc
+# API reference regenerates itself, so only the narrative pages are mapped.
+#
+# This NEVER blocks merge — it exists because automation implementations tend to
+# update README/CONTEXT.md and forget the website. The job always succeeds; the
+# signal is the comment, not a failing check.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write # post / update the advisory comment
+
+jobs:
+  docs-coverage:
+    # Skip fork PRs: their token is read-only, so the comment step would fail and
+    # the slice-mirroring convention only applies to same-repo (incl. automation)
+    # branches anyway.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Map changed source to website docs
+        id: map
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPORT_FILE: ${{ runner.temp }}/docs-coverage.md
+        run: |
+          set -euo pipefail
+          CHANGED=$(gh pr diff "$PR_NUMBER" --repo "$GH_REPO" --name-only)
+          export CHANGED REPORT_FILE
+          bash .github/scripts/check-docs-coverage.sh
+
+      - name: Post or update advisory comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPORT_FILE: ${{ runner.temp }}/docs-coverage.md
+          GAPS: ${{ steps.map.outputs.gaps }}
+        run: |
+          set -euo pipefail
+          marker='<!-- docs-coverage -->'
+          # Find a prior advisory comment by its hidden marker so we update in
+          # place instead of posting a fresh comment on every push.
+          existing=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq "[.[] | select(.body | contains(\"$marker\"))][0].id" 2>/dev/null || true)
+
+          if [ "${GAPS:-0}" -gt 0 ]; then
+            if [ -n "$existing" ] && [ "$existing" != "null" ]; then
+              gh api -X PATCH "repos/$GH_REPO/issues/comments/$existing" -F body=@"$REPORT_FILE" >/dev/null
+              echo "Updated advisory comment $existing ($GAPS gap(s))."
+            else
+              gh pr comment "$PR_NUMBER" --repo "$GH_REPO" --body-file "$REPORT_FILE"
+              echo "Posted advisory comment ($GAPS gap(s))."
+            fi
+          elif [ -n "$existing" ] && [ "$existing" != "null" ]; then
+            # Gaps were resolved: collapse the stale advisory rather than leave it
+            # showing a list that no longer applies.
+            printf '%s\n\n✅ Website docs coverage looks complete for the current diff.\n' "$marker" \
+              | gh api -X PATCH "repos/$GH_REPO/issues/comments/$existing" -F body=@- >/dev/null
+            echo "Cleared resolved advisory comment $existing."
+          else
+            echo "No gaps and no prior comment; nothing to post."
+          fi

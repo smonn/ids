@@ -25,6 +25,7 @@
 - [ ] Wire format or Byte layout:
 - [ ] CLI behavior:
 - [ ] README or other docs:
+- [ ] Website docs (`website/src/content/docs/` — adapters/codecs/CLI/errors pages):
 - [ ] CONTEXT.md domain vocabulary:
 - [ ] ADR needed or updated:
 

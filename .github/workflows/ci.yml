@@ -85,6 +85,15 @@ jobs:
 
       - run: pnpm build
 
+      # Build the docs site so a change that breaks the Starlight build or a
+      # TypeDoc entry point fails on the PR, not after merge in docs.yml. Gated
+      # to one matrix leg — the site is Node-agnostic and reuses the dist/ just
+      # built above (the playground imports @smonn/ids through the workspace
+      # link, which resolves to ./dist via the package exports).
+      - name: Build docs site
+        if: matrix.node-version == 24
+        run: pnpm --filter @smonn/ids-website build
+
       # Validate the published package shape against a packed tarball: attw
       # (esm-only profile) catches type-resolution regressions and publint
       # catches packaging errors. Runs after build since it inspects dist/.
