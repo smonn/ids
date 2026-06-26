@@ -88,7 +88,17 @@ export default defineConfig({
             { label: "Digest", link: "/codecs/digest/" },
           ],
         },
-        { label: "Validation", link: "/validation/" },
+        {
+          // "Validation" holds two pages: the reference for the universal
+          // surfaces, and the framework-integration recipes that ride on them
+          // (tRPC, oRPC, TanStack, Zod, Next, …) — libraries trivial enough to
+          // need no dedicated adapter slice.
+          label: "Validation & integrations",
+          items: [
+            { label: "Standard Schema & JSON Schema", link: "/validation/" },
+            { label: "Framework integrations", link: "/validation/integrations/" },
+          ],
+        },
         { label: "Playground", link: "/playground/" },
         {
           // Split into nested groups so the sidebar shows a divider (group
