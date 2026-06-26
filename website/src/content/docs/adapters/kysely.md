@@ -118,7 +118,7 @@ try {
 Pair it with `NullableIdColumnType<Brand>` in your `Database` interface:
 
 ```ts
-import { nullableIdColumn, type NullableIdColumnType } from "@smonn/ids/kysely";
+import { nullableIdColumn, type IdColumnType, type NullableIdColumnType } from "@smonn/ids/kysely";
 import { createTimestampId } from "@smonn/ids";
 
 const usr = createTimestampId("usr");
