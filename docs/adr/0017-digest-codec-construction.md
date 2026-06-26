@@ -60,14 +60,14 @@ Per-material salting/peppering is rejected: a salt makes the map non-determinist
 
 ## How it differs from the other keyed codecs
 
-|                  | Digest                           | Wrapped key                 | Signed Timestamp            |
-| ---------------- | -------------------------------- | --------------------------- | --------------------------- |
-| Capability       | one-way (irreversible)           | reversible tokenization     | integrity over plaintext    |
-| Reverse path     | none (`digest` only)             | `unwrap`                    | `verify`                    |
-| Payload          | `HMAC(brand‖ns‖material)[0..16)` | `enc(lane8 ‖ tag8)`         | `ts6 ‖ rand5 ‖ tag5`        |
-| Verification tag | none (whole payload is output)   | 64-bit, in payload          | 40-bit, in payload          |
-| Key model        | **single key, no keyring**       | keyring (trial on `unwrap`) | keyring (trial on `verify`) |
-| Determinism      | yes (equality leakage)           | yes (equality leakage)      | no (random tail)            |
+|  | Digest | Wrapped key | Signed Timestamp |
+| --- | --- | --- | --- |
+| Capability | one-way (irreversible) | reversible tokenization | integrity over plaintext |
+| Reverse path | none (`digest` only) | `unwrap` | `verify` |
+| Payload | `HMAC(brand‖ns‖material)[0..16)` | `enc(lane8 ‖ tag8)` | `ts6 ‖ rand5 ‖ tag5` |
+| Verification tag | none (whole payload is output) | 64-bit, in payload | 40-bit, in payload |
+| Key model | **single key, no keyring** | keyring (trial on `unwrap`) | keyring (trial on `verify`) |
+| Determinism | yes (equality leakage) | yes (equality leakage) | no (random tail) |
 
 It is **wire-indistinguishable** from every other codec ([ADR-0007](./0007-wire-indistinguishable-codec-variants.md)): `<brand>_` + 26 base32 chars over a 16-byte payload. The brand registry warns on cross-codec reuse in dev.
 

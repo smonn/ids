@@ -56,46 +56,21 @@ Run `gh issue view <number> --comments`.
 
 ## Authoring issues for the agent pipeline
 
-When filing findings (e.g. from an audit) as issues, the issue body is the steering wheel:
-`triage.yml` reads it and routes to `ready-for-agent` / `ready-for-human` / `wontfix` /
-`needs-info`, and `ready-for-agent` chains into `implement.yml`, which builds the change
-test-first and opens the PR. You do not set lifecycle labels (see the prohibition above); you
-make triage route correctly by how you write the issue.
+When filing findings (e.g. from an audit) as issues, the issue body is the steering wheel: `triage.yml` reads it and routes to `ready-for-agent` / `ready-for-human` / `wontfix` / `needs-info`, and `ready-for-agent` chains into `implement.yml`, which builds the change test-first and opens the PR. You do not set lifecycle labels (see the prohibition above); you make triage route correctly by how you write the issue.
 
 **Don't restate what already owns these rules — link to them and follow them:**
 
-- **Routing rubric** (agent vs human, the CLOSED-decisions list, and the rule that any change
-  touching `.github/workflows/*` is forced to `ready-for-human` because the implement agent's
-  App token lacks `workflows` permission) lives in the `triage.yml` job prompt.
-- **Issue fields** — motivation, desired behavior, the `Out of scope / non-goals` fence, codec
-  variant, affected surface, the agent-readiness self-check — live in the issue templates under
-  `.github/ISSUE_TEMPLATE/`. Use them.
-- **`Blocked by #N` syntax, the lifecycle-label prohibition, and `gh` mechanics** are above in
-  this file and in `AGENTS.md`.
+- **Routing rubric** (agent vs human, the CLOSED-decisions list, and the rule that any change touching `.github/workflows/*` is forced to `ready-for-human` because the implement agent's App token lacks `workflows` permission) lives in the `triage.yml` job prompt.
+- **Issue fields** — motivation, desired behavior, the `Out of scope / non-goals` fence, codec variant, affected surface, the agent-readiness self-check — live in the issue templates under `.github/ISSUE_TEMPLATE/`. Use them.
+- **`Blocked by #N` syntax, the lifecycle-label prohibition, and `gh` mechanics** are above in this file and in `AGENTS.md`.
 
 **What this section adds (not encoded elsewhere):**
 
-1. **"Ready-for-human" means resolved in-session with the maintainer**, who holds full
-   permissions (including `workflows`) — not a hand-off that blocks until someone does manual
-   work. So a finding that must edit a workflow file is done in a working session like this one,
-   not by the autonomous pipeline.
+1. **"Ready-for-human" means resolved in-session with the maintainer**, who holds full permissions (including `workflows`) — not a hand-off that blocks until someone does manual work. So a finding that must edit a workflow file is done in a working session like this one, not by the autonomous pipeline.
 
 2. **Slice for the pipeline, not just for humans:**
-   - **One issue per finding by default**, each sized to finish in a single `implement.yml`
-     turn. Prefer small: a fat "roundup" can exhaust an implementing agent's turn budget and
-     mixes unrelated diffs. Trivial one-line _doc_ fixes may be batched into one roundup.
-   - **Make each issue's file set disjoint.** `implement.yml` opens one PR per issue and they
-     run in parallel; multiple PRs editing the same file conflict and churn `rebase.yml`.
-     So when several findings touch the same file, **group sub-findings by the file they
-     touch** (e.g. all `reverse/index.test.ts` work in one issue) rather than by finding type.
-     A cross-file fix that would otherwise collide with several issues should be _dissolved
-     into_ those per-file issues, or chained ahead of them with `Blocked by #N`.
-   - **Resolve embedded design decisions before filing as `ready-for-agent`.** If a finding has
-     a genuine trade-off, either decide the direction and bake it into the acceptance criteria
-     (with the rejected option in `Out of scope`), or file it as a maintainer-decision issue
-     that presents the trade-off without prescribing an answer. Never leave an implementing
-     agent to guess — and never file something that reopens a CLOSED decision as agent-ready.
+   - **One issue per finding by default**, each sized to finish in a single `implement.yml` turn. Prefer small: a fat "roundup" can exhaust an implementing agent's turn budget and mixes unrelated diffs. Trivial one-line _doc_ fixes may be batched into one roundup.
+   - **Make each issue's file set disjoint.** `implement.yml` opens one PR per issue and they run in parallel; multiple PRs editing the same file conflict and churn `rebase.yml`. So when several findings touch the same file, **group sub-findings by the file they touch** (e.g. all `reverse/index.test.ts` work in one issue) rather than by finding type. A cross-file fix that would otherwise collide with several issues should be _dissolved into_ those per-file issues, or chained ahead of them with `Blocked by #N`.
+   - **Resolve embedded design decisions before filing as `ready-for-agent`.** If a finding has a genuine trade-off, either decide the direction and bake it into the acceptance criteria (with the rejected option in `Out of scope`), or file it as a maintainer-decision issue that presents the trade-off without prescribing an answer. Never leave an implementing agent to guess — and never file something that reopens a CLOSED decision as agent-ready.
 
-3. **Durable audit findings go in `docs/audits/<name>-<date>.md`** as a dated, point-in-time
-   snapshot — non-authoritative, superseded once issues are filed, and free of invented issue
-   numbers so it can't rot against GitHub.
+3. **Durable audit findings go in `docs/audits/<name>-<date>.md`** as a dated, point-in-time snapshot — non-authoritative, superseded once issues are filed, and free of invented issue numbers so it can't rot against GitHub.

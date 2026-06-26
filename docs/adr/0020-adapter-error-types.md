@@ -10,13 +10,13 @@ The divergence was first observed during the review of PR #407 (the GraphQL adap
 
 The transport-layer adapters inject into the framework's error pipeline using framework-native types:
 
-| Adapter      | Error type                                                             | Mechanism                                                                                                        |
-| ------------ | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `hono.ts`    | `HTTPException` (Hono)                                                 | thrown; caught by `app.onError`                                                                                  |
-| `express.ts` | `IdParamError extends Error` (adapter-defined)                         | forwarded via `next(err)` to Express error-handling middleware                                                   |
-| `fastify.ts` | `IdParamError extends Error` (adapter-defined)                         | thrown; caught by `fastify.setErrorHandler`                                                                      |
-| `nestjs.ts`  | `NotFoundException` / `BadRequestException` / `HttpException` (NestJS) | thrown from `PipeTransform.transform`; caught by NestJS exception filters                                        |
-| `graphql.ts` | `GraphQLError` (GraphQL)                                               | thrown from scalar `parseValue` / `parseLiteral`; surfaced in the `errors` array by the GraphQL execution engine |
+| Adapter | Error type | Mechanism |
+| --- | --- | --- |
+| `hono.ts` | `HTTPException` (Hono) | thrown; caught by `app.onError` |
+| `express.ts` | `IdParamError extends Error` (adapter-defined) | forwarded via `next(err)` to Express error-handling middleware |
+| `fastify.ts` | `IdParamError extends Error` (adapter-defined) | thrown; caught by `fastify.setErrorHandler` |
+| `nestjs.ts` | `NotFoundException` / `BadRequestException` / `HttpException` (NestJS) | thrown from `PipeTransform.transform`; caught by NestJS exception filters |
+| `graphql.ts` | `GraphQLError` (GraphQL) | thrown from scalar `parseValue` / `parseLiteral`; surfaced in the `errors` array by the GraphQL execution engine |
 
 The shared `resolveIdParamFailure` helper in `adapter-types.ts` translates a `ParseError` into `{ reason, status }` for the web adapters (Hono, Express, Fastify, NestJS). The GraphQL adapter has no HTTP status concept and maps directly to `GraphQLError`.
 
@@ -58,11 +58,9 @@ The `invalid_id` code also aligns with ADR-0011's one-vocabulary rule: `invalid_
 
 ## Guidance for future adapter authors
 
-**Is this adapter injecting into a framework error pipeline (HTTP, GraphQL, WebSocket, RPC)?**
-→ Use the framework-native error type. Never throw `IdsError` on the transport path.
+**Is this adapter injecting into a framework error pipeline (HTTP, GraphQL, WebSocket, RPC)?** → Use the framework-native error type. Never throw `IdsError` on the transport path.
 
-**Is this adapter processing a library-internal value at a data-layer boundary (ORM read, database driver, message-queue deserializer)?**
-→ Use `IdsError("invalid_id")` — preferably via `readIdColumn` or a shared helper that follows the same pattern — so callers can catch and discriminate errors using the library's stable error vocabulary. See [ADR-0011](./0011-coded-ids-error.md) for the full `IdsErrorCode` union and catch patterns.
+**Is this adapter processing a library-internal value at a data-layer boundary (ORM read, database driver, message-queue deserializer)?** → Use `IdsError("invalid_id")` — preferably via `readIdColumn` or a shared helper that follows the same pattern — so callers can catch and discriminate errors using the library's stable error vocabulary. See [ADR-0011](./0011-coded-ids-error.md) for the full `IdsErrorCode` union and catch patterns.
 
 The boundary test is: does the error need to be recognized by a framework's error-handling pipeline to produce a correct protocol-level response? If yes, use the framework's native type. If no, use `IdsError`.
 

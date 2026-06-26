@@ -55,17 +55,17 @@ Each `layouts/<variant>.ts` exports a single binder — `createTimestampLayoutOp
 
 ### Responsibilities
 
-| Module                    | Role                                                                                                                                                                                                                                                                                                                                   |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wire/invariants.ts`      | Shared wire constants (`payloadByteLength`, `payloadBase32Length`, `base32CharClass`)                                                                                                                                                                                                                                                  |
-| `wire/parse.ts`           | Canonical normalization at the boundary (`safeParse`, `is`); Standard Schema validate                                                                                                                                                                                                                                                  |
-| `wire/envelope.ts`        | Payload ↔ base32; `toWireId` / `payloadBytesFromId` (trust-the-type)                                                                                                                                                                                                                                                                   |
-| `wire/timestamp-bytes.ts` | 6-byte big-endian ms read/write; partial base32 suffix decode for timestamp extraction                                                                                                                                                                                                                                                 |
-| `wire/codec-shell.ts`     | `wireMethods(prefix)` — wire surface shared by all variants                                                                                                                                                                                                                                                                            |
-| `layouts/timestamp.ts`    | `createTimestampLayoutOps` — scratch buffer, generate/extract/min/max/exampleWireId                                                                                                                                                                                                                                                    |
-| `layouts/opaque.ts`       | `createOpaqueLayoutOps` — AES-CBC encrypt/decrypt; builds plaintext via `wire/timestamp-bytes`                                                                                                                                                                                                                                         |
-| `key-material.ts`         | Key-material leaf — shared format/length validation, hex/base64url encode/decode, and keyring non-emptiness/duplicate-entry assertion helpers, all parameterized by noun; imported only by `opaque-key.ts`, `wrapping-key.ts`, `signing-key.ts` (the per-codec key-handle modules imported by codec constructors, not by CLI commands) |
-| `adapter-types.ts`        | Shared web-adapter type hub — exports `IdParamFailure` discriminated union and the shared read helper `readIdColumn`; see ADR-0018 for the current adapter inventory; imports from `types.ts` and `error.ts`                                                                                                                           |
+| Module | Role |
+| --- | --- |
+| `wire/invariants.ts` | Shared wire constants (`payloadByteLength`, `payloadBase32Length`, `base32CharClass`) |
+| `wire/parse.ts` | Canonical normalization at the boundary (`safeParse`, `is`); Standard Schema validate |
+| `wire/envelope.ts` | Payload ↔ base32; `toWireId` / `payloadBytesFromId` (trust-the-type) |
+| `wire/timestamp-bytes.ts` | 6-byte big-endian ms read/write; partial base32 suffix decode for timestamp extraction |
+| `wire/codec-shell.ts` | `wireMethods(prefix)` — wire surface shared by all variants |
+| `layouts/timestamp.ts` | `createTimestampLayoutOps` — scratch buffer, generate/extract/min/max/exampleWireId |
+| `layouts/opaque.ts` | `createOpaqueLayoutOps` — AES-CBC encrypt/decrypt; builds plaintext via `wire/timestamp-bytes` |
+| `key-material.ts` | Key-material leaf — shared format/length validation, hex/base64url encode/decode, and keyring non-emptiness/duplicate-entry assertion helpers, all parameterized by noun; imported only by `opaque-key.ts`, `wrapping-key.ts`, `signing-key.ts` (the per-codec key-handle modules imported by codec constructors, not by CLI commands) |
+| `adapter-types.ts` | Shared web-adapter type hub — exports `IdParamFailure` discriminated union and the shared read helper `readIdColumn`; see ADR-0018 for the current adapter inventory; imports from `types.ts` and `error.ts` |
 
 ## Consequences
 
