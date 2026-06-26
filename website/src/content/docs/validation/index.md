@@ -72,9 +72,10 @@ const r = Body({ userId: "USR_06F80Z92D2DBSQQG28T5CY4TQG" });
 // → { userId: "usr_06f80z92d2dbsqqg28t5cy4tqg" } typed as { userId: Id<"usr"> }
 ```
 
-The same pattern works with Valibot, tRPC, and any other library that reads the
-`~standard` property. Consult each library's Standard Schema integration docs
-for its exact syntax.
+The same pattern works with any library that **consumes** a Standard Schema
+validator — tRPC, oRPC, TanStack, and others. Libraries that only **produce**
+Standard Schema (Zod, Valibot) need a small wrapper instead. See
+[Framework integrations](/validation/integrations/) for a per-library guide.
 
 ### Direct use
 
