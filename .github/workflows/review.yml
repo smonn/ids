@@ -462,12 +462,23 @@ jobs:
           repair_body() {
             f=$1
             [ -f "$f" ] || return 0
+            before=$(cat "$f")
+            # Backslash-escaped markdown metacharacters (\<, \>, \[, \], \`) render
+            # identically to the bare character on GitHub and the repo convention
+            # forbids them, so strip those backslashes UNCONDITIONALLY — always safe,
+            # and it covers the common slip of escaping the `<` in the
+            # `<!-- code-review… -->` markers inside an otherwise well-formed body.
+            perl -0pi -e 's/\\([<>\[\]`])/$1/g' "$f"
+            # A literal "\n" is only turned into a real newline when the body is
+            # wholesale-escaped (it arrived as ~one physical line): the escaped-"\n"
+            # count meets or outnumbers the real newlines. That protects a legitimate
+            # "\n" inside a code span in an otherwise well-formed multi-line body.
             real=$(tr -cd '\n' < "$f" | wc -c)
-            esc=$(grep -oE '\\n|\\<|\\\[' "$f" | wc -l)
+            esc=$(grep -oE '\\n' "$f" | wc -l)
             if [ "$esc" -gt 0 ] && [ "$esc" -ge "$real" ]; then
-              perl -0pi -e 's/\\n/\n/g; s/\\([<>\[\]`])/$1/g' "$f"
-              echo "::warning::auto-repaired wholesale-escaped body $f (un-escaped \\n and \\<, \\>, \\[, \\], backtick)"
+              perl -0pi -e 's/\\n/\n/g' "$f"
             fi
+            [ "$before" = "$(cat "$f")" ] || echo "::warning::auto-repaired escaped body $f"
           }
           repair_body ".review/$summary_file"
           for bf in .review/inline/*.md; do repair_body "$bf"; done
