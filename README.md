@@ -113,6 +113,7 @@ Every codec instance exposes the following UUID interop methods in addition to t
 ## Links
 
 - **[Documentation](https://ids.smonn.se)** — full guides, API reference, and playground
+- **[SPEC.md](./SPEC.md)** — descriptive wire-format specification
 - **[Design decisions](./docs/adr/)** — recorded ADRs
 - **[CONTEXT.md](./CONTEXT.md)** — glossary of the project's vocabulary
 - **[Contributing](./CONTRIBUTING.md)** · **[Security](./SECURITY.md)**
