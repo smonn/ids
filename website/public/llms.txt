@@ -1,0 +1,47 @@
+# @smonn/ids
+
+> Public-facing branded IDs for TypeScript apps — type-safe, sortable, and codec-pluggable. Each ID looks like `usr_01h7b3k9rqxn4cw3p9r8t2sgkw`: a three-letter brand, an underscore, then 26 Crockford base32 characters of payload.
+
+The default Timestamp codec encodes a 48-bit millisecond Unix timestamp followed by 80 random bits — the same byte layout as a ULID. All six codecs share the same `<brand>_<26 chars>` wire shape but make different trade-offs (sortability, confidentiality, integrity). They are wire-indistinguishable at runtime, so codec choice is a per-brand commitment. Branded types mean `Id<"usr">` and `Id<"org">` are not interchangeable. `safeParse` is lenient on input (mixed case, Crockford visual aliases) and always returns the canonical lowercase form.
+
+Every codec implements Standard Schema v1 and exports a JSON Schema via `toJsonSchema()`. Adapters integrate codecs with common HTTP frameworks and ORMs.
+
+## Getting started
+
+- [Overview](https://ids.smonn.se/): What @smonn/ids is and why public-facing branded IDs matter.
+- [Quickstart](https://ids.smonn.se/quickstart/): Install @smonn/ids and mint your first branded, type-safe, time-sortable ID.
+- [Choosing a codec](https://ids.smonn.se/codecs/choosing/): Pick the right codec variant for sortability, confidentiality, or integrity.
+- [Playground](https://ids.smonn.se/playground/): Generate, verify, unwrap, and inspect every codec live in your browser.
+
+## Codecs
+
+- [Timestamp codec](https://ids.smonn.se/codecs/timestamp/): The default codec — plaintext, time-sortable branded IDs with lenient parsing.
+- [Reverse Timestamp codec](https://ids.smonn.se/codecs/reverse/): Newest-first sortable branded IDs for descending range scans on forward-only KV stores.
+- [Signed Timestamp codec](https://ids.smonn.se/codecs/signed/): Tamper-evident, verifiable branded IDs with a readable timestamp — ideal for share links.
+- [Opaque Timestamp codec](https://ids.smonn.se/codecs/opaque/): Branded IDs whose creation time is AES-encrypted under a key you supply.
+- [Wrapped key codec](https://ids.smonn.se/codecs/wrapped/): Wrap a u32/i32/u64/i64 integer lookup key into a verifiable public branded ID.
+- [Digest codec](https://ids.smonn.se/codecs/digest/): Map caller material to a stable public branded ID — same material always yields the same ID, and the material cannot be recovered from it.
+
+## Validation & errors
+
+- [Validation (Standard Schema & JSON Schema)](https://ids.smonn.se/validation/): Every codec implements Standard Schema v1 (`~standard`) and exports a JSON Schema via `toJsonSchema()` — both available on every variant, sync even on keyed codecs.
+- [Error handling](https://ids.smonn.se/errors/): All 11 IdsErrorCode values, both error channels, IdsError, and how to use isIdsError() to handle errors programmatically.
+
+## Adapters
+
+- [Hono adapter](https://ids.smonn.se/adapters/hono/): Validate route params against a codec in Hono.
+- [Express adapter](https://ids.smonn.se/adapters/express/): Validate route params against a codec in Express.
+- [Fastify adapter](https://ids.smonn.se/adapters/fastify/): Validate route params against a codec in Fastify.
+- [NestJS adapter](https://ids.smonn.se/adapters/nestjs/): Validate route params against a codec in a NestJS pipe.
+- [Drizzle adapter](https://ids.smonn.se/adapters/drizzle/): A Drizzle custom column type bound to a codec.
+- [Kysely adapter](https://ids.smonn.se/adapters/kysely/): A Kysely column adapter bound to a codec.
+- [MikroORM adapter](https://ids.smonn.se/adapters/mikro-orm/): A MikroORM custom Type bound to a codec.
+- [Prisma adapter](https://ids.smonn.se/adapters/prisma/): Read/write transforms for integrating Id<Brand> with Prisma's $extends model.
+- [TypeORM adapter](https://ids.smonn.se/adapters/typeorm/): Column transformer for integrating Id<Brand> with TypeORM's column transformer option.
+- [GraphQL adapter](https://ids.smonn.se/adapters/graphql/): Build a GraphQLScalarType for a codec.
+
+## Optional
+
+- [CLI](https://ids.smonn.se/cli/): Brand-agnostic inspect, generate, and keygen subcommands — no install required.
+- [API reference](https://ids.smonn.se/api/readme/): Full TypeDoc-generated API reference for every public entry point.
+- [GitHub repository](https://github.com/smonn/ids): Source code, issues, and changelog.
