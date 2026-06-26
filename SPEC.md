@@ -61,9 +61,9 @@ character class `[048cgmrw]` is the padding-bit constraint described below.
 
 | View       | Value                                    |
 | ---------- | ---------------------------------------- |
-| ID         | `usr_06fg7k8p02dbsqqg28t5cy4tqg`         |
-| Payload    | `01 9f 03 cd 16 00 9a bc de f0 12 34 56 78 9a bc` |
-| UUID       | `019f03cd-1600-9abc-def0-123456789abc`   |
+| ID         | `usr_06f80z92d2dbsqqg28t5cy4tqg`         |
+| Payload    | `01 9e 80 7d 22 68 9a bc de f0 12 34 56 78 9a bc` |
+| UUID       | `019e807d-2268-9abc-def0-123456789abc`   |
 
 ## Brand
 
@@ -195,18 +195,18 @@ implementation MUST classify rejections consistently:
 Encoding the running example's payload:
 
 ```
-payload (16 bytes):  01 9f 03 cd 16 00 9a bc de f0 12 34 56 78 9a bc
+payload (16 bytes):  01 9e 80 7d 22 68 9a bc de f0 12 34 56 78 9a bc
                      = 128 bits, big-endian
 
 128 bits + 2 zero padding bits = 130 bits = 26 × 5
 
-base32 (26 chars):   06fg7k8p02dbsqqg28t5cy4tqg
+base32 (26 chars):   06f80z92d2dbsqqg28t5cy4tqg
 ```
 
 The 26th character is `g` (alphabet value 16, divisible by 4): the encoder
 placed the final 3 payload bits in its high position and zeroed the 2 low
 padding bits, so the canonical final character falls in `[048cgmrw]`. The full
-ID is `usr_06fg7k8p02dbsqqg28t5cy4tqg`.
+ID is `usr_06f80z92d2dbsqqg28t5cy4tqg`.
 
 ## Payload
 
@@ -255,11 +255,11 @@ most-significant payload bytes and base32 encoding preserves big-endian order.
 ### Worked example 2 — Timestamp decode
 
 ```
-ID:                  usr_06fg7k8p02dbsqqg28t5cy4tqg
-payload:             01 9f 03 cd 16 00 9a bc de f0 12 34 56 78 9a bc
-timestamp [0,6):     01 9f 03 cd 16 00
-  = 0x019f03cd1600 = 1782475200000 ms
-  = 2026-06-26T12:00:00.000Z
+ID:                  usr_06f80z92d2dbsqqg28t5cy4tqg
+payload:             01 9e 80 7d 22 68 9a bc de f0 12 34 56 78 9a bc
+timestamp [0,6):     01 9e 80 7d 22 68
+  = 0x019e807d2268 = 1780272145000 ms
+  = 2026-06-01T00:02:25.000Z
 random [6,16):       9a bc de f0 12 34 56 78 9a bc
 ```
 
@@ -280,9 +280,9 @@ them as a 48-bit unsigned big-endian millisecond value exactly as for the
 Timestamp codec. The random tail is not transformed.
 
 **Example.** The running example's timestamp encoded under the Reverse Timestamp
-codec yields `usr_zsgfrcq9zydbsqqg28t5cy4tqg` — the timestamp bytes become
-`fe 60 fc 32 e9 ff`, and XOR-ing each back with `0xff` recovers
-`01 9f 03 cd 16 00` = `2026-06-26T12:00:00.000Z`.
+codec yields `usr_zsgqz0pxjydbsqqg28t5cy4tqg` — the timestamp bytes become
+`fe 61 7f 82 dd 97`, and XOR-ing each back with `0xff` recovers
+`01 9e 80 7d 22 68` = `2026-06-01T00:02:25.000Z`.
 
 ## Raw UUID mapping
 
@@ -318,15 +318,15 @@ string but its version and variant positions hold real data, not `0x7` / `0b10`
 ### Worked example 3 — UUID round-trip
 
 ```
-ID:        usr_06fg7k8p02dbsqqg28t5cy4tqg
-payload:   01 9f 03 cd 16 00 9a bc de f0 12 34 56 78 9a bc
-UUID:      019f03cd-1600-9abc-def0-123456789abc
+ID:        usr_06f80z92d2dbsqqg28t5cy4tqg
+payload:   01 9e 80 7d 22 68 9a bc de f0 12 34 56 78 9a bc
+UUID:      019e807d-2268-9abc-def0-123456789abc
            └──────┬──────┘ └──────────┬─────────────┘
         timestamp bytes [0,6)      random bytes [6,16)
 ```
 
 Reading the UUID back, byte for byte, reproduces the payload and re-encodes to
-`06fg7k8p02dbsqqg28t5cy4tqg`. Note that the leading UUID bytes `019f03cd-1600`
+`06f80z92d2dbsqqg28t5cy4tqg`. Note that the leading UUID bytes `019e807d-2268`
 are the real millisecond timestamp — but only because this is a Timestamp ID;
 for the keyed and digest codecs the leading bytes carry no time meaning and the
 UUID sorts randomly.
