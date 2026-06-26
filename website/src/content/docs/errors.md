@@ -8,8 +8,8 @@ operation:
 
 - **Thrown channel** — `IdsError` thrown by `parse`, key import/decode,
   `wrap`/`unwrap`, `verify`, codec construction, and ORM adapter read paths.
-- **Returned channel** — `ParseError` returned (not thrown) by `safeParse` and
-  `safeUnwrap` / `safeVerify` for structural input problems.
+- **Returned channel** — `ParseError` returned (not thrown) by `safeParse`,
+  `safeFromUUID`, and `safeUnwrap` / `safeVerify` for structural input problems.
 
 ## IdsError
 
@@ -90,14 +90,19 @@ renaming or removing one is breaking.
 
 ## The returned channel: ParseError
 
-`safeParse`, `safeUnwrap`, and `safeVerify` **return** errors rather than
-throwing. The structural parse failures are the `ParseError` union:
+`safeParse`, `safeFromUUID`, `safeUnwrap`, and `safeVerify` **return** errors
+rather than throwing. The structural parse failures are the `ParseError` union:
 
 | Value              | Meaning                                                              |
 | ------------------ | -------------------------------------------------------------------- |
 | `"not_string"`     | Input was not a string                                               |
 | `"invalid_prefix"` | String does not start with the expected brand prefix                 |
 | `"invalid_base32"` | Prefix matched but payload is malformed or has non-zero padding bits |
+| `"invalid_uuid"`   | `safeFromUUID` input is not a canonical `8-4-4-4-12` UUID string     |
+
+`safeParse` returns `not_string`, `invalid_prefix`, or `invalid_base32`;
+`safeFromUUID` returns only `not_string` or `invalid_uuid`. `fromUUID` throws
+`IdsError` (`code: "invalid_id"`) carrying the same `ParseError` on `err.cause`.
 
 `safeUnwrap` and `safeVerify` also return `"verification_failed"` as a plain
 string when structural parsing succeeds but the tag does not match — it is
