@@ -13,20 +13,25 @@
  * types without a live DB.
  */
 import { fromAny } from "@total-typescript/shoehorn";
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { makeSpyCodec } from "./test-helpers.js";
 import type {
   GetPayloadResult,
   InternalArgs,
+  ModelQueryOptionsCbArgs,
+  QueryOptions,
   ResultArgs,
   ResultFieldDefinition,
 } from "@prisma/client/runtime/library";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import {
   idField,
+  idFieldReadOnly,
   IdsError,
   isIdsError,
   type IdColumnCodec,
+  type IdGeneratingCodec,
+  type IdQueryField,
   type IdTransform,
   type NullableIdComputeField,
 } from "./prisma.js";
@@ -273,6 +278,286 @@ describe("prisma", () => {
       expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+  });
+
+  it("IdGeneratingCodec type is satisfied by createTimestampId codec", () => {
+    expectTypeOf(usr).toMatchTypeOf<IdGeneratingCodec<"usr">>();
+  });
+
+  describe("defaultQuery", () => {
+    function makeQueryArgs(
+      operation: string,
+      args: Record<string, unknown>,
+    ): ModelQueryOptionsCbArgs {
+      return {
+        model: "user",
+        operation,
+        args: args as ModelQueryOptionsCbArgs["args"],
+        query: async (a) => a,
+      };
+    }
+
+    it("injects a generated ID when the field is absent from args.data (create)", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("create", { data: { name: "Alice" } });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.create!(cbArgs);
+      const data = capturedArgs!.data as Record<string, unknown>;
+      expect(typeof data.id).toBe("string");
+      expect(usr.is(data.id as string)).toBe(true);
+    });
+
+    it("does not override an explicitly supplied ID (create)", async () => {
+      const suppliedId = usr.generate();
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("create", { data: { id: suppliedId, name: "Alice" } });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.create!(cbArgs);
+      const data = capturedArgs!.data as Record<string, unknown>;
+      expect(data.id).toBe(suppliedId);
+    });
+
+    it("injects a generated ID when the field is null (null treated as absent)", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("create", { data: { id: null, name: "Alice" } });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.create!(cbArgs);
+      const data = capturedArgs!.data as Record<string, unknown>;
+      expect(typeof data.id).toBe("string");
+      expect(usr.is(data.id as string)).toBe(true);
+    });
+
+    it("handles createMany with a mix of items (some with, some without the field)", async () => {
+      const existingId = usr.generate();
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("createMany", {
+        data: [{ name: "Alice" }, { id: existingId, name: "Bob" }, { id: null, name: "Carol" }],
+      });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.createMany!(cbArgs);
+      const data = capturedArgs!.data as Array<Record<string, unknown>>;
+      // Alice: absent → injected
+      expect(typeof data[0]!.id).toBe("string");
+      expect(usr.is(data[0]!.id as string)).toBe(true);
+      // Bob: explicit value → preserved
+      expect(data[1]!.id).toBe(existingId);
+      // Carol: null → injected
+      expect(typeof data[2]!.id).toBe("string");
+      expect(usr.is(data[2]!.id as string)).toBe(true);
+    });
+
+    it("injects into args.create when the field is absent (upsert)", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("upsert", {
+        where: { email: "alice@example.com" },
+        create: { name: "Alice" },
+        update: { name: "Alice" },
+      });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.upsert!(cbArgs);
+      const create = capturedArgs!.create as Record<string, unknown>;
+      expect(typeof create.id).toBe("string");
+      expect(usr.is(create.id as string)).toBe(true);
+      // update should be unchanged
+      const update = capturedArgs!.update as Record<string, unknown>;
+      expect(update.id).toBeUndefined();
+    });
+
+    it("passes args through unchanged for create when args.data is absent", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("create", {});
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.create!(cbArgs);
+      expect(capturedArgs!.data).toBeUndefined();
+    });
+
+    it("passes args through unchanged for createMany when args.data is absent", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("createMany", {});
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.createMany!(cbArgs);
+      expect(capturedArgs!.data).toBeUndefined();
+    });
+
+    it("passes args through unchanged for upsert when args.create is absent", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("upsert", { where: { email: "alice@example.com" } });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.upsert!(cbArgs);
+      expect(capturedArgs!.create).toBeUndefined();
+    });
+
+    it("IdQueryField type satisfies Prisma QueryOptions query-component shape", () => {
+      const querySpec = {
+        query: {
+          user: transform.defaultQuery("id"),
+        },
+      } satisfies QueryOptions;
+
+      expectTypeOf(querySpec.query["user"]).toMatchTypeOf<IdQueryField>();
+    });
+
+    it("IdTransform type exposes defaultQuery", () => {
+      expectTypeOf(transform).toMatchTypeOf<IdTransform<"usr">>();
+      expectTypeOf(transform.defaultQuery).toBeFunction();
+    });
+  });
+
+  describe("idFieldReadOnly", () => {
+    function makeMinimalSpyCodec<Brand extends string>(brand: Brand): IdColumnCodec<Brand> {
+      const fakeId: Id<Brand> = fromAny(`${brand}_00000000000000000000000000`);
+      return {
+        safeParse: fromAny(vi.fn(() => ({ ok: true as const, id: fakeId }))),
+      };
+    }
+
+    it("accepts a safeParse-only codec (no generate required)", () => {
+      const minimalCodec = makeMinimalSpyCodec("spy");
+      const ro = idFieldReadOnly(minimalCodec);
+      expect(ro).toBeDefined();
+    });
+
+    it("return value has no defaultQuery property", () => {
+      const minimalCodec = makeMinimalSpyCodec("spy");
+      const ro = idFieldReadOnly(minimalCodec);
+      expect("defaultQuery" in ro).toBe(false);
+    });
+
+    it("return type excludes defaultQuery at the TypeScript level", () => {
+      const minimalCodec = makeMinimalSpyCodec("spy");
+      const ro = idFieldReadOnly(minimalCodec);
+      expectTypeOf(ro).not.toHaveProperty("defaultQuery");
+    });
+
+    it("read delegates to safeParse", () => {
+      const id = usr.generate();
+      const ro = idFieldReadOnly(usr);
+      expect(ro.read(id)).toBe(id);
+    });
+
+    it("read throws IdsError on invalid value", () => {
+      const ro = idFieldReadOnly(usr);
+      let err: unknown;
+      try {
+        ro.read("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("readNullable returns null for null", () => {
+      const ro = idFieldReadOnly(usr);
+      expect(ro.readNullable(null)).toBeNull();
+    });
+
+    it("readNullable returns null for undefined", () => {
+      const ro = idFieldReadOnly(usr);
+      expect(ro.readNullable(undefined)).toBeNull();
+    });
+
+    it("readNullable returns Id<Brand> for a valid string", () => {
+      const id = usr.generate();
+      const ro = idFieldReadOnly(usr);
+      expect(ro.readNullable(id)).toBe(id);
+    });
+
+    it("write passes Id<Brand> through unchanged", () => {
+      const id = usr.generate();
+      const ro = idFieldReadOnly(usr);
+      expect(ro.write(id)).toBe(id);
+    });
+
+    it("computeField returns a { needs, compute } object", () => {
+      const ro = idFieldReadOnly(usr);
+      const field = ro.computeField("id");
+      expect(field).toHaveProperty("needs", { id: true });
+      expect(typeof field.compute).toBe("function");
+    });
+
+    it("computeField.compute parses a valid Id<Brand> value", () => {
+      const id = usr.generate();
+      const ro = idFieldReadOnly(usr);
+      const field = ro.computeField("id");
+      expect(field.compute({ id })).toBe(id);
+    });
+
+    it("computeField.compute is typed to return Id<Brand>", () => {
+      const ro = idFieldReadOnly(usr);
+      const field = ro.computeField("id");
+      expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr">>();
+    });
+
+    it("computeField.compute throws IdsError on invalid value", () => {
+      const ro = idFieldReadOnly(usr);
+      const field = ro.computeField("id");
+      let err: unknown;
+      try {
+        field.compute({ id: "not-a-valid-id" });
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("computeNullableField.compute returns null when field is null", () => {
+      const ro = idFieldReadOnly(usr);
+      const field = ro.computeNullableField("authorId");
+      expect(field.compute({ authorId: null })).toBeNull();
+    });
+
+    it("computeNullableField.compute returns Id<Brand> for a valid field value", () => {
+      const id = usr.generate();
+      const ro = idFieldReadOnly(usr);
+      const field = ro.computeNullableField("authorId");
+      expect(field.compute({ authorId: id })).toBe(id);
+    });
+
+    it("computeNullableField.compute is typed to return Id<Brand> | null", () => {
+      const ro = idFieldReadOnly(usr);
+      const field = ro.computeNullableField("authorId");
+      expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr"> | null>();
+    });
+
+    it("calls only safeParse on the codec — no generate, wrap, or unwrap", () => {
+      const minimalCodec = makeMinimalSpyCodec("spy");
+      idFieldReadOnly(minimalCodec).read("any_value");
+      expect(minimalCodec.safeParse).toHaveBeenCalled();
     });
   });
 });

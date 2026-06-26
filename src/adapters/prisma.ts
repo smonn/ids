@@ -1,3 +1,4 @@
+import type { ModelQueryOptionsCb, ModelQueryOptionsCbArgs } from "@prisma/client/runtime/library";
 import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
@@ -5,6 +6,25 @@ import type { Id } from "../types.js";
 export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 
 export type { IdColumnCodec };
+
+/**
+ * Extension of {@link IdColumnCodec} that also exposes synchronous `generate()`.
+ * Required by {@link idField} so that {@link IdTransform.defaultQuery} can produce
+ * IDs at write time. Every full codec variant (Timestamp, Reverse Timestamp) satisfies
+ * this; async-generate codecs (Opaque, Signed, Wrapped, Digest) do not and are
+ * therefore unsupported by `defaultQuery`.
+ */
+export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
+  generate(): Id<Brand>;
+};
+
+/**
+ * The per-model object returned by {@link IdTransform.defaultQuery}, suitable for
+ * the model-level value inside a Prisma `$extends({ query: { modelName: … } })` block.
+ * Structurally identical to `{ [operation: string]: ModelQueryOptionsCb }` from
+ * `@prisma/client/runtime/library`.
+ */
+export type IdQueryField = { [operation: string]: ModelQueryOptionsCb };
 
 /**
  * Typed `$extends` result-component field definition produced by
@@ -71,6 +91,28 @@ export type IdTransform<Brand extends string> = {
    */
   computeField(fieldName: string): IdComputeField<Brand>;
   /**
+   * Creates a `$extends` query-component model slice that auto-generates
+   * `Id<Brand>` values for `create`, `createMany`, and `upsert` operations
+   * when the field is absent, `undefined`, or `null` in `args.data` (or
+   * `args.create` for upsert). Explicitly supplied values are always passed
+   * through unchanged.
+   *
+   * @param fieldName - The model field to auto-generate (e.g. `"id"`).
+   * @returns An {@link IdQueryField} suitable for the model-level value inside
+   * a Prisma `$extends({ query: { modelName: … } })` block.
+   *
+   * @example
+   * ```ts
+   * const xprisma = prisma.$extends({
+   *   query: { user: userIdField.defaultQuery("id") },
+   *   result: { user: { id: userIdField.computeField("id") } },
+   * });
+   * // id is auto-filled on create, and typed as Id<"usr"> on read
+   * await xprisma.user.create({ data: { name: "Alice" } });
+   * ```
+   */
+  defaultQuery(fieldName: string): IdQueryField;
+  /**
    * Like {@link computeField} but for nullable columns — `compute` returns
    * `Id<Brand> | null` instead of `Id<Brand>`.
    *
@@ -83,11 +125,15 @@ export type IdTransform<Brand extends string> = {
 /**
  * Creates a read/write transform pair for use with Prisma's `$extends` extension model.
  *
- * Works with any codec variant exposing `safeParse`.
+ * Requires a codec variant that exposes a synchronous `generate()` in addition to `safeParse` — see {@link IdGeneratingCodec}. Only the **Timestamp codec** and **Reverse Timestamp codec** qualify; Opaque, Signed, Wrapped, and Digest codecs cannot be passed to `idField()`.
  *
  * Use `computeField(fieldName)` to produce a typed `$extends` result-component
  * field definition — the brand is carried through Prisma's type machinery
  * automatically and no per-call-site cast is required.
+ *
+ * For codecs that do not expose a synchronous `generate()` (Opaque Timestamp,
+ * Signed Timestamp, Wrapped key, Digest), use {@link idFieldReadOnly} instead —
+ * it accepts any {@link IdColumnCodec} and omits `defaultQuery`.
  *
  * @example
  * ```ts
@@ -105,7 +151,8 @@ export type IdTransform<Brand extends string> = {
  * // xprisma.user.findUnique(…).id is typed as Id<"usr"> — no cast required
  * ```
  */
-export function idField<Brand extends string>(codec: IdColumnCodec<Brand>): IdTransform<Brand> {
+export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): IdTransform<Brand> {
+  const { generate } = codec;
   return {
     read(value: unknown): Id<Brand> {
       return readIdColumn(codec, value);
@@ -124,6 +171,97 @@ export function idField<Brand extends string>(codec: IdColumnCodec<Brand>): IdTr
         // explicit Id<Brand> return type on `compute` causes TypeScript to infer
         // the brand through the `& R` intersection in $extends — encapsulating
         // the single necessary cast here rather than pushing it to every call site.
+        compute: (model: Record<string, unknown>): Id<Brand> =>
+          readIdColumn(codec, model[fieldName]),
+      };
+    },
+    defaultQuery(fieldName: string): IdQueryField {
+      function injectIfAbsent(data: Record<string, unknown>): Record<string, unknown> {
+        if (data[fieldName] == null) {
+          return { ...data, [fieldName]: generate() };
+        }
+        return data;
+      }
+
+      type QueryArg = Parameters<ModelQueryOptionsCbArgs["query"]>[0];
+
+      return {
+        async create({ args, query }) {
+          const data = args.data as Record<string, unknown> | null | undefined;
+          const nextArgs =
+            data != null ? ({ ...args, data: injectIfAbsent(data) } as unknown as QueryArg) : args;
+          return query(nextArgs);
+        },
+        async createMany({ args, query }) {
+          const data = args.data as Array<Record<string, unknown>> | null | undefined;
+          const nextArgs = Array.isArray(data)
+            ? ({ ...args, data: data.map((item) => injectIfAbsent(item)) } as unknown as QueryArg)
+            : args;
+          return query(nextArgs);
+        },
+        async upsert({ args, query }) {
+          const createData = args.create as Record<string, unknown> | null | undefined;
+          const nextArgs =
+            createData != null
+              ? ({ ...args, create: injectIfAbsent(createData) } as unknown as QueryArg)
+              : args;
+          return query(nextArgs);
+        },
+      };
+    },
+    computeNullableField(fieldName: string) {
+      return {
+        needs: { [fieldName]: true },
+        compute: (model: Record<string, unknown>): Id<Brand> | null =>
+          readIdColumnNullable(codec, model[fieldName]),
+      };
+    },
+  };
+}
+
+/**
+ * Read-only sibling of {@link idField} for codec variants that do not expose a
+ * synchronous `generate()` — Opaque Timestamp, Signed Timestamp, Wrapped key,
+ * and Digest codecs all qualify.
+ *
+ * Accepts any {@link IdColumnCodec} (the wider constraint that only requires
+ * `safeParse`) and returns the full read/transform surface of {@link IdTransform}
+ * **minus `defaultQuery`**. Because `defaultQuery` is the only method that calls
+ * `generate()`, callers who only need the read path are not forced to provide a
+ * synchronous generator.
+ *
+ * @example
+ * ```ts
+ * import { idFieldReadOnly } from "@smonn/ids/prisma";
+ * import { createOpaqueTimestampId } from "@smonn/ids/opaque";
+ *
+ * const inv = createOpaqueTimestampId("inv", { key });
+ * const invoiceIdField = idFieldReadOnly(inv);
+ *
+ * const xprisma = prisma.$extends({
+ *   result: {
+ *     invoice: { id: invoiceIdField.computeField("id") },
+ *   },
+ * });
+ * // xprisma.invoice.findUnique(…).id is typed as Id<"inv"> — no cast required
+ * ```
+ */
+export function idFieldReadOnly<Brand extends string>(
+  codec: IdColumnCodec<Brand>,
+): Omit<IdTransform<Brand>, "defaultQuery"> {
+  return {
+    read(value: unknown): Id<Brand> {
+      return readIdColumn(codec, value);
+    },
+    readNullable(value: unknown): Id<Brand> | null {
+      return readIdColumnNullable(codec, value);
+    },
+    write(value: Id<Brand>): string {
+      return value;
+    },
+    computeField(fieldName: string) {
+      return {
+        needs: { [fieldName]: true },
         compute: (model: Record<string, unknown>): Id<Brand> =>
           readIdColumn(codec, model[fieldName]),
       };

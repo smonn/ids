@@ -17,7 +17,14 @@ export type { IdColumnCodec };
  * `codec.safeParse()`. Throws `IdsError("invalid_id")` if the stored value
  * does not parse as a valid `Id<Brand>`.
  *
- * **Column type** (`getColumnType`): returns `"text"`.
+ * **Column type** (`getColumnType`): returns `"text"` by default, or the
+ * `options.columnType` override when provided.
+ *
+ * @param codec - The brand-scoped codec used to parse values read from the database.
+ * @param options - Optional column configuration.
+ * @param options.columnType - SQL column type to use (default: `"text"`). Pass
+ *   `"varchar(30)"` or `"char(26)"` to match an existing DDL or index strategy.
+ *   The value is passed through verbatim — no validation is performed.
  *
  * @example
  * ```ts
@@ -28,15 +35,24 @@ export type { IdColumnCodec };
  *
  * const usr = createTimestampId("usr");
  *
+ * // default: text column
  * class User {
  *   @PrimaryKey({ type: idType(usr) })
+ *   id!: Id<"usr">;
+ * }
+ *
+ * // explicit varchar column
+ * class Org {
+ *   @PrimaryKey({ type: idType(usr, { columnType: "varchar(30)" }) })
  *   id!: Id<"usr">;
  * }
  * ```
  */
 export function idType<Brand extends string>(
   codec: IdColumnCodec<Brand>,
+  options?: { columnType?: string },
 ): new () => Type<Id<Brand>, string> {
+  const columnType = options?.columnType ?? "text";
   return class extends Type<Id<Brand>, string> {
     override convertToDatabaseValue(value: Id<Brand>): string {
       return value;
@@ -45,7 +61,7 @@ export function idType<Brand extends string>(
       return readIdColumn(codec, value);
     }
     override getColumnType(): string {
-      return "text";
+      return columnType;
     }
   };
 }

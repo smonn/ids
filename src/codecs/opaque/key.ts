@@ -67,9 +67,9 @@ export function getOpaqueKeyCryptoKey(key: OpaqueKey): webcrypto.CryptoKey {
 }
 
 /**
- * Encodes raw AES key bytes for storage in env vars or secret managers.
+ * Encodes raw Opaque key material bytes for storage in env vars or secret managers.
  *
- * @param bytes - 16, 24, or 32 raw key bytes (AES-128/192/256).
+ * @param bytes - 16, 24, or 32 raw Opaque key material bytes.
  * @param format - `hex` (lowercase) or `base64url`.
  * @throws {IdsError} `invalid_key_format` if `format` is not `"hex"` or `"base64url"`.
  * @throws {IdsError} `invalid_key_length` if `bytes.length` is not 16, 24, or 32.

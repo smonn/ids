@@ -47,6 +47,45 @@ describe("loadKey", () => {
     expect(isLoadKeyError(result)).toBe(false);
     expect(result).toBe("imported:aabb");
   });
+
+  it("falls back to IDS_KEY when codec-specific var is absent", async () => {
+    const result = await loadKey(makeOpts({ IDS_KEY: "aabb" }), "hex", dummyFacet);
+    expect(isLoadKeyError(result)).toBe(false);
+    expect(result).toBe("imported:aabb");
+  });
+
+  it("codec-specific var takes priority over IDS_KEY when both are set", async () => {
+    const result = await loadKey(
+      makeOpts({ TEST_KEY: "ccdd", IDS_KEY: "aabb" }),
+      "hex",
+      dummyFacet,
+    );
+    expect(isLoadKeyError(result)).toBe(false);
+    expect(result).toBe("imported:ccdd");
+  });
+
+  it("returns missing error mentioning both vars when codec-specific var and IDS_KEY are both absent", async () => {
+    const result = await loadKey(makeOpts({}), "hex", dummyFacet);
+    expect(isLoadKeyError(result)).toBe(true);
+    const err = result as LoadKeyError;
+    expect(err.kind).toBe("missing");
+    expect(err.message).toContain("TEST_KEY");
+    expect(err.message).toContain("IDS_KEY");
+  });
+
+  it("does not apply IDS_KEY fallback when codec-specific var IS IDS_KEY", async () => {
+    const idsKeyFacet: KeyFacet<string> = {
+      ...dummyFacet,
+      envVar: "IDS_KEY",
+      formatEnvVar: "IDS_KEY_FORMAT",
+    };
+    const result = await loadKey(makeOpts({}), "hex", idsKeyFacet);
+    expect(isLoadKeyError(result)).toBe(true);
+    const err = result as LoadKeyError;
+    expect(err.kind).toBe("missing");
+    expect(err.message).toContain("IDS_KEY");
+    expect(err.message).not.toContain("or IDS_KEY");
+  });
 });
 
 describe("isLoadKeyError", () => {

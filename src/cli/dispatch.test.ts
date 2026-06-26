@@ -403,6 +403,15 @@ describe("buildCodec", () => {
     expect(result.kind).toBe("usage");
   });
 
+  it("returns wrapped codec via IDS_KEY fallback when IDS_WRAPPING_KEY is unset", async () => {
+    const opts = makeOpts({ IDS_KEY: testWrappingHex });
+    const values = new Map([["--kind", "u32"]]);
+    const result = await buildCodec(wrappedVariant, "tst", values, opts);
+    expect(isCodecError(result)).toBe(false);
+    expect(typeof result).toBe("object");
+    expect(result).not.toBeNull();
+  });
+
   it("returns CodecError(usage) when IDS_OPAQUE_KEY_FORMAT is invalid (specific format var)", async () => {
     const opts = makeOpts({ IDS_OPAQUE_KEY: testOpaqueHex, IDS_OPAQUE_KEY_FORMAT: "bad" });
     const result = await buildCodec(opaqueVariant, "tst", new Map(), opts);

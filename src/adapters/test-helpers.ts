@@ -9,6 +9,7 @@ export function makeSpyCodec<Brand extends string>(
   extractTimestamp: () => void;
   wrap: () => void;
   unwrap: () => void;
+  generate: () => Id<Brand>;
 } {
   const fakeId: Id<Brand> = fromAny(`${brand}_00000000000000000000000000`);
   return {
@@ -16,5 +17,6 @@ export function makeSpyCodec<Brand extends string>(
     extractTimestamp: fromAny(vi.fn()),
     wrap: fromAny(vi.fn()),
     unwrap: fromAny(vi.fn()),
+    generate: fromAny(vi.fn(() => fakeId)),
   };
 }
