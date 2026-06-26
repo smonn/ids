@@ -451,6 +451,27 @@ jobs:
           summary_file=$(jq -r '.summary_file // "summary.md"' .review/manifest.json)
           test -f ".review/$summary_file" || { echo "::error::summary file .review/$summary_file missing"; exit 1; }
 
+          # Auto-repair wholesale-escaped bodies. The producer sometimes writes a body
+          # with literal escapes (\n, \<, \[) instead of verbatim markdown; when it does,
+          # the whole body comes through as (near) one physical line, so the literal "\n"
+          # sequences meet or outnumber the real newlines. In that case un-escape it in
+          # place so the review still posts. The count test scopes the rewrite to those
+          # wholesale-escaped bodies: a correctly-formatted multi-line body (real newlines
+          # dominate, at most a stray "\n" inside a code span) is left untouched, and the
+          # pre-flight guard below still rejects anything that remains corrupted.
+          repair_body() {
+            f=$1
+            [ -f "$f" ] || return 0
+            real=$(tr -cd '\n' < "$f" | wc -c)
+            esc=$(grep -oE '\\n|\\<|\\\[' "$f" | wc -l)
+            if [ "$esc" -gt 0 ] && [ "$esc" -ge "$real" ]; then
+              perl -0pi -e 's/\\n/\n/g; s/\\([<>\[\]`])/$1/g' "$f"
+              echo "::warning::auto-repaired wholesale-escaped body $f (un-escaped \\n and \\<, \\>, \\[, \\], backtick)"
+            fi
+          }
+          repair_body ".review/$summary_file"
+          for bf in .review/inline/*.md; do repair_body "$bf"; done
+
           # Valid RIGHT-side anchor set: every NEW-file line present in the PR diff
           # (added "+" lines and context " " lines advance the new-file counter; "-"
           # deletions do not). Emitted as "<path>\t<line>" lines for exact lookup. Reuse
