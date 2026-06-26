@@ -86,6 +86,13 @@ Re-keying is a deliberate, breaking operator action — every ID changes. Any
 key change makes all previously issued IDs unreproducible; stored IDs must be
 re-derived and back-filled.
 
+## Testing
+
+The Digest codec is deterministic by construction — no `now` or `rng` to
+control. Import a key from constant bytes and the same `(ns, material)` always
+produces the same ID (`digest` is async). See the [Testing guide](/testing/)
+for the full pattern.
+
 ## Security posture
 
 - **128-bit payload, birthday bound ≈ 2⁶⁴.** The payload is the leftmost 16

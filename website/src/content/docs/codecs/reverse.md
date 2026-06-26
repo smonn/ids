@@ -73,9 +73,8 @@ ceiling (~10 889 AD), or an `Invalid Date`.
 
 ## Deterministic tests
 
-Inject a fixed clock and RNG for snapshot-friendly output. Both fields are
-optional; `now` defaults to `Date.now` and `rng` defaults to the same
-`crypto.randomUUID`-backed fast-path used by the Timestamp codec:
+The injection contract is identical to the Timestamp codec — pass a fixed `now`
+and a no-op `rng` for snapshot-friendly output:
 
 ```ts
 const events = createReverseTimestampId("evt", {
@@ -86,10 +85,7 @@ const events = createReverseTimestampId("evt", {
 events.generate(); // deterministic output
 ```
 
-The injection contract is the same as the Timestamp codec — `rng` writes random
-bytes into the provided target (a 10-byte view into the codec's persistent
-buffer). Both codecs use the same `crypto.randomUUID`-backed fast-path
-as the default RNG.
+See the [Testing guide](/testing/) for the full pattern across every codec.
 
 ## Inversion is reversible by anyone
 
