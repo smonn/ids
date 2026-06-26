@@ -110,3 +110,39 @@ try {
 ```
 
 `IdsError`, `isIdsError`, and `IdsErrorCode` are re-exported from `@smonn/ids/kysely` — no separate import from `"@smonn/ids"` is needed. For the full list of `IdsErrorCode` values, see the error-code reference.
+
+## Nullable columns
+
+`nullableIdColumn(codec)` returns a `{ toDriver, fromDriver }` pair where `fromDriver` returns `null` for `null` / `undefined` driver values instead of throwing. Use it for optional foreign keys and `LEFT JOIN` results.
+
+Pair it with `NullableIdColumnType<Brand>` in your `Database` interface:
+
+```ts
+import { nullableIdColumn, type IdColumnType, type NullableIdColumnType } from "@smonn/ids/kysely";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+const authorCol = nullableIdColumn(usr);
+
+interface Database {
+  posts: {
+    id: IdColumnType<"pst">;
+    author_id: NullableIdColumnType<"usr">;
+  };
+}
+
+const row = await db.selectFrom("posts").selectAll().executeTakeFirstOrThrow();
+// row.author_id is Id<"usr"> | null from the TypeScript type, but the raw DB value
+// is a plain string or null at runtime — call fromDriver manually:
+const authorId = authorCol.fromDriver(row.author_id as unknown as string | null);
+// authorId is Id<"usr"> | null
+```
+
+- **Read path:** `fromDriver` returns `null` for `null` / `undefined` driver values. Non-null values are normalised via `codec.safeParse()` and throw `IdsError("invalid_id")` if they do not parse as a valid `Id<Brand>`.
+- **Write path:** `toDriver` passes `null` through as `null` and `Id<Brand>` values through as canonical strings.
+
+### `idPlugin` and nullable columns
+
+`idPlugin` does **not** automatically handle nullable columns. When a column in the plugin's map contains a `null` value (for example from a `LEFT JOIN`), the plugin calls the non-nullable `fromDriver` path, which throws `IdsError("invalid_id")`.
+
+If a mapped column can be `null`, use `nullableIdColumn` manually on the query result instead of relying on `idPlugin` for that column — or exclude it from the plugin map entirely and handle it at the call site.

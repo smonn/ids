@@ -90,6 +90,49 @@ const xprisma = prisma.$extends({
 
 If you need `defaultQuery` (auto-generating IDs on `create`/`createMany`/`upsert`), use `idField` with a Timestamp or Reverse Timestamp codec instead.
 
+## Nullable columns
+
+Both `idField(...)` and `idFieldReadOnly(...)` expose `readNullable` and `computeNullableField` for optional foreign keys. Use `computeNullableField` in a `$extends` result block and `readNullable` for inline reads.
+
+### `computeNullableField` in a `$extends` block
+
+```ts
+import { idField } from "@smonn/ids/prisma";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+const userIdField = idField(usr);
+const pst = createTimestampId("pst");
+const postIdField = idField(pst);
+
+const xprisma = prisma.$extends({
+  result: {
+    post: {
+      // non-nullable primary key
+      id: postIdField.computeField("id"),
+      // nullable optional FK — author may be null
+      authorId: userIdField.computeNullableField("authorId"),
+    },
+  },
+});
+
+// xprisma.post.findUnique(…).authorId is typed as Id<"usr"> | null
+const post = await xprisma.post.findUnique({ where: { id: someId } });
+console.log(post?.authorId); // Id<"usr"> | null
+```
+
+### `readNullable` for inline reads
+
+```ts
+const authorId = userIdField.readNullable(rawRow.authorId);
+// authorId is Id<"usr"> | null — null when rawRow.authorId is null or undefined
+```
+
+- `readNullable` returns `null` when the value is `null` or `undefined`; for any other value it delegates to the same `safeParse`-based path as `read` and throws `IdsError("invalid_id")` on failure.
+- `computeNullableField(fieldName)` produces a `$extends` result-component field whose `compute` function returns `Id<Brand> | null`, correctly typed through Prisma's type machinery without a per-call-site cast.
+
+Both helpers are available on both `idField(...)` and `idFieldReadOnly(...)` return values.
+
 ## Error handling
 
 The read path throws `IdsError` with code `"invalid_id"` when the stored value does not parse

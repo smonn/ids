@@ -38,6 +38,28 @@ Reverse Timestamp, Signed Timestamp, Digest, and Wrapped key codecs all qualify)
   `{ columnType: "..." }` as the second argument to `idType` to override
   (e.g. `idType(usr, { columnType: "varchar(30)" })`).
 
+## Nullable columns
+
+`nullableIdType(codec)` returns a MikroORM `Type` subclass whose `convertToJSValue` returns `null` for `null` / `undefined` database values. Use it for optional foreign keys.
+
+```ts
+import { Entity, Property } from "@mikro-orm/core";
+import { nullableIdType } from "@smonn/ids/mikro-orm";
+import { createTimestampId } from "@smonn/ids";
+import type { Id } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+@Entity()
+class Post {
+  @Property({ type: nullableIdType(usr), nullable: true })
+  authorId!: Id<"usr"> | null;
+}
+```
+
+- **Read path:** `convertToJSValue` returns `null` for `null` / `undefined` database values. Non-null values go through `codec.safeParse()` and throw `IdsError("invalid_id")` if they do not parse as a valid `Id<Brand>`.
+- **Write path:** `convertToDatabaseValue` passes `null` through unchanged; non-null `Id<Brand>` values are passed through as canonical strings.
+
 ## Error handling
 
 The read path throws `IdsError` with code `"invalid_id"` when the stored value

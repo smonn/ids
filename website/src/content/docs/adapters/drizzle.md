@@ -64,6 +64,30 @@ key codecs all qualify).
 - **Read path:** values are normalised via `codec.safeParse()` rather than the strict `is()`. Data at rest should already be canonical ([ADR-0003](https://github.com/smonn/ids/blob/main/docs/adr/0003-canonical-strict-is.md)), but `safeParse` is a safe boundary for stale non-canonical values. An unrecognised value throws at read time so corrupt data surfaces immediately.
 - **Column type:** `dataType()` returns `"text"` by default; pass `{ columnType: "..." }` as the second argument to `idColumn` to override (e.g. `idColumn(usr, { columnType: "varchar(30)" })`).
 
+## Nullable columns
+
+`nullableIdColumn(codec)` is a PostgreSQL-only variant that passes `null` and `undefined` driver values through as `null` rather than throwing. Use it for optional foreign keys and `LEFT JOIN` results.
+
+```ts
+import { pgTable } from "drizzle-orm/pg-core";
+import { nullableIdColumn } from "@smonn/ids/drizzle";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+export const posts = pgTable("posts", {
+  authorId: nullableIdColumn(usr),
+});
+// posts.authorId is Id<"usr"> | null end-to-end
+```
+
+:::note[PostgreSQL only]
+`nullableIdColumn` is PostgreSQL only. There are no `nullableIdColumnMysql` or `nullableIdColumnSqlite` equivalents in this release. If you need nullable ID columns for MySQL or SQLite, handle the null check manually before calling `idColumnMysql` / `idColumnSqlite`.
+:::
+
+- **Read path:** `null` and `undefined` driver values are returned as `null`. Non-null values go through `codec.safeParse()` and throw `IdsError("invalid_id")` if the stored value does not parse as a valid `Id<Brand>`.
+- **Write path:** `null` is passed to the driver unchanged; non-null `Id<Brand>` values are passed through as canonical strings.
+
 ## Error handling
 
 The read path throws `IdsError` with code `"invalid_id"` when the stored value does not parse
