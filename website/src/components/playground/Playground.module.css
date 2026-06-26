@@ -134,3 +134,16 @@
   border-color: var(--sl-color-red);
   color: var(--sl-color-red-high);
 }
+
+/* Prevent iOS Safari from auto-zooming when a form control with font-size < 16px
+   receives focus. Scoped to coarse-pointer (touch) devices so desktop size is
+   preserved. The .field wrapper sets --sl-text-sm (≈14px) and .mono uses
+   --sl-text-code (≈13px) — both below the 16px threshold that triggers zoom. */
+@media (pointer: coarse) {
+  .row input,
+  .field input,
+  .field select,
+  .mono {
+    font-size: 16px;
+  }
+}
