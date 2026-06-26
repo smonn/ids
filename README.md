@@ -68,10 +68,13 @@ Framework and ORM adapters ship as optional subpath exports (each requires its o
 
 Every codec also implements [Standard Schema v1](https://standardschema.dev/), so it slots into Zod, Valibot, ArkType, tRPC, and any validator-aware library.
 
+**Native `uuid` column storage:** an `Id<Brand>` can be persisted into a native `uuid` column via `codec.toUUID(id)` and read back as a branded ID via `codec.fromUUID(value)` or `codec.safeFromUUID(value)` — a lossless round-trip useful when migrating off UUID primary keys while keeping existing column types and indexes.
+
 ## What this is **not** for
 
 - **Internal surrogate primary keys.** If nobody outside your service sees the ID, the brand prefix and lenient parsing are dead weight. Use a `bigint` sequence.
 - **Wire-compatible ULIDs.** The byte layout is ULID-shaped, but the encoding is lowercase and brand-wrapped. Stock ULID parsers will reject these.
+- **Spec-valid UUIDv7 output.** `toUUID` produces a **raw, unversioned** UUID — all 128 payload bits are preserved verbatim (lossless round-trip), which means the version/variant nibble positions hold real data, not `0x7`/`0b10`. It is **not** a spec-valid UUIDv7. Only the Timestamp codec happens to produce a UUID whose leading 48 bits are a real millisecond timestamp; only Timestamp and Reverse Timestamp produce time-sortable UUIDs. Importing a non-time-ordered UUID (e.g. a UUIDv4) into a timestamp-family codec via `fromUUID` yields a structurally valid `Id<Brand>` with a meaningless timestamp and random sort order — the same wire-indistinguishable contract that already governs codec variants.
 - **Distributed-trace / request-correlation IDs.** Use OpenTelemetry-format IDs.
 - **Hiding creation time with the Timestamp codec.** Anyone with one ID at a known creation time can compute the epoch offset. Use the Opaque Timestamp codec to hide creation time per-ID.
 
@@ -82,7 +85,7 @@ Exports from the main `@smonn/ids` entry point only. Codec-specific subpath expo
 ### Types
 
 - `Id<Brand>` — Canonical branded ID string for `Brand`; produced by `generate()` and `safeParse()`.
-- `ParseError` — Parse failure reason string (`"not_string"`, `"invalid_prefix"`, or `"invalid_base32"`) returned by `safeParse()`.
+- `ParseError` — Parse failure reason string returned by `safeParse()` (`"not_string"`, `"invalid_prefix"`, or `"invalid_base32"`) and by `safeFromUUID()` (`"not_string"` or `"invalid_uuid"`).
 - `ParseResult<Brand>` — Discriminated union returned by `safeParse()`: `{ ok: true; id: Id<Brand> }` or `{ ok: false; error: ParseError }`.
 - `JsonSchema` — Shape of the object returned by a codec's `toJsonSchema()`.
 - `IdsErrorCode` — String-literal union of the eleven stable error codes carried by `IdsError`.
@@ -98,6 +101,14 @@ Exports from the main `@smonn/ids` entry point only. Codec-specific subpath expo
 
 - `isIdsError(value)` — Type guard for `IdsError`; uses an internal brand to survive ESM/CJS dual-package duplication where bare `instanceof` fails.
 - `createTimestampId(brand, options?)` — Creates a Timestamp codec for `brand` (three lowercase `a–z` characters).
+
+### Shared codec methods (all variants)
+
+Every codec instance exposes the following UUID interop methods in addition to the codec-specific ones documented on the [full docs site](https://ids.smonn.se):
+
+- `toUUID(id)` — Takes a trusted `Id<Brand>`, returns the 16-byte payload reinterpreted as a canonical lowercase-hyphenated UUID `string`. Total — cannot fail. The brand is shed; the output is a plain `string`, not a branded type.
+- `fromUUID(value)` — Takes an untrusted `string`, returns `Id<Brand>`. Throws `IdsError` (`code: "invalid_id"`) with a `ParseError` on `cause` (`"invalid_uuid"`, or `"not_string"` for untyped JavaScript callers) on malformed input.
+- `safeFromUUID(value)` — Takes `unknown`, returns `ParseResult<Brand>` (`{ ok: true; id }` or `{ ok: false; error: ParseError }`). Never throws.
 
 ## Links
 
