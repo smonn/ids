@@ -1,42 +1,44 @@
 name: Bench
 
+# Informational benchmark check (non-blocking). Runs only on PRs that touch
+# bench-affecting files. This previously used an always-on `changes` gate job to
+# avoid stranding a *required* check on unrelated PRs (a `paths:` filter would
+# leave a required check stuck "Expected" and block merge forever). The check is
+# no longer required, so a plain `paths:` filter is correct and far simpler — PRs
+# that touch none of these files just don't run it.
 on:
   pull_request:
+    paths:
+      - "src/**"
+      - "bench/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig.json"
+      - "tsdown.bench.config.ts"
+      - ".github/workflows/bench.yml"
 
 concurrency:
-  # Supersede stale runs of the same PR: a new push cancels the previous run on this
-  # ref, so the (required) bench check tracks the latest commit instead of queueing
-  # behind outdated runs. Cross-PR load is kept down by the `changes` gate below,
-  # which skips the suite entirely on PRs that touch no bench-affecting files — a
-  # global serialize-and-queue group would instead block each PR's latest commit
-  # behind unrelated and superseded runs.
+  # Supersede stale runs of the same PR: a new push cancels the previous run on
+  # this ref so the bench comment tracks the latest commit instead of queueing
+  # behind outdated runs.
   group: bench-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Gate the expensive bench without a workflow-level `paths:` filter. Because `bench`
-  # is a *required* check, a path filter on `on:` would leave it stuck "Expected" on
-  # PRs that touch no bench files and block merge forever. A skipped *job*, by
-  # contrast, reports its required check as success — so we always run this cheap gate
-  # and let it skip `bench` for unrelated PRs. The same-repo guard lives here too: on
-  # fork PRs this job is skipped, which skips `bench` (no untrusted code, and none of
-  # the write-scoped steps below run to 403).
-  changes:
+  bench:
+    # Same-repo guard: fork PRs skip the bench. This job is write-scoped and runs
+    # no untrusted code on forks; a skipped job is harmless now that the check is
+    # not required.
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
-      # The conflict guard below reads the PR's labels and self-cancels when the PR is
-      # mid-rebase. Cancelling this gate cancels the whole run (the `bench` job needs it).
-      pull-requests: read
+      pull-requests: write
+      # The conflict guard below cancels the run when the PR is mid-rebase.
       actions: write
-    outputs:
-      run: ${{ steps.filter.outputs.run }}
     steps:
-      # Pause the bench while this PR is mid-conflict-rebase (same rationale as ci.yml's
-      # guard). Self-cancel rather than skip: a cancelled run is neutral and won't strand
-      # the required `bench` check; the rebase merge commit runs a fresh bench. Placed
-      # before checkout so we cancel ahead of any expensive work. Fail-open on a read
-      # error. bench is pull_request-only, so no event guard is needed.
+      # Pause the bench while this PR is mid-conflict-rebase (same rationale as
+      # ci.yml's guard). Self-cancel rather than fail: a cancelled run is neutral
+      # and the rebase merge commit runs a fresh bench. Fail-open on a read error.
       - name: Pause while this PR conflicts with main
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,35 +52,6 @@ jobs:
             sleep 30  # let the cancellation land so later steps don't run
           fi
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          fetch-depth: 0
-      - name: Detect bench-affecting changes
-        id: filter
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          # Fail safe: if the diff can't be computed, run the bench rather than
-          # silently skip a required regression check.
-          run=true
-          if changed=$(git diff --name-only "$BASE...$HEAD" 2>/dev/null); then
-            if printf '%s\n' "$changed" | grep -qE '^(src/|bench/|package\.json|pnpm-lock\.yaml|tsconfig\.json|tsdown\.bench\.config\.ts|\.github/workflows/bench\.yml)'; then
-              run=true
-            else
-              run=false
-            fi
-          fi
-          echo "run=$run" >> "$GITHUB_OUTPUT"
-          echo "bench-affecting changes: $run"
-
-  bench:
-    needs: changes
-    if: needs.changes.outputs.run == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-    steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
