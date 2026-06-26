@@ -73,7 +73,7 @@ export const CODECS: { id: CodecId; label: string; keyed: boolean; blurb: string
 
 export const WRAPPED_KINDS: WrappedKind[] = ["u32", "i32", "u64", "i64"];
 
-/** A fresh random AES key as raw bytes for the given key size. */
+/** Fresh random key material bytes for the given size. */
 export function randomKeyBytes(bits: 128 | 192 | 256 = 256): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(bits / 8));
 }
