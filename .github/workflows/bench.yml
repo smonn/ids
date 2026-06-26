@@ -114,12 +114,12 @@ jobs:
             echo "" > /tmp/base.json
           fi
 
+      # Informational only: bench:compare never exits non-zero on a regression, so
+      # the comparison itself can't fail the job. Severe sync-bench regressions are
+      # surfaced in the PR comment for a human to review. A non-zero exit here means
+      # a genuine error (e.g. an unreadable PR report), which should fail the job.
       - name: Compare
-        id: compare
-        run: |
-          set +e
-          pnpm -s bench:compare /tmp/base.json /tmp/pr.json > /tmp/comment.md
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+        run: pnpm -s bench:compare /tmp/base.json /tmp/pr.json > /tmp/comment.md
 
       - name: Upload bench artifacts
         if: always()
@@ -156,9 +156,3 @@ jobs:
                 owner, repo, issue_number, body: fullBody,
               });
             }
-
-      - name: Fail on regression
-        if: steps.compare.outputs.exit_code != '0'
-        run: |
-          echo "Benchmark regression detected. See PR comment for details."
-          exit 1

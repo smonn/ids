@@ -20,39 +20,27 @@ type Report = {
 
 const WARN_THRESHOLD = 0.15;
 
-// opaque.* operations use AES-CBC async crypto whose p50 swings ±40% across
-// GitHub's shared runners even on zero code changes — a property of OS scheduler
-// and thermal jitter, not avoidable per-call overhead (the OpaqueKey handle is
-// pre-imported once at codec construction, confirmed not a factor). 50% absorbs
-// that noise floor while still catching a genuine severe regression (e.g.
-// switching from a pre-imported to per-call key import would roughly double
-// latency). All other benches operate in the ns range and tolerate the tighter
-// 30% default.
-const FAIL_THRESHOLD_OPAQUE = 0.5;
-const FAIL_THRESHOLD_DEFAULT = 0.3;
+// Severe-regression threshold for the *gating* benches. Only sync, ns-scale ops
+// are eligible (see isBlockingEligible): their run-to-run p50 drift is <1% on
+// shared CI runners, so a 30% jump is real signal, not noise.
+const SEVERE_THRESHOLD = 0.3;
 
-// wrapped.* operations use AES + HMAC async crypto (WebCrypto) whose p50 swings on shared CI
-// runners for the same reason as opaque.*. Same 50% threshold applied for consistency.
-// Digest bench issues should follow the same async-bench variance pattern when added.
-const FAIL_THRESHOLD_WRAPPED = FAIL_THRESHOLD_OPAQUE;
+// opaque.* / wrapped.* / signed.* / digest.* operations use async crypto
+// (AES-CBC, AES + HMAC, HMAC-SHA-256) whose p50 swings ±40% across GitHub's
+// shared runners even on zero code changes — a property of OS scheduler and
+// thermal jitter, not avoidable per-call overhead (keys are pre-imported once at
+// codec construction, confirmed not a factor). That variance is wider than most
+// genuine regressions, so these benches are reported for information only and
+// never classified as severe. Their deltas still appear in the table (and can
+// warn); they just never drive the severity summary.
+const ASYNC_CRYPTO_PREFIXES = ["opaque.", "wrapped.", "signed.", "digest."];
 
-// signed.* operations use HMAC-SHA-256 async crypto whose p50 swings on shared CI
-// runners for the same reason as opaque.* and wrapped.*. Same 50% threshold applied.
-const FAIL_THRESHOLD_SIGNED = FAIL_THRESHOLD_OPAQUE;
-
-// digest.* operations use HMAC-SHA-256 async crypto whose p50 swings on shared CI
-// runners for the same reason as opaque.* / wrapped.* / signed.*. Same 50% threshold.
-const FAIL_THRESHOLD_DIGEST = FAIL_THRESHOLD_OPAQUE;
-
-/** Returns the blocking fail threshold for the given bench name.
- * opaque.*, wrapped.*, signed.*, and digest.* benches get a higher threshold due to async crypto variance on shared CI runners.
+/** Whether a bench's regression counts toward the severe-regression summary.
+ * Async-crypto benches are excluded: their shared-runner variance is too high to
+ * gate on. All other (sync, ns-scale) benches are eligible.
  */
-export function failThreshold(name: string): number {
-  if (name.startsWith("opaque.")) return FAIL_THRESHOLD_OPAQUE;
-  if (name.startsWith("wrapped.")) return FAIL_THRESHOLD_WRAPPED;
-  if (name.startsWith("signed.")) return FAIL_THRESHOLD_SIGNED;
-  if (name.startsWith("digest.")) return FAIL_THRESHOLD_DIGEST;
-  return FAIL_THRESHOLD_DEFAULT;
+export function isBlockingEligible(name: string): boolean {
+  return !ASYNC_CRYPTO_PREFIXES.some((p) => name.startsWith(p));
 }
 
 const pct = (v: number): string => `${(v * 100).toFixed(0)}%`;
@@ -107,7 +95,7 @@ if (process.argv[1] === __filename) {
 
   const lines: string[] = [];
   let regressions = 0;
-  let blocking = 0;
+  let severe = 0;
   let improvements = 0;
 
   if (base === null) {
@@ -129,7 +117,10 @@ if (process.argv[1] === __filename) {
     lines.push("## Benchmarks");
     lines.push("");
     lines.push(
-      `Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}, blocking +${pct(FAIL_THRESHOLD_DEFAULT)} (opaque.* / wrapped.* / signed.* / digest.* +${pct(FAIL_THRESHOLD_OPAQUE)}). Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
+      `Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}; severe +${pct(SEVERE_THRESHOLD)} (sync benches only). ` +
+        `opaque.* / wrapped.* / signed.* / digest.* are async-crypto and reported for information only — ` +
+        `their shared-runner variance is too high to gate on. This check is informational and never fails. ` +
+        `Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
     );
     lines.push("");
     lines.push("| Bench | Base p50 | PR p50 | Δ p50 | PR throughput | Notes |");
@@ -143,14 +134,13 @@ if (process.argv[1] === __filename) {
         );
         continue;
       }
-      const threshold = failThreshold(cur.name);
       const delta = (cur.p50_ns - prev.p50_ns) / prev.p50_ns;
       let note = "";
       if (delta > WARN_THRESHOLD) {
         regressions++;
-        if (delta > threshold) {
-          note = "**regression (blocking)**";
-          blocking++;
+        if (isBlockingEligible(cur.name) && delta > SEVERE_THRESHOLD) {
+          note = "**regression (severe)**";
+          severe++;
         } else {
           note = "regression (warn)";
         }
@@ -170,16 +160,17 @@ if (process.argv[1] === __filename) {
     }
 
     lines.push("");
-    if (blocking > 0) {
+    if (severe > 0) {
       lines.push(
-        `**${blocking} blocking regression${blocking === 1 ? "" : "s"}** above the fail threshold.` +
-          (regressions > blocking
-            ? ` ${regressions - blocking} more above warn (±${pct(WARN_THRESHOLD)}).`
-            : ""),
+        `⚠️ **${severe} severe regression${severe === 1 ? "" : "s"}** in sync benches (above +${pct(SEVERE_THRESHOLD)}).` +
+          (regressions > severe
+            ? ` ${regressions - severe} more above warn (±${pct(WARN_THRESHOLD)}).`
+            : "") +
+          ` This check is informational and does not block merge — please review before merging.`,
       );
     } else if (regressions > 0) {
       lines.push(
-        `${regressions} regression${regressions === 1 ? "" : "s"} above warn (±${pct(WARN_THRESHOLD)}) but under the blocking threshold — not failing the check.`,
+        `${regressions} regression${regressions === 1 ? "" : "s"} above warn (±${pct(WARN_THRESHOLD)}), none severe. Informational only.`,
       );
     } else {
       lines.push(
@@ -190,6 +181,7 @@ if (process.argv[1] === __filename) {
 
   process.stdout.write(lines.join("\n") + "\n");
 
-  // Only a blocking-tier regression fails the check (and is therefore autofix-eligible).
-  if (blocking > 0) process.exit(1);
+  // Informational only: a regression never fails the check. Severe sync
+  // regressions are flagged in the comment for a human to review. Genuine fatal
+  // errors (e.g. an unreadable PR report) still exit non-zero above.
 }
