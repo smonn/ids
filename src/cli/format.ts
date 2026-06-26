@@ -20,6 +20,8 @@ type WrappedInspectOutput = {
   input: string;
 };
 
+export const invalidIdPrefix = "invalid_id: ";
+
 export function formatCliError(err: unknown): string {
   return isIdsError(err)
     ? `${err.code}: ${err.message}`

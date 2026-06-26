@@ -33,7 +33,7 @@ import type { SafeVerifyResult } from "../codecs/signed/index.js";
 import type { Id, StandardSchemaProps } from "../types.js";
 import { codecOpts } from "./codec-options.js";
 import { isKindError, isNsError, parseKind, parseNs } from "./flags.js";
-import { formatCliError } from "./format.js";
+import { formatCliError, invalidIdPrefix } from "./format.js";
 import type { KeyFacet } from "./key-io.js";
 import type { RunOpts } from "./types.js";
 
@@ -68,7 +68,7 @@ function standardValidate(
   const result = (codec as unknown as { "~standard": StandardSchemaProps<string> })[
     "~standard"
   ].validate(input);
-  if (result.issues) return { issue: result.issues[0]!.message };
+  if (result.issues) return { issue: invalidIdPrefix + result.issues[0]!.message };
   return { value: result.value! };
 }
 
