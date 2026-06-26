@@ -27,11 +27,15 @@ assumed.
 | Flag                                 | Codec variant     | Env var                      | Notes                                                                                                              |
 | ------------------------------------ | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | _(none)_                             | Timestamp         | —                            | Timestamp readable directly; always prints a note to stderr (see below)                                            |
-| `--opaque`                           | Opaque Timestamp  | `IDS_KEY`                    | Wrong key yields a plausible-but-wrong timestamp, not an error; always prints a note to stderr (see below)         |
+| `--opaque`                           | Opaque Timestamp  | `IDS_OPAQUE_KEY`             | Wrong key yields a plausible-but-wrong timestamp, not an error; always prints a note to stderr (see below)         |
 | `--reverse`                          | Reverse Timestamp | —                            | No key; timestamp decoded from inverted bytes; always prints a note to stderr (see below)                          |
 | `--wrapped --kind <k>`               | Wrapped key       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`/`i32`/`u64`/`i64`; prints `lookup-key`                                                    |
 | `--signed`                           | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Three verification states (see below); `failed` and `unavailable` exit 1 and write to stderr in addition to stdout |
 | `--from-uuid <uuid> --brand <brand>` | (any)             | —                            | Converts a UUID back to a canonical `Id<Brand>`; `--brand` required (e.g. `usr`); no codec flag needed             |
+
+Every keyed flag reads its own `IDS_<CODEC>_KEY` first and falls back to the
+shared `IDS_KEY` **primary secret** when that variable is unset — see
+[Environment variables](#environment-variables).
 
 The bare path (no codec flag) and `--reverse` both read the timestamp as
 plaintext. Since Opaque-encoded IDs are wire-indistinguishable from plaintext
@@ -39,18 +43,18 @@ Timestamp IDs, these paths always write a note to stderr warning that the
 timestamp is meaningless if the ID was Opaque-encoded:
 
 ```
-note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY
+note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_OPAQUE_KEY or IDS_KEY
 ```
 
 ```bash
-# Opaque Timestamp (IDS_KEY required):
-IDS_KEY=<hex-or-base64url-key> npx @smonn/ids inspect inv_… --opaque
+# Opaque Timestamp (IDS_OPAQUE_KEY required, or the IDS_KEY fallback):
+IDS_OPAQUE_KEY=<hex-or-base64url-key> npx @smonn/ids inspect inv_… --opaque
 ```
 
 `--opaque` always writes a note to stderr regardless of whether the key is correct:
 
 ```
-note: timestamp assumes IDS_KEY matches the key used at generation; a wrong key yields a plausible but incorrect timestamp
+note: timestamp assumes IDS_OPAQUE_KEY or IDS_KEY matches the key used at generation; a wrong key yields a plausible but incorrect timestamp
 ```
 
 ```bash
@@ -100,7 +104,7 @@ usr_…
 | Flag                 | Codec variant     | Env var           | Notes                                                                                                                                                                                                                                                           |
 | -------------------- | ----------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | _(none)_             | Timestamp         | —                 | Default; one ID per `--count`                                                                                                                                                                                                                                   |
-| `--opaque`           | Opaque Timestamp  | `IDS_KEY`         | Same env var and format rules as `inspect --opaque`                                                                                                                                                                                                             |
+| `--opaque`           | Opaque Timestamp  | `IDS_OPAQUE_KEY`  | Same env var and format rules as `inspect --opaque`                                                                                                                                                                                                             |
 | `--reverse`          | Reverse Timestamp | —                 | Newest-first sort order                                                                                                                                                                                                                                         |
 | `--signed`           | Signed Timestamp  | `IDS_SIGNING_KEY` | Same env var and format rules as `inspect --signed`                                                                                                                                                                                                             |
 | `--digest --ns <ns>` | Digest            | `IDS_DIGEST_KEY`  | Reads material from stdin; `--ns` (non-secret namespace) required. Key format set by `IDS_DIGEST_KEY_FORMAT` or `--key-format`. Same `(material, ns, key)` always produces the same ID. `--count N > 1` is rejected: same material always produces the same ID. |
@@ -131,7 +135,7 @@ AbCdEf…
 
 | Flag        | Key domain | Intended for       | Import function     |
 | ----------- | ---------- | ------------------ | ------------------- |
-| _(none)_    | Opaque     | `IDS_KEY`          | `importOpaqueKey`   |
+| _(none)_    | Opaque     | `IDS_OPAQUE_KEY`   | `importOpaqueKey`   |
 | `--wrapped` | Wrapping   | `IDS_WRAPPING_KEY` | `importWrappingKey` |
 | `--signed`  | Signing    | `IDS_SIGNING_KEY`  | `importSigningKey`  |
 | `--digest`  | Digest     | `IDS_DIGEST_KEY`   | `importDigestKey`   |
@@ -145,16 +149,23 @@ All keyed modes read secrets from environment variables — **not from argv**
 (argv leaks via `ps` and shell history). Missing or malformed key env vars print
 a clear stderr message and exit non-zero.
 
-| Env var                   | Used by                       | Default format |
-| ------------------------- | ----------------------------- | -------------- |
-| `IDS_KEY`                 | `--opaque`                    | `hex`          |
-| `IDS_KEY_FORMAT`          | `--opaque` (format override)  | —              |
-| `IDS_WRAPPING_KEY`        | `--wrapped`                   | `hex`          |
-| `IDS_WRAPPING_KEY_FORMAT` | `--wrapped` (format override) | —              |
-| `IDS_SIGNING_KEY`         | `--signed`                    | `hex`          |
-| `IDS_SIGNING_KEY_FORMAT`  | `--signed` (format override)  | —              |
-| `IDS_DIGEST_KEY`          | `--digest`                    | `hex`          |
-| `IDS_DIGEST_KEY_FORMAT`   | `--digest` (format override)  | —              |
+Each keyed mode reads its own `IDS_<CODEC>_KEY` first and falls back to the shared
+`IDS_KEY` **primary secret** when that variable is unset; the matching `_FORMAT`
+variable follows whichever key variable is used. One `IDS_KEY` can therefore serve
+every keyed subcommand, while a per-codec variable overrides it for that codec.
+
+| Env var                   | Used by                                                                                   | Default format |
+| ------------------------- | ----------------------------------------------------------------------------------------- | -------------- |
+| `IDS_KEY`                 | primary-secret fallback for every keyed mode (used when the mode's specific var is unset) | `hex`          |
+| `IDS_KEY_FORMAT`          | `IDS_KEY` format override                                                                 | —              |
+| `IDS_OPAQUE_KEY`          | `--opaque`                                                                                | `hex`          |
+| `IDS_OPAQUE_KEY_FORMAT`   | `--opaque` (format override)                                                              | —              |
+| `IDS_WRAPPING_KEY`        | `--wrapped`                                                                               | `hex`          |
+| `IDS_WRAPPING_KEY_FORMAT` | `--wrapped` (format override)                                                             | —              |
+| `IDS_SIGNING_KEY`         | `--signed`                                                                                | `hex`          |
+| `IDS_SIGNING_KEY_FORMAT`  | `--signed` (format override)                                                              | —              |
+| `IDS_DIGEST_KEY`          | `--digest`                                                                                | `hex`          |
+| `IDS_DIGEST_KEY_FORMAT`   | `--digest` (format override)                                                              | —              |
 
 Key format defaults to `hex`; override per-invocation with `--key-format` or set
 the matching `_FORMAT` env var for a session default. `--key-format` on the
