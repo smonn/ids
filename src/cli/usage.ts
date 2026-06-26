@@ -13,7 +13,7 @@ export function usageInspect(): string {
     "  --signed decodes a Signed Timestamp ID; reads signing key from IDS_SIGNING_KEY (hex by default; IDS_SIGNING_KEY_FORMAT or --key-format).",
     "  Without IDS_SIGNING_KEY, --signed prints the timestamp only (no verification). With IDS_SIGNING_KEY, prints verification: ok or failed.",
     "  Note: --digest is not supported for inspect (Digest IDs are one-way; there is no reverse path).",
-    "  --from-uuid <uuid> converts a raw UUID back to a canonical Id<Brand>. Requires --brand <brand>.",
+    "  --from-uuid <uuid> converts a UUID back to a canonical Id<Brand>. Requires --brand <brand>.",
     "  --brand <brand> specifies the entity type brand for --from-uuid (e.g. usr).",
     "",
   ].join("\n");
@@ -64,7 +64,7 @@ export function usage(): string {
     "    --signed decodes a Signed Timestamp ID; reads signing key from IDS_SIGNING_KEY (hex by default; IDS_SIGNING_KEY_FORMAT or --key-format).",
     "    Without IDS_SIGNING_KEY, --signed prints the timestamp only (no verification). With IDS_SIGNING_KEY, prints verification: ok or failed.",
     "    Note: --digest is not supported for inspect (Digest IDs are one-way; there is no reverse path).",
-    "    --from-uuid <uuid> converts a raw UUID back to a canonical Id<Brand>. Requires --brand <brand>.",
+    "    --from-uuid <uuid> converts a UUID back to a canonical Id<Brand>. Requires --brand <brand>.",
     "    --brand <brand> specifies the entity type brand for --from-uuid (e.g. usr).",
     "  generate, g <brand> [--count, -c N] [--opaque] [--reverse] [--signed] [--digest --ns <ns>] [--uuid] [--key-format hex|base64url]",
     `    Mint 1..${maxGenerateCount} canonical IDs for the given brand.`,
