@@ -8,6 +8,17 @@ export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 export type { IdColumnCodec };
 
 /**
+ * Extension of {@link IdColumnCodec} that also exposes synchronous `generate()`.
+ * Required by {@link beforeInsertHook} so that the hook can produce IDs at insert
+ * time. Every full codec variant (Timestamp, Reverse Timestamp) satisfies this;
+ * async-generate codecs (Opaque, Signed, Wrapped, Digest) do not and are therefore
+ * unsupported by `beforeInsertHook`.
+ */
+export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
+  generate(): Id<Brand>;
+};
+
+/**
  * TypeORM column transformer for `Id<Brand>`.
  *
  * Returns a `ValueTransformer` object suitable for use in a TypeORM `@Column`
@@ -47,6 +58,64 @@ export function idTransformer<Brand extends string>(codec: IdColumnCodec<Brand>)
     from(value: unknown): Id<Brand> {
       return readIdColumn(codec, value);
     },
+  };
+}
+
+/**
+ * Returns a function suitable for use inside a TypeORM `@BeforeInsert()` lifecycle
+ * hook that auto-generates an `Id<Brand>` for `fieldName` when the field is absent
+ * (`null` or `undefined`) on the entity at insert time. If the field already has a
+ * value it is left unchanged.
+ *
+ * Requires a codec variant that exposes a synchronous `generate()` — see
+ * {@link IdGeneratingCodec}. Only the **Timestamp codec** and **Reverse Timestamp
+ * codec** qualify; passing an async-generate codec (Opaque, Signed, Wrapped, Digest)
+ * is a **compile-time type error**.
+ *
+ * Pair with {@link idTransformer} on the same column: `idTransformer` handles the
+ * read/write path; `beforeInsertHook` handles generation.
+ *
+ * @example
+ * ```ts
+ * import { idTransformer, beforeInsertHook } from "@smonn/ids/typeorm";
+ * import { createTimestampId } from "@smonn/ids";
+ * import type { Id } from "@smonn/ids";
+ * import { BeforeInsert, Column, Entity } from "typeorm";
+ *
+ * const usr = createTimestampId("usr");
+ * const fillUserId = beforeInsertHook("id", usr);
+ *
+ * @Entity()
+ * class User {
+ *   @Column({ type: "text", transformer: idTransformer(usr) })
+ *   id!: Id<"usr">;
+ *
+ *   @BeforeInsert()
+ *   generateId() {
+ *     fillUserId(this);
+ *   }
+ * }
+ * ```
+ *
+ * @remarks
+ * **Gating rule:** `beforeInsertHook` requires a synchronous `generate()` codec
+ * (`IdGeneratingCodec`). Async-generate codecs — Opaque Timestamp, Signed Timestamp,
+ * Wrapped key, and Digest — do not satisfy `IdGeneratingCodec` and cannot be passed
+ * here. TypeORM `@BeforeInsert` can be async, but synchronous generation keeps the
+ * hook ergonomic and matches the full Prisma parity shape.
+ *
+ * **Read/write path:** Use {@link idTransformer} on the column for database
+ * read/write transforms. `beforeInsertHook` only handles the generation step — it
+ * does not replace the transformer.
+ */
+export function beforeInsertHook<Brand extends string>(
+  fieldName: string,
+  codec: IdGeneratingCodec<Brand>,
+): (entity: Record<string, unknown>) => void {
+  return function (entity: Record<string, unknown>): void {
+    if (entity[fieldName] == null) {
+      entity[fieldName] = codec.generate();
+    }
   };
 }
 
