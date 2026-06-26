@@ -109,7 +109,7 @@ export type GeneratePolicy = Policy<GeneratorDescriptor>;
 export const timestampVariant: GeneratorDescriptor = {
   inspect: {
     mode: "readable",
-    note: "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY",
+    note: "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_OPAQUE_KEY or IDS_KEY",
     validate: standardValidate,
     extractTimestamp(codec: IdCodec<string>, id: Id<string>): Date {
       return (codec as unknown as { extractTimestamp(id: Id<string>): Date }).extractTimestamp(id);
@@ -127,15 +127,15 @@ export const timestampVariant: GeneratorDescriptor = {
 export const opaqueVariant: GeneratorDescriptor = {
   flag: "--opaque",
   key: {
-    envVar: "IDS_KEY",
-    formatEnvVar: "IDS_KEY_FORMAT",
+    envVar: "IDS_OPAQUE_KEY",
+    formatEnvVar: "IDS_OPAQUE_KEY_FORMAT",
     encode: encodeOpaqueKey,
     decode: decodeOpaqueKey,
     import: importOpaqueKey,
   },
   inspect: {
     mode: "keyed-readable",
-    note: "note: timestamp assumes IDS_KEY matches the key used at generation; a wrong key yields a plausible but incorrect timestamp",
+    note: "note: timestamp assumes IDS_OPAQUE_KEY or IDS_KEY matches the key used at generation; a wrong key yields a plausible but incorrect timestamp",
     validate: standardValidate,
     extractTimestamp(codec: IdCodec<string>, id: Id<string>): Promise<Date> {
       return (
@@ -156,7 +156,7 @@ export const reverseVariant: GeneratorDescriptor = {
   flag: "--reverse",
   inspect: {
     mode: "readable",
-    note: "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_KEY",
+    note: "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_OPAQUE_KEY or IDS_KEY",
     validate: standardValidate,
     extractTimestamp(codec: IdCodec<string>, id: Id<string>): Date {
       return (codec as unknown as { extractTimestamp(id: Id<string>): Date }).extractTimestamp(id);
