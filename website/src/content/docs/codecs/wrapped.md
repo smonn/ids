@@ -69,6 +69,13 @@ Wrapping-key material is a **separate secret domain** from Opaque and Signing
 keys — same `hex` / `base64url` encoding conventions but a distinct `WrappingKey`
 handle and HKDF label, so one raw secret cannot silently serve multiple codecs.
 
+## Testing
+
+Wrapping is deterministic — the same lookup key under the same wrapping key
+always yields the same ID, with no `now` or `rng` to control. Import a key from
+constant bytes and `wrap` / `unwrap` round-trip reproducibly (both async). See
+the [Testing guide](/testing/) for the full pattern.
+
 ## Structural methods
 
 `is`, `parse`, `safeParse`, and `toJsonSchema` are synchronous and need no key

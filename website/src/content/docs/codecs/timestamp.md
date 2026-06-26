@@ -139,9 +139,8 @@ intra-millisecond ordering, this library isn't the right tool.
 
 ## Deterministic tests
 
-Inject a fixed clock and RNG for snapshot-friendly output. Both fields are
-optional; defaults are `Date.now` and an entropy harvester built on
-`crypto.randomUUID`:
+Inject a fixed clock and a no-op RNG for snapshot-friendly output. Both fields
+are optional and default to `Date.now` and a `crypto.randomUUID`-backed RNG:
 
 ```ts
 const users = createTimestampId("usr", {
@@ -152,9 +151,8 @@ const users = createTimestampId("usr", {
 users.generate(); // deterministic output
 ```
 
-`rng` writes random bytes into the provided target (a view sized for the
-codec's random tail — 10 bytes for the Timestamp and Reverse Timestamp codecs,
-5 bytes for the Signed Timestamp codec), so a custom RNG never allocates.
+See the [Testing guide](/testing/) for the full pattern across every codec,
+including the keyed codecs and property-based testing.
 
 ## Catch a double-registered brand
 

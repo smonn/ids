@@ -81,6 +81,12 @@ The [CLI](/cli/) `keygen` command emits keys in this format.
 - **timestamp exceeds 48-bit range** — `date.getTime() >= 2 ** 48`
 - **`Invalid Date`** — `date.getTime()` is `NaN`
 
+## Testing
+
+Inject a fixed `now`, a no-op `rng`, and a key from constant bytes for
+reproducible ciphertext; `generate` and `extractTimestamp` are async. See the
+[Testing guide](/testing/) for the full pattern.
+
 ## Differences from the Timestamp codec
 
 - **Async key-dependent methods.** WebCrypto is async-only, so `generate`,

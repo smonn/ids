@@ -75,6 +75,7 @@ export default defineConfig({
             { label: "Overview", link: "/" },
             { label: "Quickstart", link: "/quickstart/" },
             { label: "Choosing a codec", link: "/codecs/choosing/" },
+            { label: "Testing", link: "/testing/" },
           ],
         },
         {

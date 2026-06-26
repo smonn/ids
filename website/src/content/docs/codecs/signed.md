@@ -105,6 +105,12 @@ const ts = shares.extractTimestamp(result.id);
 | `rng`                 | `(target: Uint8Array) => void`  | `crypto.getRandomValues` | Writes 5 random bytes into `target` for the random tail; inject in tests for deterministic output                                                       |
 | `allowDuplicateBrand` | `boolean`                       | `false`                  | Silences the duplicate-brand warning in non-production environments (e.g. for holding multiple codec instances during signing keyring transition tests) |
 
+## Testing
+
+Inject a fixed `now`, a no-op `rng`, and a signing key from constant bytes for
+reproducible IDs; `generate` and `verify` are async. See the
+[Testing guide](/testing/) for the full pattern.
+
 ## Key handling
 
 Import signing key material via `importSigningKey(bytes)` from raw bytes (16,
