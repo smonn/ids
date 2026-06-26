@@ -451,35 +451,37 @@ jobs:
           summary_file=$(jq -r '.summary_file // "summary.md"' .review/manifest.json)
           test -f ".review/$summary_file" || { echo "::error::summary file .review/$summary_file missing"; exit 1; }
 
-          # Auto-repair wholesale-escaped bodies. The producer sometimes writes a body
-          # with literal escapes (\n, \<, \[) instead of verbatim markdown; when it does,
-          # the whole body comes through as (near) one physical line, so the literal "\n"
-          # sequences meet or outnumber the real newlines. In that case un-escape it in
-          # place so the review still posts. The count test scopes the rewrite to those
-          # wholesale-escaped bodies: a correctly-formatted multi-line body (real newlines
-          # dominate, at most a stray "\n" inside a code span) is left untouched, and the
-          # pre-flight guard below still rejects anything that remains corrupted.
+          # Diagnostics: dump the producer's raw body files BEFORE any repair, so the run
+          # log shows exactly what it wrote. `cat -A` makes line endings ($) and tabs
+          # (^I) visible, so a wholesale one-line "\n" blob is unmistakable from a
+          # properly newlined body and we can see precisely which escapes appeared.
+          for f in ".review/$summary_file" .review/inline/*.md; do
+            [ -f "$f" ] || continue
+            echo "::group::raw producer body (pre-repair): $f"
+            cat -A "$f"
+            echo "::endgroup::"
+          done
+
+          # Auto-repair escaped bodies. The producer intermittently writes backslash
+          # escapes instead of verbatim markdown — literal "\n" for newlines and \<, \>,
+          # \[, \], \` for the metacharacters — and the exact shape varies run to run
+          # (sometimes a wholesale one-line "\n" blob, sometimes only the "<" in the
+          # `<!-- code-review… -->` markers, sometimes scattered "\n" in a multi-line
+          # body). All of these render wrong on GitHub and the repo convention forbids
+          # them, so un-escape them UNCONDITIONALLY: "\n" -> real newline and strip the
+          # backslash from the metacharacters. This is exactly the set the pre-flight
+          # guard below rejects, so repairing it here GUARANTEES the body clears the
+          # guard and the review posts regardless of how the producer escaped it.
+          #
+          # Trade-off: a literal "\n" that legitimately belonged inside a code span is
+          # un-escaped too. That is rare and merely cosmetic (one finding shows a newline
+          # instead of "\n"), and is the price of always posting — the alternative,
+          # scoping the "\n" rewrite, repeatedly failed the whole review instead.
           repair_body() {
             f=$1
             [ -f "$f" ] || return 0
             before=$(cat "$f")
-            # Backslash-escaped markdown metacharacters (\<, \>, \[, \], \`) render
-            # identically to the bare character on GitHub and the repo convention
-            # forbids them, so strip those backslashes UNCONDITIONALLY — always safe,
-            # and it covers the common slip of escaping the `<` in the
-            # `<!-- code-review… -->` markers inside an otherwise well-formed body.
-            perl -0pi -e 's/\\([<>\[\]`])/$1/g' "$f"
-            # A literal "\n" is only turned into a real newline when the body is
-            # wholesale-escaped (it arrived as ~one physical line): the escaped-"\n"
-            # count meets or outnumbers the real newlines. That protects a legitimate
-            # "\n" inside a code span in an otherwise well-formed multi-line body.
-            # `|| true` keeps grep's no-match exit 1 from tripping `set -o pipefail`
-            # (and thus `set -e`) when the body has no literal "\n" at all.
-            real=$(tr -cd '\n' < "$f" | wc -c)
-            esc=$({ grep -oE '\\n' "$f" || true; } | wc -l)
-            if [ "$esc" -gt 0 ] && [ "$esc" -ge "$real" ]; then
-              perl -0pi -e 's/\\n/\n/g' "$f"
-            fi
+            perl -0pi -e 's/\\n/\n/g; s/\\([<>\[\]`])/$1/g' "$f"
             [ "$before" = "$(cat "$f")" ] || echo "::warning::auto-repaired escaped body $f"
           }
           repair_body ".review/$summary_file"
