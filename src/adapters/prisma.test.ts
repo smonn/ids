@@ -18,11 +18,21 @@ import { makeSpyCodec } from "./test-helpers.js";
 import type {
   GetPayloadResult,
   InternalArgs,
+  ModelQueryOptionsCbArgs,
+  QueryOptions,
   ResultArgs,
   ResultFieldDefinition,
 } from "@prisma/client/runtime/library";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { idField, IdsError, isIdsError, type IdColumnCodec, type IdTransform } from "./prisma.js";
+import {
+  idField,
+  IdsError,
+  isIdsError,
+  type IdColumnCodec,
+  type IdGeneratingCodec,
+  type IdQueryField,
+  type IdTransform,
+} from "./prisma.js";
 import type { Id } from "../types.js";
 
 describe("prisma", () => {
@@ -193,6 +203,161 @@ describe("prisma", () => {
       expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+  });
+
+  it("IdGeneratingCodec type is satisfied by createTimestampId codec", () => {
+    expectTypeOf(usr).toMatchTypeOf<IdGeneratingCodec<"usr">>();
+  });
+
+  describe("defaultQuery", () => {
+    function makeQueryArgs(
+      operation: string,
+      args: Record<string, unknown>,
+    ): ModelQueryOptionsCbArgs {
+      return {
+        model: "user",
+        operation,
+        args: args as ModelQueryOptionsCbArgs["args"],
+        query: async (a) => a,
+      };
+    }
+
+    it("injects a generated ID when the field is absent from args.data (create)", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("create", { data: { name: "Alice" } });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.create!(cbArgs);
+      const data = capturedArgs!.data as Record<string, unknown>;
+      expect(typeof data.id).toBe("string");
+      expect(usr.is(data.id as string)).toBe(true);
+    });
+
+    it("does not override an explicitly supplied ID (create)", async () => {
+      const suppliedId = usr.generate();
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("create", { data: { id: suppliedId, name: "Alice" } });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.create!(cbArgs);
+      const data = capturedArgs!.data as Record<string, unknown>;
+      expect(data.id).toBe(suppliedId);
+    });
+
+    it("injects a generated ID when the field is null (null treated as absent)", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("create", { data: { id: null, name: "Alice" } });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.create!(cbArgs);
+      const data = capturedArgs!.data as Record<string, unknown>;
+      expect(typeof data.id).toBe("string");
+      expect(usr.is(data.id as string)).toBe(true);
+    });
+
+    it("handles createMany with a mix of items (some with, some without the field)", async () => {
+      const existingId = usr.generate();
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("createMany", {
+        data: [{ name: "Alice" }, { id: existingId, name: "Bob" }, { id: null, name: "Carol" }],
+      });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.createMany!(cbArgs);
+      const data = capturedArgs!.data as Array<Record<string, unknown>>;
+      // Alice: absent → injected
+      expect(typeof data[0]!.id).toBe("string");
+      expect(usr.is(data[0]!.id as string)).toBe(true);
+      // Bob: explicit value → preserved
+      expect(data[1]!.id).toBe(existingId);
+      // Carol: null → injected
+      expect(typeof data[2]!.id).toBe("string");
+      expect(usr.is(data[2]!.id as string)).toBe(true);
+    });
+
+    it("injects into args.create when the field is absent (upsert)", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("upsert", {
+        where: { email: "alice@example.com" },
+        create: { name: "Alice" },
+        update: { name: "Alice" },
+      });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.upsert!(cbArgs);
+      const create = capturedArgs!.create as Record<string, unknown>;
+      expect(typeof create.id).toBe("string");
+      expect(usr.is(create.id as string)).toBe(true);
+      // update should be unchanged
+      const update = capturedArgs!.update as Record<string, unknown>;
+      expect(update.id).toBeUndefined();
+    });
+
+    it("passes args through unchanged for create when args.data is absent", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("create", {});
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.create!(cbArgs);
+      expect(capturedArgs!.data).toBeUndefined();
+    });
+
+    it("passes args through unchanged for createMany when args.data is absent", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("createMany", {});
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.createMany!(cbArgs);
+      expect(capturedArgs!.data).toBeUndefined();
+    });
+
+    it("passes args through unchanged for upsert when args.create is absent", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("upsert", { where: { email: "alice@example.com" } });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.upsert!(cbArgs);
+      expect(capturedArgs!.create).toBeUndefined();
+    });
+
+    it("IdQueryField type satisfies Prisma QueryOptions query-component shape", () => {
+      const querySpec = {
+        query: {
+          user: transform.defaultQuery("id"),
+        },
+      } satisfies QueryOptions;
+
+      expectTypeOf(querySpec.query["user"]).toMatchTypeOf<IdQueryField>();
+    });
+
+    it("IdTransform type exposes defaultQuery", () => {
+      expectTypeOf(transform).toMatchTypeOf<IdTransform<"usr">>();
+      expectTypeOf(transform.defaultQuery).toBeFunction();
     });
   });
 });
