@@ -8,9 +8,10 @@ Some libraries get a dedicated **adapter** — `@smonn/ids/hono`,
 optional peer dependency. See the [Adapters](/adapters/express/) section for
 those.
 
-Many other libraries need **no adapter at all**. tRPC, oRPC, TanStack Router,
-Zod, Valibot, ArkType, and Next.js all integrate through the universal surfaces
-that [every codec already exposes](/validation/):
+Many other libraries need **no adapter at all**. tRPC, oRPC, Elysia, TanStack
+(Router and Form), React Hook Form, Zod, Valibot, ArkType, Effect Schema, and
+Next.js all integrate through the universal surfaces that
+[every codec already exposes](/validation/):
 
 - **`~standard`** — [Standard Schema v1](https://standardschema.dev/), so the
   codec drops into any boundary that *consumes* a Standard Schema validator.
@@ -30,7 +31,7 @@ Standard Schema (exposing `~standard` on your own schemas) is the opposite
 direction from consuming it (accepting someone else's). The distinction decides
 the snippet.
 
-## 1. Pass the codec directly — input & route boundaries
+## 1. Pass the codec directly — inputs, routes & forms
 
 These boundaries **consume** a Standard Schema validator for an input value, so
 a codec slots straight in. The result is the canonical `Id<Brand>`, fully typed.
@@ -103,6 +104,60 @@ export const Route = createFileRoute("/users/$userId")({
 TanStack Start server functions accept a Standard Schema validator the same way
 tRPC does — pass the codec to `.validator()`.
 
+### Elysia
+
+[Elysia 1.4+](https://elysiajs.com/essential/validation) (Bun) detects Standard
+Schema validators via `~standard` alongside its native TypeBox `t.*` builder, so
+a codec can stand in as a route schema. Any other boundary that reads
+`~standard` works the same way — the rule is "does it consume Standard Schema",
+not "is it on this list".
+
+### Form libraries
+
+Validating an ID field on a form is the same story — both major libraries
+consume Standard Schema.
+
+[**TanStack Form**](https://tanstack.com/form/v1/docs/reference/variables/standardSchemaValidators)
+takes a Standard Schema validator **per field**, so the codec attaches directly:
+
+```tsx
+import { createTimestampId } from "@smonn/ids";
+
+const users = createTimestampId("usr");
+
+<form.Field
+  name="userId"
+  validators={{ onChange: users }} // Standard Schema validator
+>
+  {(field) => (
+    // field validates against the codec; errors surface in field.state.meta
+    <input
+      value={field.state.value}
+      onChange={(e) => field.handleChange(e.target.value)}
+    />
+  )}
+</form.Field>;
+```
+
+[**React Hook Form**](https://github.com/react-hook-form/resolvers) validates a
+**whole-form** schema through `standardSchemaResolver`. Build that form schema
+with a library that embeds codecs (ArkType, [§2](#2-compose-inside-a-schema-library)):
+
+```ts
+import { useForm } from "react-hook-form";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { type } from "arktype";
+import { createTimestampId } from "@smonn/ids";
+
+const users = createTimestampId("usr");
+const Schema = type({ userId: users, name: "string" });
+
+useForm({ resolver: standardSchemaResolver(Schema) });
+```
+
+For a single field without composing a form schema, use RHF's plain `validate`
+function: `register("userId", { validate: (v) => users.safeParse(v).ok })`.
+
 ## 2. Compose inside a schema library
 
 Schema libraries (ArkType, Zod, Valibot) **produce** Standard Schema. Whether
@@ -168,12 +223,29 @@ const userId = v.custom<Id<"usr">>((input) => users.safeParse(input).ok);
 To canonicalize rather than only validate, pipe `v.string()` through a transform
 that returns `users.safeParse(input).id` on success.
 
+### Effect Schema — wrap with `S.declare` / boundary `safeParse`
+
+[Effect Schema](https://effect.website/docs/schema/standard-schema/) is also a
+Standard Schema **producer only** (it exposes `~standard` via
+`S.standardSchemaV1()`), so embed an ID via a refined `S.String` that runs
+`safeParse`, or validate at the boundary:
+
+```ts
+import * as S from "effect/Schema";
+import { createTimestampId } from "@smonn/ids";
+
+const users = createTimestampId("usr");
+
+const UserId = S.String.pipe(S.filter((v) => users.safeParse(v).ok));
+```
+
 ## 3. Plain boundary validation
 
 Anywhere without a Standard Schema hook — Next.js route handlers and server
-actions, raw HTTP handlers, queue consumers — call `safeParse` at the boundary.
-It is lenient (accepts mixed case and Crockford aliases) and returns the
-canonical `Id<Brand>`:
+actions, SvelteKit actions/`load`, React Router 7 (Remix) loaders and actions,
+Nuxt / Nitro / h3 handlers (`readValidatedBody`), raw HTTP handlers, queue
+consumers — call `safeParse` at the boundary. It is lenient (accepts mixed case
+and Crockford aliases) and returns the canonical `Id<Brand>`:
 
 ```ts
 // app/api/users/[id]/route.ts
@@ -200,15 +272,21 @@ components.schemas.UserId = users.toJsonSchema();
 // { type: "string", pattern: "^usr_...$", description: "...", example: "..." }
 ```
 
+The emitted JSON Schema feeds **any** OpenAPI tool — renderers (Scalar, Redoc,
+Swagger UI) and codegen (openapi-typescript, orval) alike — not just hand-built
+documents.
+
 ## Summary
 
 | Library                      | Mechanism                              | What you pass                          |
 | ---------------------------- | -------------------------------------- | -------------------------------------- |
-| tRPC, oRPC                   | Consumes Standard Schema at `.input()` | The codec directly                     |
+| tRPC, oRPC, Elysia           | Consumes Standard Schema at the input  | The codec directly                     |
 | TanStack (Router / Start)    | Consumes Standard Schema               | Codec (search/server fn); `~standard.validate` for path params |
+| TanStack Form                | Consumes Standard Schema per field     | The codec in `validators.onChange`     |
+| React Hook Form              | Consumes a whole-form Standard Schema  | ArkType-composed schema via `standardSchemaResolver` |
 | ArkType                      | Consumes Standard Schema as a member   | The codec inside `type({ … })`         |
-| Zod, Valibot                 | Produce only — no foreign consume      | `z.custom` / `v.custom` around `safeParse` |
-| Next.js, raw handlers        | No schema hook                         | `safeParse` at the boundary; `toJsonSchema()` for OpenAPI |
+| Zod, Valibot, Effect Schema  | Produce only — no foreign consume      | `z.custom` / `v.custom` / `S.filter` around `safeParse` |
+| Next.js, SvelteKit, Remix, Nuxt | No schema hook                      | `safeParse` at the boundary; `toJsonSchema()` for OpenAPI |
 
 If your library isn't listed, the rule still holds: **does it consume a Standard
 Schema?** If yes, pass the codec. If no, call `safeParse` at the boundary. For
