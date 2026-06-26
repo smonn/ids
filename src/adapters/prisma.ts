@@ -123,6 +123,18 @@ export type IdTransform<Brand extends string> = {
 };
 
 /**
+ * The read/nullable-read/write surface returned by {@link nullableIdField} —
+ * mirrors the nullable methods of {@link IdTransform} but omits `defaultQuery`,
+ * `read`, and `computeField` since nullable FK columns neither auto-generate IDs
+ * nor require a non-null read path at the top level.
+ */
+export type NullableIdTransform<Brand extends string> = {
+  readNullable(value: unknown): Id<Brand> | null;
+  write(value: Id<Brand>): string;
+  computeNullableField(fieldName: string): NullableIdComputeField<Brand>;
+};
+
+/**
  * Creates a read/write transform pair for use with Prisma's `$extends` extension model.
  *
  * Requires a codec variant that exposes a synchronous `generate()` in addition to `safeParse` — see {@link IdGeneratingCodec}. Only the **Timestamp codec** and **Reverse Timestamp codec** qualify; Opaque, Signed, Wrapped, and Digest codecs cannot be passed to `idField()`.
@@ -208,6 +220,50 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
           return query(nextArgs);
         },
       };
+    },
+    computeNullableField(fieldName: string) {
+      return {
+        needs: { [fieldName]: true },
+        compute: (model: Record<string, unknown>): Id<Brand> | null =>
+          readIdColumnNullable(codec, model[fieldName]),
+      };
+    },
+  };
+}
+
+/**
+ * Standalone nullable counterpart of {@link idField} for Prisma adapter symmetry
+ * with the other ORM adapters ({@link nullableIdColumn} in Drizzle/Kysely,
+ * `nullableIdType` in MikroORM, `nullableIdTransformer` in TypeORM).
+ *
+ * Accepts any {@link IdColumnCodec} — no synchronous `generate()` required,
+ * because nullable FK columns do not auto-generate IDs.
+ *
+ * @example
+ * ```ts
+ * import { nullableIdField } from "@smonn/ids/prisma";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ * const authorIdField = nullableIdField(usr);
+ *
+ * const xprisma = prisma.$extends({
+ *   result: {
+ *     post: { authorId: authorIdField.computeNullableField("authorId") },
+ *   },
+ * });
+ * // xprisma.post.findUnique(…).authorId is typed as Id<"usr"> | null
+ * ```
+ */
+export function nullableIdField<Brand extends string>(
+  codec: IdColumnCodec<Brand>,
+): NullableIdTransform<Brand> {
+  return {
+    readNullable(value: unknown): Id<Brand> | null {
+      return readIdColumnNullable(codec, value);
+    },
+    write(value: Id<Brand>): string {
+      return value;
     },
     computeNullableField(fieldName: string) {
       return {
