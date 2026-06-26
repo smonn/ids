@@ -130,6 +130,7 @@ export default defineConfig({
         },
         { label: "CLI", link: "/cli/" },
         { label: "Error handling", link: "/errors/" },
+        { label: "Wire format & porting", link: "/porting/" },
         typeDocSidebarGroup,
       ],
     }),
