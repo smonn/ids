@@ -4,10 +4,12 @@ import { createTimestampId } from "../codecs/timestamp/index.js";
 import {
   idColumn,
   idPlugin,
+  nullableIdColumn,
   IdsError,
   isIdsError,
   type IdColumnCodec,
   type IdColumnType,
+  type NullableIdColumnType,
 } from "./kysely.js";
 import type { Id } from "../types.js";
 import type { ColumnType, KyselyPlugin } from "kysely";
@@ -195,6 +197,51 @@ describe("kysely", () => {
         fromAny({ queryId: {}, result: { rows: [{ id: usrId }] } }),
       );
       expect(result.rows[0]!.id).toBe(usrId);
+    });
+  });
+
+  describe("nullableIdColumn", () => {
+    const nullableUsrCol = nullableIdColumn(usr);
+
+    it("null driver value → null", () => {
+      expect(nullableUsrCol.fromDriver(fromAny(null))).toBeNull();
+    });
+
+    it("undefined driver value → null", () => {
+      expect(nullableUsrCol.fromDriver(fromAny(undefined))).toBeNull();
+    });
+
+    it("valid string driver value → Id<Brand>", () => {
+      const id = usr.generate();
+      expect(nullableUsrCol.fromDriver(fromAny(id))).toBe(id);
+      expectTypeOf(nullableUsrCol.fromDriver(fromAny(id))).toEqualTypeOf<Id<"usr"> | null>();
+    });
+
+    it("invalid string driver value → throws IdsError(invalid_id)", () => {
+      let err: unknown;
+      try {
+        nullableUsrCol.fromDriver("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("write path passes null through unchanged", () => {
+      expect(nullableUsrCol.toDriver(null)).toBeNull();
+      expectTypeOf(nullableUsrCol.toDriver(null)).toEqualTypeOf<string | null>();
+    });
+
+    it("write path passes Id<Brand> through as string", () => {
+      const id = usr.generate();
+      expect(nullableUsrCol.toDriver(id)).toBe(id);
+    });
+
+    it("NullableIdColumnType is assignable to Kysely ColumnType", () => {
+      expectTypeOf<NullableIdColumnType<"usr">>().toMatchTypeOf<
+        ColumnType<Id<"usr"> | null, Id<"usr"> | null, Id<"usr"> | null>
+      >();
     });
   });
 });

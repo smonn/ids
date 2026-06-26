@@ -54,10 +54,10 @@ describe("opaqueVariant", () => {
     expect(opaqueVariant.flag).toBe("--opaque");
   });
 
-  it("has a key facet with IDS_KEY env var", () => {
+  it("has a key facet with IDS_OPAQUE_KEY env var", () => {
     expect(opaqueVariant.key).toBeDefined();
-    expect(opaqueVariant.key!.envVar).toBe("IDS_KEY");
-    expect(opaqueVariant.key!.formatEnvVar).toBe("IDS_KEY_FORMAT");
+    expect(opaqueVariant.key!.envVar).toBe("IDS_OPAQUE_KEY");
+    expect(opaqueVariant.key!.formatEnvVar).toBe("IDS_OPAQUE_KEY_FORMAT");
   });
 
   it("key facet encode/decode round-trips", () => {
