@@ -94,7 +94,7 @@ Library for generating, parsing, and validating public-facing entity IDs in Type
 >
 > **Dev:** Support pasted an invoice ID — can I get the creation time from it?
 >
-> **Domain expert:** Only if that brand uses the Opaque Timestamp codec and you have the Opaque key. `extractTimestamp` decrypts under the key; without it, the timestamp isn't recoverable from the wire form. Same on the CLI: `inspect --opaque` with `IDS_KEY` set. Run `inspect` without `--opaque` on an Opaque Timestamp-encoded ID and you'll get a timestamp line — but it's meaningless; the variants are wire-indistinguishable.
+> **Domain expert:** Only if that brand uses the Opaque Timestamp codec and you have the Opaque key. `extractTimestamp` decrypts under the key; without it, the timestamp isn't recoverable from the wire form. Same on the CLI: `inspect --opaque` with `IDS_OPAQUE_KEY` or `IDS_KEY` set. Run `inspect` without `--opaque` on an Opaque Timestamp-encoded ID and you'll get a timestamp line — but it's meaningless; the variants are wire-indistinguishable.
 
 ## Flagged ambiguities / known gaps
 

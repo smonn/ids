@@ -1,5 +1,5 @@
 import type { ModelQueryOptionsCb, ModelQueryOptionsCbArgs } from "@prisma/client/runtime/library";
-import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
+import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -38,6 +38,16 @@ export type IdComputeField<Brand extends string> = {
 };
 
 /**
+ * Typed `$extends` result-component field definition produced by
+ * {@link IdTransform.computeNullableField} — like {@link IdComputeField} but
+ * `compute` returns `Id<Brand> | null` for nullable columns.
+ */
+export type NullableIdComputeField<Brand extends string> = {
+  needs: Record<string, boolean>;
+  compute: (model: Record<string, unknown>) => Id<Brand> | null;
+};
+
+/**
  * Read/write transform pair and `$extends` result-component factory for
  * integrating `Id<Brand>` with Prisma extensions.
  */
@@ -48,6 +58,11 @@ export type IdTransform<Brand extends string> = {
    * different brand.
    */
   read(value: unknown): Id<Brand>;
+  /**
+   * Nullable read transform: returns `null` when `value` is `null` or `undefined`;
+   * otherwise delegates to {@link read}. Use for optional foreign keys.
+   */
+  readNullable(value: unknown): Id<Brand> | null;
   /**
    * Write transform: passes `Id<Brand>` through as its canonical string form.
    * `Id<Brand>` is already the canonical string, so this is an identity function
@@ -97,6 +112,14 @@ export type IdTransform<Brand extends string> = {
    * ```
    */
   defaultQuery(fieldName: string): IdQueryField;
+  /**
+   * Like {@link computeField} but for nullable columns — `compute` returns
+   * `Id<Brand> | null` instead of `Id<Brand>`.
+   *
+   * @param fieldName - The nullable model field to read from.
+   * @returns A {@link NullableIdComputeField} whose `compute` returns `Id<Brand> | null`.
+   */
+  computeNullableField(fieldName: string): NullableIdComputeField<Brand>;
 };
 
 /**
@@ -129,6 +152,9 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
   return {
     read(value: unknown): Id<Brand> {
       return readIdColumn(codec, value);
+    },
+    readNullable(value: unknown): Id<Brand> | null {
+      return readIdColumnNullable(codec, value);
     },
     write(value: Id<Brand>): string {
       return value;
@@ -177,6 +203,13 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
               : args;
           return query(nextArgs);
         },
+      };
+    },
+    computeNullableField(fieldName: string) {
+      return {
+        needs: { [fieldName]: true },
+        compute: (model: Record<string, unknown>): Id<Brand> | null =>
+          readIdColumnNullable(codec, model[fieldName]),
       };
     },
   };

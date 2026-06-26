@@ -32,6 +32,7 @@ import {
   type IdGeneratingCodec,
   type IdQueryField,
   type IdTransform,
+  type NullableIdComputeField,
 } from "./prisma.js";
 import type { Id } from "../types.js";
 
@@ -193,6 +194,79 @@ describe("prisma", () => {
   it("IdTransform type exposes computeField", () => {
     expectTypeOf(transform).toMatchTypeOf<IdTransform<"usr">>();
     expectTypeOf(transform.computeField).toBeFunction();
+  });
+
+  describe("readNullable", () => {
+    it("returns null for null input", () => {
+      expect(transform.readNullable(null)).toBeNull();
+    });
+
+    it("returns null for undefined input", () => {
+      expect(transform.readNullable(undefined)).toBeNull();
+    });
+
+    it("returns Id<Brand> for a valid string", () => {
+      const id = usr.generate();
+      expect(transform.readNullable(id)).toBe(id);
+      expectTypeOf(transform.readNullable(id)).toEqualTypeOf<Id<"usr"> | null>();
+    });
+
+    it("throws IdsError(invalid_id) for an invalid string", () => {
+      let err: unknown;
+      try {
+        transform.readNullable("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+  });
+
+  describe("computeNullableField", () => {
+    it("returns a { needs, compute } object", () => {
+      const field = transform.computeNullableField("authorId");
+      expect(field).toHaveProperty("needs", { authorId: true });
+      expect(typeof field.compute).toBe("function");
+    });
+
+    it("compute returns null when field is null", () => {
+      const field = transform.computeNullableField("authorId");
+      expect(field.compute({ authorId: null })).toBeNull();
+    });
+
+    it("compute returns null when field is undefined", () => {
+      const field = transform.computeNullableField("authorId");
+      expect(field.compute({ authorId: undefined })).toBeNull();
+    });
+
+    it("compute returns Id<Brand> for a valid field value", () => {
+      const field = transform.computeNullableField("authorId");
+      const id = usr.generate();
+      expect(field.compute({ authorId: id })).toBe(id);
+    });
+
+    it("compute is typed to return Id<Brand> | null", () => {
+      const field = transform.computeNullableField("authorId");
+      expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr"> | null>();
+    });
+
+    it("compute throws IdsError on invalid value", () => {
+      const field = transform.computeNullableField("authorId");
+      let err: unknown;
+      try {
+        field.compute({ authorId: "not-a-valid-id" });
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("NullableIdComputeField type is satisfied", () => {
+      const field = transform.computeNullableField("authorId");
+      expectTypeOf(field).toMatchTypeOf<NullableIdComputeField<"usr">>();
+    });
   });
 
   describe("safeParse-only contract (spy codec)", () => {
