@@ -40,7 +40,7 @@ Because the operation is defined on the shared **Payload**, restricting it to a 
 
 ## `fromUUID` is version-agnostic by necessity
 
-`fromUUID` does **not** inspect the version nibble. This is forced, not lax: `toUUID`'s own output is raw and usually is *not* version 7, so a `fromUUID` that required version 7 could not even round-trip the library's own export. Round-trip identity demands version-agnostic import.
+`fromUUID` does **not** inspect the version nibble. This is forced, not lax: `toUUID`'s own output is raw and usually is _not_ version 7, so a `fromUUID` that required version 7 could not even round-trip the library's own export. Round-trip identity demands version-agnostic import.
 
 The consequence is a real but bounded hazard, and it is the same hazard the library already documents:
 
@@ -74,7 +74,7 @@ Decisions inside this shape:
 ## Considered options
 
 - **Spec-valid UUIDv7 export only** — rejected: lossy (overwrites 6 random bits), breaks round-trip identity. See Decision above.
-- **Raw plus an opt-in lossy `toUUIDv7`** — deferred, not taken now: it serves only the rarest consumer (handoff to a system that *validates* the version) and hands everyone else a footgun ("UUID" that does not survive round-trip). Recorded in IDEAS with the 6-bit entropy-cost reasoning, reopenable on a concrete validate-the-version consumer.
+- **Raw plus an opt-in lossy `toUUIDv7`** — deferred, not taken now: it serves only the rarest consumer (handoff to a system that _validates_ the version) and hands everyone else a footgun ("UUID" that does not survive round-trip). Recorded in IDEAS with the 6-bit entropy-cost reasoning, reopenable on a concrete validate-the-version consumer.
 - **Timestamp-family-only (or Timestamp-only) scope** — rejected: the raw decision removes the confidentiality rationale that fence rested on; the operation is defined on the shared Payload and applies cleanly everywhere. A narrower scope buys only a tidier marketing story at the cost of a carve-out with no real security answer.
 - **Branded `Uuid<Brand>` return** — rejected: claims a brand guarantee the format cannot carry past a `uuid` column. See API shape.
 - **`fromUUID` requires version 7** — rejected: would reject the library's own raw output and break round-trip. Version-asserting import is deferred as a separate migration safety rail.
@@ -87,7 +87,7 @@ Decisions inside this shape:
 - **Wire layer.** New prefix-taking functions live beside `safeParse` in `src/wire/` (a `toUUID(prefix, id)` / `fromUUID(prefix, value)` / `safeFromUUID(prefix, value)` family). Every codec exposes `toUUID` / `fromUUID` / `safeFromUUID` by delegating to them; no codec-specific logic. Confirms, structurally, that this is a wire-level operation rather than a codec feature.
 - **Stability contract.** `ParseError` gains `"invalid_uuid"` (additive/minor). `ParseResult`, `IdsError`, and the eleven-member `IdsErrorCode` union are unchanged. `parse`/`safeParse` result shapes are unchanged.
 - **CONTEXT.md** adds a **Raw UUID mapping** glossary term and a flagged ambiguity for the non-time-ordered-UUID import hazard (cross-referencing [ADR-0007](./0007-wire-indistinguishable-codec-variants.md)). The README's `ParseError` enumeration gains `"invalid_uuid"` when the feature ships.
-- **README and "what this is not for".** The "Wire-compatible ULIDs" non-goal stays; a new note clarifies that `toUUID` produces a *raw, unversioned* UUID (lossless round-trip), not a spec-valid UUIDv7. Left untouched until the feature ships, mirroring [ADR-0012](./0012-signed-timestamp-construction.md) / [ADR-0017](./0017-digest-codec-construction.md), so consumers are not pointed at an unshipped API.
+- **README and "what this is not for".** The "Wire-compatible ULIDs" non-goal stays; a new note clarifies that `toUUID` produces a _raw, unversioned_ UUID (lossless round-trip), not a spec-valid UUIDv7. Left untouched until the feature ships, mirroring [ADR-0012](./0012-signed-timestamp-construction.md) / [ADR-0017](./0017-digest-codec-construction.md), so consumers are not pointed at an unshipped API.
 - **Deferred to their own issues / ADRs**, paired with this one but out of scope here:
   - Spec-valid one-way `toUUIDv7` export (lossy; entropy-cost reasoning on file).
   - Version-asserting `fromUUIDv7` migration safety rail.
