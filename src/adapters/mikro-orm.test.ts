@@ -1,7 +1,15 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { idType, nullableIdType, IdsError, isIdsError, type IdColumnCodec } from "./mikro-orm.js";
+import {
+  idType,
+  idField,
+  nullableIdType,
+  IdsError,
+  isIdsError,
+  type IdColumnCodec,
+  type IdGeneratingCodec,
+} from "./mikro-orm.js";
 import type { Id } from "../types.js";
 import { Type } from "@mikro-orm/core";
 import { makeSpyCodec } from "./test-helpers.js";
@@ -124,6 +132,38 @@ describe("mikro-orm", () => {
       expectTypeOf(idType<"usr">)
         .parameter(1)
         .toMatchTypeOf<{ columnType?: string } | undefined>();
+    });
+  });
+
+  describe("idField", () => {
+    const result = idField(usr);
+
+    it("onCreate returns a value that parses as a valid Id<Brand>", () => {
+      const id = result.onCreate();
+      const parsed = usr.safeParse(id);
+      expect(parsed.ok).toBe(true);
+    });
+
+    it("returned type is the same class idType(codec) would produce — new result.type() is instanceof Type", () => {
+      expect(new result.type()).toBeInstanceOf(Type);
+    });
+
+    it("calling onCreate() multiple times returns distinct IDs", () => {
+      const id1 = result.onCreate();
+      const id2 = result.onCreate();
+      expect(id1).not.toBe(id2);
+    });
+
+    it("type-level: idField parameter 0 does not accept IdColumnCodec without generate", () => {
+      type NonGenerating = IdColumnCodec<"usr">;
+      expectTypeOf<NonGenerating>().not.toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("type-level: idField parameter 0 accepts a codec with synchronous generate()", () => {
+      expectTypeOf(usr).toMatchTypeOf<IdGeneratingCodec<"usr">>();
+      expectTypeOf(idField<"usr">)
+        .parameter(0)
+        .toMatchTypeOf<IdGeneratingCodec<"usr">>();
     });
   });
 

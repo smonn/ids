@@ -8,6 +8,54 @@ export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 export type { IdColumnCodec };
 
 /**
+ * Extension of {@link IdColumnCodec} that also exposes synchronous `generate()`.
+ * Required by {@link idField} so that the MikroORM `onCreate` hook can produce
+ * IDs at persist time. Only the **Timestamp codec** and **Reverse Timestamp codec**
+ * satisfy this; async-generate codecs (Opaque, Signed, Wrapped, Digest) do not.
+ */
+export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
+  generate(): Id<Brand>;
+};
+
+/**
+ * Returns a MikroORM property option object that wires `codec.generate()` into the
+ * `onCreate` lifecycle hook, so the field auto-fills on first persist.
+ *
+ * Requires a codec variant that exposes a synchronous `generate()` —
+ * see {@link IdGeneratingCodec}. Only the **Timestamp codec** and **Reverse
+ * Timestamp codec** qualify; Opaque, Signed, Wrapped, and Digest codecs cannot
+ * be passed here.
+ *
+ * Pass the result as options to `@PrimaryKey()` (the typical case for auto-generated primary keys) or any other MikroORM property decorator:
+ *
+ * @example
+ * ```ts
+ * import { PrimaryKey } from "@mikro-orm/core";
+ * import { idField } from "@smonn/ids/mikro-orm";
+ * import { createTimestampId } from "@smonn/ids";
+ * import type { Id } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ *
+ * class User {
+ *   @PrimaryKey(idField(usr))
+ *   id!: Id<"usr">;
+ * }
+ * ```
+ */
+export function idField<Brand extends string>(
+  codec: IdGeneratingCodec<Brand>,
+): {
+  type: new () => Type<Id<Brand>, string>;
+  onCreate: () => Id<Brand>;
+} {
+  return {
+    type: idType(codec),
+    onCreate: () => codec.generate(),
+  };
+}
+
+/**
  * Factory that returns a MikroORM `Type` subclass bound to a codec.
  *
  * **Write path** (`convertToDatabaseValue`): passes the `Id<Brand>` through
