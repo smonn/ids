@@ -227,7 +227,11 @@ export function nullableIdColumn<Brand extends string>(
 export function generatedIdColumn<Brand extends string>(
   codec: IdGeneratingCodec<Brand>,
   options?: { columnType?: string },
-): HasRuntimeDefault<HasDefault<PgCustomColumnBuilder<ConvertCustomConfig<"", { data: Id<Brand>; driverData: string }>>>> {
+): HasRuntimeDefault<
+  HasDefault<
+    PgCustomColumnBuilder<ConvertCustomConfig<"", { data: Id<Brand>; driverData: string }>>
+  >
+> {
   const columnType = options?.columnType ?? "text";
   return customType<{ data: Id<Brand>; driverData: string }>({
     dataType() {
@@ -272,7 +276,11 @@ export function generatedIdColumn<Brand extends string>(
  */
 export function generatedIdColumnMysql<Brand extends string>(
   codec: IdGeneratingCodec<Brand>,
-): HasRuntimeDefault<HasDefault<MySqlCustomColumnBuilder<ConvertCustomConfigMysql<"", { data: Id<Brand>; driverData: string }>>>> {
+): HasRuntimeDefault<
+  HasDefault<
+    MySqlCustomColumnBuilder<ConvertCustomConfigMysql<"", { data: Id<Brand>; driverData: string }>>
+  >
+> {
   return customTypeMysql<{ data: Id<Brand>; driverData: string }>({
     dataType() {
       return "text";
@@ -316,7 +324,13 @@ export function generatedIdColumnMysql<Brand extends string>(
  */
 export function generatedIdColumnSqlite<Brand extends string>(
   codec: IdGeneratingCodec<Brand>,
-): HasRuntimeDefault<HasDefault<SQLiteCustomColumnBuilder<ConvertCustomConfigSqlite<"", { data: Id<Brand>; driverData: string }>>>> {
+): HasRuntimeDefault<
+  HasDefault<
+    SQLiteCustomColumnBuilder<
+      ConvertCustomConfigSqlite<"", { data: Id<Brand>; driverData: string }>
+    >
+  >
+> {
   return customTypeSqlite<{ data: Id<Brand>; driverData: string }>({
     dataType() {
       return "text";

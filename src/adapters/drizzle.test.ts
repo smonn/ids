@@ -178,7 +178,8 @@ describe("drizzle", () => {
 
     it("defaultFn generates a valid Id<Brand> when called", () => {
       const col = generatedIdColumn(usr);
-      const defaultFn = fromAny(col).config?.defaultFn as (() => unknown) | undefined;
+      const defaultFn = fromAny<{ config?: { defaultFn?: () => unknown } }, unknown>(col).config
+        ?.defaultFn;
       expect(typeof defaultFn).toBe("function");
       const generated = defaultFn?.();
       expect(usr.safeParse(generated).ok).toBe(true);
@@ -321,7 +322,8 @@ describe("drizzle — MySQL", () => {
 
     it("defaultFn generates a valid Id<Brand> when called", () => {
       const col = generatedIdColumnMysql(usr);
-      const defaultFn = fromAny(col).config?.defaultFn as (() => unknown) | undefined;
+      const defaultFn = fromAny<{ config?: { defaultFn?: () => unknown } }, unknown>(col).config
+        ?.defaultFn;
       expect(typeof defaultFn).toBe("function");
       const generated = defaultFn?.();
       expect(usr.safeParse(generated).ok).toBe(true);
@@ -415,7 +417,8 @@ describe("drizzle — SQLite", () => {
 
     it("defaultFn generates a valid Id<Brand> when called", () => {
       const col = generatedIdColumnSqlite(usr);
-      const defaultFn = fromAny(col).config?.defaultFn as (() => unknown) | undefined;
+      const defaultFn = fromAny<{ config?: { defaultFn?: () => unknown } }, unknown>(col).config
+        ?.defaultFn;
       expect(typeof defaultFn).toBe("function");
       const generated = defaultFn?.();
       expect(usr.safeParse(generated).ok).toBe(true);
