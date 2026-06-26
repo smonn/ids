@@ -3,7 +3,7 @@ import {
   type ConvertCustomConfig,
   type PgCustomColumnBuilder,
 } from "drizzle-orm/pg-core";
-import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
+import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -54,6 +54,44 @@ export function idColumn<Brand extends string>(
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);
+    },
+  })();
+}
+
+/**
+ * Drizzle custom column type for a **nullable** `Id<Brand>` column.
+ *
+ * Behaves identically to {@link idColumn} except that `null` and `undefined`
+ * driver values are passed through as `null` rather than throwing. Use for
+ * optional foreign keys, `LEFT JOIN` results, and any column that is
+ * legitimately absent.
+ *
+ * @example
+ * ```ts
+ * import { nullableIdColumn } from "@smonn/ids/drizzle";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ * export const posts = pgTable("posts", {
+ *   authorId: nullableIdColumn(usr),
+ * });
+ * // posts.authorId is Id<"usr"> | null end-to-end
+ * ```
+ */
+export function nullableIdColumn<Brand extends string>(
+  codec: IdColumnCodec<Brand>,
+): PgCustomColumnBuilder<
+  ConvertCustomConfig<"", { data: Id<Brand> | null; driverData: string | null }>
+> {
+  return customType<{ data: Id<Brand> | null; driverData: string | null }>({
+    dataType() {
+      return "text";
+    },
+    toDriver(value: Id<Brand> | null): string | null {
+      return value;
+    },
+    fromDriver(value: string | null): Id<Brand> | null {
+      return readIdColumnNullable(codec, value);
     },
   })();
 }

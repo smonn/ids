@@ -1,7 +1,7 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { idType, IdsError, isIdsError, type IdColumnCodec } from "./mikro-orm.js";
+import { idType, nullableIdType, IdsError, isIdsError, type IdColumnCodec } from "./mikro-orm.js";
 import type { Id } from "../types.js";
 import { Type } from "@mikro-orm/core";
 import { makeSpyCodec } from "./test-helpers.js";
@@ -124,6 +124,55 @@ describe("mikro-orm", () => {
       expectTypeOf(idType<"usr">)
         .parameter(1)
         .toMatchTypeOf<{ columnType?: string } | undefined>();
+    });
+  });
+
+  describe("nullableIdType", () => {
+    const NullableUsrType = nullableIdType(usr);
+    const nullableInstance = new NullableUsrType();
+
+    it("nullableIdType returns a class that extends Type", () => {
+      expect(nullableInstance).toBeInstanceOf(Type);
+    });
+
+    it("null driver value → null", () => {
+      expect(nullableInstance.convertToJSValue(fromAny(null), undefined as never)).toBeNull();
+    });
+
+    it("undefined driver value → null", () => {
+      expect(nullableInstance.convertToJSValue(fromAny(undefined), undefined as never)).toBeNull();
+    });
+
+    it("valid string driver value → Id<Brand>", () => {
+      const id = usr.generate();
+      expect(nullableInstance.convertToJSValue(fromAny(id), undefined as never)).toBe(id);
+    });
+
+    it("invalid string driver value → throws IdsError(invalid_id)", () => {
+      let err: unknown;
+      try {
+        nullableInstance.convertToJSValue(
+          fromAny("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"),
+          undefined as never,
+        );
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("write path passes null through unchanged", () => {
+      expect(nullableInstance.convertToDatabaseValue(fromAny(null), undefined as never)).toBeNull();
+    });
+
+    it("write path passes Id<Brand> through as string", () => {
+      const id = usr.generate();
+      expect(nullableInstance.convertToDatabaseValue(id, undefined as never)).toBe(id);
+    });
+
+    it("getColumnType returns text", () => {
+      expect(nullableInstance.getColumnType(undefined as never, undefined as never)).toBe("text");
     });
   });
 });
