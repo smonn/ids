@@ -13,6 +13,7 @@ import {
   type ConvertCustomConfig as ConvertCustomConfigSqlite,
   type SQLiteCustomColumnBuilder,
 } from "drizzle-orm/sqlite-core";
+import type { HasDefault, HasRuntimeDefault } from "drizzle-orm/column-builder";
 import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
@@ -20,6 +21,17 @@ import type { Id } from "../types.js";
 export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 
 export type { IdColumnCodec };
+
+/**
+ * Extension of {@link IdColumnCodec} that also exposes synchronous `generate()`.
+ * Required by the `generatedIdColumn` family so that Drizzle's `.$defaultFn` can
+ * produce IDs at write time without explicit call-site wiring. Only the **Timestamp
+ * codec** and **Reverse Timestamp codec** satisfy this; async-generate codecs
+ * (Opaque, Signed, Wrapped, Digest) do not and are a compile-time error.
+ */
+export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
+  generate(): Id<Brand>;
+};
 
 /**
  * Drizzle custom column type that stores an `Id<Brand>` as a canonical SQL string value in PostgreSQL.
@@ -178,4 +190,158 @@ export function nullableIdColumn<Brand extends string>(
       return readIdColumnNullable(codec, value);
     },
   })();
+}
+
+/**
+ * Drizzle custom column type that stores an `Id<Brand>` as a canonical SQL string value
+ * in PostgreSQL, with a client-side `.$defaultFn` so inserts that omit the field receive
+ * a freshly generated ID automatically.
+ *
+ * **Write path:** `.$defaultFn(() => codec.generate())` is wired — if the field is absent
+ * on insert, Drizzle calls `codec.generate()` to produce a new `Id<Brand>`.
+ *
+ * **Read path:** normalises the raw DB string via `codec.safeParse()`, not strict `is()`.
+ * Throws `IdsError("invalid_id")` if the value from the database does not parse as a
+ * valid `Id<Brand>`.
+ *
+ * Requires a codec that exposes synchronous `generate()` — see {@link IdGeneratingCodec}.
+ * Only the **Timestamp codec** and **Reverse Timestamp codec** qualify; Opaque, Signed,
+ * Wrapped, and Digest codecs are a compile-time error.
+ *
+ * @param codec - The brand-scoped codec used to generate and parse values.
+ * @param options - Optional column configuration.
+ * @param options.columnType - SQL column type to use (default: `"text"`). Pass
+ *   `"varchar(30)"` or `"char(26)"` to match an existing DDL or index strategy.
+ *   The value is passed through verbatim — no validation is performed.
+ *
+ * @example
+ * ```ts
+ * import { generatedIdColumn } from "@smonn/ids/drizzle";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ * export const users = pgTable("users", { id: generatedIdColumn(usr).primaryKey() });
+ * // id is auto-filled on insert — no hand-supplied id needed
+ * ```
+ */
+export function generatedIdColumn<Brand extends string>(
+  codec: IdGeneratingCodec<Brand>,
+  options?: { columnType?: string },
+): HasRuntimeDefault<
+  HasDefault<
+    PgCustomColumnBuilder<ConvertCustomConfig<"", { data: Id<Brand>; driverData: string }>>
+  >
+> {
+  const columnType = options?.columnType ?? "text";
+  return customType<{ data: Id<Brand>; driverData: string }>({
+    dataType() {
+      return columnType;
+    },
+    toDriver(value: Id<Brand>): string {
+      return value;
+    },
+    fromDriver(value: string): Id<Brand> {
+      return readIdColumn(codec, value);
+    },
+  })().$defaultFn(() => codec.generate());
+}
+
+/**
+ * Drizzle custom column type that stores an `Id<Brand>` as a canonical `text` value
+ * in MySQL, with a client-side `.$defaultFn` so inserts that omit the field receive
+ * a freshly generated ID automatically.
+ *
+ * **Write path:** `.$defaultFn(() => codec.generate())` is wired — if the field is absent
+ * on insert, Drizzle calls `codec.generate()` to produce a new `Id<Brand>`.
+ *
+ * **Read path:** normalises the raw DB string via `codec.safeParse()`, not strict `is()`.
+ * Throws `IdsError("invalid_id")` if the value from the database does not parse as a
+ * valid `Id<Brand>`.
+ *
+ * Requires a codec that exposes synchronous `generate()` — see {@link IdGeneratingCodec}.
+ * Only the **Timestamp codec** and **Reverse Timestamp codec** qualify; Opaque, Signed,
+ * Wrapped, and Digest codecs are a compile-time error.
+ *
+ * @param codec - The brand-scoped codec used to generate and parse values.
+ *   Column type is always `text` and cannot be overridden.
+ *
+ * @example
+ * ```ts
+ * import { generatedIdColumnMysql } from "@smonn/ids/drizzle";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ * export const users = mysqlTable("users", { id: generatedIdColumnMysql(usr).primaryKey() });
+ * // id is auto-filled on insert — no hand-supplied id needed
+ * ```
+ */
+export function generatedIdColumnMysql<Brand extends string>(
+  codec: IdGeneratingCodec<Brand>,
+): HasRuntimeDefault<
+  HasDefault<
+    MySqlCustomColumnBuilder<ConvertCustomConfigMysql<"", { data: Id<Brand>; driverData: string }>>
+  >
+> {
+  return customTypeMysql<{ data: Id<Brand>; driverData: string }>({
+    dataType() {
+      return "text";
+    },
+    toDriver(value: Id<Brand>): string {
+      return value;
+    },
+    fromDriver(value: string): Id<Brand> {
+      return readIdColumn(codec, value);
+    },
+  })().$defaultFn(() => codec.generate());
+}
+
+/**
+ * Drizzle custom column type that stores an `Id<Brand>` as a canonical `text` value
+ * in SQLite, with a client-side `.$defaultFn` so inserts that omit the field receive
+ * a freshly generated ID automatically.
+ *
+ * **Write path:** `.$defaultFn(() => codec.generate())` is wired — if the field is absent
+ * on insert, Drizzle calls `codec.generate()` to produce a new `Id<Brand>`.
+ *
+ * **Read path:** normalises the raw DB string via `codec.safeParse()`, not strict `is()`.
+ * Throws `IdsError("invalid_id")` if the value from the database does not parse as a
+ * valid `Id<Brand>`.
+ *
+ * Requires a codec that exposes synchronous `generate()` — see {@link IdGeneratingCodec}.
+ * Only the **Timestamp codec** and **Reverse Timestamp codec** qualify; Opaque, Signed,
+ * Wrapped, and Digest codecs are a compile-time error.
+ *
+ * @param codec - The brand-scoped codec used to generate and parse values.
+ *   Column type is always `text` and cannot be overridden.
+ *
+ * @example
+ * ```ts
+ * import { generatedIdColumnSqlite } from "@smonn/ids/drizzle";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ * export const users = sqliteTable("users", { id: generatedIdColumnSqlite(usr).primaryKey() });
+ * // id is auto-filled on insert — no hand-supplied id needed
+ * ```
+ */
+export function generatedIdColumnSqlite<Brand extends string>(
+  codec: IdGeneratingCodec<Brand>,
+): HasRuntimeDefault<
+  HasDefault<
+    SQLiteCustomColumnBuilder<
+      ConvertCustomConfigSqlite<"", { data: Id<Brand>; driverData: string }>
+    >
+  >
+> {
+  return customTypeSqlite<{ data: Id<Brand>; driverData: string }>({
+    dataType() {
+      return "text";
+    },
+    toDriver(value: Id<Brand>): string {
+      return value;
+    },
+    fromDriver(value: string): Id<Brand> {
+      return readIdColumn(codec, value);
+    },
+  })().$defaultFn(() => codec.generate());
 }

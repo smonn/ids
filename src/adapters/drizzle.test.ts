@@ -4,14 +4,23 @@ import { pgTable } from "drizzle-orm/pg-core";
 import { mysqlTable } from "drizzle-orm/mysql-core";
 import { sqliteTable } from "drizzle-orm/sqlite-core";
 import { createTimestampId } from "../codecs/timestamp/index.js";
+import { createReverseTimestampId } from "../codecs/reverse/index.js";
+import type { OpaqueTimestampCodec } from "../codecs/opaque/index.js";
+import type { SignedTimestampCodec } from "../codecs/signed/index.js";
+import type { WrappedKeyCodec } from "../codecs/wrapped/index.js";
+import type { DigestCodec } from "../codecs/digest/index.js";
 import {
   idColumn,
   idColumnMysql,
   idColumnSqlite,
   nullableIdColumn,
+  generatedIdColumn,
+  generatedIdColumnMysql,
+  generatedIdColumnSqlite,
   IdsError,
   isIdsError,
   type IdColumnCodec,
+  type IdGeneratingCodec,
 } from "./drizzle.js";
 import type { Id } from "../types.js";
 import { makeSpyCodec } from "./test-helpers.js";
@@ -144,6 +153,83 @@ describe("drizzle", () => {
     });
   });
 
+  describe("IdGeneratingCodec", () => {
+    const timestampCodec = createTimestampId("usr", { allowDuplicateBrand: true });
+    const reverseTimestampCodec = createReverseTimestampId("usr", { allowDuplicateBrand: true });
+
+    it("createTimestampId satisfies IdGeneratingCodec", () => {
+      expectTypeOf(timestampCodec).toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("createReverseTimestampId satisfies IdGeneratingCodec", () => {
+      expectTypeOf(reverseTimestampCodec).toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("a codec without generate does not satisfy IdGeneratingCodec", () => {
+      const minimalCodec = {
+        safeParse: (_value: unknown) => ({ ok: false as const, error: "not_string" as const }),
+      };
+      expectTypeOf(minimalCodec).not.toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("OpaqueTimestampCodec does not satisfy IdGeneratingCodec (async generate)", () => {
+      expectTypeOf<OpaqueTimestampCodec<"usr">>().not.toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("SignedTimestampCodec does not satisfy IdGeneratingCodec (async generate)", () => {
+      expectTypeOf<SignedTimestampCodec<"usr">>().not.toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("WrappedKeyCodec does not satisfy IdGeneratingCodec (no generate)", () => {
+      expectTypeOf<WrappedKeyCodec<"usr", "u32">>().not.toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+
+    it("DigestCodec does not satisfy IdGeneratingCodec (no generate)", () => {
+      expectTypeOf<DigestCodec<"usr">>().not.toMatchTypeOf<IdGeneratingCodec<"usr">>();
+    });
+  });
+
+  describe("generatedIdColumn", () => {
+    it("wires .$defaultFn and returns a PgCustomColumnBuilder", () => {
+      const col = generatedIdColumn(usr);
+      expect(col).toBeDefined();
+      expectTypeOf(col.$defaultFn).toBeFunction();
+    });
+
+    it("defaultFn generates a valid Id<Brand> when called", () => {
+      const col = generatedIdColumn(usr);
+      const defaultFn = fromAny<{ config?: { defaultFn?: () => unknown } }, unknown>(col).config
+        ?.defaultFn;
+      expect(typeof defaultFn).toBe("function");
+      const generated = defaultFn?.();
+      expect(usr.safeParse(generated).ok).toBe(true);
+    });
+
+    it("read path normalises via safeParse", () => {
+      const tbl = pgTable("gen_users", { id: generatedIdColumn(usr) });
+      const id = usr.generate();
+      expect(tbl.id.mapFromDriverValue(fromAny(id))).toBe(id);
+    });
+
+    it("write path passes Id<Brand> through unchanged", () => {
+      const tbl = pgTable("gen_users_write", { id: generatedIdColumn(usr) });
+      const id = usr.generate();
+      expect(tbl.id.mapToDriverValue(id)).toBe(id);
+    });
+
+    it("getSQLType defaults to 'text'", () => {
+      const tbl = pgTable("gen_users_text", { id: generatedIdColumn(usr) });
+      expect(tbl.id.getSQLType()).toBe("text");
+    });
+
+    it("accepts columnType option", () => {
+      const tbl = pgTable("gen_users_varchar", {
+        id: generatedIdColumn(usr, { columnType: "varchar(30)" }),
+      });
+      expect(tbl.id.getSQLType()).toBe("varchar(30)");
+    });
+  });
+
   describe("nullableIdColumn", () => {
     const posts = pgTable("posts", { authorId: nullableIdColumn(usr) });
 
@@ -246,6 +332,35 @@ describe("drizzle — MySQL", () => {
   it("IdColumnCodec accepts any codec variant with safeParse", () => {
     expectTypeOf(usr).toMatchTypeOf<IdColumnCodec<"usr">>();
   });
+
+  describe("generatedIdColumnMysql", () => {
+    it("wires .$defaultFn and returns a MySqlCustomColumnBuilder", () => {
+      const col = generatedIdColumnMysql(usr);
+      expect(col).toBeDefined();
+      expectTypeOf(col.$defaultFn).toBeFunction();
+    });
+
+    it("defaultFn generates a valid Id<Brand> when called", () => {
+      const col = generatedIdColumnMysql(usr);
+      const defaultFn = fromAny<{ config?: { defaultFn?: () => unknown } }, unknown>(col).config
+        ?.defaultFn;
+      expect(typeof defaultFn).toBe("function");
+      const generated = defaultFn?.();
+      expect(usr.safeParse(generated).ok).toBe(true);
+    });
+
+    it("read path normalises via safeParse", () => {
+      const tbl = mysqlTable("gen_users", { id: generatedIdColumnMysql(usr) });
+      const id = usr.generate();
+      expect(tbl.id.mapFromDriverValue(fromAny(id))).toBe(id);
+    });
+
+    it("write path passes Id<Brand> through unchanged", () => {
+      const tbl = mysqlTable("gen_users_write", { id: generatedIdColumnMysql(usr) });
+      const id = usr.generate();
+      expect(tbl.id.mapToDriverValue(id)).toBe(id);
+    });
+  });
 });
 
 describe("drizzle — SQLite", () => {
@@ -311,5 +426,34 @@ describe("drizzle — SQLite", () => {
 
   it("IdColumnCodec accepts any codec variant with safeParse", () => {
     expectTypeOf(usr).toMatchTypeOf<IdColumnCodec<"usr">>();
+  });
+
+  describe("generatedIdColumnSqlite", () => {
+    it("wires .$defaultFn and returns a SQLiteCustomColumnBuilder", () => {
+      const col = generatedIdColumnSqlite(usr);
+      expect(col).toBeDefined();
+      expectTypeOf(col.$defaultFn).toBeFunction();
+    });
+
+    it("defaultFn generates a valid Id<Brand> when called", () => {
+      const col = generatedIdColumnSqlite(usr);
+      const defaultFn = fromAny<{ config?: { defaultFn?: () => unknown } }, unknown>(col).config
+        ?.defaultFn;
+      expect(typeof defaultFn).toBe("function");
+      const generated = defaultFn?.();
+      expect(usr.safeParse(generated).ok).toBe(true);
+    });
+
+    it("read path normalises via safeParse", () => {
+      const tbl = sqliteTable("gen_users", { id: generatedIdColumnSqlite(usr) });
+      const id = usr.generate();
+      expect(tbl.id.mapFromDriverValue(fromAny(id))).toBe(id);
+    });
+
+    it("write path passes Id<Brand> through unchanged", () => {
+      const tbl = sqliteTable("gen_users_write", { id: generatedIdColumnSqlite(usr) });
+      const id = usr.generate();
+      expect(tbl.id.mapToDriverValue(id)).toBe(id);
+    });
   });
 });
