@@ -69,10 +69,11 @@ export async function loadKey<K>(
   const specificSet = specificRaw !== undefined && specificRaw !== "";
   const raw = specificSet ? specificRaw : env[PRIMARY_KEY_VAR];
   if (raw === undefined || raw === "") {
-    return {
-      kind: "missing",
-      message: `missing ${facet.envVar} or ${PRIMARY_KEY_VAR} environment variable`,
-    };
+    const varDesc =
+      !specificSet && facet.envVar !== PRIMARY_KEY_VAR
+        ? `${facet.envVar} or ${PRIMARY_KEY_VAR}`
+        : facet.envVar;
+    return { kind: "missing", message: `missing ${varDesc} environment variable` };
   }
   try {
     return await facet.import(facet.decode(raw, format));
