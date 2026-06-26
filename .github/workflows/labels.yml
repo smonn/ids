@@ -67,6 +67,14 @@ jobs:
           ensure needs-rebase     FBCA04 "Merge latest main into this agent PR and resolve conflicts"
           ensure address-feedback 5319E7 "Have the agent address the review feedback on this PR"
 
+          # Automation marker (applied by conflicts.yml, removed by rebase.yml / self-heal):
+          # a PR that conflicts with main has an automatic rebase dispatched, and while the
+          # marker is present every PR-triggered run of our workflows pauses (ci/bench
+          # self-cancel; review/address-review/autofix no-op) so nothing works on the
+          # soon-to-be-superseded commit. It is an automation-in-progress flag, not a
+          # standing "this PR conflicts" status — see conflicts.yml.
+          ensure conflicting      D93F0B "PR conflicts with main; runs paused while an automatic rebase is dispatched"
+
           # Escalation
           ensure needs-human     B60205 "Automated handling gave up; needs a human"
 

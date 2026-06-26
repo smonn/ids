@@ -26,18 +26,13 @@
 
 ### Patch Changes
 
-- 5d3c1d3: Publish the release SBOM as a signed CycloneDX attestation
-  (`actions/attest-sbom`) bound to the published package, instead of
-  uploading it as a GitHub release asset — release assets are rejected now
-  that the repo uses immutable releases.
+- 5d3c1d3: Publish the release SBOM as a signed CycloneDX attestation (`actions/attest-sbom`) bound to the published package, instead of uploading it as a GitHub release asset — release assets are rejected now that the repo uses immutable releases.
 
 ## 0.12.2
 
 ### Patch Changes
 
-- b6cc09f: Fix the release SBOM step to generate the CycloneDX SBOM natively from
-  `pnpm-lock.yaml` with cdxgen, instead of deriving a throwaway npm lockfile
-  (which crashed under npm 11 on pnpm's symlinked `node_modules`).
+- b6cc09f: Fix the release SBOM step to generate the CycloneDX SBOM natively from `pnpm-lock.yaml` with cdxgen, instead of deriving a throwaway npm lockfile (which crashed under npm 11 on pnpm's symlinked `node_modules`).
 
 ## 0.12.1
 
@@ -98,10 +93,7 @@
 
 ### Patch Changes
 
-- e724772: Docs: fix undefined identifiers in the Wrapped key (`invoices`) and Hono
-  adapter (`org`/`thing`/`handler`) examples, and align the CLI `--wrapped`
-  inspect example brand with the wrapped-codec docs (`ord_…`). Documentation
-  only — no runtime changes; the release exists to redeploy ids.smonn.se.
+- e724772: Docs: fix undefined identifiers in the Wrapped key (`invoices`) and Hono adapter (`org`/`thing`/`handler`) examples, and align the CLI `--wrapped` inspect example brand with the wrapped-codec docs (`ord_…`). Documentation only — no runtime changes; the release exists to redeploy ids.smonn.se.
 
 ## 0.9.2
 

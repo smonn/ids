@@ -7,5 +7,14 @@
     ".address-context/**",
     ".address/**",
     ".review-context/**"
+  ],
+  "overrides": [
+    {
+      "files": ["**/*.md", "**/*.mdx"],
+      "excludeFiles": ["website/**"],
+      "options": {
+        "proseWrap": "never"
+      }
+    }
   ]
 }
