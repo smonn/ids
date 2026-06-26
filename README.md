@@ -107,7 +107,7 @@ Exports from the main `@smonn/ids` entry point only. Codec-specific subpath expo
 Every codec instance exposes the following UUID interop methods in addition to the codec-specific ones documented on the [full docs site](https://ids.smonn.se):
 
 - `toUUID(id)` — Takes a trusted `Id<Brand>`, returns the 16-byte payload reinterpreted as a canonical lowercase-hyphenated UUID `string`. Total — cannot fail. The brand is shed; the output is a plain `string`, not a branded type.
-- `fromUUID(value)` — Takes an untrusted `string`, returns `Id<Brand>`. Throws `IdsError` (`code: "invalid_id"`) with a `ParseError` on `cause` (`"not_string"` or `"invalid_uuid"`) on malformed input.
+- `fromUUID(value)` — Takes an untrusted `string`, returns `Id<Brand>`. Throws `IdsError` (`code: "invalid_id"`) with a `ParseError` on `cause` (`"invalid_uuid"`, or `"not_string"` for untyped JavaScript callers) on malformed input.
 - `safeFromUUID(value)` — Takes `unknown`, returns `ParseResult<Brand>` (`{ ok: true; id }` or `{ ok: false; error: ParseError }`). Never throws.
 
 ## Links
