@@ -1,6 +1,0 @@
-{
-  "issue_number": 616,
-  "branch": "agent/issue-616",
-  "escalate": false,
-  "pr_title": "docs(readme): document toUUID/fromUUID/safeFromUUID and invalid_uuid ParseError"
-}
