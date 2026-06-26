@@ -1,0 +1,6 @@
+{
+  "issue_number": 615,
+  "branch": "agent/issue-615",
+  "escalate": false,
+  "pr_title": "feat(cli): add UUID interop surface — inspect uuid line, generate --uuid, inspect --from-uuid"
+}
