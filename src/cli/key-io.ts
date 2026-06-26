@@ -38,21 +38,26 @@ export function parseKeyFormatFromFlag(values: Map<string, string>): KeyFormat |
   return fromFlag;
 }
 
+const PRIMARY_KEY_VAR = "IDS_KEY";
+const PRIMARY_FORMAT_VAR = "IDS_KEY_FORMAT";
+
 export function parseKeyFormat(
   values: Map<string, string>,
   opts: RunOpts,
-  facet: Pick<KeyFacet<unknown>, "formatEnvVar">,
+  facet: Pick<KeyFacet<unknown>, "envVar" | "formatEnvVar">,
 ): KeyFormat | string {
   const fromFlag = parseKeyFormatFlag(values);
   if (fromFlag !== undefined) return fromFlag;
   const env = opts.env ?? process.env;
-  const fromEnv = env[facet.formatEnvVar];
+  // format must travel with its paired key var, never cross-paired
+  const specificRaw = env[facet.envVar];
+  const specificSet = specificRaw !== undefined && specificRaw !== "";
+  const activeFormatVar = specificSet ? facet.formatEnvVar : PRIMARY_FORMAT_VAR;
+  const fromEnv = env[activeFormatVar];
   if (fromEnv === undefined || fromEnv === "") return "hex";
   if (fromEnv === "hex" || fromEnv === "base64url") return fromEnv;
-  return `${facet.formatEnvVar} must be hex or base64url, got '${fromEnv}'`;
+  return `${activeFormatVar} must be hex or base64url, got '${fromEnv}'`;
 }
-
-const PRIMARY_FALLBACK = "IDS_KEY";
 
 export async function loadKey<K>(
   opts: RunOpts,
@@ -60,18 +65,18 @@ export async function loadKey<K>(
   facet: Pick<KeyFacet<K>, "envVar" | "decode" | "import">,
 ): Promise<K | LoadKeyError> {
   const env = opts.env ?? process.env;
-  const raw = env[facet.envVar];
-  const hasPrimary = raw !== undefined && raw !== "";
-
-  const useFallback = !hasPrimary && facet.envVar !== PRIMARY_FALLBACK;
-  const resolvedRaw = useFallback ? env[PRIMARY_FALLBACK] : raw;
-
-  if (resolvedRaw === undefined || resolvedRaw === "") {
-    const varDesc = useFallback ? `${facet.envVar} or ${PRIMARY_FALLBACK}` : facet.envVar;
+  const specificRaw = env[facet.envVar];
+  const specificSet = specificRaw !== undefined && specificRaw !== "";
+  const raw = specificSet ? specificRaw : env[PRIMARY_KEY_VAR];
+  if (raw === undefined || raw === "") {
+    const varDesc =
+      !specificSet && facet.envVar !== PRIMARY_KEY_VAR
+        ? `${facet.envVar} or ${PRIMARY_KEY_VAR}`
+        : facet.envVar;
     return { kind: "missing", message: `missing ${varDesc} environment variable` };
   }
   try {
-    return await facet.import(facet.decode(resolvedRaw, format));
+    return await facet.import(facet.decode(raw, format));
   } catch (err) {
     return { kind: "import-failure", message: formatCliError(err) };
   }

@@ -1,5 +1,5 @@
 import type { ValueTransformer } from "typeorm";
-import { readIdColumn, type IdColumnCodec } from "./adapter-types.js";
+import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -46,6 +46,42 @@ export function idTransformer<Brand extends string>(codec: IdColumnCodec<Brand>)
     },
     from(value: unknown): Id<Brand> {
       return readIdColumn(codec, value);
+    },
+  };
+}
+
+/**
+ * TypeORM column transformer for a **nullable** `Id<Brand>` column.
+ *
+ * Behaves like {@link idTransformer} but `from` returns `null` for `null` /
+ * `undefined` database values and `to` passes `null` / `undefined` through
+ * unchanged. Use for optional foreign keys.
+ *
+ * @example
+ * ```ts
+ * import { nullableIdTransformer } from "@smonn/ids/typeorm";
+ * import { createTimestampId } from "@smonn/ids";
+ * import type { Id } from "@smonn/ids";
+ * import { Column, Entity } from "typeorm";
+ *
+ * const usr = createTimestampId("usr");
+ *
+ * @Entity()
+ * class Post {
+ *   @Column({ type: "text", nullable: true, transformer: nullableIdTransformer(usr) })
+ *   authorId!: Id<"usr"> | null;
+ * }
+ * ```
+ */
+export function nullableIdTransformer<Brand extends string>(
+  codec: IdColumnCodec<Brand>,
+): ValueTransformer {
+  return {
+    to(value: Id<Brand> | null | undefined): string | null | undefined {
+      return value;
+    },
+    from(value: unknown): Id<Brand> | null {
+      return readIdColumnNullable(codec, value);
     },
   };
 }

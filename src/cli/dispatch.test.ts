@@ -281,12 +281,13 @@ describe("buildCodec", () => {
     expect(isCodecError(result)).toBe(true);
     if (!isCodecError(result)) throw new Error("expected CodecError");
     expect(result.message).toContain("missing");
+    expect(result.message).toContain("IDS_OPAQUE_KEY");
     expect(result.message).toContain("IDS_KEY");
     expect(result.kind).toBe("usage");
   });
 
-  it("returns opaque codec when env key is present", async () => {
-    const opts = makeOpts({ IDS_KEY: testOpaqueHex });
+  it("returns opaque codec when IDS_OPAQUE_KEY is present", async () => {
+    const opts = makeOpts({ IDS_OPAQUE_KEY: testOpaqueHex });
     const result = await buildCodec(opaqueVariant, "tst", new Map(), opts);
     expect(typeof result).toBe("object");
     expect(result).not.toBeNull();
@@ -317,7 +318,7 @@ describe("buildCodec", () => {
   });
 
   it("returns CodecError(runtime) when key encoding is bad", async () => {
-    const opts = makeOpts({ IDS_KEY: "not-valid-hex!!!" });
+    const opts = makeOpts({ IDS_OPAQUE_KEY: "not-valid-hex!!!" });
     const result = await buildCodec(opaqueVariant, "tst", new Map(), opts);
     expect(isCodecError(result)).toBe(true);
     if (!isCodecError(result)) throw new Error("expected CodecError");
@@ -326,7 +327,7 @@ describe("buildCodec", () => {
 
   it("respects --key-format flag (base64url)", async () => {
     const encoded = opaqueVariant.key!.encode(testKeyBytes, "base64url");
-    const opts = makeOpts({ IDS_KEY: encoded });
+    const opts = makeOpts({ IDS_OPAQUE_KEY: encoded });
     const values = new Map([["--key-format", "base64url"]]);
     const result = await buildCodec(opaqueVariant, "tst", values, opts);
     expect(typeof result).toBe("object");
@@ -342,7 +343,7 @@ describe("buildCodec", () => {
   });
 
   it("codec branch exposes generate() without a cast (opaque, async)", async () => {
-    const opts = makeOpts({ IDS_KEY: testOpaqueHex });
+    const opts = makeOpts({ IDS_OPAQUE_KEY: testOpaqueHex });
     const codec = await buildCodec(opaqueVariant, "tst", new Map(), opts);
     if (isCodecError(codec)) throw new Error("expected codec object");
     const id = await codec.generate();
@@ -393,7 +394,7 @@ describe("buildCodec", () => {
     expect(id1).toMatch(/^tst_/);
   });
 
-  it("returns CodecError(usage) when key env-var format is invalid", async () => {
+  it("returns CodecError(usage) when key env-var format is invalid (IDS_KEY_FORMAT via fallback)", async () => {
     const opts = makeOpts({ IDS_KEY_FORMAT: "bad" });
     const result = await buildCodec(opaqueVariant, "tst", new Map(), opts);
     expect(isCodecError(result)).toBe(true);
@@ -409,6 +410,72 @@ describe("buildCodec", () => {
     expect(isCodecError(result)).toBe(false);
     expect(typeof result).toBe("object");
     expect(result).not.toBeNull();
+  });
+
+  it("returns CodecError(usage) when IDS_OPAQUE_KEY_FORMAT is invalid (specific format var)", async () => {
+    const opts = makeOpts({ IDS_OPAQUE_KEY: testOpaqueHex, IDS_OPAQUE_KEY_FORMAT: "bad" });
+    const result = await buildCodec(opaqueVariant, "tst", new Map(), opts);
+    expect(isCodecError(result)).toBe(true);
+    if (!isCodecError(result)) throw new Error("expected CodecError");
+    expect(result.message).toContain("IDS_OPAQUE_KEY_FORMAT");
+    expect(result.kind).toBe("usage");
+  });
+
+  it("returns opaque codec via IDS_KEY fallback when IDS_OPAQUE_KEY is unset", async () => {
+    const opts = makeOpts({ IDS_KEY: testOpaqueHex });
+    const result = await buildCodec(opaqueVariant, "tst", new Map(), opts);
+    expect(typeof result).toBe("object");
+    expect(result).not.toBeNull();
+    expect(isCodecError(result)).toBe(false);
+  });
+
+  it("IDS_OPAQUE_KEY wins over IDS_KEY when both are set", async () => {
+    const wrongKeyBytes = new Uint8Array(32).fill(0xff);
+    const wrongKeyHex = encodeOpaqueKey(wrongKeyBytes, "hex");
+    // IDS_OPAQUE_KEY is valid, IDS_KEY is a different valid key — specific wins
+    const opts = makeOpts({ IDS_OPAQUE_KEY: testOpaqueHex, IDS_KEY: wrongKeyHex });
+    const result = await buildCodec(opaqueVariant, "tst", new Map(), opts);
+    expect(typeof result).toBe("object");
+    expect(isCodecError(result)).toBe(false);
+  });
+
+  it("IDS_OPAQUE_KEY_FORMAT is paired with IDS_OPAQUE_KEY, not IDS_KEY_FORMAT", async () => {
+    // IDS_OPAQUE_KEY set in base64url, IDS_OPAQUE_KEY_FORMAT says base64url, IDS_KEY_FORMAT says hex
+    const encoded = encodeOpaqueKey(testKeyBytes, "base64url");
+    const opts = makeOpts({
+      IDS_OPAQUE_KEY: encoded,
+      IDS_OPAQUE_KEY_FORMAT: "base64url",
+      IDS_KEY_FORMAT: "hex",
+    });
+    const result = await buildCodec(opaqueVariant, "tst", new Map(), opts);
+    expect(typeof result).toBe("object");
+    expect(isCodecError(result)).toBe(false);
+  });
+
+  it("IDS_KEY_FORMAT is paired with IDS_KEY fallback, not IDS_OPAQUE_KEY_FORMAT", async () => {
+    // IDS_KEY in base64url, IDS_KEY_FORMAT says base64url, no IDS_OPAQUE_KEY set
+    const encoded = encodeOpaqueKey(testKeyBytes, "base64url");
+    const opts = makeOpts({ IDS_KEY: encoded, IDS_KEY_FORMAT: "base64url" });
+    const result = await buildCodec(opaqueVariant, "tst", new Map(), opts);
+    expect(typeof result).toBe("object");
+    expect(isCodecError(result)).toBe(false);
+  });
+
+  it("returns signed codec via IDS_KEY fallback when IDS_SIGNING_KEY is unset", async () => {
+    const opts = makeOpts({ IDS_KEY: testSigningHex });
+    const result = await buildCodec(signedVariant, "tst", new Map(), opts);
+    expect(typeof result).toBe("object");
+    expect(result).not.toBeNull();
+    expect(isCodecError(result)).toBe(false);
+  });
+
+  it("returns digest codec via IDS_KEY fallback when IDS_DIGEST_KEY is unset", async () => {
+    const opts = makeOpts({ IDS_KEY: testDigestHex });
+    const values = new Map([["--ns", "test"]]);
+    const result = await buildCodec(digestVariant, "tst", values, opts);
+    expect(typeof result).toBe("object");
+    expect(result).not.toBeNull();
+    expect(isCodecError(result)).toBe(false);
   });
 });
 

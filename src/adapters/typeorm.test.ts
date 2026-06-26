@@ -1,7 +1,13 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { idTransformer, IdsError, isIdsError, type IdColumnCodec } from "./typeorm.js";
+import {
+  idTransformer,
+  nullableIdTransformer,
+  IdsError,
+  isIdsError,
+  type IdColumnCodec,
+} from "./typeorm.js";
 import type { Id } from "../types.js";
 import { makeSpyCodec } from "./test-helpers.js";
 
@@ -109,6 +115,47 @@ describe("typeorm", () => {
       expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("nullableIdTransformer", () => {
+    const nullableTransformer = nullableIdTransformer(usr);
+
+    it("null from DB → null", () => {
+      expect(nullableTransformer.from(null)).toBeNull();
+    });
+
+    it("undefined from DB → null", () => {
+      expect(nullableTransformer.from(undefined)).toBeNull();
+    });
+
+    it("valid string from DB → Id<Brand>", () => {
+      const id = usr.generate();
+      expect(nullableTransformer.from(id)).toBe(id);
+    });
+
+    it("invalid string from DB → throws IdsError(invalid_id)", () => {
+      let err: unknown;
+      try {
+        nullableTransformer.from("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("write path passes null through unchanged", () => {
+      expect(nullableTransformer.to(fromAny(null))).toBeNull();
+    });
+
+    it("write path passes undefined through unchanged", () => {
+      expect(nullableTransformer.to(fromAny(undefined))).toBeUndefined();
+    });
+
+    it("write path passes Id<Brand> through as string", () => {
+      const id = usr.generate();
+      expect(nullableTransformer.to(id)).toBe(id);
     });
   });
 });
