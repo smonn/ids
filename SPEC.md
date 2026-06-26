@@ -93,7 +93,7 @@ A **canonical** ID is the unique representation of an ID:
 - with Crockford visual aliases already resolved (see **Canonicalization**);
 - whose 26th payload character is in `[048cgmrw]` (zero padding bits).
 
-Two strings denote the same ID **iff** their canonical forms are equal. A producer MUST emit canonical IDs. A value held in storage or passed between systems SHOULD be canonical.
+Two strings denote the same ID **if and only if** their canonical forms are equal. A producer MUST emit canonical IDs. A value held in storage or passed between systems SHOULD be canonical.
 
 ### Canonicalization (lenient input)
 
