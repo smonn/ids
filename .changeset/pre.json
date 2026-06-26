@@ -1,0 +1,9 @@
+{
+  "mode": "pre",
+  "tag": "rc",
+  "initialVersions": {
+    "@smonn/ids": "0.15.0",
+    "@smonn/ids-website": "0.0.0"
+  },
+  "changesets": []
+}
