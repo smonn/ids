@@ -52,6 +52,8 @@ export function parseKeyFormat(
   return `${facet.formatEnvVar} must be hex or base64url, got '${fromEnv}'`;
 }
 
+const PRIMARY_FALLBACK = "IDS_KEY";
+
 export async function loadKey<K>(
   opts: RunOpts,
   format: KeyFormat,
@@ -59,11 +61,17 @@ export async function loadKey<K>(
 ): Promise<K | LoadKeyError> {
   const env = opts.env ?? process.env;
   const raw = env[facet.envVar];
-  if (raw === undefined || raw === "") {
-    return { kind: "missing", message: `missing ${facet.envVar} environment variable` };
+  const hasPrimary = raw !== undefined && raw !== "";
+
+  const useFallback = !hasPrimary && facet.envVar !== PRIMARY_FALLBACK;
+  const resolvedRaw = useFallback ? env[PRIMARY_FALLBACK] : raw;
+
+  if (resolvedRaw === undefined || resolvedRaw === "") {
+    const varDesc = useFallback ? `${facet.envVar} or ${PRIMARY_FALLBACK}` : facet.envVar;
+    return { kind: "missing", message: `missing ${varDesc} environment variable` };
   }
   try {
-    return await facet.import(facet.decode(raw, format));
+    return await facet.import(facet.decode(resolvedRaw, format));
   } catch (err) {
     return { kind: "import-failure", message: formatCliError(err) };
   }
