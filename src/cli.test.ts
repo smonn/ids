@@ -2499,6 +2499,17 @@ describe("cli generate --uuid", () => {
     expect(result.stderr).toBe("");
     expect(result.stdout.trimEnd()).toMatch(uuidPattern);
   });
+
+  it("--uuid works with --digest", async () => {
+    const result = await runCaptureWithStdin(
+      ["generate", "idk", "--digest", "--ns", "checkout", "--uuid"],
+      "order-123",
+      { env: { IDS_DIGEST_KEY: testDigestKeyHex } },
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trimEnd()).toMatch(uuidPattern);
+  });
 });
 
 describe("cli inspect --from-uuid", () => {

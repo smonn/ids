@@ -254,6 +254,7 @@ export const digestVariant: GeneratorDescriptor = {
       const codec = createDigestId(brand, { ns, key: key as DigestKey, allowDuplicateBrand: true });
       return {
         safeParse: (v: unknown) => codec.safeParse(v),
+        toUUID: (id: string) => codec.toUUID(id as Id<typeof brand>),
         async generate(): Promise<string> {
           const reader = opts.readStdin ?? (() => Promise.resolve(""));
           const material = await reader();
