@@ -119,6 +119,23 @@ export type WrappedKeyCodec<Brand extends string, Kind extends WrappedKind> = {
   safeParse(value: unknown): ParseResult<Brand>;
   toJsonSchema(): JsonSchema;
   readonly "~standard": StandardSchemaProps<Brand>;
+  /**
+   * Converts a trusted `Id<Brand>` to an RFC 9562 canonical (lowercase, hyphenated)
+   * UUID string by reinterpreting the 16-byte payload verbatim. Total — cannot fail.
+   * Returns a plain `string` (brand is shed). See ADR-0024.
+   */
+  toUUID(id: Id<Brand>): string;
+  /**
+   * Parses a UUID string into an `Id<Brand>`. Accepts case-insensitive `8-4-4-4-12`
+   * hyphenated form only. Throws `IdsError` with `code: "invalid_id"` on bad input.
+   * See ADR-0024.
+   */
+  fromUUID(value: string): Id<Brand>;
+  /**
+   * Non-throwing UUID parse. Returns `{ ok: true, id }` or
+   * `{ ok: false, error: "not_string" | "invalid_uuid" }`. See ADR-0024.
+   */
+  safeFromUUID(value: unknown): ParseResult<Brand>;
 };
 
 /**
@@ -268,5 +285,8 @@ export function createWrappedKeyId<Brand extends string, Kind extends WrappedKin
     safeParse: wire.safeParse,
     toJsonSchema: () => wire.toJsonSchema(brand, layout.exampleWireId()),
     "~standard": wire["~standard"],
+    toUUID: wire.toUUID,
+    fromUUID: wire.fromUUID,
+    safeFromUUID: wire.safeFromUUID,
   };
 }

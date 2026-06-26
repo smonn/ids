@@ -782,3 +782,59 @@ describe("LayoutOps contract", () => {
     expect(schema.example).toMatch(/^uzz_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$/);
   });
 });
+
+describe("Timestamp codec — UUID methods", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  it("toUUID returns a 36-char lowercase hyphenated UUID", () => {
+    const usr = createTimestampId("tuu", { allowDuplicateBrand: true });
+    expect(usr.toUUID(usr.generate())).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+  });
+
+  it("fromUUID(toUUID(id)) === id (round-trip)", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 2 ** 48 - 1 }), (ms) => {
+        const usr = createTimestampId("tuu", { allowDuplicateBrand: true });
+        const id = usr.generateAt(new Date(ms));
+        return usr.fromUUID(usr.toUUID(id)) === id;
+      }),
+    );
+  });
+
+  it("safeFromUUID returns ok:true for a valid UUID and result passes is()", () => {
+    const usr = createTimestampId("tuu", { allowDuplicateBrand: true });
+    const result = usr.safeFromUUID("01234567-89ab-cdef-0123-456789abcdef");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(usr.is(result.id)).toBe(true);
+  });
+
+  it("safeFromUUID returns not_string for non-string", () => {
+    const usr = createTimestampId("tuu", { allowDuplicateBrand: true });
+    expect(usr.safeFromUUID(null)).toEqual({ ok: false, error: "not_string" });
+  });
+
+  it("safeFromUUID returns invalid_uuid for malformed UUID", () => {
+    const usr = createTimestampId("tuu", { allowDuplicateBrand: true });
+    expect(usr.safeFromUUID("bad")).toEqual({ ok: false, error: "invalid_uuid" });
+  });
+
+  it("fromUUID throws IdsError invalid_id for bad input", () => {
+    const usr = createTimestampId("tuu", { allowDuplicateBrand: true });
+    expect(() => usr.fromUUID("bad")).toThrow();
+    try {
+      usr.fromUUID("bad");
+    } catch (e) {
+      expect(isIdsError(e)).toBe(true);
+      expect((e as IdsError).code).toBe("invalid_id");
+      expect((e as IdsError).cause).toBe("invalid_uuid");
+    }
+  });
+});

@@ -1,6 +1,7 @@
 import { expect, describe, it, expectTypeOf, vi, beforeAll, afterAll } from "vitest";
 import * as fc from "fast-check";
 import { createReverseTimestampId } from "./index.js";
+import { isIdsError } from "../../error.js";
 import type { Id, JsonSchema } from "../../types.js";
 
 describe("reverse timestamp codec", () => {
@@ -431,5 +432,60 @@ describe("reverse timestamp codec", () => {
         }),
       );
     });
+  });
+});
+
+describe("Reverse Timestamp codec — UUID methods", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  it("toUUID returns a 36-char lowercase hyphenated UUID", () => {
+    const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+    const id = rev.generate();
+    expect(rev.toUUID(id)).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+  });
+
+  it("fromUUID(toUUID(id)) === id (round-trip)", () => {
+    const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 2 ** 48 - 1 }), (ms) => {
+        const id = rev.generateAt(new Date(ms));
+        return rev.fromUUID(rev.toUUID(id)) === id;
+      }),
+    );
+  });
+
+  it("safeFromUUID returns ok:true for a valid UUID and result passes is()", () => {
+    const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+    const result = rev.safeFromUUID("01234567-89ab-cdef-0123-456789abcdef");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(rev.is(result.id)).toBe(true);
+  });
+
+  it("safeFromUUID returns not_string for non-string", () => {
+    const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+    expect(rev.safeFromUUID(null)).toEqual({ ok: false, error: "not_string" });
+  });
+
+  it("safeFromUUID returns invalid_uuid for malformed UUID", () => {
+    const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+    expect(rev.safeFromUUID("not-a-uuid")).toEqual({ ok: false, error: "invalid_uuid" });
+  });
+
+  it("fromUUID throws IdsError invalid_id for malformed UUID", () => {
+    const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+    expect(() => rev.fromUUID("bad")).toThrow();
+    try {
+      rev.fromUUID("bad");
+    } catch (e) {
+      expect(isIdsError(e)).toBe(true);
+    }
   });
 });

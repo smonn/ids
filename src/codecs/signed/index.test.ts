@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll } from "vitest";
+import { describe, expect, it, beforeAll, afterAll, vi } from "vitest";
 import * as fc from "fast-check";
 import {
   createSignedTimestampId,
@@ -625,5 +625,48 @@ describe("createSignedTimestampId", () => {
         ),
       );
     });
+  });
+});
+
+describe("Signed Timestamp codec — UUID methods", () => {
+  let sigKey: SigningKey;
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(async () => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+    sigKey = await importSigningKey(new Uint8Array(32));
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  it("toUUID returns a 36-char lowercase hyphenated UUID", () => {
+    const sgn = createSignedTimestampId("sgn", { keys: [sigKey], allowDuplicateBrand: true });
+    const id = sgn.parse("sgn_" + "0".repeat(26));
+    expect(sgn.toUUID(id)).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+  });
+
+  it("fromUUID(toUUID(id)) === id (round-trip)", () => {
+    const sgn = createSignedTimestampId("sgn", { keys: [sigKey], allowDuplicateBrand: true });
+    const id = sgn.parse("sgn_" + "0".repeat(26));
+    expect(sgn.fromUUID(sgn.toUUID(id))).toBe(id);
+  });
+
+  it("safeFromUUID returns ok:true for a valid UUID and result passes is()", () => {
+    const sgn = createSignedTimestampId("sgn", { keys: [sigKey], allowDuplicateBrand: true });
+    const result = sgn.safeFromUUID("01234567-89ab-cdef-0123-456789abcdef");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(sgn.is(result.id)).toBe(true);
+  });
+
+  it("safeFromUUID returns not_string for non-string", () => {
+    const sgn = createSignedTimestampId("sgn", { keys: [sigKey], allowDuplicateBrand: true });
+    expect(sgn.safeFromUUID(null)).toEqual({ ok: false, error: "not_string" });
+  });
+
+  it("safeFromUUID returns invalid_uuid for malformed UUID", () => {
+    const sgn = createSignedTimestampId("sgn", { keys: [sigKey], allowDuplicateBrand: true });
+    expect(sgn.safeFromUUID("bad")).toEqual({ ok: false, error: "invalid_uuid" });
   });
 });

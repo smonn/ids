@@ -56,8 +56,8 @@ export type Id<Brand extends string> = `${Prefix<Brand>}${string}` & {
   readonly [idBrand]: Brand;
 };
 
-/** Parse failure reason returned by `safeParse()`. */
-export type ParseError = "not_string" | "invalid_prefix" | "invalid_base32";
+/** Parse failure reason returned by `safeParse()` and `safeFromUUID()`. */
+export type ParseError = "not_string" | "invalid_prefix" | "invalid_base32" | "invalid_uuid";
 
 /** Result of `safeParse()`: canonical `Id<Brand>` or a `ParseError`. */
 export type ParseResult<Brand extends string> =
