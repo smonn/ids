@@ -85,7 +85,7 @@ Exports from the main `@smonn/ids` entry point only. Codec-specific subpath expo
 ### Types
 
 - `Id<Brand>` — Canonical branded ID string for `Brand`; produced by `generate()` and `safeParse()`.
-- `ParseError` — Parse failure reason string (`"not_string"`, `"invalid_prefix"`, `"invalid_base32"`, or `"invalid_uuid"`) returned by `safeParse()` and `safeFromUUID()`.
+- `ParseError` — Parse failure reason string returned by `safeParse()` (`"not_string"`, `"invalid_prefix"`, or `"invalid_base32"`) and by `safeFromUUID()` (`"not_string"` or `"invalid_uuid"`).
 - `ParseResult<Brand>` — Discriminated union returned by `safeParse()`: `{ ok: true; id: Id<Brand> }` or `{ ok: false; error: ParseError }`.
 - `JsonSchema` — Shape of the object returned by a codec's `toJsonSchema()`.
 - `IdsErrorCode` — String-literal union of the eleven stable error codes carried by `IdsError`.
