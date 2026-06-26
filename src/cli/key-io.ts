@@ -49,7 +49,7 @@ export function parseKeyFormat(
   const fromFlag = parseKeyFormatFlag(values);
   if (fromFlag !== undefined) return fromFlag;
   const env = opts.env ?? process.env;
-  // Pair the format var with whichever key var is active (specific wins over primary fallback)
+  // format must travel with its paired key var, never cross-paired
   const specificRaw = env[facet.envVar];
   const specificSet = specificRaw !== undefined && specificRaw !== "";
   const activeFormatVar = specificSet ? facet.formatEnvVar : PRIMARY_FORMAT_VAR;
