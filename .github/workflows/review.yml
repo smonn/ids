@@ -408,6 +408,19 @@ jobs:
             Write `.review/summary.md` and `.review/manifest.json` even when you found
             nothing (an empty `inline`, a summary that says so, `hard_findings: false`).
             That is your only deliverable — the posting step takes it from here.
+
+            FINAL SELF-LINT — do this LAST, before you finish, and do NOT skip it. The
+            posting step rejects any body that still carries a literal backslash escape
+            (`\n`, `\<`, `\[`, or any backslash-escaped markdown metacharacter), so catch
+            and fix it yourself first, using the exact same check it applies. After you
+            have written every `.review/` file, use Grep to scan ALL of them — the regex
+            `\\n|\\<|\\[` (a backslash followed by `n`, `<`, or `[`) over
+            `.review/summary.md` and `.review/inline/*.md`. For each hit, the file was
+            authored with escapes instead of verbatim bytes: re-Write that whole file with
+            REAL newlines (press enter) and plain `<` / `[` / backtick characters, no
+            backslashes. Re-run the Grep until it returns ZERO matches across every body
+            file. Only finish once the scan is clean — a single literal `\n` left behind
+            fails the run and posts nothing.
           # Hermetic producer: Read/Grep/Glob to read the precomputed .review-context/
           # files and the repo's standards docs, Task so the skill can spawn its two
           # parallel sub-agents, and Write to author the .review/ files. NO Bash, NO git,
