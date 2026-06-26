@@ -1,9 +1,16 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it, vi, afterAll, beforeAll } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { idColumn, IdsError, isIdsError, type IdColumnCodec, type IdColumnType } from "./kysely.js";
+import {
+  idColumn,
+  idPlugin,
+  IdsError,
+  isIdsError,
+  type IdColumnCodec,
+  type IdColumnType,
+} from "./kysely.js";
 import type { Id } from "../types.js";
-import type { ColumnType } from "kysely";
+import type { ColumnType, KyselyPlugin } from "kysely";
 import { makeSpyCodec } from "./test-helpers.js";
 
 describe("kysely", () => {
@@ -98,6 +105,96 @@ describe("kysely", () => {
       expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("idPlugin", () => {
+    it("is exported and satisfies the KyselyPlugin interface", () => {
+      expectTypeOf(idPlugin).toBeFunction();
+      const plugin = idPlugin({ id: usr });
+      expectTypeOf(plugin).toMatchTypeOf<KyselyPlugin>();
+      expect(typeof plugin.transformQuery).toBe("function");
+      expect(typeof plugin.transformResult).toBe("function");
+    });
+
+    it("transformQuery is a no-op identity pass-through", () => {
+      const plugin = idPlugin({ id: usr });
+      const fakeNode = fromAny({ kind: "SelectQueryNode" });
+      const result = plugin.transformQuery(fromAny({ queryId: {}, node: fakeNode }));
+      expect(result).toBe(fakeNode);
+    });
+
+    it("transformResult transforms a single matched column automatically", async () => {
+      const id = usr.generate();
+      const plugin = idPlugin({ id: usr });
+      const result = await plugin.transformResult(
+        fromAny({ queryId: {}, result: { rows: [{ id }] } }),
+      );
+      expect(result.rows[0]!.id).toBe(id);
+      expectTypeOf(result.rows[0]!.id).toEqualTypeOf<unknown>();
+    });
+
+    it("transformResult transforms multiple codecs in one plugin", async () => {
+      const usrId = usr.generate();
+      const orgId = org.generate();
+      const plugin = idPlugin({ id: usr, org_id: org });
+      const result = await plugin.transformResult(
+        fromAny({ queryId: {}, result: { rows: [{ id: usrId, org_id: orgId }] } }),
+      );
+      expect(result.rows[0]!.id).toBe(usrId);
+      expect(result.rows[0]!.org_id).toBe(orgId);
+    });
+
+    it("transformResult throws IdsError with invalid_id when a matched column has an invalid value", async () => {
+      const plugin = idPlugin({ id: usr });
+      let err: unknown;
+      try {
+        await plugin.transformResult(
+          fromAny({ queryId: {}, result: { rows: [{ id: "not-a-valid-usr-id" }] } }),
+        );
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("transformResult passes through columns not in the map unchanged", async () => {
+      const id = usr.generate();
+      const plugin = idPlugin({ id: usr });
+      const result = await plugin.transformResult(
+        fromAny({ queryId: {}, result: { rows: [{ id, name: "Alice", count: 42 }] } }),
+      );
+      expect(result.rows[0]!.name).toBe("Alice");
+      expect(result.rows[0]!.count).toBe(42);
+    });
+
+    it("transformResult preserves other QueryResult fields (numAffectedRows etc.)", async () => {
+      const id = usr.generate();
+      const plugin = idPlugin({ id: usr });
+      const result = await plugin.transformResult(
+        fromAny({ queryId: {}, result: { rows: [{ id }], numAffectedRows: 1n } }),
+      );
+      expect(result.numAffectedRows).toBe(1n);
+    });
+
+    it("supports table.column qualified names — matches by the column-name part", async () => {
+      const id = usr.generate();
+      const plugin = idPlugin({ "users.id": usr });
+      const result = await plugin.transformResult(
+        fromAny({ queryId: {}, result: { rows: [{ id }] } }),
+      );
+      expect(result.rows[0]!.id).toBe(id);
+    });
+
+    it("qualified key takes precedence over a plain key for the same column name", async () => {
+      const usrId = usr.generate();
+      // "users.id" (qualified) wins over "id" (plain) for column "id"; usrId parses via usr codec
+      const plugin = idPlugin({ id: org, "users.id": usr });
+      const result = await plugin.transformResult(
+        fromAny({ queryId: {}, result: { rows: [{ id: usrId }] } }),
+      );
+      expect(result.rows[0]!.id).toBe(usrId);
     });
   });
 });
