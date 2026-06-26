@@ -92,6 +92,11 @@
 }
 
 .panel button {
+  /* margin:0 overrides Starlight's global `* + *` content spacing, which would
+     otherwise give every button after the first sibling in a row a 1rem top
+     margin — pushing e.g. "To UUID" 8px below "Extract timestamp" in the same
+     flex row. Mirrors the same reset on .tab/.tabActive above. */
+  margin: 0;
   font-size: var(--sl-text-sm);
   padding: 0.4rem 0.85rem;
   border-radius: 0.4rem;
