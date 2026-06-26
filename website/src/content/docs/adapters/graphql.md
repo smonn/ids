@@ -30,8 +30,9 @@ qualify).
 
 ## Scalar behaviour
 
-- **`serialize`** — identity pass-through; an `Id<Brand>` is already the
-  canonical wire string, so it is returned as-is.
+- **`serialize`** — validates via `codec.safeParse` and throws `GraphQLError` on
+  a non-conforming value (same behaviour as `parseValue`); always returns the
+  canonical lowercase form.
 - **`parseValue`** — validates variable values via `codec.safeParse`; throws
   `GraphQLError` on brand mismatch or malformed input. Accepts mixed-case and
   Crockford visual aliases (`o → 0`, `i → 1`, `l → 1`); always returns the
