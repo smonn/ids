@@ -1,13 +1,17 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import type { NextFunction, Request } from "express";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { IdParamError, idParam } from "./express.js";
+import { IdParamError, idParam, idQuery } from "./express.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { makeSpyCodec } from "./test-helpers.js";
 
 function makeReq(paramName: string, value: string | undefined): Request {
   return fromAny({ params: { [paramName]: value } });
+}
+
+function makeQueryReq(queryName: string, value: string | undefined): Request {
+  return fromAny({ query: { [queryName]: value } });
 }
 
 type MockRes = {
@@ -230,6 +234,163 @@ describe("idParam", () => {
       const spyCodec = makeSpyCodec("spy");
       const middleware = idParam("id", spyCodec);
       const req = makeReq("id", "any_value");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("idQuery", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+  const org = createTimestampId("org", { allowDuplicateBrand: true });
+
+  it("valid canonical query param calls next and exposes canonical Id on res.locals", () => {
+    const middleware = idQuery("userId", usr);
+    const validId = usr.generate();
+    const req = makeQueryReq("userId", validId);
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(next).toHaveBeenCalledWith();
+    expect(res.locals["userId"]).toBe(validId);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("valid non-canonical query param is normalized to canonical form before reaching handler", () => {
+    const middleware = idQuery("userId", usr);
+    const canonicalId = usr.generate();
+    const nonCanonical = canonicalId.toUpperCase();
+    const req = makeQueryReq("userId", nonCanonical);
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(next).toHaveBeenCalledWith();
+    expect(res.locals["userId"]).toBe(canonicalId);
+  });
+
+  it("wrong brand (invalid_prefix) forwards IdParamError with status 404 to next(err)", () => {
+    const middleware = idQuery("userId", usr);
+    const orgId = org.generate();
+    const req = makeQueryReq("userId", orgId);
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).toHaveBeenCalledOnce();
+    const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+    expect(err).toBeInstanceOf(IdParamError);
+    expect(err.reason).toBe("brand_mismatch");
+    expect(err.status).toBe(404);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("malformed base32 payload (invalid_base32) forwards IdParamError with status 400 to next(err)", () => {
+    const middleware = idQuery("userId", usr);
+    const req = makeQueryReq("userId", "usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).toHaveBeenCalledOnce();
+    const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+    expect(err).toBeInstanceOf(IdParamError);
+    expect(err.reason).toBe("malformed");
+    expect(err.status).toBe(400);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("missing query param (undefined) forwards IdParamError with status 400 to next(err)", () => {
+    const middleware = idQuery("userId", usr);
+    const req = makeQueryReq("userId", undefined);
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).toHaveBeenCalledOnce();
+    const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+    expect(err).toBeInstanceOf(IdParamError);
+    expect(err.reason).toBe("malformed");
+    expect(err.status).toBe(400);
+  });
+
+  it("onError override: consumer fully owns the response for brand mismatch", () => {
+    const middleware = idQuery("userId", usr, {
+      onError: (failure, _req, res) => {
+        res.status(failure.status).json({ error: failure.reason });
+      },
+    });
+    const orgId = org.generate();
+    const req = makeQueryReq("userId", orgId);
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toBe(JSON.stringify({ error: "brand_mismatch" }));
+  });
+
+  it("onError override: consumer fully owns the response for malformed ID", () => {
+    const middleware = idQuery("userId", usr, {
+      onError: (failure, _req, res) => {
+        res.status(failure.status).json({ error: failure.reason });
+      },
+    });
+    const req = makeQueryReq("userId", "usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toBe(JSON.stringify({ error: "malformed" }));
+  });
+
+  it("status remap: brand_mismatch remapped to 400 in forwarded error", () => {
+    const middleware = idQuery("userId", usr, { status: { brand_mismatch: 400 } });
+    const orgId = org.generate();
+    const req = makeQueryReq("userId", orgId);
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).toHaveBeenCalledOnce();
+    const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+    expect(err).toBeInstanceOf(IdParamError);
+    expect(err.reason).toBe("brand_mismatch");
+    expect(err.status).toBe(400);
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("middleware calls only safeParse on the codec", () => {
+      const spyCodec = makeSpyCodec("spy");
+      const middleware = idQuery("id", spyCodec);
+      const req = makeQueryReq("id", "any_value");
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);

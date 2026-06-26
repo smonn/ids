@@ -6,7 +6,7 @@ import type { Id } from "../types.js";
 
 export type { IdParamFailure };
 
-/** Options for `idParam`. All fields are optional. */
+/** Options for `idParam` and `idQuery`. All fields are optional. */
 export type IdParamOptions = {
   /**
    * Called instead of throwing when provided. The hook owns the response entirely —
@@ -74,6 +74,66 @@ export function idParam<ParamKey extends string, Brand extends string>(
       throw new HTTPException(failure.status as ContentfulStatusCode);
     }
     c.set(paramName, result.id);
+    await next();
+    return;
+  };
+}
+
+/**
+ * Hono middleware that validates a named query-string param against a codec via `safeParse`.
+ *
+ * Same failure contract as `idParam` — same `IdParamFailure` shape, same `onError` / `status`
+ * options — but reads `c.req.query(queryName)` instead of `c.req.param(queryName)`.
+ *
+ * **Default (no options):** throws `HTTPException(status)` so the app's existing `onError` handler
+ * controls rendering and content negotiation. The adapter does not write a response body itself.
+ *
+ * **`options.onError`:** when provided, the hook owns the response entirely — the adapter neither
+ * throws nor writes a response.
+ *
+ * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
+ *
+ * - **Brand mismatch (`invalid_prefix`) → `reason: "brand_mismatch"`, default 404**
+ * - **Malformed or missing query param → `reason: "malformed"`, default 400**
+ *
+ * On success, stores the canonical `Id<Brand>` in the Hono context under `queryName`
+ * and calls `next()`.
+ *
+ * @example
+ * ```ts
+ * import { idQuery } from "@smonn/ids/hono";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ *
+ * // Default: throws HTTPException → app.onError renders it
+ * // GET /users?userId=usr_...
+ * app.get("/users", idQuery("userId", usr), (c) => {
+ *   const userId = c.get("userId"); // Id<"usr">, canonical
+ * });
+ *
+ * // Override: consumer fully owns the response
+ * app.get("/search", idQuery("cursor", usr, {
+ *   onError: (failure, c) => c.json({ error: failure.reason }, failure.status),
+ * }), handler);
+ * ```
+ */
+export function idQuery<ParamKey extends string, Brand extends string>(
+  queryName: ParamKey,
+  codec: IdCodec<Brand>,
+  options?: IdParamOptions,
+): MiddlewareHandler<{ Variables: Record<ParamKey, Id<Brand>> }> {
+  return async (c, next) => {
+    const raw = c.req.query(queryName);
+    const result = codec.safeParse(raw);
+    if (!result.ok) {
+      const failure = resolveIdParamFailure(result.error, options);
+      if (options?.onError) {
+        return options.onError(failure, c);
+      }
+      throw new HTTPException(failure.status as ContentfulStatusCode);
+    }
+    c.set(queryName, result.id);
     await next();
     return;
   };

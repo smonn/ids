@@ -1,14 +1,16 @@
 ---
 title: Fastify adapter
-description: Validate route params against an @smonn/ids codec in Fastify.
+description: Validate route and query-string params against an @smonn/ids codec in Fastify.
 ---
 
-`@smonn/ids/fastify` provides the `idParam` factory for Fastify. Fastify is an
-**optional peer dependency**.
+`@smonn/ids/fastify` provides the `idParam` and `idQuery` factories for Fastify.
+Fastify is an **optional peer dependency**.
 
 ```bash
 pnpm add fastify
 ```
+
+## `idParam` — route params
 
 ```ts
 import { idParam, IdParamError } from "@smonn/ids/fastify";
@@ -47,6 +49,38 @@ TypeScript infer, or use `preHandler` slot assignment directly.
 - **`options.onError`:** when provided, the hook owns the response; the adapter
   does not throw.
 - **`options.status`:** remaps the default HTTP status for a failure reason.
+
+## `idQuery` — query-string params
+
+```ts
+import { idQuery, IdParamError } from "@smonn/ids/fastify";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+// GET /users?userId=usr_...
+fastify.get("/users", { preHandler: idQuery("userId", usr) }, (request, reply) => {
+  const userId = request.query.userId; // string (compile-time); Id<"usr"> at runtime
+});
+
+// Override: consumer fully owns the error response
+fastify.get(
+  "/search",
+  {
+    preHandler: idQuery("cursor", usr, {
+      onError: (failure, request, reply) =>
+        reply.status(failure.status).send({ error: failure.reason }),
+    }),
+  },
+  handler,
+);
+```
+
+Same options shape and failure contract as `idParam` — same `IdParamOptions`,
+same `IdParamError` thrown into `setErrorHandler`, same `onError` / `status` —
+but reads `request.query[name]` instead
+of `request.params[name]`. A missing query param is treated as malformed (status
+400). The canonical `Id<Brand>` is stored in `request.query` under the query name.
 
 ## `IdParamFailure` shape
 

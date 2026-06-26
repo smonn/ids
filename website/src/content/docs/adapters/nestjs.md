@@ -14,7 +14,7 @@ pnpm add @nestjs/common
 ```ts
 import { ParseIdPipe } from "@smonn/ids/nestjs";
 import { type Id, createTimestampId } from "@smonn/ids";
-import { Controller, Get, Param } from "@nestjs/common";
+import { Controller, Get, Param, Query } from "@nestjs/common";
 
 const usr = createTimestampId("usr");
 const thing = createTimestampId("thg");
@@ -24,6 +24,15 @@ class UsersController {
   @Get(":id")
   findOne(@Param("id", new ParseIdPipe(usr)) id: Id<"usr">) {
     return { id }; // Id<"usr">, canonical
+  }
+}
+
+// ParseIdPipe is source-agnostic — works with @Query just as well as @Param
+@Controller("users")
+class UserSearchController {
+  @Get()
+  list(@Query("userId", new ParseIdPipe(usr)) userId: Id<"usr">) {
+    return { userId }; // Id<"usr">, canonical
   }
 }
 

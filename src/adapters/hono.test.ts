@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { idParam } from "./hono.js";
+import { idParam, idQuery } from "./hono.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { makeSpyCodec } from "./test-helpers.js";
@@ -160,6 +160,119 @@ describe("idParam", () => {
       const app = new Hono();
       app.get("/items/:id", idParam("id", spyCodec), (c) => c.text("ok"));
       await app.request("/items/any_value");
+      expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("idQuery", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+  const org = createTimestampId("org", { allowDuplicateBrand: true });
+
+  function makeApp() {
+    const app = new Hono();
+    app.get("/users", idQuery("userId", usr), (c) => {
+      return c.json({ id: c.get("userId") });
+    });
+    return app;
+  }
+
+  it("valid canonical query param calls next and exposes canonical Id on context", async () => {
+    const app = makeApp();
+    const validId = usr.generate();
+    const res = await app.request(`/users?userId=${validId}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { id: string };
+    expect(body.id).toBe(validId);
+  });
+
+  it("valid non-canonical query param is normalized to canonical form before reaching handler", async () => {
+    const app = makeApp();
+    const canonicalId = usr.generate();
+    const nonCanonical = canonicalId.toUpperCase();
+    const res = await app.request(`/users?userId=${nonCanonical}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { id: string };
+    expect(body.id).toBe(canonicalId);
+  });
+
+  it("wrong brand (invalid_prefix) throws HTTPException → 404 via app.onError", async () => {
+    const app = makeApp();
+    const orgId = org.generate();
+    const res = await app.request(`/users?userId=${orgId}`);
+    expect(res.status).toBe(404);
+  });
+
+  it("malformed base32 payload (invalid_base32) throws HTTPException → 400 via app.onError", async () => {
+    const app = makeApp();
+    const res = await app.request("/users?userId=usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+    expect(res.status).toBe(400);
+  });
+
+  it("missing query param (undefined) throws HTTPException → 400 via app.onError", async () => {
+    const app = makeApp();
+    const res = await app.request("/users");
+    expect(res.status).toBe(400);
+  });
+
+  it("onError override: consumer fully owns the response for brand mismatch", async () => {
+    const app = new Hono();
+    app.get(
+      "/users",
+      idQuery("userId", usr, {
+        onError: (failure, c) => c.json({ error: failure.reason }, failure.status as 404),
+      }),
+      (c) => c.json({ id: c.get("userId") }),
+    );
+    const orgId = org.generate();
+    const res = await app.request(`/users?userId=${orgId}`);
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("brand_mismatch");
+  });
+
+  it("onError override: consumer fully owns the response for malformed ID", async () => {
+    const app = new Hono();
+    app.get(
+      "/users",
+      idQuery("userId", usr, {
+        onError: (failure, c) => c.json({ error: failure.reason }, failure.status as 400),
+      }),
+      (c) => c.json({ id: c.get("userId") }),
+    );
+    const res = await app.request("/users?userId=usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("malformed");
+  });
+
+  it("status remap: brand_mismatch remapped to 400", async () => {
+    const app = new Hono();
+    app.get("/users", idQuery("userId", usr, { status: { brand_mismatch: 400 } }), (c) =>
+      c.json({ id: c.get("userId") }),
+    );
+    const orgId = org.generate();
+    const res = await app.request(`/users?userId=${orgId}`);
+    expect(res.status).toBe(400);
+  });
+
+  describe("safeParse-only contract (spy codec)", () => {
+    it("middleware calls only safeParse on the codec", async () => {
+      const spyCodec = makeSpyCodec("spy");
+      const app = new Hono();
+      app.get("/items", idQuery("id", spyCodec), (c) => c.text("ok"));
+      await app.request("/items?id=any_value");
       expect(spyCodec.safeParse).toHaveBeenCalled();
       expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
       expect(spyCodec.wrap).not.toHaveBeenCalled();

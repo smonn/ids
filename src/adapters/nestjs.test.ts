@@ -8,6 +8,7 @@ import { createTimestampId } from "../codecs/timestamp/index.js";
 import { makeSpyCodec } from "./test-helpers.js";
 
 const METADATA: ArgumentMetadata = { type: "param", metatype: String, data: "id" };
+const QUERY_METADATA: ArgumentMetadata = { type: "query", metatype: String, data: "id" };
 
 describe("ParseIdPipe", () => {
   let warnSilencer: ReturnType<typeof vi.spyOn>;
@@ -147,5 +148,51 @@ describe("ParseIdPipe", () => {
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("ParseIdPipe with @Query decorator (source-agnostic pipe)", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+  const org = createTimestampId("org", { allowDuplicateBrand: true });
+
+  it("valid canonical query string ID is accepted and returned as canonical Id<Brand>", () => {
+    const pipe = new ParseIdPipe(usr);
+    const id = usr.generate();
+    // ParseIdPipe.transform is source-agnostic: it receives the value NestJS extracted
+    // via @Query("id") exactly as it would via @Param("id")
+    expect(pipe.transform(id, QUERY_METADATA)).toBe(id);
+  });
+
+  it("valid non-canonical query string ID is normalised to canonical form", () => {
+    const pipe = new ParseIdPipe(usr);
+    const canonical = usr.generate();
+    const nonCanonical = canonical.toUpperCase();
+    expect(pipe.transform(nonCanonical, QUERY_METADATA)).toBe(canonical);
+  });
+
+  it("brand-mismatch query string ID throws NotFoundException (status 404)", () => {
+    const pipe = new ParseIdPipe(usr);
+    const orgId = org.generate();
+    expect(() => pipe.transform(orgId, QUERY_METADATA)).toThrow(NotFoundException);
+  });
+
+  it("malformed query string ID throws BadRequestException (status 400)", () => {
+    const pipe = new ParseIdPipe(usr);
+    expect(() => pipe.transform("usr_uuuuuuuuuuuuuuuuuuuuuuuuuu", QUERY_METADATA)).toThrow(
+      BadRequestException,
+    );
+  });
+
+  it("missing query param (undefined) throws BadRequestException (status 400)", () => {
+    const pipe = new ParseIdPipe(usr);
+    expect(() => pipe.transform(undefined, QUERY_METADATA)).toThrow(BadRequestException);
   });
 });
