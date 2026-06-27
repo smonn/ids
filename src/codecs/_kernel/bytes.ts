@@ -55,12 +55,24 @@ export function writeLen32(value: number, target: Uint8Array, offset: number): v
   target[offset + 3] = value & 0xff;
 }
 
+const BASE64URL_MAX_LEN = 256;
+const base64UrlRe = /^[A-Za-z0-9_-]*$/;
+
 /** Decodes a base64url string to raw bytes. Throws on invalid input. */
 export function decodeBase64Url(encoded: string): Uint8Array {
+  if (encoded.length > BASE64URL_MAX_LEN) {
+    throw new Error("base64url input exceeds maximum allowed length");
+  }
+  if (!base64UrlRe.test(encoded)) {
+    throw new Error("invalid base64url: out-of-alphabet character");
+  }
   const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
   const pad = (4 - (base64.length % 4)) % 4;
   const binary = atob(base64 + "=".repeat(pad));
   const out = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  if (encodeBase64Url(out) !== encoded) {
+    throw new Error("invalid base64url: non-canonical trailing bits");
+  }
   return out;
 }

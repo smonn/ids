@@ -428,7 +428,7 @@ describe("wrapped", () => {
 
     err = undefined;
     try {
-      decodeWrappingKey("aa", "base64url");
+      decodeWrappingKey("AA", "base64url");
     } catch (e) {
       err = e;
     }
