@@ -490,12 +490,10 @@ describe("idParam / idQuery — real fastify() app (integration)", () => {
       reply.send({ id: (request.params as Record<string, string>)["id"] });
     });
     await app.ready();
-    const res = await app.inject({ method: "GET", url: `/users/${usr.generate()}` });
     const id = usr.generate();
-    const res2 = await app.inject({ method: "GET", url: `/users/${id}` });
+    const res = await app.inject({ method: "GET", url: `/users/${id}` });
     expect(res.statusCode).toBe(200);
-    expect(res2.statusCode).toBe(200);
-    expect((res2.json() as { id: string }).id).toBe(id);
+    expect((res.json() as { id: string }).id).toBe(id);
     await app.close();
   });
 
