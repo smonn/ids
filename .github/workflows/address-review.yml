@@ -131,61 +131,37 @@ jobs:
           # Keep in step with the auto-round:* labels defined in labels.yml.
           MAX_AUTO_ROUNDS: "3"
         run: |
-          labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -qx 'needs-human'; then
-            echo "PR #$PR_NUMBER already escalated to needs-human; skipping."
-            echo "proceed=false" >> "$GITHUB_OUTPUT"
-            exit 0
+          # Resolve the PR labels + triggering sender and let the unit-tested decision
+          # function in .github/scripts/address-gate.mjs make the call (already-escalated /
+          # automation:* mutex defer / human-reset / advance / cap-reached). The decision
+          # precedence and the auto-round:N counter logic are tested there; this step is
+          # pure I/O — it applies the label mutations and escalation comment the decision
+          # returns. See .github/workflows/README.md for the automation:* pause-mutex (a
+          # defer must clear a stale pr:addressing-feedback) and the round-counter design.
+          labels_json=$(gh pr view "$PR_NUMBER" --json labels --jq '[.labels[].name]')
+          decision=$(jq -nc \
+            --argjson labels "$labels_json" \
+            --arg sender "$SENDER" \
+            --argjson maxRounds "$MAX_AUTO_ROUNDS" \
+            --arg botLogin 'smonn[bot]' \
+            '{labels:$labels, sender:$sender, maxRounds:$maxRounds, botLogin:$botLogin}' \
+            | node .github/scripts/address-gate.mjs)
+          echo "Gate: $(jq -r '.reason' <<<"$decision") (proceed=$(jq -r '.proceed' <<<"$decision"))"
+
+          # Apply the mutations the decision dictates (remove before add). A no-op gate
+          # (already-escalated / mutex defer / cap-reached) may still clear a stale label,
+          # but the "Remove the address trigger label" step below is guarded on
+          # proceed==true so a no-op never consumes the do:address trigger.
+          while IFS= read -r l; do
+            [ -n "$l" ] && { gh pr edit "$PR_NUMBER" --remove-label "$l" || true; }
+          done < <(jq -r '.labelsToRemove[]' <<<"$decision")
+          while IFS= read -r l; do
+            [ -n "$l" ] && gh pr edit "$PR_NUMBER" --add-label "$l"
+          done < <(jq -r '.labelsToAdd[]' <<<"$decision")
+          if [ "$(jq -r '.escalate' <<<"$decision")" = "true" ]; then
+            jq -r '.comment' <<<"$decision" | gh pr comment "$PR_NUMBER" --body-file -
           fi
-          # Defer while an `automation:*` mutex marks this PR mid-conflict-rebase — see
-          # .github/workflows/README.md "The automation:* rebase pause-mutex". Addressing
-          # feedback now would be wasted and could race the rebase's push; review.yml
-          # re-applies `do:address` after the rebase merge commit is re-reviewed. NB the
-          # "Remove the address trigger label" step below is guarded on proceed==true, so
-          # this no-op does NOT consume the trigger.
-          if echo "$labels" | grep -qE '^automation:'; then
-            echo "PR #$PR_NUMBER has an automation:* mutex — deferring address-review until the rebase lands."
-            # Don't strand a `pr:addressing-feedback` left by a superseded/cancelled run
-            # (conflicts.yml cancels our in-flight runs when it sets the mutex), or the PR
-            # is stuck "addressing feedback" until the rebase lands. Clear it here; the
-            # re-review after the rebase re-applies `do:address` and re-sets it. Idempotent:
-            # only edits when the label is actually present. (Mirror of review.yml's
-            # pr:reviewing clear; the shared rule is unit-tested in review-scope.mjs.)
-            if echo "$labels" | grep -qxF 'pr:addressing-feedback'; then
-              gh pr edit "$PR_NUMBER" --remove-label pr:addressing-feedback || true
-              echo "Cleared stale pr:addressing-feedback while deferring."
-            fi
-            echo "proceed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # Read the current round from the lone auto-round:N label (0 if none present).
-          round_label=$(echo "$labels" | grep -oE '^auto-round:[0-9]+$' | head -n1)
-          count=0
-          [ -n "$round_label" ] && count=${round_label#auto-round:}
-          if [ "$SENDER" != "smonn[bot]" ]; then
-            # A human applied the label — a fresh, human-driven request the cap must not
-            # interfere with. Clear any stale round label from a prior auto-loop and proceed.
-            echo "Human ($SENDER) applied do:address; resetting the round counter."
-            [ -n "$round_label" ] && gh pr edit "$PR_NUMBER" --remove-label "$round_label" || true
-            echo "proceed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # Bot-driven round (review.yml re-applied the label): enforce the cap.
-          if [ "$count" -ge "$MAX_AUTO_ROUNDS" ]; then
-            echo "Auto-address round cap reached ($count/$MAX_AUTO_ROUNDS) — escalating instead of looping."
-            gh pr comment "$PR_NUMBER" --body "The automated review-fix loop ran $count round(s) without converging. Escalating for human review."
-            gh pr edit "$PR_NUMBER" --add-label needs-human
-            [ -n "$round_label" ] && gh pr edit "$PR_NUMBER" --remove-label "$round_label" || true
-            echo "proceed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # Advance the round: drop the old auto-round label (if any) and apply the next one.
-          # The count is surfaced to humans via the label itself and the escalation comment.
-          next=$((count + 1))
-          [ -n "$round_label" ] && gh pr edit "$PR_NUMBER" --remove-label "$round_label" || true
-          gh pr edit "$PR_NUMBER" --add-label "auto-round:$next"
-          echo "Auto-address round $next of $MAX_AUTO_ROUNDS; proceeding."
-          echo "proceed=true" >> "$GITHUB_OUTPUT"
+          echo "proceed=$(jq -r '.proceed' <<<"$decision")" >> "$GITHUB_OUTPUT"
 
       - name: Remove the address trigger label (so it can be re-applied)
         # Guard on proceed: a no-op gate (already escalated, cap reached, or deferred
