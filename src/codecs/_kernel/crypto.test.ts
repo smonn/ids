@@ -118,6 +118,22 @@ describe("encryptPayload / decryptPayload", () => {
     expect(result).toHaveLength(16);
   });
 
+  it("no-padding-oracle: decryptPayload resolves for any 16-byte C1 under any key", async () => {
+    for (let i = 0; i < 1000; i++) {
+      const rawKey = crypto.getRandomValues(new Uint8Array(16));
+      const c1 = crypto.getRandomValues(new Uint8Array(16));
+      const key = await crypto.subtle.importKey(
+        "raw",
+        rawKey as Uint8Array<ArrayBuffer>,
+        "AES-CBC",
+        false,
+        ["encrypt", "decrypt"],
+      );
+      const result = await decryptPayload(key, c1);
+      expect(result).toHaveLength(16);
+    }
+  });
+
   it("same key and plaintext produce identical ciphertext", async () => {
     const rawKey = new Uint8Array(32).map((_, i) => i);
     const key = await crypto.subtle.importKey(

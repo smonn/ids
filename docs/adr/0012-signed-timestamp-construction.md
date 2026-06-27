@@ -52,6 +52,10 @@ A distinct **Signing key** handle, imported via `importSigningKey(bytes)` from r
 
 This gives signed share links a rotation story out of the box, and is the authenticated home that [issue #103](https://github.com/smonn/ids/issues/103) defers transparent try-all-keys verification to.
 
+### Accepted security trade-offs
+
+**Keyring-index timing leak.** `tryVerify` iterates over keyring entries and returns early on the first match, so verification time leaks the matching key's position in the keyring (i.e. which rotation epoch an ID belongs to). This is an accepted, inherent trade-off of ordered-ring trial. Eliminating the leak would require constant-count trial — computing the HMAC for every keyring entry regardless of match — which is a deliberate design change with latency cost not justified here. The rotation epoch of an ID is low-sensitivity metadata; an attacker who can time `verify` calls already knows the ID and the keyring in use.
+
 ## API surface
 
 `createSignedTimestampId(brand, { keys, now?, rng?, allowDuplicateBrand? })` returns a `SignedTimestampCodec<Brand>`. Per the async-keyed-codec contract ([ADR-0006](./0006-async-keyed-codec-contract.md)):

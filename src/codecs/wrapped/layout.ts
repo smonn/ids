@@ -204,6 +204,9 @@ export function createWrappedLayoutOps<Brand extends string, Kind extends Layout
     wrap: (lookupKey: LayoutLookupKey<Kind>): Promise<Id<Brand>> =>
       wrapLookupKey(prefix, template, wrapKey, kind, lookupKey),
     tryUnwrap: async (id: Id<Brand>): Promise<LayoutLookupKey<Kind> | null> => {
+      // Accepted timing leak: early-return on first keyring match reveals the
+      // matching key's position (rotation epoch). This is inherent to ordered-ring
+      // trial and accepted — see docs/adr/0009-wrapped-key-compact-construction.md.
       for (const key of keys) {
         const lookupKey = await tryUnwrapLookupKey(prefix, template, key, kind, id);
         if (lookupKey !== null) return lookupKey;

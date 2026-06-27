@@ -62,6 +62,9 @@ export function createSignedTimestampLayoutOps<Brand extends string>(
       const payload = payloadBytesFromId(prefix, id);
       const storedTag = payload.subarray(tagOffset, payloadByteLength);
       const signedContent = payload.subarray(0, signedContentByteLength);
+      // Accepted timing leak: early-return on first keyring match reveals the
+      // matching key's position (rotation epoch). This is inherent to ordered-ring
+      // trial and accepted — see docs/adr/0012-signed-timestamp-construction.md.
       for (const hmacKey of hmacKeys) {
         const expected = await computeTag(hmacKey, brandBytes, signedContent);
         if (timingSafeEqual(storedTag, expected)) return true;

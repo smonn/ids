@@ -41,6 +41,9 @@ export function encodeBase32(bytes: Uint8Array): string {
   if (bits > 0) {
     codes[chi++] = valueToCharCode[(value << (5 - bits)) & 0x1f]!;
   }
+  // Fixed-size precondition: encode is called only on 16-byte payloads, producing
+  // 26 chars — well below the V8 ~65535 apply() arg-count ceiling. A caller
+  // passing a larger buffer would need to chunk rather than use apply().
   return String.fromCharCode.apply(null, codes);
 }
 

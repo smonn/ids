@@ -17,6 +17,9 @@ export function encodeHex(bytes: Uint8Array): string {
     codes[i * 2] = hexDigits.charCodeAt(b >>> 4);
     codes[i * 2 + 1] = hexDigits.charCodeAt(b & 0x0f);
   }
+  // Fixed-size precondition: encodeHex is called only on key material up to 32 bytes,
+  // producing ≤64 chars — well below the V8 ~65535 spread arg-count ceiling. A caller
+  // passing a larger buffer would need to chunk rather than spread.
   return String.fromCharCode(...codes);
 }
 

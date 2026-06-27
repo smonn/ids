@@ -64,6 +64,10 @@ Wrong-key and tamper attempts false-accept at roughly **`keyring_size / 2^64`** 
 
 The **Wrapping keyring** is a non-empty ordered list of **Wrapping key** entries passed at codec construction. The first entry is **current** — used exclusively by `wrap`. `unwrap` tries every entry in order until the recomputed tag matches. Duplicate operator secrets in the list are rejected at construction. Removing an entry revokes IDs wrapped under it. The same lookup key wrapped under different entries yields different public IDs. No key id is embedded in the wire payload.
 
+### Accepted security trade-offs
+
+**Keyring-index timing leak.** `tryUnwrap` iterates over keyring entries and returns early on the first match, so `unwrap` time leaks the matching key's position in the keyring (i.e. which rotation epoch an ID belongs to). This is an accepted, inherent trade-off of ordered-ring trial. Eliminating the leak would require constant-count trial — decrypting and verifying the HMAC for every keyring entry regardless of match — which is a deliberate design change with latency cost not justified here. The rotation epoch of an ID is low-sensitivity metadata.
+
 ## Consequences
 
 - Factory: `createWrappedKeyId(brand, { kind, keys })` on `@smonn/ids/wrapped` per [ADR-0005](./0005-codec-variant-subpath-exports.md). Returns `WrappedKeyCodec<Brand, Kind>` — `kind` is a construction-time literal that drives value types per [ADR-0006](./0006-async-keyed-codec-contract.md) (`u32` / `i32` → `number`; `u64` / `i64` → `bigint`).

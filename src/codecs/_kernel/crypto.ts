@@ -4,6 +4,10 @@ import { payloadByteLength } from "../../wire/invariants.js";
 const zeroIv = new Uint8Array(payloadByteLength);
 const pkcsPad = 0x10;
 
+// Precondition: both arrays must have equal length. The early-return on length
+// mismatch leaks array length, not secret data — acceptable because all current
+// callers compare fixed-width outputs (5-byte or 8-byte HMAC tags). A future
+// caller comparing variable-length arrays would reintroduce a length oracle.
 export function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -32,6 +36,10 @@ export async function decryptPayload(
   key: webcrypto.CryptoKey,
   c1: Uint8Array,
 ): Promise<Uint8Array> {
+  // No-padding-oracle: c2Input = P2 XOR C1 where P2 = 0x10×16 (full PKCS#7 block).
+  // AES_K(c2Input) becomes C2, so the CBC chain decrypts the last block as exactly
+  // the full-block pad — SubtleCrypto never sees a bad-padding condition regardless
+  // of C1 or key, removing the padding oracle by construction.
   const c2Input = new Uint8Array(payloadByteLength);
   for (let i = 0; i < payloadByteLength; i++) c2Input[i] = pkcsPad ^ c1[i]!;
   const c2Encrypted = new Uint8Array(
