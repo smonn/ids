@@ -27,7 +27,7 @@ PRs should link the relevant issue unless they are small bug fixes or docs tweak
 These were considered and rejected for specific reasons. If you have a genuinely new argument, raise it as an issue with that argument explicit — don't ship a PR that silently reopens the decision.
 
 - **Brand width or charset.** Fixed at three lowercase a–z chars. Changing it invalidates every previously-issued ID. See [ADR-0001](./docs/adr/0001-brand-format.md).
-- **Payload byte split, byte order, precision, or epoch.** Fixed at 6 bytes big-endian ms Unix timestamp + 10 random bytes. Same wire-format constraint. See [ADR-0002](./docs/adr/0002-payload-layout.md).
+- **Payload byte split, byte order, precision, or epoch.** Fixed at 6 bytes big-endian ms Unix timestamp + 80 random bits (10 bytes). Same wire-format constraint. See [ADR-0002](./docs/adr/0002-payload-layout.md).
 - **Lenient `is()`.** `is()` is canonical-only by design; the lenient path is `safeParse()`. Restoring lenient `is()` would re-open the footgun ADR-0003 closed. See [ADR-0003](./docs/adr/0003-canonical-strict-is.md).
 - **Monotonicity inside `generate()`.** A stable intra-ms sort would force a breaking change to `TimestampOptions.rng`. If you need this, design it as a separate opt-in API (e.g. `createMonotonicId`) and propose it in an issue first.
 - **Custom epoch.** 48 bits of ms gives ~8919 years of headroom from 1970; there's no bit-budget motivation to rebase. A custom epoch would turn time into a magic number every downstream consumer would have to remember. See [ADR-0002](./docs/adr/0002-payload-layout.md).

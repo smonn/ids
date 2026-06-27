@@ -29,6 +29,8 @@ The alternative (random IV stored alongside ciphertext) would expand the wire fo
 
 Birthday bound on the 128-bit ciphertext space (~2⁶⁴ IDs before collisions become probable) is far beyond any plausible application throughput. AES-256 keys don't change this — block size is 128 bits regardless of key size.
 
+> **Correction (2026-06-27):** The "you supply the AES key" / operator-chosen key-size model this ADR describes (the key paragraph above, and the `importOpaqueKey` consequence below) is superseded. Per [ADR-0027](./0027-opaque-hkdf-uniform-key-derivation.md), `importOpaqueKey` now treats its bytes as HKDF input keying material (IKM), not the AES key directly — it derives the encryption key via HKDF-Expand under the label `@smonn/ids/opaque/aes`. Input size (16/24/32 bytes) sets the entropy floor only; Opaque now **always derives an AES-256 key**, so the operator no longer picks AES-128/192/256. The strip-and-reconstruct mechanics are unchanged — the single-block trick is indifferent to key size.
+
 ## Consequences
 
 - `generate` / `generateAt` cost one SubtleCrypto encrypt call.

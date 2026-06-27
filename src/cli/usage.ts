@@ -42,9 +42,11 @@ export function usageKeygen(): string {
     "Usage: ids keygen, k [--wrapped] [--signed] [--digest] [--bits 128|192|256] [--key-format hex|base64url]",
     "",
     "  Emit a random key for importOpaqueKey, importWrappingKey, importSigningKey, or importDigestKey (stdout only).",
+    "  With no variant flag, keygen emits an Opaque primary secret — Opaque is the default variant.",
     "  --wrapped emits a wrapping key for importWrappingKey instead (IDS_WRAPPING_KEY).",
     "  --signed emits a signing key for importSigningKey instead (IDS_SIGNING_KEY; hex by default; IDS_SIGNING_KEY_FORMAT or --key-format).",
     "  --digest emits a digest key for importDigestKey instead (IDS_DIGEST_KEY; hex by default; IDS_DIGEST_KEY_FORMAT or --key-format).",
+    "  --bits 128|192|256 sets the primary-secret entropy floor only, not cipher strength: Opaque always derives AES-256 via HKDF (per ADR-0027), so --bits 128 does not yield AES-128.",
     "",
   ].join("\n");
 }
@@ -81,9 +83,11 @@ export function usage(): string {
     "    Emit a random key for importOpaqueKey, importWrappingKey, importSigningKey, or importDigestKey (key on stdout; warning on stderr).",
     "    Safe handling: redirect stdout to a 0600 file (e.g. ids keygen > key.hex && chmod 0600 key.hex);",
     "    do not let the key appear in shell history or CI logs. A warning is printed to stderr on every run.",
+    "    With no variant flag, keygen emits an Opaque primary secret — Opaque is the default variant.",
     "    --wrapped emits a wrapping key for importWrappingKey instead (IDS_WRAPPING_KEY).",
     "    --signed emits a signing key for importSigningKey instead (IDS_SIGNING_KEY; hex by default; IDS_SIGNING_KEY_FORMAT or --key-format).",
     "    --digest emits a digest key for importDigestKey instead (IDS_DIGEST_KEY; hex by default; IDS_DIGEST_KEY_FORMAT or --key-format).",
+    "    --bits 128|192|256 sets the primary-secret entropy floor only, not cipher strength: Opaque always derives AES-256 via HKDF (per ADR-0027), so --bits 128 does not yield AES-128.",
     "",
     "Exit codes:",
     "  0  Success",
