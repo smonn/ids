@@ -66,24 +66,27 @@ export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): P
     return 2;
   }
   const rawReadStdin = opts.readStdin ?? readProcessStdin;
-  let resolvedReadStdin: () => Promise<string> = rawReadStdin;
+  // Material is read after the key is validated below, so the codec reads it via this
+  // deferred closure rather than an eager read. Non-digest variants never call readStdin.
+  let material = "";
+  const optsWithStdin: RunOpts = { ...opts, readStdin: () => Promise.resolve(material) };
+  // Validate the key (and --ns) before blocking on stdin: a missing or invalid key must
+  // surface immediately, not after the user has supplied digest material (#766).
+  const codec = await buildCodec(variant, brand ?? "", values, optsWithStdin);
+  if (isCodecError(codec)) {
+    opts.stderr(codec.message + "\n");
+    return codec.kind === "usage" ? 2 : 1;
+  }
   if (flags.has("--digest")) {
     /* v8 ignore next -- process.stdin.isTTY is only true in the real binary, never in unit tests */
     if (opts.isTTY ?? process.stdin.isTTY) {
       opts.stderr("hint: reading material from stdin — pipe input or press Ctrl-D to end\n");
     }
-    const material = await rawReadStdin();
+    material = await rawReadStdin();
     if (material === "") {
       opts.stderr("error: digest material must not be empty\n");
       return 1;
     }
-    resolvedReadStdin = () => Promise.resolve(material);
-  }
-  const optsWithStdin: RunOpts = { ...opts, readStdin: resolvedReadStdin };
-  const codec = await buildCodec(variant, brand ?? "", values, optsWithStdin);
-  if (isCodecError(codec)) {
-    opts.stderr(codec.message + "\n");
-    return codec.kind === "usage" ? 2 : 1;
   }
   const emitUuid = flags.has("--uuid");
   for (let i = 0; i < count; i++) {

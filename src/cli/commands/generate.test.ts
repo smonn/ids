@@ -190,6 +190,23 @@ describe("runGenerate — --digest TTY hint (CLI-5)", () => {
   });
 });
 
+describe("runGenerate — --digest key validation precedes stdin (#766)", () => {
+  it("missing digest key exits 2 before reading stdin or printing the TTY hint", async () => {
+    const { opts, out, err } = makeCapturingOpts();
+    const code = await runGenerate(["tst", "--digest", "--ns", "orders"], {
+      ...opts,
+      isTTY: true,
+      readStdin: () => {
+        throw new Error("stdin must not be read when the key is missing");
+      },
+    });
+    expect(code).toBe(2);
+    expect(out).toHaveLength(0);
+    expect(err.join("")).toContain("IDS_DIGEST_KEY");
+    expect(err.join("")).not.toContain("hint:");
+  });
+});
+
 describe("runGenerate — --digest empty material (CLI-6)", () => {
   it("exits 1 with diagnostic on stderr and nothing on stdout when material is empty", async () => {
     const { opts, out, err } = makeCapturingOpts({ IDS_DIGEST_KEY: testDigestHex });
