@@ -1,4 +1,12 @@
-import { GraphQLError, Kind } from "graphql";
+import {
+  GraphQLError,
+  GraphQLNonNull,
+  GraphQLObjectType,
+  GraphQLSchema,
+  GraphQLString,
+  Kind,
+  graphql,
+} from "graphql";
 import type { StringValueNode, IntValueNode } from "graphql";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
@@ -170,6 +178,41 @@ describe("idScalar", () => {
       expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("execution-engine integration", () => {
+    it("inline string literal is coerced to canonical Id<Brand> through the graphql execution engine", async () => {
+      const execUsr = createTimestampId("usr", {
+        allowDuplicateBrand: true,
+        now: () => new Date("2026-05-28T12:00:00Z").getTime(),
+        rng: (target) => target.fill(0x42),
+      });
+      const execScalar = idScalar(execUsr, { name: "UserId" });
+
+      let resolvedId: unknown;
+      const schema = new GraphQLSchema({
+        query: new GraphQLObjectType({
+          name: "Query",
+          fields: {
+            user: {
+              type: GraphQLString,
+              args: { id: { type: new GraphQLNonNull(execScalar) } },
+              resolve(_root, args: { id: unknown }) {
+                resolvedId = args.id;
+                return "ok";
+              },
+            },
+          },
+        }),
+      });
+
+      const id = execUsr.generate();
+      const result = await graphql({ schema, source: `{ user(id: "${id}") }` });
+
+      expect(result.errors).toBeUndefined();
+      expect(resolvedId).toBe(id);
+      expect(execUsr.is(resolvedId)).toBe(true);
     });
   });
 });
