@@ -1,0 +1,4 @@
+# Mark generated/vendored files so tooling can exclude them.
+# The size: auto-label (ADR-0029) excludes generated paths from churn; reviewable
+# content such as spec/vectors.json and the depcruise fixtures is NOT marked here.
+pnpm-lock.yaml linguist-generated=true

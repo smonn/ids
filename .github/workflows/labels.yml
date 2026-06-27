@@ -84,3 +84,92 @@ jobs:
           ensure auto-round-1    C5DEF5 "Auto-address loop: 1 consecutive bot-driven round"
           ensure auto-round-2    C5DEF5 "Auto-address loop: 2 consecutive bot-driven rounds"
           ensure auto-round-3    C5DEF5 "Auto-address loop: 3 consecutive bot-driven rounds"
+
+          # ---------------------------------------------------------------------
+          # Namespaced taxonomy (ADR-0029). Phase 0 of the migration adds these
+          # ALONGSIDE the flat labels above; nothing reads them yet. The flat set
+          # is retired in Phase 4. Colours are semantic, not by-namespace
+          # (ADR-0029 §Colours): red = needs attention, green = good/go,
+          # yellow = waiting, purple/blue = active, grey = informational/auto.
+
+          # type: (single, issue + PR) — rides the Conventional-Commit vocabulary
+          # enforced by pr-title.yml. Informational → grey.
+          ensure type:feat       EDEDED "New feature (Conventional Commit: feat)"
+          ensure type:fix        EDEDED "Bug fix (Conventional Commit: fix)"
+          ensure type:docs       EDEDED "Documentation only (Conventional Commit: docs)"
+          ensure type:refactor   EDEDED "Neither fixes a bug nor adds a feature (Conventional Commit: refactor)"
+          ensure type:perf       EDEDED "Performance improvement (Conventional Commit: perf)"
+          ensure type:test       EDEDED "Adds or corrects tests (Conventional Commit: test)"
+          ensure type:build      EDEDED "Build system or dependency change (Conventional Commit: build)"
+          ensure type:ci         EDEDED "CI configuration change (Conventional Commit: ci)"
+          ensure type:chore      EDEDED "Maintenance task (Conventional Commit: chore)"
+          ensure type:revert     EDEDED "Reverts a previous commit (Conventional Commit: revert)"
+
+          # issue: (single, issue) — object lifecycle. Mirrors the flat issue states.
+          ensure issue:triage      FBCA04 "Maintainer needs to evaluate this issue"
+          ensure issue:ready-agent  0E8A16 "Fully specified, ready for an AFK agent"
+          ensure issue:ready-human  1D76DB "Requires human implementation"
+          ensure issue:in-progress  5319E7 "An agent is implementing this issue"
+          ensure issue:blocked      B60205 "Waiting on another issue to close first"
+          ensure issue:needs-info   FBCA04 "Waiting on reporter for more information"
+          ensure issue:wontfix      FFFFFF "Will not be actioned"
+
+          # pr: (single, PR) — object lifecycle, absorbs the review↔address cycle.
+          ensure pr:reviewing           5319E7 "Agent code review in progress"
+          ensure pr:changes-requested   B60205 "Review left change requests to address"
+          ensure pr:addressing-feedback 5319E7 "Agent is addressing review feedback"
+          ensure pr:ready               0E8A16 "Reviewed and ready to merge"
+          ensure pr:outdated            FBCA04 "A push post-dates the last review"
+
+          # automation: (single mutex, PR) — orthogonal pause-mutex. Other
+          # workflows pause while any automation:* is present (generalises the
+          # flat `conflicting` marker).
+          ensure automation:rebasing D93F0B "Automatic rebase in progress; other workflows pause while present"
+
+          # size: (single, PR) — calibrated absolute diff churn, excluding
+          # generated/vendored files. Informational → grey.
+          ensure size:xs EDEDED "Diff churn ≤10 lines"
+          ensure size:s  EDEDED "Diff churn ≤50 lines"
+          ensure size:m  EDEDED "Diff churn ≤150 lines"
+          ensure size:l  EDEDED "Diff churn ≤400 lines"
+          ensure size:xl EDEDED "Diff churn >400 lines"
+
+          # changeset: (single, PR) — sourced from .changeset/*.md frontmatter.
+          ensure changeset:patch EDEDED "Changeset declares a patch release"
+          ensure changeset:minor EDEDED "Changeset declares a minor release"
+          ensure changeset:major EDEDED "Changeset declares a major release"
+          ensure changeset:none  EDEDED "No changeset / no release"
+
+          # codec: (multi, issue + PR) — which codec slice (ADR-0018) is touched.
+          ensure codec:timestamp EDEDED "Touches the timestamp codec"
+          ensure codec:opaque    EDEDED "Touches the opaque codec"
+          ensure codec:reverse   EDEDED "Touches the reverse codec"
+          ensure codec:signed    EDEDED "Touches the signed codec"
+          ensure codec:wrapped   EDEDED "Touches the wrapped codec"
+          ensure codec:digest    EDEDED "Touches the digest codec"
+
+          # area: (multi, issue + PR) — which part of the system is touched.
+          ensure area:wire     EDEDED "Touches the wire format / encoding surface"
+          ensure area:cli      EDEDED "Touches the CLI"
+          ensure area:adapters EDEDED "Touches adapter integrations"
+          ensure area:docs     EDEDED "Touches documentation"
+          ensure area:core     EDEDED "Touches core library code"
+          ensure area:build    EDEDED "Touches build / tooling"
+
+          # released: (multi, issue + PR) — keyed on the major version LINE, not
+          # the semver version. Stamped by release.yml when v1 cuts. Good/go → green.
+          ensure released:v1 0E8A16 "Shipped in a published v1 release"
+
+          # auto-round: (single, PR) — namespaced successor to auto-round-N.
+          # Keep this range in step with address-review.yml's MAX_AUTO_ROUNDS.
+          ensure auto-round:1 EDEDED "Auto-address loop: 1 consecutive bot-driven round"
+          ensure auto-round:2 EDEDED "Auto-address loop: 2 consecutive bot-driven rounds"
+          ensure auto-round:3 EDEDED "Auto-address loop: 3 consecutive bot-driven rounds"
+
+          # do: (trigger, issue + PR) — imperative; removed by the workflow it
+          # starts (ADR-0030). The only labels that start a workflow. Active → purple.
+          ensure do:implement 5319E7 "Trigger: implement this issue"
+          ensure do:review    5319E7 "Trigger: run the agent code review on this PR"
+          ensure do:rebase    5319E7 "Trigger: rebase this PR onto main"
+          ensure do:address   5319E7 "Trigger: address the review feedback on this PR"
+          ensure do:triage    5319E7 "Trigger: triage this issue"
