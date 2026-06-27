@@ -65,7 +65,21 @@ export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): P
     );
     return 2;
   }
-  const optsWithStdin: RunOpts = { ...opts, readStdin: opts.readStdin ?? readProcessStdin };
+  const rawReadStdin = opts.readStdin ?? readProcessStdin;
+  let resolvedReadStdin: () => Promise<string> = rawReadStdin;
+  if (flags.has("--digest")) {
+    /* v8 ignore next -- process.stdin.isTTY is only true in the real binary, never in unit tests */
+    if (opts.isTTY ?? process.stdin.isTTY) {
+      opts.stderr("hint: reading material from stdin — pipe input or press Ctrl-D to end\n");
+    }
+    const material = await rawReadStdin();
+    if (material === "") {
+      opts.stderr("error: digest material must not be empty\n");
+      return 1;
+    }
+    resolvedReadStdin = () => Promise.resolve(material);
+  }
+  const optsWithStdin: RunOpts = { ...opts, readStdin: resolvedReadStdin };
   const codec = await buildCodec(variant, brand ?? "", values, optsWithStdin);
   if (isCodecError(codec)) {
     opts.stderr(codec.message + "\n");
