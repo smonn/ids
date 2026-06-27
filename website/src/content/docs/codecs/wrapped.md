@@ -155,7 +155,7 @@ instead.
 All throwing paths surface `IdsError` — a single class with a stable `code`
 field. Use `isIdsError()` rather than `instanceof`; it survives multiple copies
 of the package in one process (the ESM + CJS dual-package hazard). For the full
-error-code reference see [#328](https://github.com/smonn/ids/issues/328).
+error-code reference see [the errors page](/errors/).
 
 ```ts
 import { isIdsError } from "@smonn/ids/wrapped";

@@ -154,7 +154,7 @@ returns the canonical lowercase form. It rejects IDs whose final base32 characte
 has non-zero padding bits (code `"invalid_base32"`).
 
 The `~standard` schema integration shape is documented in
-[#329](https://github.com/smonn/ids/issues/329).
+[the validation page](/validation/).
 
 :::note[Equality leakage]
 The codec is fully deterministic: the same material under the same key always
