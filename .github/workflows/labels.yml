@@ -53,42 +53,17 @@ jobs:
           # --force creates the label or updates its color/description in place.
           ensure() { gh label create "$1" --color "$2" --description "$3" --force >/dev/null 2>&1 || true; }
 
-          # Issue state (triage → implementation)
-          ensure needs-triage    FBCA04 "Maintainer needs to evaluate this issue"
-          ensure needs-info      D93F0B "Waiting on reporter for more information"
-          ensure ready-for-agent 0E8A16 "Fully specified, ready for an AFK agent"
-          ensure ready-for-human 1D76DB "Requires human implementation"
-          ensure in-progress     5319E7 "An agent is implementing this issue"
-          ensure blocked         B60205 "Waiting on another issue to close first"
-          ensure wontfix         FFFFFF "Will not be actioned"
-
-          # Maintainer-applied PR action labels
-          ensure needs-review     006B75 "Re-run the agent code review on this PR"
-          ensure needs-rebase     FBCA04 "Merge latest main into this agent PR and resolve conflicts"
-          ensure address-feedback 5319E7 "Have the agent address the review feedback on this PR"
-
-          # Automation marker (applied by conflicts.yml, removed by rebase.yml / self-heal):
-          # a PR that conflicts with main has an automatic rebase dispatched, and while the
-          # marker is present every PR-triggered run of our workflows pauses (ci/bench
-          # self-cancel; review/address-review/autofix no-op) so nothing works on the
-          # soon-to-be-superseded commit. It is an automation-in-progress flag, not a
-          # standing "this PR conflicts" status — see conflicts.yml.
-          ensure conflicting      D93F0B "PR conflicts with main; runs paused while an automatic rebase is dispatched"
-
-          # Escalation
+          # Escalation. The lone surviving flat label: `needs-human` is a
+          # cross-cutting "all automation gave up" signal fired from five
+          # workflows on both issues and PRs, so it stays un-namespaced
+          # (ADR-0029). Every other former flat label has been retired in favour
+          # of its namespaced successor below and is deleted in the step after this.
           ensure needs-human     B60205 "Automated handling gave up; needs a human"
 
-          # Auto-address loop counter (set by address-review.yml; remove a label to reset).
-          # One auto-round-N is present at a time; keep this range in step with that
-          # workflow's MAX_AUTO_ROUNDS.
-          ensure auto-round-1    C5DEF5 "Auto-address loop: 1 consecutive bot-driven round"
-          ensure auto-round-2    C5DEF5 "Auto-address loop: 2 consecutive bot-driven rounds"
-          ensure auto-round-3    C5DEF5 "Auto-address loop: 3 consecutive bot-driven rounds"
-
           # ---------------------------------------------------------------------
-          # Namespaced taxonomy (ADR-0029). Phase 0 of the migration adds these
-          # ALONGSIDE the flat labels above; nothing reads them yet. The flat set
-          # is retired in Phase 4.
+          # Namespaced taxonomy (ADR-0029). Phase 4 of the migration has retired
+          # the flat lifecycle/trigger labels: the namespaced set below is now the
+          # authoritative vocabulary the workflows read and write.
           #
           # Colour scheme (ADR-0029 §Colours): saturated hues carry URGENCY on the
           # state labels — red = needs attention, green = good/go, yellow = waiting,
@@ -102,16 +77,16 @@ jobs:
 
           # type: (single, issue + PR) — rides the Conventional-Commit vocabulary
           # enforced by pr-title.yml. Quiet slate-blue tint.
-          ensure type:feat       D2DAE8 "New feature (Conventional Commit: feat)"
-          ensure type:fix        D2DAE8 "Bug fix (Conventional Commit: fix)"
-          ensure type:docs       D2DAE8 "Documentation only (Conventional Commit: docs)"
-          ensure type:refactor   D2DAE8 "Neither fixes a bug nor adds a feature (Conventional Commit: refactor)"
-          ensure type:perf       D2DAE8 "Performance improvement (Conventional Commit: perf)"
-          ensure type:test       D2DAE8 "Adds or corrects tests (Conventional Commit: test)"
-          ensure type:build      D2DAE8 "Build system or dependency change (Conventional Commit: build)"
-          ensure type:ci         D2DAE8 "CI configuration change (Conventional Commit: ci)"
-          ensure type:chore      D2DAE8 "Maintenance task (Conventional Commit: chore)"
-          ensure type:revert     D2DAE8 "Reverts a previous commit (Conventional Commit: revert)"
+          ensure type:feat       D0DAEA "New feature (Conventional Commit: feat)"
+          ensure type:fix        D0DAEA "Bug fix (Conventional Commit: fix)"
+          ensure type:docs       D0DAEA "Documentation only (Conventional Commit: docs)"
+          ensure type:refactor   D0DAEA "Neither fixes a bug nor adds a feature (Conventional Commit: refactor)"
+          ensure type:perf       D0DAEA "Performance improvement (Conventional Commit: perf)"
+          ensure type:test       D0DAEA "Adds or corrects tests (Conventional Commit: test)"
+          ensure type:build      D0DAEA "Build system or dependency change (Conventional Commit: build)"
+          ensure type:ci         D0DAEA "CI configuration change (Conventional Commit: ci)"
+          ensure type:chore      D0DAEA "Maintenance task (Conventional Commit: chore)"
+          ensure type:revert     D0DAEA "Reverts a previous commit (Conventional Commit: revert)"
 
           # issue: (single, issue) — object lifecycle. Mirrors the flat issue states.
           ensure issue:triage      FBCA04 "Maintainer needs to evaluate this issue"
@@ -137,42 +112,42 @@ jobs:
           # size: (single, PR) — calibrated absolute diff churn, excluding
           # generated/vendored files. Light→dark warm-grey ramp encodes magnitude.
           ensure size:xs EDEDED "Diff churn ≤10 lines"
-          ensure size:s  E0D8CF "Diff churn ≤50 lines"
-          ensure size:m  D6C7B5 "Diff churn ≤150 lines"
-          ensure size:l  C9B299 "Diff churn ≤400 lines"
-          ensure size:xl BC9D7D "Diff churn >400 lines"
+          ensure size:s  E1D8CE "Diff churn ≤50 lines"
+          ensure size:m  D8C7B3 "Diff churn ≤150 lines"
+          ensure size:l  CDB295 "Diff churn ≤400 lines"
+          ensure size:xl C19D78 "Diff churn >400 lines"
 
           # changeset: (single, PR) — sourced from .changeset/*.md frontmatter.
           # Quiet lavender tint. (Not an amber ramp: amber collides with yellow=waiting.)
-          ensure changeset:patch E6DCF0 "Changeset declares a patch release"
-          ensure changeset:minor E6DCF0 "Changeset declares a minor release"
-          ensure changeset:major E6DCF0 "Changeset declares a major release"
-          ensure changeset:none  E6DCF0 "No changeset / no release"
+          ensure changeset:patch E6DBF2 "Changeset declares a patch release"
+          ensure changeset:minor E6DBF2 "Changeset declares a minor release"
+          ensure changeset:major E6DBF2 "Changeset declares a major release"
+          ensure changeset:none  E6DBF2 "No changeset / no release"
 
           # codec: (multi, issue + PR) — which codec slice (ADR-0018) is touched.
           # Quiet teal tint.
-          ensure codec:timestamp C8E6E0 "Touches the timestamp codec"
-          ensure codec:opaque    C8E6E0 "Touches the opaque codec"
-          ensure codec:reverse   C8E6E0 "Touches the reverse codec"
-          ensure codec:signed    C8E6E0 "Touches the signed codec"
-          ensure codec:wrapped   C8E6E0 "Touches the wrapped codec"
-          ensure codec:digest    C8E6E0 "Touches the digest codec"
+          ensure codec:timestamp C6E8E1 "Touches the timestamp codec"
+          ensure codec:opaque    C6E8E1 "Touches the opaque codec"
+          ensure codec:reverse   C6E8E1 "Touches the reverse codec"
+          ensure codec:signed    C6E8E1 "Touches the signed codec"
+          ensure codec:wrapped   C6E8E1 "Touches the wrapped codec"
+          ensure codec:digest    C6E8E1 "Touches the digest codec"
 
           # area: (multi, issue + PR) — which part of the system is touched.
           # Quiet clay/rose tint.
-          ensure area:wire     F0D5CE "Touches the wire format / encoding surface"
-          ensure area:cli      F0D5CE "Touches the CLI"
-          ensure area:adapters F0D5CE "Touches adapter integrations"
-          ensure area:docs     F0D5CE "Touches documentation"
-          ensure area:core     F0D5CE "Touches core library code"
-          ensure area:build    F0D5CE "Touches build / tooling"
+          ensure area:wire     F3D3CB "Touches the wire format / encoding surface"
+          ensure area:cli      F3D3CB "Touches the CLI"
+          ensure area:adapters F3D3CB "Touches adapter integrations"
+          ensure area:docs     F3D3CB "Touches documentation"
+          ensure area:core     F3D3CB "Touches core library code"
+          ensure area:build    F3D3CB "Touches build / tooling"
 
           # released: (multi, issue + PR) — keyed on the major version LINE, not
           # the semver version. Stamped by release.yml when v1 cuts. Good/go → green.
           ensure released:v1 0E8A16 "Shipped in a published v1 release"
 
-          # auto-round: (single, PR) — namespaced successor to auto-round-N.
-          # Keep this range in step with address-review.yml's MAX_AUTO_ROUNDS.
+          # auto-round: (single, PR) — auto-address loop counter. Keep this range
+          # in step with address-review.yml's MAX_AUTO_ROUNDS.
           ensure auto-round:1 EDEDED "Auto-address loop: 1 consecutive bot-driven round"
           ensure auto-round:2 EDEDED "Auto-address loop: 2 consecutive bot-driven rounds"
           ensure auto-round:3 EDEDED "Auto-address loop: 3 consecutive bot-driven rounds"
@@ -184,3 +159,42 @@ jobs:
           ensure do:rebase    5319E7 "Trigger: rebase this PR onto main"
           ensure do:address   5319E7 "Trigger: address the review feedback on this PR"
           ensure do:triage    5319E7 "Trigger: triage this issue"
+
+      - name: Delete retired flat labels (Phase 4)
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Phase 4 of the namespaced taxonomy (ADR-0029): the flat lifecycle and
+          # trigger labels are retired in favour of their namespaced successors,
+          # which the workflows now read and write exclusively. The weekly
+          # self-heal only ever creates/updates labels (the `ensure` step above) —
+          # it never deletes — so retirement is an explicit, auditable step here.
+          #
+          # Each former label and the namespaced label that replaced it:
+          #   needs-triage     → do:triage (trigger) / issue:triage (status)
+          #   needs-info       → issue:needs-info
+          #   ready-for-agent  → do:implement (trigger) / issue:ready-agent (status)
+          #   ready-for-human  → issue:ready-human
+          #   in-progress      → issue:in-progress
+          #   blocked          → issue:blocked
+          #   wontfix          → issue:wontfix
+          #   needs-review     → do:review
+          #   needs-rebase     → do:rebase
+          #   address-feedback → do:address
+          #   conflicting      → automation:rebasing
+          #   auto-round-{1,2,3} → auto-round:{1,2,3}
+          # `needs-human` is intentionally NOT deleted — it stays flat (ADR-0029).
+          #
+          # Deleting a label strips it from every issue/PR that still carries it;
+          # the Phase 5 backfill stamps the namespaced equivalents. `|| true` keeps
+          # the step idempotent: a second run finds the labels already gone.
+          retired=(
+            needs-triage needs-info ready-for-agent ready-for-human in-progress
+            blocked wontfix needs-review needs-rebase address-feedback conflicting
+            auto-round-1 auto-round-2 auto-round-3
+          )
+          for label in "${retired[@]}"; do
+            gh label delete "$label" --yes >/dev/null 2>&1 || true
+          done
+          echo "Retired flat labels deleted (or already absent)."

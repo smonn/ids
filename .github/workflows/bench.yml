@@ -39,15 +39,15 @@ jobs:
       # Pause the bench while this PR is mid-conflict-rebase (same rationale as
       # ci.yml's guard). Self-cancel rather than fail: a cancelled run is neutral
       # and the rebase merge commit runs a fresh bench. Fail-open on a read error.
-      - name: Pause while this PR conflicts with main
+      - name: Pause while an automation mutex is present on this PR
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || true)
-          if echo "$labels" | grep -qx conflicting; then
-            echo "PR #$PR_NUMBER is marked conflicting — cancelling; the rebase merge commit will run a fresh bench."
+          if echo "$labels" | grep -qE '^automation:'; then
+            echo "PR #$PR_NUMBER carries an automation:* mutex — cancelling; the rebase merge commit will run a fresh bench."
             gh run cancel "$GITHUB_RUN_ID" || true
             sleep 30  # let the cancellation land so later steps don't run
           fi

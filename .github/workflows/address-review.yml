@@ -1,6 +1,6 @@
 name: Address PR review feedback
 
-# Apply the `address-feedback` label to an agent PR and the agent reads the human
+# Apply the `do:address` label to an agent PR and the agent reads the human
 # review feedback (reviews + inline review threads) and addresses it. Triggering on
 # a label — like rebase.yml and review.yml — means a maintainer reviews in the normal
 # way (inline comments, a summary review) and then applies one label to say "go act
@@ -45,10 +45,9 @@ permissions:
 
 jobs:
   address:
-    # Only the `address-feedback` / `do:address` trigger, on an OPEN same-repo agent
-    # branch (Phase 3 accepts both during the cutover).
+    # Only the `do:address` trigger, on an OPEN same-repo agent branch.
     if: >-
-      ( github.event.label.name == 'address-feedback' || github.event.label.name == 'do:address' ) &&
+      github.event.label.name == 'do:address' &&
       github.event.pull_request.state == 'open' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'agent/issue-')
@@ -114,25 +113,25 @@ jobs:
           permission-issues: read
           permission-pull-requests: read
 
-      # Cost guard: the review → address-feedback → address-review → push → review
+      # Cost guard: the review → do:address → address-review → push → review
       # cycle is entirely bot-driven once started (review.yml auto-applies
-      # address-feedback on hard findings; the fix push re-fires review.yml via its
+      # do:address on hard findings; the fix push re-fires review.yml via its
       # synchronize trigger). Cap the consecutive BOT-driven rounds so a reviewer that keeps
       # flagging the same point can't loop forever — mirrors autofix.yml's MAX_ATTEMPTS.
       # A human applying the label breaks the cycle and resets the counter, and an
       # already-escalated PR is skipped.
       #
-      # The round count lives in an `auto-round-N` label on the PR (defined in labels.yml),
+      # The round count lives in an `auto-round:N` label on the PR (defined in labels.yml),
       # NOT a hidden comment — a body-only `<!-- ... -->` comment still renders as a blank
       # bubble in the timeline. A label keeps the conversation clean and lets a maintainer
-      # RESET the counter by simply removing the `auto-round-N` label in the PR sidebar.
+      # RESET the counter by simply removing the `auto-round:N` label in the PR sidebar.
       - name: Guard against runaway auto-address loops
         id: gate
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           SENDER: ${{ github.event.sender.login }}
-          # Keep in step with the auto-round-* labels defined in labels.yml.
+          # Keep in step with the auto-round:* labels defined in labels.yml.
           MAX_AUTO_ROUNDS: "3"
         run: |
           labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
@@ -142,25 +141,25 @@ jobs:
             exit 0
           fi
           # Defer while the PR is mid-conflict-rebase (conflicts.yml marked it
-          # `conflicting` and an automatic rebase is in flight). The current commit is
-          # about to be superseded, so addressing feedback now would be wasted and could
-          # race the rebase's push. No-op here; review.yml re-applies `address-feedback`
-          # after the rebase merge commit is re-reviewed, which re-fires this workflow.
-          # NB: the "Remove the address-feedback label" step below is guarded on
-          # proceed==true, so this no-op does NOT consume the trigger label.
-          if echo "$labels" | grep -qx 'conflicting'; then
-            echo "PR #$PR_NUMBER conflicts with main — deferring address-review until the rebase lands."
+          # `automation:rebasing` and an automatic rebase is in flight). The current commit
+          # is about to be superseded, so addressing feedback now would be wasted and could
+          # race the rebase's push. No-op here; review.yml re-applies `do:address` after the
+          # rebase merge commit is re-reviewed, which re-fires this workflow. Any
+          # `automation:*` mutex defers us. NB: the "Remove the address trigger label" step
+          # below is guarded on proceed==true, so this no-op does NOT consume the trigger.
+          if echo "$labels" | grep -qE '^automation:'; then
+            echo "PR #$PR_NUMBER has an automation:* mutex — deferring address-review until the rebase lands."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Read the current round from the lone auto-round-N label (0 if none present).
-          round_label=$(echo "$labels" | grep -oE '^auto-round-[0-9]+$' | head -n1)
+          # Read the current round from the lone auto-round:N label (0 if none present).
+          round_label=$(echo "$labels" | grep -oE '^auto-round:[0-9]+$' | head -n1)
           count=0
-          [ -n "$round_label" ] && count=${round_label#auto-round-}
+          [ -n "$round_label" ] && count=${round_label#auto-round:}
           if [ "$SENDER" != "smonn[bot]" ]; then
             # A human applied the label — a fresh, human-driven request the cap must not
             # interfere with. Clear any stale round label from a prior auto-loop and proceed.
-            echo "Human ($SENDER) applied address-feedback; resetting the round counter."
+            echo "Human ($SENDER) applied do:address; resetting the round counter."
             [ -n "$round_label" ] && gh pr edit "$PR_NUMBER" --remove-label "$round_label" || true
             echo "proceed=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -178,7 +177,7 @@ jobs:
           # The count is surfaced to humans via the label itself and the escalation comment.
           next=$((count + 1))
           [ -n "$round_label" ] && gh pr edit "$PR_NUMBER" --remove-label "$round_label" || true
-          gh pr edit "$PR_NUMBER" --add-label "auto-round-$next"
+          gh pr edit "$PR_NUMBER" --add-label "auto-round:$next"
           echo "Auto-address round $next of $MAX_AUTO_ROUNDS; proceeding."
           echo "proceed=true" >> "$GITHUB_OUTPUT"
 
@@ -190,10 +189,8 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-        # Consume whichever trigger fired (Phase 3 accepts both address-feedback and
-        # do:address). Removing the absent one is a harmless no-op under `|| true`.
+        # Consume the do:address trigger so it can be re-applied to re-run.
         run: |
-          gh pr edit "$PR_NUMBER" --remove-label address-feedback || true
           gh pr edit "$PR_NUMBER" --remove-label do:address || true
 
       # ENFORCED no-push: persist-credentials:false leaves NO push credential in the
@@ -231,10 +228,10 @@ jobs:
             printf '.github/actions/\n.github/scripts/\n' >> .git/info/exclude
           fi
 
-      # Phase 2 dual-write (ADR-0029): the agent is about to address feedback, so mirror
-      # that lifecycle state with the namespaced pr: status. Inert — nothing reads it;
-      # the subsequent re-review of the pushed fix sets the pr: outcome (ready /
-      # changes-requested). Placed after provisioning so the helper is on disk.
+      # Start/stop status contract (ADR-0030): the agent is about to address feedback, so
+      # set the namespaced pr: status. The subsequent re-review of the pushed fix sets the
+      # pr: outcome (ready / changes-requested). Placed after provisioning so the helper is
+      # on disk.
       - name: Mark the PR as addressing feedback (namespaced status)
         if: steps.gate.outputs.proceed == 'true'
         env:
@@ -327,7 +324,7 @@ jobs:
             --model claude-sonnet-4-6
             --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
           prompt: |
-            A human applied the `address-feedback` label to pull request
+            A human applied the `do:address` label to pull request
             #${{ env.PR_NUMBER }} (branch `${{ env.BRANCH }}`) of ${{ github.repository }}
             to ask you to address their review feedback. The branch is checked out and
             git can commit LOCALLY.
@@ -460,7 +457,7 @@ jobs:
                     REQUIRED for `status: "fixed"` (short sha) and omitted otherwise.
                     `followup_slug` appears on `deferred` entries that file a follow-up.
                   - `followups` lists every issue to create; `labels` is an array of
-                    strings (the poster always adds `needs-triage` on top). Omit or use
+                    strings (the poster always adds `do:triage` on top). Omit or use
                     `[]` if none.
                   - `toplevel_file` is present only if you wrote `.address/toplevel.md`;
                     omit it otherwise.
@@ -502,7 +499,7 @@ jobs:
           # --- 1. Escalation path: comment + label, NO push, stop. ---
           if [ "$(jq -r '.escalate // false' .address/manifest.json)" = "true" ]; then
             reason=$(jq -r '.escalate_reason // "The agent could not produce a coherent set of fixes against the labelled commit."' .address/manifest.json)
-            printf '%s\n\n%s\n' "$reason" "Re-apply the \`address-feedback\` label to try again." > .address-escalate.md
+            printf '%s\n\n%s\n' "$reason" "Re-apply the \`do:address\` label to try again." > .address-escalate.md
             gh pr comment "$PR_NUMBER" --body-file .address-escalate.md
             gh pr edit "$PR_NUMBER" --add-label needs-human || true
             echo "Escalated PR #$PR_NUMBER without pushing."
@@ -539,7 +536,7 @@ jobs:
             echo "Pushed local commits to $BRANCH."
           else
             echo "::warning::push to $BRANCH was rejected (branch likely advanced past the labelled commit) — posting branch-moved notice and stopping."
-            printf '%s\n' "The branch moved on past the commit I reviewed, so I did not push my fixes (I never force-push). Please re-apply the \`address-feedback\` label to run again against the current head." > .address-moved.md
+            printf '%s\n' "The branch moved on past the commit I reviewed, so I did not push my fixes (I never force-push). Please re-apply the \`do:address\` label to run again against the current head." > .address-moved.md
             gh pr comment "$PR_NUMBER" --body-file .address-moved.md
             exit 0
           fi
@@ -552,8 +549,9 @@ jobs:
             title=$(printf '%s' "$fu" | jq -r '.title')
             body_file=$(printf '%s' "$fu" | jq -r '.body_file')
             test -f ".address/$body_file" || { echo "::error::follow-up body file $body_file missing"; exit 1; }
-            # Build the --label args: always needs-triage, plus the manifest's labels.
-            label_args=(--label needs-triage)
+            # Build the --label args: always do:triage (so triage.yml picks the new issue
+            # up), plus any descriptive labels the manifest carries.
+            label_args=(--label do:triage)
             while IFS= read -r lbl; do
               [ -n "$lbl" ] || continue
               label_args+=(--label "$lbl")
@@ -626,5 +624,5 @@ jobs:
       # (deduped per commit). The push-skip path (branch advanced past EVENT_SHA) leaves
       # the head at EVENT_SHA with no new push — the poster already posted the branch-moved
       # comment and stopped — so nothing fires, which is the intended behaviour.
-      # `needs-review` stays available as the manual "re-review now" signal a maintainer
+      # `do:review` stays available as the manual "re-review now" signal a maintainer
       # can apply by hand.

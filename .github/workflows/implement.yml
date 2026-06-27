@@ -49,17 +49,16 @@ permissions:
 
 jobs:
   implement:
-    # Only when a kickoff trigger lands (or a manual dispatch). Phase 3 splits the
-    # old `ready-for-agent` status-trigger: `issue:ready-agent` is now pure backlog
-    # status and `do:implement` is the explicit kickoff. During the cutover both
-    # `ready-for-agent` (legacy) and `do:implement` start the work (ADR-0030). The
-    # triage workflow applies `ready-for-agent` as the App, which chains into this
-    # workflow; a maintainer can instead apply `do:implement`. We intentionally do
-    # NOT filter by actor here.
+    # Only when the `do:implement` kickoff trigger lands (or a manual dispatch).
+    # The old `ready-for-agent` status-trigger has been retired (Phase 4): the
+    # split is complete — `issue:ready-agent` is pure backlog status that never
+    # triggers anything, and `do:implement` is the explicit kickoff (ADR-0030).
+    # Marking issues `issue:ready-agent` no longer spawns agents; a maintainer
+    # kicks the ones they want with `do:implement`. We intentionally do NOT filter
+    # by actor here (label-add requires write access, which gates the trigger).
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues' &&
-       (github.event.label.name == 'ready-for-agent' || github.event.label.name == 'do:implement'))
+      (github.event_name == 'issues' && github.event.label.name == 'do:implement')
     runs-on: ubuntu-latest
     # Same isolated secrets env as triage (APP_ID / APP_PRIVATE_KEY / CLAUDE_CODE_OAUTH_TOKEN).
     environment: automation
@@ -129,13 +128,11 @@ jobs:
         run: |
           # Consume the do:implement trigger up front: it fired this job, so remove it
           # now (like triage consumes do:triage and rebase consumes its trigger when the
-          # job runs) so it can be re-applied to re-kick. The legacy ready-for-agent
-          # status is transitioned later by the poster; harmless no-op when
-          # ready-for-agent (not do:implement) was the trigger.
+          # job runs) so it can be re-applied to re-kick.
           gh issue edit "$ISSUE_NUMBER" --remove-label do:implement >/dev/null 2>&1 || true
           labels=$(gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name')
           prs=$(gh pr list --state open --head "$BRANCH" --json number --jq 'length')
-          if echo "$labels" | grep -qx 'in-progress' || [ "${prs:-0}" -gt 0 ]; then
+          if echo "$labels" | grep -qx 'issue:in-progress' || [ "${prs:-0}" -gt 0 ]; then
             echo "proceed=false" >> "$GITHUB_OUTPUT"
             echo "Implementation already in progress for #$ISSUE_NUMBER (in-progress label or open PR on $BRANCH); skipping."
           else
@@ -205,8 +202,9 @@ jobs:
           # auth, defeating the no-push intent. With a read-only token, any auth the
           # action sets up for the agent cannot push or mutate.
           github_token: ${{ steps.app-token-ro.outputs.token }}
-          # This workflow is triggered by the App applying `ready-for-agent`, so the
-          # actor is a bot. claude-code-action blocks bot actors by default; allow
+          # This workflow is triggered by the `do:implement` label (applied by a
+          # maintainer or, on a chained kickoff, the App), so the labeling actor may
+          # be a bot. claude-code-action blocks bot actors by default; allow
           # only our own App (never '*' — on a public repo that lets external Apps
           # invoke Claude with prompts they control).
           allowed_bots: "smonn[bot]"
@@ -228,7 +226,7 @@ jobs:
             You are the implementation agent for `@smonn/ids`, a TypeScript library
             for encoding and decoding sortable IDs, running headless in CI. Implement
             the work specified by issue #${{ env.ISSUE_NUMBER }} in
-            ${{ github.repository }}, which has been triaged `ready-for-agent`.
+            ${{ github.repository }}, which has been triaged `issue:ready-agent`.
 
             You are a PRODUCER ONLY. You have NO authenticated GitHub access and you
             CANNOT push: `gh` is unauthenticated (do not call it) and the checkout
@@ -374,7 +372,7 @@ jobs:
         run: |
           set -euo pipefail
           source .github/scripts/poster-lib.sh
-          # Phase 2 dual-write of the namespaced issue: status (ADR-0029).
+          # Namespaced issue: status helpers (ADR-0029); authoritative since Phase 4.
           source .github/scripts/lifecycle-status.sh
           require_manifest .impl
 
@@ -389,9 +387,8 @@ jobs:
             test -f ".impl/$body_file" || { echo "::error::escalation flagged but .impl/$body_file is missing"; exit 1; }
             echo "Escalating #$issue to a human (reason: $(jq -r '.escalate_reason // "unspecified"' .impl/manifest.json))."
             gh issue comment "$issue" --body-file ".impl/$body_file"
-            gh issue edit "$issue" --add-label ready-for-human --remove-label ready-for-agent
             set_issue_status "$issue" ready-for-human
-            echo "✓ Posted escalation comment and flipped #$issue to ready-for-human; no PR opened."
+            echo "✓ Posted escalation comment and flipped #$issue to issue:ready-human; no PR opened."
             exit 0
           fi
 
@@ -428,9 +425,8 @@ jobs:
             } > .impl/workflow-escalation.md
             echo "Escalating #$issue: commits touch .github/workflows/ (token lacks workflows permission)."
             gh issue comment "$issue" --body-file .impl/workflow-escalation.md
-            gh issue edit "$issue" --add-label ready-for-human --remove-label ready-for-agent
             set_issue_status "$issue" ready-for-human
-            echo "✓ Posted workflow-escalation comment and flipped #$issue to ready-for-human; no push, no PR."
+            echo "✓ Posted workflow-escalation comment and flipped #$issue to issue:ready-human; no push, no PR."
             exit 0
           fi
 
@@ -446,10 +442,9 @@ jobs:
           echo "✓ Opened PR: $pr_url"
 
           # 3) Transition the issue and link the PR (URL now known).
-          gh issue edit "$issue" --add-label in-progress --remove-label ready-for-agent
           set_issue_status "$issue" in-progress
           gh issue comment "$issue" --body "Implementation opened as $pr_url"
-          echo "✓ Transitioned #$issue to in-progress and linked the PR."
+          echo "✓ Transitioned #$issue to issue:in-progress and linked the PR."
 
       # Backstop against a "hollow success": the poster either creates the PR (or
       # escalates) or fails loudly, so this only re-checks the end state. Require an
@@ -462,7 +457,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           labels=$(gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -qxE 'ready-for-human|needs-info'; then
+          if echo "$labels" | grep -qxE 'issue:ready-human|issue:needs-info'; then
             echo "✓ Agent escalated #$ISSUE_NUMBER to a human / needs-info; no PR expected."
             exit 0
           fi

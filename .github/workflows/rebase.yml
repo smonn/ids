@@ -1,6 +1,6 @@
 name: Rebase agent PRs on demand
 
-# Rebase is opt-in per PR, never automatic. Apply the `needs-rebase` label to an
+# Rebase is opt-in per PR, never automatic. Apply the `do:rebase` label to an
 # open agent PR (or run this workflow manually with the PR number) and it merges the
 # latest `main` into the branch — resolving any conflicts with Claude — then pushes,
 # which re-runs the branch's CI.
@@ -37,7 +37,7 @@ permissions:
 
 jobs:
   resolve:
-    # Run on a manual dispatch, or when the `needs-rebase` label lands on an OPEN
+    # Run on a manual dispatch, or when the `do:rebase` label lands on an OPEN
     # same-repo agent branch. This job checks out and executes the branch's code
     # (install + the CI gate), so it must never run on a fork's code with our secrets
     # — hence the same-repo head check. Labels can only be applied by users with write
@@ -47,7 +47,7 @@ jobs:
     # identical scope gate in the "Resolve the target PR" step below, before checkout.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      ( ( github.event.label.name == 'needs-rebase' || github.event.label.name == 'do:rebase' ) &&
+      ( github.event.label.name == 'do:rebase' &&
         github.event.pull_request.state == 'open' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         startsWith(github.event.pull_request.head.ref, 'agent/issue-') )
@@ -120,28 +120,26 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
-        # Consume whichever trigger fired (Phase 3 accepts both needs-rebase and
-        # do:rebase). Removing the absent one is a harmless no-op under `|| true`.
+        # Consume the do:rebase trigger so it can be re-applied to re-run.
         run: |
-          gh pr edit "$PR_NUMBER" --remove-label needs-rebase || true
           gh pr edit "$PR_NUMBER" --remove-label do:rebase || true
 
-      - name: Clear the conflicting marker EARLY (before the merge commit is pushed)
-        # conflicts.yml applies `conflicting` to pause our PR-triggered workflows while a
-        # rebase is dispatched. We MUST remove it here — before the agent (below) merges
-        # main and pushes the merge commit — so that the clean merge commit's CI / review
-        # / bench run UNBLOCKED and the required checks settle green on the new head. If
-        # we cleared it only at the end of this job, the merge-commit push would fire
-        # those workflows WHILE the marker is still present; they would self-cancel / skip
+      - name: Clear the automation:rebasing mutex EARLY (before the merge commit is pushed)
+        # conflicts.yml applies `automation:rebasing` to pause our PR-triggered workflows
+        # while a rebase is dispatched. We MUST remove it here — before the agent (below)
+        # merges main and pushes the merge commit — so that the clean merge commit's CI /
+        # review / bench run UNBLOCKED and the required checks settle green on the new head.
+        # If we cleared it only at the end of this job, the merge-commit push would fire
+        # those workflows WHILE the mutex is still present; they would self-cancel / skip
         # and never re-run (no further push), stranding the required `ci` check on the
         # good commit. Clearing early also means an escalated (needs-human) PR ends with
-        # no `conflicting` — correct, a human now owns it. Harmless when the label is
-        # absent (e.g. a manual needs-rebase run where conflicts.yml never flagged it).
+        # no `automation:rebasing` — correct, a human now owns it. Harmless when the label
+        # is absent (e.g. a manual do:rebase run where conflicts.yml never flagged it).
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
-        run: gh pr edit "$PR_NUMBER" --remove-label conflicting || true
+        run: gh pr edit "$PR_NUMBER" --remove-label automation:rebasing || true
 
       - name: Checkout the labelled commit (pinned SHA, not the branch ref)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -272,7 +270,7 @@ jobs:
             exit 1
           fi
 
-      - name: Apply needs-review after a successful merge push
+      - name: Apply do:review after a successful merge push
         # Close the review loop: a merge with `main` creates a new commit SHA that
         # bypasses the review dedup mechanism, and conflict resolution could silently
         # change code semantics, so the updated branch genuinely needs re-review.
@@ -286,8 +284,8 @@ jobs:
         run: |
           labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
           if echo "$labels" | grep -qx 'needs-human'; then
-            echo "PR #$PR_NUMBER escalated to a human — skipping needs-review."
+            echo "PR #$PR_NUMBER escalated to a human — skipping do:review."
             exit 0
           fi
-          gh pr edit "$PR_NUMBER" --add-label needs-review
-          echo "✓ Applied needs-review to PR #$PR_NUMBER"
+          gh pr edit "$PR_NUMBER" --add-label do:review
+          echo "✓ Applied do:review to PR #$PR_NUMBER"

@@ -2,7 +2,7 @@ name: Triage issues
 
 on:
   issues:
-    # `labeled` lets the unblock workflow re-triage by re-adding `needs-triage`
+    # `labeled` lets the unblock workflow re-triage by adding `do:triage`
     # (filtered in the job `if` below so other label changes are no-ops).
     types: [opened, reopened, labeled]
   # Manual re-triage, e.g. for testing against an existing issue.
@@ -42,16 +42,17 @@ jobs:
     #    address-review.yml and re-triage from unblock.yml, which must still be triaged
     #    (mirrors the `allowed_bots: "smonn[bot]"` pattern in the claude-code-action step
     #    below). Loop-safe: triage creates no issues, and on `labeled` events we only act
-    #    when `needs-triage` was added, so triage/implement applying their own labels are
+    #    when `do:triage` was added, so triage/implement applying their own labels are
     #    no-ops.
     #
     # 2. THIRD-PARTY GUARD (human authors): an issue opened/reopened by an outside party
-    #    must NOT auto-trigger the agent pipeline (triage -> ready-for-agent -> implement
-    #    writes code + opens a PR). So on `opened`/`reopened` we only auto-triage when the
+    #    must NOT auto-trigger the agent pipeline (triage -> issue:ready-agent, then a
+    #    maintainer's `do:implement` -> implement writes code + opens a PR). So on
+    #    `opened`/`reopened` we only auto-triage when the
     #    author is trusted — OWNER / MEMBER / COLLABORATOR — or is our own `smonn[bot]`
     #    (whose `author_association` is not a repo role, so it is named explicitly to keep
     #    the follow-up / re-triage chains alive). An outside issue is left untouched until
-    #    a maintainer opts it in by adding `needs-triage`; that arrives as a `labeled`
+    #    a maintainer opts it in by adding `do:triage`; that arrives as a `labeled`
     #    event, which is gated by GitHub's own permission model (adding a label requires
     #    triage/write access, which `author_association` alone — e.g. a returning
     #    CONTRIBUTOR — does NOT grant). The `labeled` branch therefore needs no author
@@ -61,7 +62,7 @@ jobs:
       ${{ github.event_name == 'workflow_dispatch' ||
       ((github.event.issue.user.type != 'Bot' || github.event.issue.user.login == 'smonn[bot]') &&
        (
-         (github.event.action == 'labeled' && (github.event.label.name == 'needs-triage' || github.event.label.name == 'do:triage')) ||
+         (github.event.action == 'labeled' && github.event.label.name == 'do:triage') ||
          (github.event.action != 'labeled' &&
           (github.event.issue.user.login == 'smonn[bot]' ||
            github.event.issue.author_association == 'OWNER' ||
@@ -175,11 +176,11 @@ jobs:
       # Deterministic gate (mirrors autofix.yml / address-review.yml): decide whether the
       # agent should run at all, moving the two purely-mechanical decisions OUT of the
       # prompt. proceed=false short-circuits the producer + poster.
-      #   - IDEMPOTENCY: if the issue already carries any decision label
-      #     (ready-for-agent / ready-for-human / wontfix / needs-info / blocked) it has
-      #     already been triaged — do nothing.
+      #   - IDEMPOTENCY: if the issue already carries any decision status
+      #     (issue:ready-agent / issue:ready-human / issue:wontfix / issue:needs-info /
+      #     issue:blocked) it has already been triaged — do nothing.
       #   - BLOCKERS: if ANY declared blocker is still OPEN, post ONE "blocked" comment
-      #     and apply `blocked` (removing needs-triage) right here, then stop.
+      #     and set `issue:blocked` right here, then stop.
       #     unblock.yml re-triages when the blocker closes.
       - name: Gate — idempotency and blockers
         id: gate
@@ -189,17 +190,15 @@ jobs:
           ANY_OPEN: ${{ steps.context.outputs.any_open }}
         run: |
           set -euo pipefail
-          # Phase 2 dual-write: mirror each flat lifecycle flip with its namespaced
-          # issue: status (ADR-0029). Best-effort; the flat labels stay authoritative.
+          # Namespaced issue: status helpers (ADR-0029); authoritative since Phase 4.
           source .github/scripts/lifecycle-status.sh
 
-          # Consume the do:triage trigger up front so it can be re-applied to re-kick
-          # (Phase 3 accepts both needs-triage and do:triage). Best-effort and harmless
-          # on the non-do:triage paths (opened/reopened/dispatch, or a needs-triage flip).
+          # Consume the do:triage trigger up front so it can be re-applied to re-kick.
+          # Best-effort and harmless on the non-do:triage paths (opened/reopened/dispatch).
           gh issue edit "$ISSUE_NUMBER" --remove-label do:triage >/dev/null 2>&1 || true
 
-          # IDEMPOTENCY: any decision label already present means triage is done.
-          if grep -qxE 'ready-for-agent|ready-for-human|wontfix|needs-info|blocked' .triage-context/labels.txt; then
+          # IDEMPOTENCY: any decision status already present means triage is done.
+          if grep -qxE 'issue:ready-agent|issue:ready-human|issue:wontfix|issue:needs-info|issue:blocked' .triage-context/labels.txt; then
             echo "#$ISSUE_NUMBER already carries a decision label — already triaged, nothing to do."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -216,7 +215,6 @@ jobs:
               printf 'every blocker is closed.\n'
             } > blocked-comment.md
             gh issue comment "$ISSUE_NUMBER" --body-file blocked-comment.md
-            gh issue edit "$ISSUE_NUMBER" --add-label blocked --remove-label needs-triage
             set_issue_status "$ISSUE_NUMBER" blocked
             echo "#$ISSUE_NUMBER parked as blocked (open blockers: $open_list)."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
@@ -336,9 +334,11 @@ jobs:
 
       # Deterministic poster: read the producer's .triage/ files and do ALL GitHub
       # mutation. Validate the manifest parses and that .label is one of the allowed
-      # decision-label enum values (fail loudly otherwise), post the comment via
-      # --body-file (never a --body string, so the body can't be corrupted by shell
-      # quoting), then apply the chosen label and remove needs-triage.
+      # decision values (fail loudly otherwise), post the comment via --body-file
+      # (never a --body string, so the body can't be corrupted by shell quoting), then
+      # set the namespaced issue: status for that decision. The four decision tokens
+      # below are the producer's stable vocabulary; set_issue_status maps each to its
+      # `issue:*` status label (ADR-0029) and clears any sibling status.
       - name: Post the triage decision
         id: post
         if: steps.gate.outputs.proceed == 'true'
@@ -348,7 +348,7 @@ jobs:
         run: |
           set -euo pipefail
           source .github/scripts/poster-lib.sh
-          # Phase 2 dual-write of the namespaced issue: status (ADR-0029).
+          # Namespaced issue: status helpers (ADR-0029); authoritative since Phase 4.
           source .github/scripts/lifecycle-status.sh
           require_manifest .triage
           test -f .triage/comment.md   || { echo "::error::producer wrote no .triage/comment.md"; exit 1; }
@@ -360,7 +360,6 @@ jobs:
           esac
 
           gh issue comment "$ISSUE_NUMBER" --body-file .triage/comment.md
-          gh issue edit "$ISSUE_NUMBER" --add-label "$label" --remove-label needs-triage
           set_issue_status "$ISSUE_NUMBER" "$label"
           echo "Triaged #$ISSUE_NUMBER as '$label'."
 
@@ -378,7 +377,7 @@ jobs:
           labels=$(gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name')
           echo "Labels on #$ISSUE_NUMBER:"
           echo "$labels"
-          if echo "$labels" | grep -qxE 'ready-for-agent|ready-for-human|needs-info|wontfix|blocked'; then
+          if echo "$labels" | grep -qxE 'issue:ready-agent|issue:ready-human|issue:needs-info|issue:wontfix|issue:blocked'; then
             echo "✓ Triage decision label present."
           else
             echo "::error::Triage produced no decision label on #$ISSUE_NUMBER (poster likely failed to write — check App permissions and the run log)."

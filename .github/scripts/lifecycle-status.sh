@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
-# Phase 2 of the namespaced label taxonomy (ADR-0029): dual-write the namespaced
-# issue:/pr: lifecycle STATUS alongside the flat pipeline labels, so the namespaced
-# set is populated before Phase 3 flips any trigger onto it. Sourced by
-# triage/implement/unblock (issue: side) and review/address-review (pr: side).
+# Namespaced label taxonomy (ADR-0029): set the authoritative namespaced issue:/pr:
+# lifecycle STATUS. Since Phase 4 retired the flat pipeline labels, these are the
+# only lifecycle status labels the workflows write. Sourced by triage/implement/
+# unblock (issue: side) and review/address-review (pr: side).
 #
 # These are STATUS labels (ADR-0030): descriptive, single-select by convention,
 # and absent from every workflow's `labeled` filter — so writing them triggers no
-# pipeline work. The flat labels remain authoritative through the transition; these
-# are mirrors. Every write is best-effort (`|| true`): a status label failing to
-# land must never fail the job, because nothing reads it yet.
+# pipeline work. Every write is best-effort (`|| true`) so a transient label edit
+# never crashes the job; the triage/implement workflows verify the resulting status
+# downstream and fail loudly if it did not land.
 #
 # Single-select is enforced the way the ADR describes — the owning workflow removes
 # the other values of the namespace when it sets one. set_issue_status /
 # set_pr_status read the current labels once and remove only the sibling values
 # actually present, so the whole transition is one read + one edit.
+#
+# set_issue_status accepts a triage DECISION token (the producer's stable
+# vocabulary: needs-triage / ready-for-agent / ready-for-human / in-progress /
+# blocked / needs-info / wontfix) and maps it to the matching `issue:*` status via
+# ns_issue_status; set_pr_status takes the `pr:*` value directly.
 
 # The namespaced lifecycle value sets (single-select per object).
 ISSUE_STATUS_LABELS="issue:triage issue:needs-info issue:ready-agent issue:ready-human issue:in-progress issue:blocked issue:wontfix"

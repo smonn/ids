@@ -37,15 +37,15 @@ jobs:
           egress-policy: audit
 
       # Pause CI while this PR is mid-conflict-rebase. conflicts.yml marks a PR that
-      # conflicts with main `conflicting` and dispatches an automatic rebase; running
-      # CI on the soon-to-be-superseded commit is wasted work. We SELF-CANCEL (not a
-      # job-level `if` skip): a cancelled run is neutral — it does not fail branch
+      # conflicts with main `automation:rebasing` and dispatches an automatic rebase;
+      # running CI on the soon-to-be-superseded commit is wasted work. We SELF-CANCEL (not
+      # a job-level `if` skip): a cancelled run is neutral — it does not fail branch
       # protection and does not strand the required `ci` check "Expected" — and the
       # rebase merge commit then runs FRESH CI that reports green on the new head
-      # (rebase.yml clears `conflicting` BEFORE pushing that commit). Only guards PR
-      # runs; push-to-main CI is never paused. Fail-open: if the label read errors we
-      # proceed and run CI (better than wrongly cancelling).
-      - name: Pause while this PR conflicts with main
+      # (rebase.yml clears the mutex BEFORE pushing that commit). Any `automation:*` mutex
+      # pauses us. Only guards PR runs; push-to-main CI is never paused. Fail-open: if the
+      # label read errors we proceed and run CI (better than wrongly cancelling).
+      - name: Pause while an automation mutex is present on this PR
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -53,8 +53,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || true)
-          if echo "$labels" | grep -qx conflicting; then
-            echo "PR #$PR_NUMBER is marked conflicting — cancelling; the rebase merge commit will run fresh CI."
+          if echo "$labels" | grep -qE '^automation:'; then
+            echo "PR #$PR_NUMBER carries an automation:* mutex — cancelling; the rebase merge commit will run fresh CI."
             gh run cancel "$GITHUB_RUN_ID" || true
             sleep 30  # let the cancellation land so later steps don't run
           fi
@@ -72,6 +72,11 @@ jobs:
       - run: pnpm audit --prod --audit-level=high
 
       - run: pnpm lint
+
+      # No-status-triggers invariant (ADR-0030): every `labeled`-gated workflow job
+      # filters on a `do:*` label. Also enforced by the sibling vitest suite; this
+      # standalone step keeps it a visible, fast CI gate.
+      - run: node .github/scripts/label-trigger-lint.mjs
 
       - run: pnpm depcruise
 

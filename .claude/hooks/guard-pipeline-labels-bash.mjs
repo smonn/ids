@@ -8,7 +8,7 @@
 // on that path. Both hooks share the LIFECYCLE set from lifecycle-labels.mjs
 // so the two lists cannot drift.
 //
-// `address-feedback` and `needs-review` are absent from LIFECYCLE (same
+// `do:review` and `do:address` are absent from LIFECYCLE (same
 // omission-based carve-out as the MCP guard). Any other Bash command passes
 // through untouched — the hook only acts when the command string contains
 // `gh issue edit` with `--add-label` or `--remove-label`.
