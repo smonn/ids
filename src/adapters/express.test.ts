@@ -456,7 +456,7 @@ describe("idParam / idQuery — real express() app (integration)", () => {
     });
 
     app.use((err: unknown, _req: Request, res: express.Response, _next: NextFunction): void => {
-      const e = err as IdParamError;
+      const e: IdParamError = fromAny(err);
       res.status(e.status).json({ error: e.reason });
     });
 
