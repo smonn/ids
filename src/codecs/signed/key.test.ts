@@ -186,7 +186,7 @@ describe("HKDF domain separation", () => {
     expect(new Uint8Array(sig1)).toEqual(new Uint8Array(sig2));
   });
 
-  it("all four keyed codecs from same IKM yield pairwise-distinct HMAC outputs and Opaque is AES-CBC (ADR-0027)", async () => {
+  it("all four keyed codecs from same IKM yield pairwise-distinct HMAC outputs and Opaque is AES-CBC", async () => {
     const ikm = new Uint8Array(32).fill(0x77);
 
     const signingKey = await importSigningKey(ikm);
