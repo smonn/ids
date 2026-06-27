@@ -1,6 +1,6 @@
 // Payload is always 16 bytes on the wire (every codec). 16 bytes → 26 Crockford
 // base32 chars. ADR-0002 codifies this as the shared wire-format invariant.
-export const payloadByteLength: number = 16;
+export const payloadByteLength = 16 as const;
 export const payloadBase32Length: number = Math.ceil((payloadByteLength * 8) / 5);
 
 // Compact regex character class for the canonical lowercase Crockford alphabet

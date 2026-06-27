@@ -3,7 +3,7 @@ import { decodeBase32 } from "./base32.js";
 
 // Timestamp byte layout: first N bytes of the plaintext payload encode a
 // big-endian Unix-ms timestamp. Shared by timestamp-family layouts.
-export const timestampByteLength: number = 6;
+export const timestampByteLength = 6 as const;
 
 const timestampBase32Length: number = Math.ceil((timestampByteLength * 8) / 5);
 

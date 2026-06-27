@@ -7,7 +7,8 @@ import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js
 
 const laneByteLength = 8;
 const tagByteLength = 8;
-const _wrappedByteCheck: typeof payloadByteLength = laneByteLength + tagByteLength;
+type Equals<A, B> = A extends B ? (B extends A ? true : never) : never;
+const _wrappedByteCheck: Equals<typeof payloadByteLength, 16> = true; // laneByteLength(8) + tagByteLength(8)
 void _wrappedByteCheck;
 
 type LayoutWrappingKey = {
