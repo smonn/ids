@@ -158,6 +158,12 @@ describe("parseNs", () => {
     expect(typeof result).toBe("string");
     expect(result as string).toContain("--ns");
   });
+
+  it("whitespace-only value returns an error string containing '--ns'", () => {
+    const result = parseNs(new Map([["--ns", "   "]]));
+    expect(typeof result).toBe("string");
+    expect(result as string).toContain("--ns");
+  });
 });
 
 describe("unsupportedFlagForCommand", () => {
