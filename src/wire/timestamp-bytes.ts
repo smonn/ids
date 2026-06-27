@@ -29,9 +29,10 @@ export function readTimestampMs(buffer: Uint8Array): number {
 
 /** Decodes ms from the first 10 base32 chars of a payload suffix (partial decode).
  * Callers always pass `id.slice(prefix.length)` where `id: Id<Brand>` — the Id
- * brand guarantees that the 26-char payload was pre-validated by safeParse / is()
- * at the parse boundary, so the leading 10-char timestamp slice is canonical
- * Crockford alphabet and safe to pass to decodeBase32 without further guards.
+ * brand guarantees that safeParse() / parse() normalised any alias chars at the
+ * parse boundary (is() rejects aliases rather than normalising them), so the
+ * leading 10-char timestamp slice is canonical Crockford alphabet and safe to
+ * pass to decodeBase32 without further guards.
  */
 export function readTimestampMsFromBase32Suffix(base32Suffix: string): number {
   return readTimestampMs(decodeBase32(base32Suffix.slice(0, timestampBase32Length)));

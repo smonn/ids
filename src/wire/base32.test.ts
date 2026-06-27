@@ -83,9 +83,10 @@ describe("base32", () => {
   });
 
   it("does not resolve Crockford alias characters ('o', 'i', 'l') and produces different output than their canonical equivalents", () => {
-    // Aliases are resolved by upstream safeParse / is(), NOT by decodeBase32.
+    // Aliases are normalised by upstream safeParse() / parse(), NOT by decodeBase32;
+    // is() rejects alias chars rather than normalising them.
     // The decoder maps 'o' / 'i' / 'l' to INVALID (0xff), producing garbage
-    // bytes that differ from the output for their resolved canonical forms.
+    // bytes that differ from the output for their canonical equivalents.
     const decodedWithO = decodeBase32("oooooooooooooooooooooooooo");
     const decodedWith0 = decodeBase32("00000000000000000000000000");
     expect(decodedWithO).not.toEqual(decodedWith0);
