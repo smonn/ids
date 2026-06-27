@@ -10,6 +10,38 @@ for (let i = 0; i < 10; i++) hexCharCodeToNibble[48 + i] = i;
 for (let i = 0; i < 6; i++) hexCharCodeToNibble[97 + i] = 10 + i;
 
 /**
+ * Harvests 10 random bytes from a UUID string into `target[0..9]`.
+ *
+ * Reads from string positions 0–7 (bytes 0–3), 9–12 (bytes 4–5), and 24–31
+ * (bytes 6–9), skipping the version nibble at hex position 14 and the variant
+ * nibble at hex position 19 in the UUID layout `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`.
+ *
+ * @internal
+ */
+export function harvestUUIDBytes(uuid: string, target: Uint8Array): void {
+  target[0] =
+    (hexCharCodeToNibble[uuid.charCodeAt(0)]! << 4) | hexCharCodeToNibble[uuid.charCodeAt(1)]!;
+  target[1] =
+    (hexCharCodeToNibble[uuid.charCodeAt(2)]! << 4) | hexCharCodeToNibble[uuid.charCodeAt(3)]!;
+  target[2] =
+    (hexCharCodeToNibble[uuid.charCodeAt(4)]! << 4) | hexCharCodeToNibble[uuid.charCodeAt(5)]!;
+  target[3] =
+    (hexCharCodeToNibble[uuid.charCodeAt(6)]! << 4) | hexCharCodeToNibble[uuid.charCodeAt(7)]!;
+  target[4] =
+    (hexCharCodeToNibble[uuid.charCodeAt(9)]! << 4) | hexCharCodeToNibble[uuid.charCodeAt(10)]!;
+  target[5] =
+    (hexCharCodeToNibble[uuid.charCodeAt(11)]! << 4) | hexCharCodeToNibble[uuid.charCodeAt(12)]!;
+  target[6] =
+    (hexCharCodeToNibble[uuid.charCodeAt(24)]! << 4) | hexCharCodeToNibble[uuid.charCodeAt(25)]!;
+  target[7] =
+    (hexCharCodeToNibble[uuid.charCodeAt(26)]! << 4) | hexCharCodeToNibble[uuid.charCodeAt(27)]!;
+  target[8] =
+    (hexCharCodeToNibble[uuid.charCodeAt(28)]! << 4) | hexCharCodeToNibble[uuid.charCodeAt(29)]!;
+  target[9] =
+    (hexCharCodeToNibble[uuid.charCodeAt(30)]! << 4) | hexCharCodeToNibble[uuid.charCodeAt(31)]!;
+}
+
+/**
  * Fast RNG for the 10-byte random tail shared by the plaintext timestamp layouts
  * (Timestamp and Reverse Timestamp codecs). Writes exactly `target[0..9]`.
  *
@@ -24,20 +56,5 @@ for (let i = 0; i < 6; i++) hexCharCodeToNibble[97 + i] = 10 + i;
  * fully-random bytes); the only difference is throughput.
  */
 export function fastTenByteRng(target: Uint8Array): void {
-  const s = crypto.randomUUID();
-  target[0] = (hexCharCodeToNibble[s.charCodeAt(0)]! << 4) | hexCharCodeToNibble[s.charCodeAt(1)]!;
-  target[1] = (hexCharCodeToNibble[s.charCodeAt(2)]! << 4) | hexCharCodeToNibble[s.charCodeAt(3)]!;
-  target[2] = (hexCharCodeToNibble[s.charCodeAt(4)]! << 4) | hexCharCodeToNibble[s.charCodeAt(5)]!;
-  target[3] = (hexCharCodeToNibble[s.charCodeAt(6)]! << 4) | hexCharCodeToNibble[s.charCodeAt(7)]!;
-  target[4] = (hexCharCodeToNibble[s.charCodeAt(9)]! << 4) | hexCharCodeToNibble[s.charCodeAt(10)]!;
-  target[5] =
-    (hexCharCodeToNibble[s.charCodeAt(11)]! << 4) | hexCharCodeToNibble[s.charCodeAt(12)]!;
-  target[6] =
-    (hexCharCodeToNibble[s.charCodeAt(24)]! << 4) | hexCharCodeToNibble[s.charCodeAt(25)]!;
-  target[7] =
-    (hexCharCodeToNibble[s.charCodeAt(26)]! << 4) | hexCharCodeToNibble[s.charCodeAt(27)]!;
-  target[8] =
-    (hexCharCodeToNibble[s.charCodeAt(28)]! << 4) | hexCharCodeToNibble[s.charCodeAt(29)]!;
-  target[9] =
-    (hexCharCodeToNibble[s.charCodeAt(30)]! << 4) | hexCharCodeToNibble[s.charCodeAt(31)]!;
+  harvestUUIDBytes(crypto.randomUUID(), target);
 }
