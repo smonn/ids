@@ -39,10 +39,15 @@ permissions:
 jobs:
   label:
     # Forked PRs have no secrets to mint the App token. Skip them rather than fail.
-    # (workflow_dispatch carries no pull_request context, so guard for that too.)
+    # Dependabot PRs are SAME-REPO branches (so they pass the fork check), but
+    # Dependabot-triggered runs are denied the repository's Actions secrets too —
+    # secrets.APP_ID resolves to "" and the mint errors out — so exclude that actor
+    # as well. (workflow_dispatch carries no pull_request context, so guard for that
+    # too; its actor is the human dispatcher, never dependabot[bot].)
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      (github.actor != 'dependabot[bot]' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     environment: automation
     env:
