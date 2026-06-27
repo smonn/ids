@@ -539,11 +539,22 @@ jobs:
           fi
 
           # --- 2. Push FIRST (plain, never force). ---
+          # Did the agent actually commit fixes? If HEAD is still the labelled commit it
+          # only answered SOFT findings with replies (declined / deferred) and there is
+          # nothing to push or re-review. This drives the pr: hand-off in step 7: real
+          # fixes → request a re-review (do:review); replies-only → settle at pr:ready.
+          advanced=false
+          [ "$(git rev-parse HEAD)" != "$EVENT_SHA" ] && advanced=true
           # Re-establish a push credential here (the checkout had none). A
           # non-fast-forward rejection means the branch advanced past the labelled
           # commit: post "branch moved" and stop — post nothing else (all-or-nothing).
+          # When advanced=false the push is a no-op fast-forward ("everything up to date").
           if push_branch "$BRANCH"; then
-            echo "Pushed local commits to $BRANCH."
+            if [ "$advanced" = "true" ]; then
+              echo "Pushed local commits to $BRANCH."
+            else
+              echo "No new commits (soft findings answered with replies only) — nothing to push."
+            fi
           else
             echo "::warning::push to $BRANCH was rejected (branch likely advanced past the labelled commit) — posting branch-moved notice and stopping."
             printf '%s\n' "The branch moved on past the commit I reviewed, so I did not push my fixes (I never force-push). Please re-apply the \`do:address\` label to run again against the current head." > .address-moved.md
@@ -627,12 +638,26 @@ jobs:
             done
           fi
 
-          echo "Address-review poster complete."
+          # --- 7. Hand off the pr: lifecycle so the PR never strands on an in-progress
+          # status. Two outcomes, by whether we pushed fixes:
+          #   - advanced (fixes pushed): request a deterministic re-review with do:review.
+          #     review.yml consumes it (FORCED, so no dedup) and drives
+          #     pr:reviewing -> pr:ready / pr:changes-requested. The fix push's own
+          #     `synchronize` also fires review.yml; review's cancel-in-progress concurrency
+          #     dedups the two to a single review, and do:review guarantees one runs even if
+          #     the push event is missed. This replaces the old implicit-synchronize-only
+          #     hand-off, which could leave the PR sitting on pr:reviewing.
+          #   - replies-only (no commit): nothing was pushed and there is nothing to
+          #     re-review, so settle the PR at pr:ready (clearing pr:addressing-feedback) for
+          #     a human. (Escalation / branch-moved paths above already exited and own their
+          #     own terminal state — needs-human / re-apply do:address.)
+          source .github/scripts/lifecycle-status.sh
+          if [ "$advanced" = "true" ]; then
+            gh pr edit "$PR_NUMBER" --add-label do:review || true
+            echo "Requested a re-review of the pushed fixes (do:review)."
+          else
+            set_pr_status "$PR_NUMBER" pr:ready
+            echo "Only soft findings were answered (nothing pushed) — settled at pr:ready."
+          fi
 
-      # No explicit re-review trigger is needed: when the fix push lands it advances the
-      # PR head, and review.yml re-reviews automatically via its `synchronize` trigger
-      # (deduped per commit). The push-skip path (branch advanced past EVENT_SHA) leaves
-      # the head at EVENT_SHA with no new push — the poster already posted the branch-moved
-      # comment and stopped — so nothing fires, which is the intended behaviour.
-      # `do:review` stays available as the manual "re-review now" signal a maintainer
-      # can apply by hand.
+          echo "Address-review poster complete."
