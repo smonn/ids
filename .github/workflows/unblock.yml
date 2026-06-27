@@ -60,6 +60,9 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
+          # Phase 2 dual-write of the namespaced issue: status (ADR-0029).
+          source .github/scripts/lifecycle-status.sh
           blocked=$(gh issue list --state open --label blocked --json number --jq '.[].number')
           if [ -z "$blocked" ]; then
             echo "No open blocked issues."
@@ -89,6 +92,7 @@ jobs:
             if [ "$all_closed" = true ]; then
               echo "#$n: all blockers closed — unblocking and re-triaging."
               gh issue edit "$n" --add-label needs-triage --remove-label blocked
+              set_issue_status "$n" needs-triage
               gh issue comment "$n" --body "All declared blockers ($(echo "$deps" | sed 's/^/#/' | paste -sd ', ' -)) are now closed; re-triaging."
             else
               echo "#$n: still has open blockers; leaving blocked."
