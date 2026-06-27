@@ -6,13 +6,22 @@
     "@smonn/ids-website": "0.0.0"
   },
   "changesets": [
+    "adapter-consistency-750",
+    "base64url-strict-validation",
+    "cli-flag-parsing-bugs",
+    "digest-key-before-stdin",
     "drizzle-mikroorm-column-type",
     "drizzle-mysql-sqlite-dialects",
+    "fix-digest-stdin-ux",
+    "fix-example-wire-id-deterministic",
     "fix-parse-ns-whitespace",
     "generated-id-column-drizzle",
+    "graphql-peer-cap-v18",
     "graphql-serialize-strict-is",
+    "hono-id-param-error",
     "idquery-web-adapters",
     "ids-opaque-key-rename",
+    "invalid-timestamp-ids-error",
     "kysely-idplugin",
     "kysely-insert-id",
     "mikro-orm-id-field",
@@ -22,6 +31,7 @@
     "opaque-hkdf-aes256",
     "prisma-default-query",
     "prisma-id-field-read-only",
-    "typeorm-before-insert-hook"
+    "typeorm-before-insert-hook",
+    "write-id-column-shared-helpers"
   ]
 }
