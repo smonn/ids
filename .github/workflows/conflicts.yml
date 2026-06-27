@@ -57,6 +57,16 @@ permissions: {}
 
 jobs:
   detect:
+    # The pull_request path acts only on same-repo agent/issue-* branches; forks and
+    # Dependabot PRs are out of scope. Both are also denied the Actions secrets that
+    # mint the App token (Dependabot branches are same-repo but still get no secrets —
+    # secrets.APP_ID resolves to "" and the mint errors out), so gate them out HERE,
+    # before the token step, rather than letting the job fail. push always runs (the
+    # main-sweep over open agent PRs).
+    if: >-
+      github.event_name == 'push' ||
+      (github.actor != 'dependabot[bot]' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     environment: automation
     timeout-minutes: 20
