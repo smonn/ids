@@ -318,3 +318,68 @@ export function reconcileLabels(current, desired, managedPrefixes) {
   const remove = currentList.filter((label) => isManaged(label) && !desiredSet.has(label));
   return { add, remove };
 }
+
+// ── composed plans ───────────────────────────────────────────────────────────
+// The descriptive-label plan for a whole PR / issue, assembled from the pure
+// classifiers above. These are the SINGLE source of the Phase 1 labelling logic:
+// the live workflow glue (classify-pr.mjs / classify-issue.mjs) and the Phase 5
+// one-time backfill (backfill-labels.mjs) both call them, so an item is labelled
+// identically whether it is processed live or historically (ADR-0029 §Migration).
+// Inputs are already-gathered scalars — still ZERO I/O.
+
+/**
+ * Build the descriptive add/remove plan for a PR from gathered inputs:
+ * `type:` (Conventional-Commit title), `size:` (reviewable churn), `codec:`/`area:`
+ * (changed paths), and `changeset:` (highest bump across introduced changesets).
+ * `type:` joins the managed set only when the title is a valid Conventional-Commit
+ * subject, so a non-CC PR (e.g. the Changesets release PR) keeps whatever `type:`
+ * it has instead of having it stripped.
+ *
+ * @param {{ title?: string, current?: Iterable<string>, files?: Iterable<string>, numstat?: string, changesets?: Iterable<string> }} [input]
+ * @returns {{ add: string[], remove: string[] }}
+ */
+export function planPrLabels({
+  title = "",
+  current = [],
+  files = [],
+  numstat = "",
+  changesets = [],
+} = {}) {
+  const desired = [];
+
+  const type = typeFromTitle(title);
+  if (type) desired.push(type);
+
+  desired.push(sizeFromChurn(churnFromNumstat(numstat)));
+  desired.push(...codecsFromPaths(files));
+  desired.push(...areasFromPaths(files));
+  desired.push(changesetFromBumps([...changesets].map(bumpFromChangeset).filter(Boolean)));
+
+  const managedPrefixes = ["size:", "codec:", "area:", "changeset:"];
+  if (type) managedPrefixes.push("type:");
+
+  return reconcileLabels(current, desired, managedPrefixes);
+}
+
+/**
+ * Build the descriptive add/remove plan for an issue from gathered inputs:
+ * `type:` (mapped from the template's `bug`/`enhancement` label) and the
+ * dropdown-sourced `codec:`/`area:` labels. `size:` and `changeset:` are PR-only.
+ *
+ * @param {{ body?: string, labels?: Iterable<string>, current?: Iterable<string> }} [input]
+ * @returns {{ add: string[], remove: string[] }}
+ */
+export function planIssueDescriptiveLabels({ body = "", labels = [], current = [] } = {}) {
+  const desired = [];
+
+  const type = typeFromIssueLabels(labels);
+  if (type) desired.push(type);
+
+  desired.push(...codecsFromIssueBody(body));
+  desired.push(...areasFromIssueBody(body));
+
+  const managedPrefixes = ["codec:", "area:"];
+  if (type) managedPrefixes.push("type:");
+
+  return reconcileLabels(current, desired, managedPrefixes);
+}

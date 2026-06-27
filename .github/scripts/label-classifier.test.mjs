@@ -8,6 +8,8 @@ import {
   codecsFromIssueBody,
   codecsFromPaths,
   isGeneratedPath,
+  planIssueDescriptiveLabels,
+  planPrLabels,
   reconcileLabels,
   sizeFromChurn,
   typeFromIssueLabels,
@@ -237,6 +239,83 @@ describe("reconcileLabels", () => {
 
   it("is a no-op when current already matches desired", () => {
     const { add, remove } = reconcileLabels(["size:m"], ["size:m"], ["size:"]);
+    expect(add).toEqual([]);
+    expect(remove).toEqual([]);
+  });
+});
+
+describe("planPrLabels", () => {
+  it("assembles type/size/codec/area/changeset for a fresh PR", () => {
+    const { add, remove } = planPrLabels({
+      title: "feat(opaque): add wrapped variant",
+      current: [],
+      files: ["src/codecs/opaque/index.ts", "docs/x.md"],
+      numstat: ["80\t20\tsrc/codecs/opaque/index.ts", "5\t0\tdocs/x.md"].join("\n"),
+      changesets: [["---", '"@smonn/ids": minor', "---", "x"].join("\n")],
+    });
+    expect(add.sort()).toEqual(
+      ["area:core", "area:docs", "changeset:minor", "codec:opaque", "size:m", "type:feat"].sort(),
+    );
+    expect(remove).toEqual([]);
+  });
+
+  it("leaves type: alone for a non-Conventional title and reconciles stale managed labels", () => {
+    const { add, remove } = planPrLabels({
+      title: "Version Packages",
+      current: ["type:fix", "size:xl", "area:cli", "do:review"],
+      files: ["src/index.ts"],
+      numstat: "3\t1\tsrc/index.ts",
+      changesets: [],
+    });
+    // type: stays out of the managed set (non-CC title), so the stale type:fix is kept;
+    // size:/area: reconcile, and the unmanaged do:review is never touched.
+    expect(add.sort()).toEqual(["area:core", "changeset:none", "size:xs"].sort());
+    expect(remove.sort()).toEqual(["area:cli", "size:xl"].sort());
+  });
+
+  it("excludes lockfile churn from size:", () => {
+    const { add } = planPrLabels({
+      title: "build: bump deps",
+      numstat: ["9000\t1\tpnpm-lock.yaml", "4\t2\tpackage.json"].join("\n"),
+    });
+    expect(add).toContain("size:xs");
+  });
+
+  it("tolerates an empty input object", () => {
+    const { add, remove } = planPrLabels();
+    expect(add).toEqual(["size:xs", "changeset:none"]);
+    expect(remove).toEqual([]);
+  });
+});
+
+describe("planIssueDescriptiveLabels", () => {
+  it("maps bug → type:fix and reads the dropdowns", () => {
+    const body = [
+      "### Relevant codec variant",
+      "",
+      "Digest codec",
+      "",
+      "### Affected surface",
+      "",
+      "CLI behavior",
+    ].join("\n");
+    const { add, remove } = planIssueDescriptiveLabels({
+      body,
+      labels: ["bug"],
+      current: ["bug"],
+    });
+    expect(add.sort()).toEqual(["area:cli", "codec:digest", "type:fix"].sort());
+    expect(remove).toEqual([]);
+  });
+
+  it("never manages size:/changeset: and leaves type: alone for a documentation issue", () => {
+    const { add, remove } = planIssueDescriptiveLabels({
+      body: "no dropdowns here",
+      labels: ["documentation"],
+      current: ["documentation", "size:xl"],
+    });
+    // documentation maps to no type:, codec:/area: find nothing, and size: is PR-only
+    // so it is outside the managed set and never stripped.
     expect(add).toEqual([]);
     expect(remove).toEqual([]);
   });

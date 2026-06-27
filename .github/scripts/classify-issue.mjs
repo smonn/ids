@@ -13,12 +13,7 @@
 //
 // STDOUT shape: { "add": ["..."], "remove": ["..."] }
 
-import {
-  areasFromIssueBody,
-  codecsFromIssueBody,
-  reconcileLabels,
-  typeFromIssueLabels,
-} from "./label-classifier.mjs";
+import { planIssueDescriptiveLabels } from "./label-classifier.mjs";
 
 async function readStdin() {
   const chunks = [];
@@ -29,20 +24,11 @@ async function readStdin() {
 const raw = await readStdin();
 const input = JSON.parse(raw || "{}");
 
-const body = input.body ?? "";
-const labels = input.labels ?? [];
-const current = input.current ?? [];
-
-const desired = [];
-
-const type = typeFromIssueLabels(labels);
-if (type) desired.push(type);
-
-desired.push(...codecsFromIssueBody(body));
-desired.push(...areasFromIssueBody(body));
-
-const managedPrefixes = ["codec:", "area:"];
-if (type) managedPrefixes.push("type:");
-
-const plan = reconcileLabels(current, desired, managedPrefixes);
+const plan = planIssueDescriptiveLabels({
+  body: input.body ?? "",
+  // `labels` is both the source of the bug/enhancement → type: mapping and the
+  // current-label set to reconcile against (issue-labels.yml passes the same array).
+  labels: input.labels ?? [],
+  current: input.current ?? [],
+});
 process.stdout.write(JSON.stringify(plan));

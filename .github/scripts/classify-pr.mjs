@@ -15,16 +15,7 @@
 //
 // STDOUT shape: { "add": ["..."], "remove": ["..."] }
 
-import {
-  areasFromPaths,
-  bumpFromChangeset,
-  changesetFromBumps,
-  churnFromNumstat,
-  codecsFromPaths,
-  reconcileLabels,
-  sizeFromChurn,
-  typeFromTitle,
-} from "./label-classifier.mjs";
+import { planPrLabels } from "./label-classifier.mjs";
 
 async function readStdin() {
   const chunks = [];
@@ -35,27 +26,11 @@ async function readStdin() {
 const raw = await readStdin();
 const input = JSON.parse(raw || "{}");
 
-const title = input.title ?? "";
-const current = input.current ?? [];
-const files = input.files ?? [];
-const numstat = input.numstat ?? "";
-const changesets = input.changesets ?? [];
-
-const desired = [];
-
-// type: only when the title is a valid Conventional-Commit subject. Otherwise it
-// is left out of the managed set so a non-CC PR (e.g. the Changesets release PR)
-// keeps whatever type: it has rather than having it stripped.
-const type = typeFromTitle(title);
-if (type) desired.push(type);
-
-desired.push(sizeFromChurn(churnFromNumstat(numstat)));
-desired.push(...codecsFromPaths(files));
-desired.push(...areasFromPaths(files));
-desired.push(changesetFromBumps(changesets.map(bumpFromChangeset).filter(Boolean)));
-
-const managedPrefixes = ["size:", "codec:", "area:", "changeset:"];
-if (type) managedPrefixes.push("type:");
-
-const plan = reconcileLabels(current, desired, managedPrefixes);
+const plan = planPrLabels({
+  title: input.title ?? "",
+  current: input.current ?? [],
+  files: input.files ?? [],
+  numstat: input.numstat ?? "",
+  changesets: input.changesets ?? [],
+});
 process.stdout.write(JSON.stringify(plan));

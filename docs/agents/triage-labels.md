@@ -35,9 +35,9 @@ Two deterministic workflows apply the descriptive namespaced labels — they add
 | `area:` | `pr-labels.yml` / `issue-labels.yml` | PR + issue | PR: changed paths (`wire`/`cli`/`adapters`/`docs`/`core`/`build`). Issue: the "Affected surface" form dropdown. |
 | `changeset:` | `pr-labels.yml` | PR | The highest bump declared across the `.changeset/*.md` files the PR introduces (`patch`/`minor`/`major`/`none`). |
 
-The classification logic is a set of pure functions in `.github/scripts/label-classifier.mjs` (unit-tested in the sibling `.test.mjs`); the workflows gather inputs and apply the result, and the Phase 5 backfill imports the same functions so live and historical labels match. These auto-labels are **not** in the agent-prohibited set below — they are App-maintained, but an agent setting one races nothing, since no workflow reads them.
+The classification logic is a set of pure functions in `.github/scripts/label-classifier.mjs` (unit-tested in the sibling `.test.mjs`); the workflows gather inputs and apply the result, and the Phase 5 backfill (`.github/scripts/backfill-labels.mjs`) imports the same functions so live and historical labels match. These auto-labels are **not** in the agent-prohibited set below — they are App-maintained, but an agent setting one races nothing, since no workflow reads them.
 
-Only same-repo PRs are auto-labelled (a forked PR has no secrets to mint the App token); the Phase 5 backfill covers the rest.
+Only same-repo PRs are auto-labelled (a forked PR has no secrets to mint the App token); the **Phase 5 backfill** covers the rest. It is a one-time `workflow_dispatch` (`.github/workflows/backfill-labels.yml`, dry-run by default) that stamps the mechanical descriptive labels across open **and** closed items and the `issue:` lifecycle status on open issues — reusing the Phase 1 classifiers (`label-classifier.mjs`) and the lifecycle mapping (`lifecycle-classifier.mjs`, the JS mirror of `lifecycle-status.sh`). An open issue with no recoverable lifecycle history defaults to `issue:triage` (the entry state). `released:*` is not backfilled — `release.yml` stamps `released:v1` when v1 cuts.
 
 ## Triggers (`do:*`)
 
