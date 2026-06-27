@@ -11,6 +11,7 @@ import {
 import { importWrappingKey, getWrappingKeyMaterial } from "../wrapped/key.js";
 import { importOpaqueKey, getOpaqueKeyCryptoKey } from "../opaque/key.js";
 import { importDigestKey, getDigestKeyHmacKey } from "../digest/key.js";
+import { deriveKey } from "../_kernel/crypto.js";
 import { isIdsError, type IdsErrorCode } from "../../error.js";
 
 const bytes16 = new Uint8Array(16).map((_, i) => i);
@@ -210,6 +211,23 @@ describe("HKDF domain separation", () => {
     expect(sigDigest).not.toEqual(sigWrapped);
 
     expect(getOpaqueKeyCryptoKey(opaqueKey).algorithm.name).toBe("AES-CBC");
+
+    // Verify the Opaque label is independent: derive a stand-in HMAC key using
+    // the Opaque info label and assert its output differs from all three HMAC codecs.
+    // If importOpaqueKey's label were changed to match any HMAC label, one of these would equal.
+    const opaqueInfo = new TextEncoder().encode("@smonn/ids/opaque/aes");
+    const standInHmacKey = await deriveKey(
+      ikm,
+      opaqueInfo,
+      { name: "HMAC", hash: "SHA-256", length: 256 },
+      ["sign"],
+    );
+    const sigOpaqueLabel = new Uint8Array(
+      await crypto.subtle.sign("HMAC", standInHmacKey, testData),
+    );
+    expect(sigOpaqueLabel).not.toEqual(sigSigned);
+    expect(sigOpaqueLabel).not.toEqual(sigDigest);
+    expect(sigOpaqueLabel).not.toEqual(sigWrapped);
   });
 });
 
