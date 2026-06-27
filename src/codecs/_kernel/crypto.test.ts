@@ -117,6 +117,21 @@ describe("encryptPayload / decryptPayload", () => {
     const result = await decryptPayload(key, tampered);
     expect(result).toHaveLength(16);
   });
+
+  it("determinism KAT: same key and plaintext produce identical ciphertext (IV=0 AES-CBC, ADR-0004)", async () => {
+    const rawKey = new Uint8Array(32).map((_, i) => i);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      rawKey as Uint8Array<ArrayBuffer>,
+      "AES-CBC",
+      false,
+      ["encrypt", "decrypt"],
+    );
+    const plaintext = new Uint8Array(16).fill(0x5a);
+    const ct1 = await encryptPayload(key, plaintext);
+    const ct2 = await encryptPayload(key, plaintext);
+    expect(ct1).toEqual(ct2);
+  });
 });
 
 describe("deriveKey", () => {
@@ -163,6 +178,28 @@ describe("deriveKey", () => {
     const sig1 = new Uint8Array(await crypto.subtle.sign("HMAC", key1, testData));
     const sig2 = new Uint8Array(await crypto.subtle.sign("HMAC", key2, testData));
     expect(sig1).toEqual(sig2);
+  });
+
+  it("same IKM with AES-CBC and HMAC keySpec yields independent, non-interchangeable keys", async () => {
+    const ikm = new Uint8Array(32).fill(0x99);
+    const opaqueInfo = new TextEncoder().encode("@smonn/ids/opaque/aes");
+    const signedInfo = new TextEncoder().encode("@smonn/ids/signed/hmac");
+    const aesKey = await deriveKey(ikm, opaqueInfo, { name: "AES-CBC", length: 256 }, [
+      "encrypt",
+      "decrypt",
+    ]);
+    const hmacKey = await deriveKey(
+      ikm,
+      signedInfo,
+      { name: "HMAC", hash: "SHA-256", length: 256 },
+      ["sign"],
+    );
+    const testData = new Uint8Array(16).fill(0xbb);
+    const encrypted = await encryptPayload(aesKey, testData);
+    const signed = new Uint8Array(await crypto.subtle.sign("HMAC", hmacKey, testData));
+    expect(aesKey.algorithm.name).toBe("AES-CBC");
+    expect(hmacKey.algorithm.name).toBe("HMAC");
+    expect(encrypted).not.toEqual(signed);
   });
 });
 

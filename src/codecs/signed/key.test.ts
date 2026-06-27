@@ -10,6 +10,7 @@ import {
 } from "./key.js";
 import { importWrappingKey, getWrappingKeyMaterial } from "../wrapped/key.js";
 import { importOpaqueKey, getOpaqueKeyCryptoKey } from "../opaque/key.js";
+import { importDigestKey, getDigestKeyHmacKey } from "../digest/key.js";
 import { isIdsError, type IdsErrorCode } from "../../error.js";
 
 const bytes16 = new Uint8Array(16).map((_, i) => i);
@@ -182,6 +183,33 @@ describe("HKDF domain separation", () => {
     const sig2 = await crypto.subtle.sign("HMAC", getSigningKeyHmacKey(key2), testData);
 
     expect(new Uint8Array(sig1)).toEqual(new Uint8Array(sig2));
+  });
+
+  it("all four keyed codecs from same IKM yield pairwise-distinct HMAC outputs and Opaque is AES-CBC (ADR-0027)", async () => {
+    const ikm = new Uint8Array(32).fill(0x77);
+
+    const signingKey = await importSigningKey(ikm);
+    const digestKey = await importDigestKey(ikm);
+    const wrappingKey = await importWrappingKey(ikm);
+    const opaqueKey = await importOpaqueKey(ikm);
+
+    const testData = new TextEncoder().encode("four-codec-label-independence");
+
+    const sigSigned = new Uint8Array(
+      await crypto.subtle.sign("HMAC", getSigningKeyHmacKey(signingKey), testData),
+    );
+    const sigDigest = new Uint8Array(
+      await crypto.subtle.sign("HMAC", getDigestKeyHmacKey(digestKey), testData),
+    );
+    const sigWrapped = new Uint8Array(
+      await crypto.subtle.sign("HMAC", getWrappingKeyMaterial(wrappingKey).hmacKey, testData),
+    );
+
+    expect(sigSigned).not.toEqual(sigDigest);
+    expect(sigSigned).not.toEqual(sigWrapped);
+    expect(sigDigest).not.toEqual(sigWrapped);
+
+    expect(getOpaqueKeyCryptoKey(opaqueKey).algorithm.name).toBe("AES-CBC");
   });
 });
 
