@@ -12,7 +12,7 @@ Every issue carries exactly one `issue:` status and every PR exactly one `pr:` s
 | `issue:needs-info` | `triage.yml` | Waiting on the reporter for more information |
 | `issue:ready-agent` | `triage.yml` | Fully specified, ready for an AFK agent (pure backlog status — does **not** trigger implementation) |
 | `issue:ready-human` | `triage.yml`, `implement.yml` (escalation) | Requires human implementation |
-| `issue:in-progress` | `implement.yml` | An agent has opened a PR implementing this issue |
+| `issue:in-progress` | `implement.yml` | An agent is implementing this issue (set on kickoff, when `do:implement` is consumed) |
 | `issue:blocked` | `triage.yml` | Parked on an open blocker; `unblock.yml` re-triages when it closes |
 | `issue:wontfix` | `triage.yml` | Will not be actioned |
 | `pr:reviewing` | `review.yml` | Automated code review in progress on the head commit |

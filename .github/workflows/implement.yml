@@ -126,6 +126,9 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          # Namespaced issue: status helpers (ADR-0029) — lifecycle-status.sh is on
+          # disk from the actions-provisioning checkout above.
+          source .github/scripts/lifecycle-status.sh
           # Consume the do:implement trigger up front: it fired this job, so remove it
           # now (like triage consumes do:triage and rebase consumes its trigger when the
           # job runs) so it can be re-applied to re-kick.
@@ -137,6 +140,15 @@ jobs:
             echo "Implementation already in progress for #$ISSUE_NUMBER (in-progress label or open PR on $BRANCH); skipping."
           else
             echo "proceed=true" >> "$GITHUB_OUTPUT"
+            # ADR-0030 start/stop labelling contract: ON START, set the in-progress
+            # status (and clear issue:ready-agent). Until now this flip lived only in
+            # the poster step at the very end, so for the entire 30–45 min implement
+            # run the issue still read issue:ready-agent — and a run that died before
+            # the poster (agent crash, local CI never green, poster error) never set
+            # it at all. Set it here, where work actually begins; the poster's final
+            # set_issue_status reasserts it once the PR is open.
+            set_issue_status "$ISSUE_NUMBER" in-progress
+            echo "Marked #$ISSUE_NUMBER issue:in-progress (work started)."
           fi
 
       - name: Checkout
@@ -441,10 +453,12 @@ jobs:
           pr_url=$(gh pr create --base main --head "$branch" --title "$title" --body-file .impl/pr-body.md)
           echo "✓ Opened PR: $pr_url"
 
-          # 3) Transition the issue and link the PR (URL now known).
+          # 3) Reassert in-progress (set on start by the gate) and link the PR
+          #    (URL now known). The reassert defends the final state against any
+          #    intermediate label edit; it is a no-op on the normal path.
           set_issue_status "$issue" in-progress
           gh issue comment "$issue" --body "Implementation opened as $pr_url"
-          echo "✓ Transitioned #$issue to issue:in-progress and linked the PR."
+          echo "✓ Issue #$issue is issue:in-progress and the PR is linked."
 
       # Backstop against a "hollow success": the poster either creates the PR (or
       # escalates) or fails loudly, so this only re-checks the end state. Require an
