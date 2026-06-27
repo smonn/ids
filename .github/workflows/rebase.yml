@@ -47,7 +47,7 @@ jobs:
     # identical scope gate in the "Resolve the target PR" step below, before checkout.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      ( github.event.label.name == 'needs-rebase' &&
+      ( ( github.event.label.name == 'needs-rebase' || github.event.label.name == 'do:rebase' ) &&
         github.event.pull_request.state == 'open' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         startsWith(github.event.pull_request.head.ref, 'agent/issue-') )
@@ -115,12 +115,16 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Rebasing PR #$number (branch $branch at ${sha:0:7})."
 
-      - name: Remove the needs-rebase label (so it can be re-applied)
+      - name: Remove the rebase trigger label (so it can be re-applied)
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
-        run: gh pr edit "$PR_NUMBER" --remove-label needs-rebase || true
+        # Consume whichever trigger fired (Phase 3 accepts both needs-rebase and
+        # do:rebase). Removing the absent one is a harmless no-op under `|| true`.
+        run: |
+          gh pr edit "$PR_NUMBER" --remove-label needs-rebase || true
+          gh pr edit "$PR_NUMBER" --remove-label do:rebase || true
 
       - name: Clear the conflicting marker EARLY (before the merge commit is pushed)
         # conflicts.yml applies `conflicting` to pause our PR-triggered workflows while a

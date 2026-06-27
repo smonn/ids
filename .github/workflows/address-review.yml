@@ -45,9 +45,10 @@ permissions:
 
 jobs:
   address:
-    # Only the `address-feedback` label, on an OPEN same-repo agent branch.
+    # Only the `address-feedback` / `do:address` trigger, on an OPEN same-repo agent
+    # branch (Phase 3 accepts both during the cutover).
     if: >-
-      github.event.label.name == 'address-feedback' &&
+      ( github.event.label.name == 'address-feedback' || github.event.label.name == 'do:address' ) &&
       github.event.pull_request.state == 'open' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'agent/issue-')
@@ -181,7 +182,7 @@ jobs:
           echo "Auto-address round $next of $MAX_AUTO_ROUNDS; proceeding."
           echo "proceed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Remove the address-feedback label (so it can be re-applied)
+      - name: Remove the address trigger label (so it can be re-applied)
         # Guard on proceed: a no-op gate (already escalated, cap reached, or deferred
         # because the PR is mid-conflict-rebase) must NOT consume the trigger label —
         # otherwise the feedback would never be addressed once the PR is ready again.
@@ -189,7 +190,11 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh pr edit "$PR_NUMBER" --remove-label address-feedback || true
+        # Consume whichever trigger fired (Phase 3 accepts both address-feedback and
+        # do:address). Removing the absent one is a harmless no-op under `|| true`.
+        run: |
+          gh pr edit "$PR_NUMBER" --remove-label address-feedback || true
+          gh pr edit "$PR_NUMBER" --remove-label do:address || true
 
       # ENFORCED no-push: persist-credentials:false leaves NO push credential in the
       # checkout's git config, so the agent literally cannot push. The poster step

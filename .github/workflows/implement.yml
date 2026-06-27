@@ -49,12 +49,17 @@ permissions:
 
 jobs:
   implement:
-    # Only when the `ready-for-agent` label is added (or a manual dispatch). The
-    # triage workflow applies that label as the App, which is what chains into
-    # this workflow. We intentionally do NOT filter by actor here.
+    # Only when a kickoff trigger lands (or a manual dispatch). Phase 3 splits the
+    # old `ready-for-agent` status-trigger: `issue:ready-agent` is now pure backlog
+    # status and `do:implement` is the explicit kickoff. During the cutover both
+    # `ready-for-agent` (legacy) and `do:implement` start the work (ADR-0030). The
+    # triage workflow applies `ready-for-agent` as the App, which chains into this
+    # workflow; a maintainer can instead apply `do:implement`. We intentionally do
+    # NOT filter by actor here.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues' && github.event.label.name == 'ready-for-agent')
+      (github.event_name == 'issues' &&
+       (github.event.label.name == 'ready-for-agent' || github.event.label.name == 'do:implement'))
     runs-on: ubuntu-latest
     # Same isolated secrets env as triage (APP_ID / APP_PRIVATE_KEY / CLAUDE_CODE_OAUTH_TOKEN).
     environment: automation
@@ -122,6 +127,12 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          # Consume the do:implement trigger up front: it fired this job, so remove it
+          # now (like triage consumes do:triage and rebase consumes its trigger when the
+          # job runs) so it can be re-applied to re-kick. The legacy ready-for-agent
+          # status is transitioned later by the poster; harmless no-op when
+          # ready-for-agent (not do:implement) was the trigger.
+          gh issue edit "$ISSUE_NUMBER" --remove-label do:implement >/dev/null 2>&1 || true
           labels=$(gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name')
           prs=$(gh pr list --state open --head "$BRANCH" --json number --jq 'length')
           if echo "$labels" | grep -qx 'in-progress' || [ "${prs:-0}" -gt 0 ]; then
