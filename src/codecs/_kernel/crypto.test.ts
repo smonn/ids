@@ -180,26 +180,21 @@ describe("deriveKey", () => {
     expect(sig1).toEqual(sig2);
   });
 
-  it("same IKM with AES-CBC and HMAC keySpec yields independent, non-interchangeable keys", async () => {
+  it("same IKM, different info labels produce independent key material (opaque/aes vs signed/hmac)", async () => {
     const ikm = new Uint8Array(32).fill(0x99);
     const opaqueInfo = new TextEncoder().encode("@smonn/ids/opaque/aes");
     const signedInfo = new TextEncoder().encode("@smonn/ids/signed/hmac");
-    const aesKey = await deriveKey(ikm, opaqueInfo, { name: "AES-CBC", length: 256 }, [
-      "encrypt",
-      "decrypt",
-    ]);
-    const hmacKey = await deriveKey(
-      ikm,
-      signedInfo,
-      { name: "HMAC", hash: "SHA-256", length: 256 },
-      ["sign"],
-    );
+    const hmacSpec = { name: "HMAC", hash: "SHA-256", length: 256 } as const;
+    const keyFromOpaqueLabel = await deriveKey(ikm, opaqueInfo, hmacSpec, ["sign"]);
+    const keyFromSignedLabel = await deriveKey(ikm, signedInfo, hmacSpec, ["sign"]);
     const testData = new Uint8Array(16).fill(0xbb);
-    const encrypted = await encryptPayload(aesKey, testData);
-    const signed = new Uint8Array(await crypto.subtle.sign("HMAC", hmacKey, testData));
-    expect(aesKey.algorithm.name).toBe("AES-CBC");
-    expect(hmacKey.algorithm.name).toBe("HMAC");
-    expect(encrypted).not.toEqual(signed);
+    const sigFromOpaqueLabel = new Uint8Array(
+      await crypto.subtle.sign("HMAC", keyFromOpaqueLabel, testData),
+    );
+    const sigFromSignedLabel = new Uint8Array(
+      await crypto.subtle.sign("HMAC", keyFromSignedLabel, testData),
+    );
+    expect(sigFromOpaqueLabel).not.toEqual(sigFromSignedLabel);
   });
 });
 
