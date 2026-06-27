@@ -694,6 +694,31 @@ describe("id", () => {
       expect(usr.is(schema.example)).toBe(true);
     });
 
+    it("example is the all-zeros structural placeholder", () => {
+      const usr = createTimestampId("usr");
+      expect(usr.toJsonSchema().example).toBe("usr_" + "0".repeat(26));
+    });
+
+    it("example is stable: identical across successive toJsonSchema() calls", () => {
+      const usr = createTimestampId("usr");
+      expect(usr.toJsonSchema().example).toBe(usr.toJsonSchema().example);
+    });
+
+    it("toJsonSchema() does not advance the RNG", () => {
+      let callCount = 0;
+      const usr = createTimestampId("usr", {
+        now: () => 0,
+        rng: (target) => {
+          callCount++;
+          target.fill(0xab);
+        },
+      });
+      const before = callCount;
+      usr.toJsonSchema();
+      usr.toJsonSchema();
+      expect(callCount).toBe(before);
+    });
+
     it("pattern rejects uppercase and Crockford-alias variants (strict per ADR-0003)", () => {
       const usr = createTimestampId("usr");
       const re = new RegExp(usr.toJsonSchema().pattern);

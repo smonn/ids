@@ -423,6 +423,31 @@ describe("reverse timestamp codec", () => {
       expect(rev.is(schema.example)).toBe(true);
     });
 
+    it("example is the all-zeros structural placeholder", () => {
+      const rev = createReverseTimestampId("rev");
+      expect(rev.toJsonSchema().example).toBe("rev_" + "0".repeat(26));
+    });
+
+    it("example is stable: identical across successive toJsonSchema() calls", () => {
+      const rev = createReverseTimestampId("rev");
+      expect(rev.toJsonSchema().example).toBe(rev.toJsonSchema().example);
+    });
+
+    it("toJsonSchema() does not advance the RNG", () => {
+      let callCount = 0;
+      const rev = createReverseTimestampId("rev", {
+        now: () => 0,
+        rng: (target) => {
+          callCount++;
+          target.fill(0xab);
+        },
+      });
+      const before = callCount;
+      rev.toJsonSchema();
+      rev.toJsonSchema();
+      expect(callCount).toBe(before);
+    });
+
     it("toJsonSchema() return type is the exported JsonSchema type", () => {
       const rev = createReverseTimestampId("rev");
       expectTypeOf(rev.toJsonSchema()).toEqualTypeOf<JsonSchema>();
