@@ -117,6 +117,22 @@ describe("encryptPayload / decryptPayload", () => {
     const result = await decryptPayload(key, tampered);
     expect(result).toHaveLength(16);
   });
+
+  it("same key and plaintext produce identical ciphertext", async () => {
+    const rawKey = new Uint8Array(32).map((_, i) => i);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      rawKey as Uint8Array<ArrayBuffer>,
+      "AES-CBC",
+      false,
+      ["encrypt", "decrypt"],
+    );
+    const plaintext = new Uint8Array(16).fill(0x5a);
+    const ct = await encryptPayload(key, plaintext);
+    expect(ct).toEqual(
+      new Uint8Array([59, 133, 58, 49, 172, 122, 53, 157, 121, 253, 219, 185, 183, 70, 121, 31]),
+    );
+  });
 });
 
 describe("deriveKey", () => {
@@ -163,6 +179,23 @@ describe("deriveKey", () => {
     const sig1 = new Uint8Array(await crypto.subtle.sign("HMAC", key1, testData));
     const sig2 = new Uint8Array(await crypto.subtle.sign("HMAC", key2, testData));
     expect(sig1).toEqual(sig2);
+  });
+
+  it("same IKM, different info labels produce independent key material", async () => {
+    const ikm = new Uint8Array(32).fill(0x99);
+    const opaqueInfo = new TextEncoder().encode("@smonn/ids/opaque/aes");
+    const signedInfo = new TextEncoder().encode("@smonn/ids/signed/hmac");
+    const hmacSpec = { name: "HMAC", hash: "SHA-256", length: 256 } as const;
+    const keyFromOpaqueLabel = await deriveKey(ikm, opaqueInfo, hmacSpec, ["sign"]);
+    const keyFromSignedLabel = await deriveKey(ikm, signedInfo, hmacSpec, ["sign"]);
+    const testData = new Uint8Array(16).fill(0xbb);
+    const sigFromOpaqueLabel = new Uint8Array(
+      await crypto.subtle.sign("HMAC", keyFromOpaqueLabel, testData),
+    );
+    const sigFromSignedLabel = new Uint8Array(
+      await crypto.subtle.sign("HMAC", keyFromSignedLabel, testData),
+    );
+    expect(sigFromOpaqueLabel).not.toEqual(sigFromSignedLabel);
   });
 });
 
