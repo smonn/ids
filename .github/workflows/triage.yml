@@ -61,7 +61,7 @@ jobs:
       ${{ github.event_name == 'workflow_dispatch' ||
       ((github.event.issue.user.type != 'Bot' || github.event.issue.user.login == 'smonn[bot]') &&
        (
-         (github.event.action == 'labeled' && github.event.label.name == 'needs-triage') ||
+         (github.event.action == 'labeled' && (github.event.label.name == 'needs-triage' || github.event.label.name == 'do:triage')) ||
          (github.event.action != 'labeled' &&
           (github.event.issue.user.login == 'smonn[bot]' ||
            github.event.issue.author_association == 'OWNER' ||
@@ -192,6 +192,11 @@ jobs:
           # Phase 2 dual-write: mirror each flat lifecycle flip with its namespaced
           # issue: status (ADR-0029). Best-effort; the flat labels stay authoritative.
           source .github/scripts/lifecycle-status.sh
+
+          # Consume the do:triage trigger up front so it can be re-applied to re-kick
+          # (Phase 3 accepts both needs-triage and do:triage). Best-effort and harmless
+          # on the non-do:triage paths (opened/reopened/dispatch, or a needs-triage flip).
+          gh issue edit "$ISSUE_NUMBER" --remove-label do:triage >/dev/null 2>&1 || true
 
           # IDEMPOTENCY: any decision label already present means triage is done.
           if grep -qxE 'ready-for-agent|ready-for-human|wontfix|needs-info|blocked' .triage-context/labels.txt; then

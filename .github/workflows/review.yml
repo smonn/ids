@@ -96,7 +96,7 @@ jobs:
           review=false
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             review=true
-          elif { [ "$ACTION" != "labeled" ] || [ "$LABEL" = "needs-review" ]; } &&
+          elif { [ "$ACTION" != "labeled" ] || [ "$LABEL" = "needs-review" ] || [ "$LABEL" = "do:review" ]; } &&
                [ "$HEAD_REPO" = "$THIS_REPO" ] &&
                case "$HEAD_REF" in agent/issue-*) true ;; *) false ;; esac; then
             review=true
@@ -149,12 +149,16 @@ jobs:
           echo "short=${sha:0:7}" >> "$GITHUB_OUTPUT"
           echo "Head SHA for #$PR_NUMBER: $sha"
 
-      - name: Remove the needs-review label (so it can be re-applied)
+      - name: Remove the review trigger label (so it can be re-applied)
         if: steps.scope.outputs.review == 'true' && github.event.action == 'labeled'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh pr edit "$PR_NUMBER" --remove-label needs-review || true
+        # Consume whichever trigger fired (Phase 3 accepts both needs-review and
+        # do:review). Removing the absent one is a harmless no-op under `|| true`.
+        run: |
+          gh pr edit "$PR_NUMBER" --remove-label needs-review || true
+          gh pr edit "$PR_NUMBER" --remove-label do:review || true
 
       - name: Dedup on the reviewed commit
         if: steps.scope.outputs.review == 'true'
