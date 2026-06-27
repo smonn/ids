@@ -64,6 +64,34 @@ describe("ParseIdPipe", () => {
       expect((thrown as HttpException).getStatus()).toBe(400);
     });
 
+    it("body-shape parity: overridden-status path produces an object body, same shape as the default path", () => {
+      const defaultPipe = new ParseIdPipe(usr);
+      const overridePipe = new ParseIdPipe(usr, { status: { brand_mismatch: 422 } });
+      const orgId = org.generate();
+
+      let defaultThrown: unknown;
+      let overrideThrown: unknown;
+      try {
+        defaultPipe.transform(orgId, METADATA);
+      } catch (err) {
+        defaultThrown = err;
+      }
+      try {
+        overridePipe.transform(orgId, METADATA);
+      } catch (err) {
+        overrideThrown = err;
+      }
+
+      // Both paths must produce an object body (not a plain string)
+      const defaultBody = (defaultThrown as HttpException).getResponse();
+      const overrideBody = (overrideThrown as HttpException).getResponse();
+      expect(typeof defaultBody).toBe("object");
+      expect(typeof overrideBody).toBe("object");
+      // Both bodies must have a numeric statusCode field
+      expect(typeof (defaultBody as Record<string, unknown>)["statusCode"]).toBe("number");
+      expect(typeof (overrideBody as Record<string, unknown>)["statusCode"]).toBe("number");
+    });
+
     it("onError escape hatch: called with IdParamFailure and its throw propagates", () => {
       class CustomError extends Error {}
       const pipe = new ParseIdPipe(usr, {

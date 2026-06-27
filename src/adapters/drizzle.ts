@@ -123,6 +123,48 @@ export function idColumnMysql<Brand extends string>(
 }
 
 /**
+ * Drizzle custom column type for a **nullable** `Id<Brand>` column in MySQL.
+ *
+ * Behaves identically to {@link idColumnMysql} except that `null` and `undefined`
+ * driver values are passed through as `null` rather than throwing. Use for
+ * optional foreign keys, `LEFT JOIN` results, and any column that is
+ * legitimately absent.
+ *
+ * Column type is always `text` and cannot be overridden in MySQL.
+ *
+ * @param codec - The brand-scoped codec used to parse values read from the database.
+ *
+ * @example
+ * ```ts
+ * import { nullableIdColumnMysql } from "@smonn/ids/drizzle";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ * export const posts = mysqlTable("posts", {
+ *   authorId: nullableIdColumnMysql(usr),
+ * });
+ * // posts.authorId is Id<"usr"> | null end-to-end
+ * ```
+ */
+export function nullableIdColumnMysql<Brand extends string>(
+  codec: IdColumnCodec<Brand>,
+): MySqlCustomColumnBuilder<
+  ConvertCustomConfigMysql<"", { data: Id<Brand> | null; driverData: string | null }>
+> {
+  return customTypeMysql<{ data: Id<Brand> | null; driverData: string | null }>({
+    dataType() {
+      return "text";
+    },
+    toDriver(value: Id<Brand> | null | undefined): string | null {
+      return writeIdColumnNullable(value);
+    },
+    fromDriver(value: string | null): Id<Brand> | null {
+      return readIdColumnNullable(codec, value);
+    },
+  })();
+}
+
+/**
  * Drizzle custom column type that stores an `Id<Brand>` as a canonical `text` value in SQLite.
  *
  * **Write path:** passes the `Id<Brand>` directly to the driver — it is already
@@ -161,12 +203,61 @@ export function idColumnSqlite<Brand extends string>(
 }
 
 /**
+ * Drizzle custom column type for a **nullable** `Id<Brand>` column in SQLite.
+ *
+ * Behaves identically to {@link idColumnSqlite} except that `null` and `undefined`
+ * driver values are passed through as `null` rather than throwing. Use for
+ * optional foreign keys, `LEFT JOIN` results, and any column that is
+ * legitimately absent.
+ *
+ * Column type is always `text` and cannot be overridden in SQLite.
+ *
+ * @param codec - The brand-scoped codec used to parse values read from the database.
+ *
+ * @example
+ * ```ts
+ * import { nullableIdColumnSqlite } from "@smonn/ids/drizzle";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ * export const posts = sqliteTable("posts", {
+ *   authorId: nullableIdColumnSqlite(usr),
+ * });
+ * // posts.authorId is Id<"usr"> | null end-to-end
+ * ```
+ */
+export function nullableIdColumnSqlite<Brand extends string>(
+  codec: IdColumnCodec<Brand>,
+): SQLiteCustomColumnBuilder<
+  ConvertCustomConfigSqlite<"", { data: Id<Brand> | null; driverData: string | null }>
+> {
+  return customTypeSqlite<{ data: Id<Brand> | null; driverData: string | null }>({
+    dataType() {
+      return "text";
+    },
+    toDriver(value: Id<Brand> | null | undefined): string | null {
+      return writeIdColumnNullable(value);
+    },
+    fromDriver(value: string | null): Id<Brand> | null {
+      return readIdColumnNullable(codec, value);
+    },
+  })();
+}
+
+/**
  * Drizzle custom column type for a **nullable** `Id<Brand>` column.
  *
  * Behaves identically to {@link idColumn} except that `null` and `undefined`
  * driver values are passed through as `null` rather than throwing. Use for
  * optional foreign keys, `LEFT JOIN` results, and any column that is
  * legitimately absent.
+ *
+ * **There is no `generatedNullableIdColumn`.** A column that auto-generates its own ID should
+ * never be null at write time — that is the entire purpose of the generated variant. A nullable
+ * column is one that the caller explicitly sets to `null`; it cannot simultaneously be
+ * auto-generated. Use {@link nullableIdColumn} for optional foreign keys and {@link generatedIdColumn}
+ * for primary keys that must always be present. The same reasoning applies to the MySQL and
+ * SQLite equivalents ({@link nullableIdColumnMysql}, {@link nullableIdColumnSqlite}).
  *
  * @param codec - The brand-scoped codec used to parse values read from the database.
  * @param options - Optional column configuration.
@@ -283,7 +374,10 @@ export function generatedIdColumn<Brand extends string>(
  * Wrapped, and Digest codecs are a compile-time error.
  *
  * @param codec - The brand-scoped codec used to generate and parse values.
- *   Column type is always `text` and cannot be overridden.
+ * @param options - Optional column configuration.
+ * @param options.columnType - SQL column type to use (default: `"text"`). Pass
+ *   `"varchar(30)"` or `"char(26)"` to match an existing DDL or index strategy.
+ *   The value is passed through verbatim — no validation is performed.
  *
  * @example
  * ```ts
@@ -297,14 +391,16 @@ export function generatedIdColumn<Brand extends string>(
  */
 export function generatedIdColumnMysql<Brand extends string>(
   codec: IdGeneratingCodec<Brand>,
+  options?: { columnType?: string },
 ): HasRuntimeDefault<
   HasDefault<
     MySqlCustomColumnBuilder<ConvertCustomConfigMysql<"", { data: Id<Brand>; driverData: string }>>
   >
 > {
+  const columnType = options?.columnType ?? "text";
   return customTypeMysql<{ data: Id<Brand>; driverData: string }>({
     dataType() {
-      return "text";
+      return columnType;
     },
     toDriver(value: Id<Brand>): string {
       return writeIdColumn(value);
@@ -332,7 +428,10 @@ export function generatedIdColumnMysql<Brand extends string>(
  * Wrapped, and Digest codecs are a compile-time error.
  *
  * @param codec - The brand-scoped codec used to generate and parse values.
- *   Column type is always `text` and cannot be overridden.
+ * @param options - Optional column configuration.
+ * @param options.columnType - SQL column type to use (default: `"text"`). Pass
+ *   `"varchar(30)"` or `"char(26)"` to match an existing DDL or index strategy.
+ *   The value is passed through verbatim — no validation is performed.
  *
  * @example
  * ```ts
@@ -346,6 +445,7 @@ export function generatedIdColumnMysql<Brand extends string>(
  */
 export function generatedIdColumnSqlite<Brand extends string>(
   codec: IdGeneratingCodec<Brand>,
+  options?: { columnType?: string },
 ): HasRuntimeDefault<
   HasDefault<
     SQLiteCustomColumnBuilder<
@@ -353,9 +453,10 @@ export function generatedIdColumnSqlite<Brand extends string>(
     >
   >
 > {
+  const columnType = options?.columnType ?? "text";
   return customTypeSqlite<{ data: Id<Brand>; driverData: string }>({
     dataType() {
-      return "text";
+      return columnType;
     },
     toDriver(value: Id<Brand>): string {
       return writeIdColumn(value);

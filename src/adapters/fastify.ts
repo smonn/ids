@@ -52,7 +52,11 @@ export type IdParamOptions = {
  * - **Brand mismatch (`invalid_prefix`) → `reason: "brand_mismatch"`, default 404**
  * - **Malformed or missing ID → `reason: "malformed"`, default 400**
  *
- * On success, stores the canonical `Id<Brand>` in `request.params` under `paramName`.
+ * **Storage:** on success, stores the canonical `Id<Brand>` in `request.params[paramName]` by mutating
+ * the params object in place. This contrasts with the Express adapter, which writes to `res.locals[paramName]`.
+ * Fastify writes to `request.params` in place because Fastify's preHandler lifecycle runs before the route
+ * handler and its `request` object is the idiomatic side-channel for enriched request data; there is no
+ * `reply.locals` equivalent in Fastify.
  *
  * **Return type note:** the returned hook is typed as
  * `(request: FastifyRequest<{ Params: Record<string, Id<Brand>> }>, reply: FastifyReply) => Promise<void>`.
@@ -139,7 +143,9 @@ export function idParam<ParamKey extends string, Brand extends string>(
  * - **Brand mismatch (`invalid_prefix`) → `reason: "brand_mismatch"`, default 404**
  * - **Malformed or missing query param → `reason: "malformed"`, default 400**
  *
- * On success, stores the canonical `Id<Brand>` in `request.query` under `queryName`.
+ * **Storage:** on success, stores the canonical `Id<Brand>` in `request.query[queryName]` by mutating
+ * the query object in place. This contrasts with the Express adapter, which writes to `res.locals[queryName]`.
+ * See the `idParam` JSDoc for the rationale on in-place mutation.
  *
  * @example
  * ```ts

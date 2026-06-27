@@ -14,7 +14,15 @@ export type IdCodec<Brand extends string> = {
 /** Re-exported from ORM adapter subpaths (`@smonn/ids/drizzle`, `@smonn/ids/prisma`, `@smonn/ids/kysely`) under the public name; structurally identical to {@link IdCodec}. */
 export type IdColumnCodec<Brand extends string> = IdCodec<Brand>;
 
-/** Parses `value` as `Id<Brand>` via `codec.safeParse`; throws `IdsError("invalid_id")` on failure. Shared read helper for ORM adapters. */
+/**
+ * Parses `value` as `Id<Brand>` via `codec.safeParse`; throws `IdsError("invalid_id")` on failure. Shared read helper for ORM adapters.
+ *
+ * **Message body includes the `ParseError` reason** (e.g. `"invalid ID from database: invalid_base32"`).
+ * This intentionally diverges from the GraphQL adapter's coarsening posture (commit d225ba6): the ORM boundary
+ * is a **server-side internal failure** (malformed data already at rest in the database), not a user-facing
+ * surface. The reason string is diagnostic information for the developer or operator — it never flows to an
+ * HTTP response body. The underlying `ParseError` is also preserved on `cause` for programmatic access.
+ */
 export function readIdColumn<Brand extends string>(
   codec: IdCodec<Brand>,
   value: unknown,
