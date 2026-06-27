@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useMemo, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import {
   CODECS,
   type CodecId,
@@ -40,7 +40,15 @@ function Row({ children }: { children: ComponentChildren }) {
 }
 
 /** Editable hex key with a "generate" button. Source of truth is the hex string. */
-function KeyField({ value, onInput }: { value: string; onInput: (hex: string) => void }) {
+function KeyField({
+  value,
+  onInput,
+  encode,
+}: {
+  value: string;
+  onInput: (hex: string) => void;
+  encode: (bytes: Uint8Array, format: "hex") => string;
+}) {
   return (
     <label class={styles.field}>
       <span>Key (hex)</span>
@@ -51,7 +59,7 @@ function KeyField({ value, onInput }: { value: string; onInput: (hex: string) =>
           spellcheck={false}
           onInput={(e) => onInput((e.target as HTMLInputElement).value.trim())}
         />
-        <button type="button" onClick={() => onInput(encodeOpaqueKey(randomKeyBytes(), "hex"))}>
+        <button type="button" onClick={() => onInput(encode(randomKeyBytes(), "hex"))}>
           Generate key
         </button>
       </Row>
@@ -218,7 +226,7 @@ function SignedPanel() {
   return (
     <div class={styles.panel}>
       <BrandField value={brand} onInput={setBrand} />
-      <KeyField value={keyHex} onInput={setKeyHex} />
+      <KeyField value={keyHex} onInput={setKeyHex} encode={encodeSigningKey} />
       <Row>
         <button type="button" onClick={generate}>
           Generate
@@ -284,7 +292,7 @@ function OpaquePanel() {
   return (
     <div class={styles.panel}>
       <BrandField value={brand} onInput={setBrand} />
-      <KeyField value={keyHex} onInput={setKeyHex} />
+      <KeyField value={keyHex} onInput={setKeyHex} encode={encodeOpaqueKey} />
       <Row>
         <button type="button" onClick={generate}>
           Generate
@@ -368,7 +376,7 @@ function WrappedPanel() {
           ))}
         </select>
       </label>
-      <KeyField value={keyHex} onInput={setKeyHex} />
+      <KeyField value={keyHex} onInput={setKeyHex} encode={encodeWrappingKey} />
       <label class={styles.field}>
         <span>Lookup key (integer)</span>
         <input
@@ -438,7 +446,7 @@ function DigestPanel() {
           onInput={(e) => setNs((e.target as HTMLInputElement).value.trim())}
         />
       </label>
-      <KeyField value={keyHex} onInput={setKeyHex} />
+      <KeyField value={keyHex} onInput={setKeyHex} encode={encodeDigestKey} />
       <label class={styles.field}>
         <span>Material to digest</span>
         <input
@@ -464,7 +472,6 @@ function DigestPanel() {
 
 export default function Playground() {
   const [codec, setCodec] = useState<CodecId>("timestamp");
-  const active = useMemo(() => CODECS.find((c) => c.id === codec)!, [codec]);
 
   return (
     <div class={styles.playground} not-content>
@@ -502,20 +509,24 @@ export default function Playground() {
           );
         })}
       </div>
-      <div
-        role="tabpanel"
-        id={`pg-panel-${codec}`}
-        aria-labelledby={`pg-tab-${codec}`}
-        tabIndex={0}
-      >
-        <p class={styles.blurb}>{active.blurb}</p>
-        {codec === "timestamp" && <PlainPanel codec="timestamp" />}
-        {codec === "reverse" && <PlainPanel codec="reverse" />}
-        {codec === "signed" && <SignedPanel />}
-        {codec === "opaque" && <OpaquePanel />}
-        {codec === "wrapped" && <WrappedPanel />}
-        {codec === "digest" && <DigestPanel />}
-      </div>
+      {CODECS.map((c) => (
+        <div
+          key={c.id}
+          role="tabpanel"
+          id={`pg-panel-${c.id}`}
+          aria-labelledby={`pg-tab-${c.id}`}
+          tabIndex={0}
+          hidden={c.id !== codec}
+        >
+          <p class={styles.blurb}>{c.blurb}</p>
+          {c.id === "timestamp" && <PlainPanel codec="timestamp" />}
+          {c.id === "reverse" && <PlainPanel codec="reverse" />}
+          {c.id === "signed" && <SignedPanel />}
+          {c.id === "opaque" && <OpaquePanel />}
+          {c.id === "wrapped" && <WrappedPanel />}
+          {c.id === "digest" && <DigestPanel />}
+        </div>
+      ))}
     </div>
   );
 }

@@ -44,6 +44,7 @@ than once in the same process (the ESM + CJS dual-package hazard).
 - `@smonn/ids/wrapped`
 - `@smonn/ids/digest`
 - `@smonn/ids/drizzle`
+- `@smonn/ids/graphql`
 - `@smonn/ids/kysely`
 - `@smonn/ids/prisma`
 - `@smonn/ids/typeorm`
