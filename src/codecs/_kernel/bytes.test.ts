@@ -48,6 +48,38 @@ describe("bytes", () => {
     expect(() => decodeBase64Url("!!!")).toThrow();
   });
 
+  it("decodeBase64Url rejects out-of-alphabet characters", () => {
+    expect(() => decodeBase64Url("abc+def")).toThrow();
+    expect(() => decodeBase64Url("abc/def")).toThrow();
+    expect(() => decodeBase64Url("abc!def")).toThrow();
+  });
+
+  it("decodeBase64Url rejects embedded whitespace", () => {
+    expect(() => decodeBase64Url("AAAA AAAA")).toThrow();
+    expect(() => decodeBase64Url("AAAA\tAAAA")).toThrow();
+  });
+
+  it("decodeBase64Url rejects leading whitespace", () => {
+    expect(() => decodeBase64Url(" AAAA")).toThrow();
+    expect(() => decodeBase64Url("\nAAAA")).toThrow();
+  });
+
+  it("decodeBase64Url rejects trailing whitespace", () => {
+    expect(() => decodeBase64Url("AAAA ")).toThrow();
+    expect(() => decodeBase64Url("AAAA\r")).toThrow();
+  });
+
+  it("decodeBase64Url rejects non-canonical trailing bits", () => {
+    // 43 A's encodes 32 zero bytes canonically; B in the last position has non-zero low bits
+    expect(() => decodeBase64Url("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB")).toThrow();
+    // 22-char case: last char must have zero low 4 bits; B (base64=1=0b000001) has non-zero low 4 bits
+    expect(() => decodeBase64Url("AAAAAAAAAAAAAAAAAAAAAB")).toThrow();
+  });
+
+  it("decodeBase64Url enforces maximum input length", () => {
+    expect(() => decodeBase64Url("A".repeat(257))).toThrow();
+  });
+
   describe("writeLen32", () => {
     it("writes a 32-bit integer as four big-endian bytes", () => {
       const buf = new Uint8Array(4);

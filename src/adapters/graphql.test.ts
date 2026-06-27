@@ -303,4 +303,39 @@ describe("idScalar — graphql() execution engine (integration)", () => {
     expect(result.errors).toBeDefined();
     expect(result.errors![0]).toBeInstanceOf(GraphQLError);
   });
+
+  describe("execution-engine integration", () => {
+    it("inline string literal is coerced to canonical Id<Brand> through the graphql execution engine", async () => {
+      const execUsr = createTimestampId("usr", {
+        allowDuplicateBrand: true,
+        now: () => new Date("2026-05-28T12:00:00Z").getTime(),
+        rng: (target) => target.fill(0x42),
+      });
+      const execScalar = idScalar(execUsr, { name: "UserId" });
+
+      let resolvedId: unknown;
+      const schema = new GraphQLSchema({
+        query: new GraphQLObjectType({
+          name: "Query",
+          fields: {
+            user: {
+              type: GraphQLString,
+              args: { id: { type: new GraphQLNonNull(execScalar) } },
+              resolve(_root, args: { id: unknown }) {
+                resolvedId = args.id;
+                return "ok";
+              },
+            },
+          },
+        }),
+      });
+
+      const id = execUsr.generate();
+      const result = await graphql({ schema, source: `{ user(id: "${id}") }` });
+
+      expect(result.errors).toBeUndefined();
+      expect(resolvedId).toBe(id);
+      expect(execUsr.is(resolvedId)).toBe(true);
+    });
+  });
 });
