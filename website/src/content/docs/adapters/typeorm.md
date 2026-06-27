@@ -35,7 +35,7 @@ class User {
 
 ## Nullable columns
 
-`nullableIdTransformer(codec)` returns a TypeORM `ValueTransformer` whose `from` returns `null` for `null` / `undefined` database values and whose `to` passes `null` / `undefined` through unchanged. Use it for optional foreign keys.
+`nullableIdTransformer(codec)` returns a TypeORM `ValueTransformer` whose `from` returns `null` for `null` / `undefined` database values and whose `to` normalises `null` and `undefined` to `null`. Use it for optional foreign keys.
 
 ```ts
 import { nullableIdTransformer } from "@smonn/ids/typeorm";
