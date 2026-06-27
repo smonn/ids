@@ -139,10 +139,15 @@ export function insertId<Brand extends string>(codec: IdGeneratingCodec<Brand>):
 /**
  * Kysely plugin that automatically transforms result columns using the provided codec map.
  *
- * Keys in `map` are plain column names (`"id"`) or `"table.column"` qualified names
- * (`"users.id"`). Plain names match any result column with that name; qualified names
- * match by the column-name part (after the last `.`). If both a plain key and a qualified
- * key resolve to the same column name, the qualified key takes precedence.
+ * **Unbranded map — callers own the key-to-column mapping.** The `map` parameter is typed as
+ * `Record<string, IdColumnCodec<string>>` with no schema-level brand parameter. There is no
+ * compile-time guarantee that map keys correspond to actual columns in your `Database` interface;
+ * a misspelled or stale key silently matches nothing, and the column is left un-transformed.
+ * Callers are responsible for keeping the map in sync with their schema.
+ *
+ * **Key precedence:** plain keys (`"id"`) are added first; qualified keys (`"table.column"`, e.g.
+ * `"users.id"`) are added second and override the plain key when both resolve to the same bare
+ * column name. Use qualified keys to disambiguate columns with the same name across tables.
  *
  * `transformResult` calls `readIdColumn(codec, rawValue)` for each matched column, returning
  * a branded `Id<Brand>` on success and throwing `IdsError("invalid_id")` on parse failure.

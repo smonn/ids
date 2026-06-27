@@ -81,7 +81,10 @@ export class ParseIdPipe<Brand extends string> implements PipeTransform<unknown,
       if (failure.reason === "malformed" && failure.status === 400) {
         throw new BadRequestException();
       }
-      throw new HttpException(failure.reason, failure.status);
+      throw new HttpException(
+        { statusCode: failure.status, message: failure.reason },
+        failure.status,
+      );
     }
     return result.id;
   }

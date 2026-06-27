@@ -49,8 +49,11 @@ export type IdParamOptions = {
  * - **Brand mismatch (`invalid_prefix`) → `reason: "brand_mismatch"`, default 404**
  * - **Malformed or missing ID → `reason: "malformed"`, default 400**
  *
- * On success, stores the canonical `Id<Brand>` in `res.locals` under `paramName`
- * and calls `next()`.
+ * **Storage:** on success, stores the canonical `Id<Brand>` in `res.locals[paramName]` and calls `next()`.
+ * This contrasts with the Fastify adapter, which mutates `request.params[paramName]` in place.
+ * Express writes to `res.locals` because it has no mutable `request.params` contract that is safe
+ * to write to — `req.params` is populated by Express's router and is not intended as a side-channel
+ * for middleware output, while `res.locals` is the idiomatic per-request storage object.
  *
  * @example
  * ```ts
@@ -123,8 +126,9 @@ export function idParam<ParamKey extends string, Brand extends string>(
  * - **Brand mismatch (`invalid_prefix`) → `reason: "brand_mismatch"`, default 404**
  * - **Malformed or missing query param → `reason: "malformed"`, default 400**
  *
- * On success, stores the canonical `Id<Brand>` in `res.locals` under `queryName`
- * and calls `next()`.
+ * **Storage:** on success, stores the canonical `Id<Brand>` in `res.locals[queryName]` and calls `next()`.
+ * This contrasts with the Fastify adapter, which mutates `request.query[queryName]` in place. See
+ * the `idParam` JSDoc for the rationale on the `res.locals` choice.
  *
  * @example
  * ```ts
@@ -151,7 +155,7 @@ export function idQuery<ParamKey extends string, Brand extends string>(
   options?: IdParamOptions,
 ): (req: Request, res: Response<unknown, Record<ParamKey, Id<Brand>>>, next: NextFunction) => void {
   return (req, res, next): void => {
-    const raw = req.query[queryName] as string | undefined;
+    const raw: unknown = req.query[queryName];
     const result = codec.safeParse(raw);
     if (!result.ok) {
       const failure = resolveIdParamFailure(result.error, options);

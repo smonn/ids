@@ -14,6 +14,8 @@ import {
   idColumnMysql,
   idColumnSqlite,
   nullableIdColumn,
+  nullableIdColumnMysql,
+  nullableIdColumnSqlite,
   generatedIdColumn,
   generatedIdColumnMysql,
   generatedIdColumnSqlite,
@@ -399,6 +401,63 @@ describe("drizzle — MySQL", () => {
       const id = usr.generate();
       expect(tbl.id.mapToDriverValue(id)).toBe(id);
     });
+
+    it("getSQLType defaults to 'text'", () => {
+      const tbl = mysqlTable("gen_users_text", { id: generatedIdColumnMysql(usr) });
+      expect(tbl.id.getSQLType()).toBe("text");
+    });
+
+    it("accepts columnType option", () => {
+      const tbl = mysqlTable("gen_users_varchar", {
+        id: generatedIdColumnMysql(usr, { columnType: "varchar(30)" }),
+      });
+      expect(tbl.id.getSQLType()).toBe("varchar(30)");
+    });
+  });
+
+  describe("nullableIdColumnMysql", () => {
+    const posts = mysqlTable("posts", { authorId: nullableIdColumnMysql(usr) });
+
+    it("null driver value → null", () => {
+      expect(posts.authorId.mapFromDriverValue(fromAny(null))).toBeNull();
+    });
+
+    it("undefined driver value → null", () => {
+      expect(posts.authorId.mapFromDriverValue(fromAny(undefined))).toBeNull();
+    });
+
+    it("valid string driver value → Id<Brand>", () => {
+      const id = usr.generate();
+      expect(posts.authorId.mapFromDriverValue(fromAny(id))).toBe(id);
+    });
+
+    it("invalid string driver value → throws IdsError(invalid_id)", () => {
+      let err: unknown;
+      try {
+        posts.authorId.mapFromDriverValue(fromAny("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"));
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("write path passes null through unchanged", () => {
+      expect(posts.authorId.mapToDriverValue(fromAny(null))).toBeNull();
+    });
+
+    it("write path normalises undefined to null", () => {
+      expect(posts.authorId.mapToDriverValue(fromAny(undefined))).toBeNull();
+    });
+
+    it("write path passes Id<Brand> through unchanged", () => {
+      const id = usr.generate();
+      expect(posts.authorId.mapToDriverValue(id)).toBe(id);
+    });
+
+    it("getSQLType is 'text'", () => {
+      expect(posts.authorId.getSQLType()).toBe("text");
+    });
   });
 });
 
@@ -493,6 +552,63 @@ describe("drizzle — SQLite", () => {
       const tbl = sqliteTable("gen_users_write", { id: generatedIdColumnSqlite(usr) });
       const id = usr.generate();
       expect(tbl.id.mapToDriverValue(id)).toBe(id);
+    });
+
+    it("getSQLType defaults to 'text'", () => {
+      const tbl = sqliteTable("gen_users_text", { id: generatedIdColumnSqlite(usr) });
+      expect(tbl.id.getSQLType()).toBe("text");
+    });
+
+    it("accepts columnType option", () => {
+      const tbl = sqliteTable("gen_users_varchar", {
+        id: generatedIdColumnSqlite(usr, { columnType: "varchar(30)" }),
+      });
+      expect(tbl.id.getSQLType()).toBe("varchar(30)");
+    });
+  });
+
+  describe("nullableIdColumnSqlite", () => {
+    const posts = sqliteTable("posts", { authorId: nullableIdColumnSqlite(usr) });
+
+    it("null driver value → null", () => {
+      expect(posts.authorId.mapFromDriverValue(fromAny(null))).toBeNull();
+    });
+
+    it("undefined driver value → null", () => {
+      expect(posts.authorId.mapFromDriverValue(fromAny(undefined))).toBeNull();
+    });
+
+    it("valid string driver value → Id<Brand>", () => {
+      const id = usr.generate();
+      expect(posts.authorId.mapFromDriverValue(fromAny(id))).toBe(id);
+    });
+
+    it("invalid string driver value → throws IdsError(invalid_id)", () => {
+      let err: unknown;
+      try {
+        posts.authorId.mapFromDriverValue(fromAny("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"));
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("write path passes null through unchanged", () => {
+      expect(posts.authorId.mapToDriverValue(fromAny(null))).toBeNull();
+    });
+
+    it("write path normalises undefined to null", () => {
+      expect(posts.authorId.mapToDriverValue(fromAny(undefined))).toBeNull();
+    });
+
+    it("write path passes Id<Brand> through unchanged", () => {
+      const id = usr.generate();
+      expect(posts.authorId.mapToDriverValue(id)).toBe(id);
+    });
+
+    it("getSQLType is 'text'", () => {
+      expect(posts.authorId.getSQLType()).toBe("text");
     });
   });
 });

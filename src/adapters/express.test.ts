@@ -389,6 +389,24 @@ describe("idQuery", () => {
     expect(err.status).toBe(400);
   });
 
+  it("array-valued query param (qs repeated or bracket-notation) produces malformed/400", () => {
+    const middleware = idQuery("userId", usr);
+    // qs yields string[] for repeated params; the raw value must not be cast — it flows to safeParse as-is
+    const req: Request = fromAny({
+      query: { userId: ["usr_0000000000000000000000000", "usr_1111111111111111111111111"] },
+    });
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).toHaveBeenCalledOnce();
+    const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+    expect(err).toBeInstanceOf(IdParamError);
+    expect(err.reason).toBe("malformed");
+    expect(err.status).toBe(400);
+  });
+
   describe("safeParse-only contract (spy codec)", () => {
     it("middleware calls only safeParse on the codec", () => {
       const spyCodec = makeSpyCodec("spy");
@@ -507,6 +525,14 @@ describe("idParam / idQuery — real express() app (integration)", () => {
     const orgId = org.generate();
     const res = await fetch(`${origin}/search?userId=${orgId}`);
     expect(res.status).toBe(404);
+  });
+
+  it("idQuery error path: array-valued query param (repeated key) returns 400 with malformed", async () => {
+    const id = usr.generate();
+    const res = await fetch(`${origin}/search?userId=${id}&userId=${id}`);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("malformed");
   });
 
   it("failure-mapping: safeParse failure from spy codec returns 400 via real HTTP", async () => {
