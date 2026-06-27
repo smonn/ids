@@ -13,7 +13,14 @@ import { splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, parseKeyFormat } from "../key-io.js";
 import type { RunOpts } from "../types.js";
 import { usageInspect } from "../usage.js";
-import { inspectPolicy } from "../variants.js";
+import {
+  inspectPolicy,
+  type AsyncTimestampCodec,
+  type InspectableCodec,
+  type SyncTimestampCodec,
+  type UnwrapCodec,
+  type VerifyCodec,
+} from "../variants.js";
 
 export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
   if (args.includes("--help") || args.includes("-h")) {
@@ -153,10 +160,12 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     return codecOrError.kind === "usage" ? 2 : 1;
   }
 
+  const codec = codecOrError as InspectableCodec;
+
   // Structural validation for non-verify, non-unsupported cases
   let canonical: Id<string> | undefined;
   if (cap.mode !== "verify" && cap.mode !== "unsupported") {
-    const parsed = cap.validate(codecOrError, input);
+    const parsed = cap.validate(codec, input);
     if ("issue" in parsed) {
       opts.stderr(parsed.issue + "\n");
       return 1;
@@ -164,17 +173,12 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     canonical = parsed.value;
   }
 
-  // Helper to call toUUID on any codec via unsafe cast
-  function codecToUUID(id: Id<string>): string {
-    return (codecOrError as unknown as { toUUID(id: Id<string>): string }).toUUID(id);
-  }
-
   // Dispatch on capability mode for output shapes
   switch (cap.mode) {
     case "readable": {
-      const timestamp = cap.extractTimestamp(codecOrError, canonical!);
+      const timestamp = cap.extractTimestamp(codec as SyncTimestampCodec, canonical!);
       const nowMs = (opts.now ?? Date.now)();
-      const uuid = codecToUUID(canonical!);
+      const uuid = codec.toUUID(canonical!);
       opts.stderr(cap.note + "\n");
       opts.stdout(
         formatInspectOutput({ brand, timestamp, canonical: canonical!, uuid, input, nowMs }),
@@ -182,9 +186,9 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
       return 0;
     }
     case "keyed-readable": {
-      const timestamp = await cap.extractTimestamp(codecOrError, canonical!);
+      const timestamp = await cap.extractTimestamp(codec as AsyncTimestampCodec, canonical!);
       const nowMs = (opts.now ?? Date.now)();
-      const uuid = codecToUUID(canonical!);
+      const uuid = codec.toUUID(canonical!);
       opts.stderr(cap.note + "\n");
       opts.stdout(
         formatInspectOutput({ brand, timestamp, canonical: canonical!, uuid, input, nowMs }),
@@ -194,12 +198,12 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     case "unwrap": {
       let lookupKey: number | bigint;
       try {
-        lookupKey = await cap.unwrap(codecOrError, canonical!);
+        lookupKey = await cap.unwrap(codec as UnwrapCodec, canonical!);
       } catch (err) {
         opts.stderr(formatCliError(err) + "\n");
         return 1;
       }
-      const uuid = codecToUUID(canonical!);
+      const uuid = codec.toUUID(canonical!);
       opts.stdout(
         formatWrappedInspectOutput({ brand, lookupKey, canonical: canonical!, uuid, input }),
       );
@@ -207,7 +211,7 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
     }
     case "verify": {
       const uuid = verifyTsCodec!.toUUID(verifyCanonical!);
-      const verifyResult = await cap.safeVerify(codecOrError, input);
+      const verifyResult = await cap.safeVerify(codec as VerifyCodec, input);
       if (!verifyResult.ok) {
         /* v8 ignore next 4 -- defensive: both codecs share the same wire parse so ParseError
            is unreachable after the createTimestampId pre-validation above passes */
