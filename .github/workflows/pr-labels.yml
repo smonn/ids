@@ -78,11 +78,16 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          # Least-privilege: this workflow only reads the PR and edits its labels.
-          # Labels are an issues-API concern; pull-requests:read lets `gh pr view`
-          # read the title/files/labels.
-          permission-issues: write
-          permission-pull-requests: read
+          # Least-privilege scopes for what this job actually does:
+          #  - pull-requests:write — `gh pr edit --add-label` labels a PR via the
+          #    GraphQL addLabelsToLabelable mutation on the pull-request node, which
+          #    requires pull-requests:write (issues:write does NOT cover it). The same
+          #    scope also covers `gh pr view` reading the title/files/labels.
+          #  - contents:read — reading each changed `.changeset/*.md` via the raw
+          #    contents API (without it that read 403s and changeset: silently
+          #    degrades to `none`).
+          permission-contents: read
+          permission-pull-requests: write
 
       - name: Classify and apply labels
         if: steps.check.outputs.ready == 'true'
