@@ -6,7 +6,12 @@ function encodePayload(bytes: Uint8Array): string {
   return encodeBase32(bytes);
 }
 
-/** Decodes a 26-char base32 payload suffix to 16 bytes. Trust-the-type. */
+/** Decodes a 26-char base32 payload suffix to 16 bytes. Trust-the-type.
+ * Input always comes from `id.slice(prefix.length)` where `id: Id<Brand>` —
+ * the Id brand guarantees that safeParse() / parse() normalised any alias chars
+ * at the parse boundary (is() rejects aliases rather than normalising them),
+ * so every character is canonical Crockford alphabet.
+ */
 function decodePayload(base32: string): Uint8Array {
   return decodeBase32(base32);
 }

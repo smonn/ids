@@ -67,4 +67,43 @@ describe("base32", () => {
       ),
     );
   });
+
+  // Direct negative-input tests pin the trust-the-type contract (ADR-0003):
+  // decodeBase32 never throws on invalid input — callers (safeParse / is() /
+  // safeVerify / safeUnwrap) validate input before any string reaches the decoder.
+
+  it("does not throw on an out-of-alphabet character and returns a Uint8Array of the expected length", () => {
+    // '!' (ASCII 33) is not in the Crockford alphabet; charCodeToValue maps it
+    // to INVALID (0xff). The 5-bit accumulator absorbs the sentinel and emits
+    // garbage bytes — no throw, no error sentinel on output.
+    const result = decodeBase32("!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    expect(result).toBeInstanceOf(Uint8Array);
+    // Output length is Math.floor(26 * 5 / 8) = 16, same as for canonical input.
+    expect(result.length).toBe(16);
+  });
+
+  it("does not resolve Crockford alias characters ('o', 'i', 'l') and produces different output than their canonical equivalents", () => {
+    // Aliases are normalised by upstream safeParse() / parse(), NOT by decodeBase32;
+    // is() rejects alias chars rather than normalising them.
+    // The decoder maps 'o' / 'i' / 'l' to INVALID (0xff), producing garbage
+    // bytes that differ from the output for their canonical equivalents.
+    const decodedWithO = decodeBase32("oooooooooooooooooooooooooo");
+    const decodedWith0 = decodeBase32("00000000000000000000000000");
+    expect(decodedWithO).not.toEqual(decodedWith0);
+
+    const decodedWithI = decodeBase32("iiiiiiiiiiiiiiiiiiiiiiiiii");
+    const decodedWithL = decodeBase32("llllllllllllllllllllllllll");
+    const decodedWith1 = decodeBase32("11111111111111111111111111");
+    expect(decodedWithI).not.toEqual(decodedWith1);
+    expect(decodedWithL).not.toEqual(decodedWith1);
+  });
+
+  it("does not throw on wrong-length input and returns a shorter buffer than the canonical 16 bytes", () => {
+    // Math.floor(inputLength * 5 / 8) governs output length. A 10-char input
+    // yields 6 bytes (not 16), pinning that wrong-length input silently produces
+    // wrong-length output rather than throwing.
+    const result = decodeBase32("0000000000");
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result.length).toBe(6);
+  });
 });
