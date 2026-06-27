@@ -6,7 +6,13 @@ import type {
   QueryResult,
   UnknownRow,
 } from "kysely";
-import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
+import {
+  readIdColumn,
+  readIdColumnNullable,
+  writeIdColumn,
+  writeIdColumnNullable,
+  type IdColumnCodec,
+} from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 export type { IdColumnCodec } from "./adapter-types.js";
@@ -100,7 +106,7 @@ export function idColumn<Brand extends string>(
 } {
   return {
     toDriver(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);
@@ -220,7 +226,7 @@ export function nullableIdColumn<Brand extends string>(
 } {
   return {
     toDriver(value: Id<Brand> | null | undefined): string | null {
-      return value ?? null;
+      return writeIdColumnNullable(value);
     },
     fromDriver(value: string | null): Id<Brand> | null {
       return readIdColumnNullable(codec, value);

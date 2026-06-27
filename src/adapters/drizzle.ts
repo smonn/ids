@@ -14,7 +14,13 @@ import {
   type SQLiteCustomColumnBuilder,
 } from "drizzle-orm/sqlite-core";
 import type { HasDefault, HasRuntimeDefault } from "drizzle-orm/column-builder";
-import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
+import {
+  readIdColumn,
+  readIdColumnNullable,
+  writeIdColumn,
+  writeIdColumnNullable,
+  type IdColumnCodec,
+} from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -72,7 +78,7 @@ export function idColumn<Brand extends string>(
       return columnType;
     },
     toDriver(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);
@@ -108,7 +114,7 @@ export function idColumnMysql<Brand extends string>(
       return "text";
     },
     toDriver(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);
@@ -146,7 +152,7 @@ export function idColumnSqlite<Brand extends string>(
       return "text";
     },
     toDriver(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);
@@ -198,7 +204,7 @@ export function nullableIdColumn<Brand extends string>(
       return columnType;
     },
     toDriver(value: Id<Brand> | null | undefined): string | null {
-      return value ?? null;
+      return writeIdColumnNullable(value);
     },
     fromDriver(value: string | null): Id<Brand> | null {
       return readIdColumnNullable(codec, value);
@@ -252,7 +258,7 @@ export function generatedIdColumn<Brand extends string>(
       return columnType;
     },
     toDriver(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);
@@ -301,7 +307,7 @@ export function generatedIdColumnMysql<Brand extends string>(
       return "text";
     },
     toDriver(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);
@@ -352,7 +358,7 @@ export function generatedIdColumnSqlite<Brand extends string>(
       return "text";
     },
     toDriver(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);

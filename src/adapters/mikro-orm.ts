@@ -1,5 +1,11 @@
 import { Type } from "@mikro-orm/core";
-import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
+import {
+  readIdColumn,
+  readIdColumnNullable,
+  writeIdColumn,
+  writeIdColumnNullable,
+  type IdColumnCodec,
+} from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -103,7 +109,7 @@ export function idType<Brand extends string>(
   const columnType = options?.columnType ?? "text";
   return class extends Type<Id<Brand>, string> {
     override convertToDatabaseValue(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     }
     override convertToJSValue(value: string): Id<Brand> {
       return readIdColumn(codec, value);
@@ -155,7 +161,7 @@ export function nullableIdType<Brand extends string>(
   const columnType = options?.columnType ?? "text";
   return class extends Type<Id<Brand> | null, string | null> {
     override convertToDatabaseValue(value: Id<Brand> | null | undefined): string | null {
-      return value ?? null;
+      return writeIdColumnNullable(value);
     }
     override convertToJSValue(value: string | null): Id<Brand> | null {
       return readIdColumnNullable(codec, value);

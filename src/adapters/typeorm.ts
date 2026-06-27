@@ -1,5 +1,11 @@
 import type { ValueTransformer } from "typeorm";
-import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
+import {
+  readIdColumn,
+  readIdColumnNullable,
+  writeIdColumn,
+  writeIdColumnNullable,
+  type IdColumnCodec,
+} from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -53,7 +59,7 @@ export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
 export function idTransformer<Brand extends string>(codec: IdColumnCodec<Brand>): ValueTransformer {
   return {
     to(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     },
     from(value: unknown): Id<Brand> {
       return readIdColumn(codec, value);
@@ -147,7 +153,7 @@ export function nullableIdTransformer<Brand extends string>(
 ): ValueTransformer {
   return {
     to(value: Id<Brand> | null | undefined): string | null {
-      return value ?? null;
+      return writeIdColumnNullable(value);
     },
     from(value: unknown): Id<Brand> | null {
       return readIdColumnNullable(codec, value);
