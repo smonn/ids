@@ -1,4 +1,10 @@
-import { buildCodec, deriveAllowedFlags, isCodecError, resolveVariant } from "../dispatch.js";
+import {
+  constructCodec,
+  deriveAllowedFlags,
+  isCodecError,
+  resolveCodecKey,
+  resolveVariant,
+} from "../dispatch.js";
 import { parseCount, splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import type { RunOpts } from "../types.js";
 import { usageGenerate } from "../usage.js";
@@ -66,17 +72,14 @@ export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): P
     return 2;
   }
   const rawReadStdin = opts.readStdin ?? readProcessStdin;
-  // Material is read after the key is validated below, so the codec reads it via this
-  // deferred closure rather than an eager read. Non-digest variants never call readStdin.
-  let material = "";
-  const optsWithStdin: RunOpts = { ...opts, readStdin: () => Promise.resolve(material) };
-  // Validate the key (and --ns) before blocking on stdin: a missing or invalid key must
+  // Validate the operator key before blocking on stdin: a missing or invalid key must
   // surface immediately, not after the user has supplied digest material (#766).
-  const codec = await buildCodec(variant, brand ?? "", values, optsWithStdin);
-  if (isCodecError(codec)) {
-    opts.stderr(codec.message + "\n");
-    return codec.kind === "usage" ? 2 : 1;
+  const key = await resolveCodecKey(variant, values, opts);
+  if (isCodecError(key)) {
+    opts.stderr(key.message + "\n");
+    return key.kind === "usage" ? 2 : 1;
   }
+  let material = "";
   if (flags.has("--digest")) {
     /* v8 ignore next -- process.stdin.isTTY is only true in the real binary, never in unit tests */
     if (opts.isTTY ?? process.stdin.isTTY) {
@@ -87,6 +90,14 @@ export async function runGenerate(args: ReadonlyArray<string>, opts: RunOpts): P
       opts.stderr("error: digest material must not be empty\n");
       return 1;
     }
+  }
+  // Material is fully read before construction, so the codec's deferred stdin reader
+  // resolves the final value; non-digest variants never call it.
+  const optsWithStdin: RunOpts = { ...opts, readStdin: () => Promise.resolve(material) };
+  const codec = constructCodec(variant, brand ?? "", optsWithStdin, key, values);
+  if (isCodecError(codec)) {
+    opts.stderr(codec.message + "\n");
+    return codec.kind === "usage" ? 2 : 1;
   }
   const emitUuid = flags.has("--uuid");
   for (let i = 0; i < count; i++) {
