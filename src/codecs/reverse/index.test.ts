@@ -64,7 +64,13 @@ describe("reverse timestamp codec", () => {
       now: () => 2 ** 48,
       rng: () => {},
     });
-    expect(() => rev.generate()).toThrow();
+    let err: unknown;
+    try {
+      rev.generate();
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("rejects pre-epoch timestamps", () => {
@@ -72,7 +78,13 @@ describe("reverse timestamp codec", () => {
       now: () => -1,
       rng: () => {},
     });
-    expect(() => rev.generate()).toThrow();
+    let err: unknown;
+    try {
+      rev.generate();
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("rejects NaN timestamps", () => {
@@ -80,7 +92,13 @@ describe("reverse timestamp codec", () => {
       now: () => Number.NaN,
       rng: () => {},
     });
-    expect(() => rev.generate()).toThrow();
+    let err: unknown;
+    try {
+      rev.generate();
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("rejects Infinity timestamp", () => {
@@ -88,7 +106,13 @@ describe("reverse timestamp codec", () => {
       now: () => Infinity,
       rng: () => {},
     });
-    expect(() => rev.generate()).toThrow();
+    let err: unknown;
+    try {
+      rev.generate();
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("rejects -Infinity timestamp", () => {
@@ -96,7 +120,13 @@ describe("reverse timestamp codec", () => {
       now: () => -Infinity,
       rng: () => {},
     });
-    expect(() => rev.generate()).toThrow();
+    let err: unknown;
+    try {
+      rev.generate();
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("rejects non-integer timestamps", () => {
@@ -104,22 +134,46 @@ describe("reverse timestamp codec", () => {
       now: () => 1234.75,
       rng: () => {},
     });
-    expect(() => rev.generate()).toThrow();
+    let err: unknown;
+    try {
+      rev.generate();
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("generateAt() rejects pre-epoch dates", () => {
     const rev = createReverseTimestampId("rev");
-    expect(() => rev.generateAt(new Date(-1))).toThrow();
+    let err: unknown;
+    try {
+      rev.generateAt(new Date(-1));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("generateAt() rejects dates that overflow 48 bits", () => {
     const rev = createReverseTimestampId("rev");
-    expect(() => rev.generateAt(new Date(2 ** 48))).toThrow();
+    let err: unknown;
+    try {
+      rev.generateAt(new Date(2 ** 48));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("generateAt() rejects an Invalid Date (NaN timestamp)", () => {
     const rev = createReverseTimestampId("rev");
-    expect(() => rev.generateAt(new Date(NaN))).toThrow();
+    let err: unknown;
+    try {
+      rev.generateAt(new Date(NaN));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("generate() output matches expected format", () => {
@@ -278,32 +332,68 @@ describe("reverse timestamp codec", () => {
 
     it("minIdForTime() rejects pre-epoch dates", () => {
       const rev = createReverseTimestampId("rev");
-      expect(() => rev.minIdForTime(new Date(-1))).toThrow();
+      let err: unknown;
+      try {
+        rev.minIdForTime(new Date(-1));
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
     });
 
     it("maxIdForTime() rejects pre-epoch dates", () => {
       const rev = createReverseTimestampId("rev");
-      expect(() => rev.maxIdForTime(new Date(-1))).toThrow();
+      let err: unknown;
+      try {
+        rev.maxIdForTime(new Date(-1));
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
     });
 
     it("minIdForTime() rejects dates that overflow 48 bits", () => {
       const rev = createReverseTimestampId("rev");
-      expect(() => rev.minIdForTime(new Date(2 ** 48))).toThrow();
+      let err: unknown;
+      try {
+        rev.minIdForTime(new Date(2 ** 48));
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
     });
 
     it("maxIdForTime() rejects dates that overflow 48 bits", () => {
       const rev = createReverseTimestampId("rev");
-      expect(() => rev.maxIdForTime(new Date(2 ** 48))).toThrow();
+      let err: unknown;
+      try {
+        rev.maxIdForTime(new Date(2 ** 48));
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
     });
 
     it("minIdForTime() rejects an Invalid Date", () => {
       const rev = createReverseTimestampId("rev");
-      expect(() => rev.minIdForTime(new Date(NaN))).toThrow();
+      let err: unknown;
+      try {
+        rev.minIdForTime(new Date(NaN));
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
     });
 
     it("maxIdForTime() rejects an Invalid Date", () => {
       const rev = createReverseTimestampId("rev");
-      expect(() => rev.maxIdForTime(new Date(NaN))).toThrow();
+      let err: unknown;
+      try {
+        rev.maxIdForTime(new Date(NaN));
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
     });
   });
 

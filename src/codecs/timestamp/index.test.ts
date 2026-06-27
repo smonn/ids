@@ -87,7 +87,13 @@ describe("id", () => {
       now: () => 2 ** 48,
       rng: () => {},
     });
-    expect(() => usr.generate()).toThrow();
+    let err: unknown;
+    try {
+      usr.generate();
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("rejects pre-epoch timestamps", () => {
@@ -95,7 +101,13 @@ describe("id", () => {
       now: () => -1,
       rng: () => {},
     });
-    expect(() => usr.generate()).toThrow();
+    let err: unknown;
+    try {
+      usr.generate();
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("rejects Infinity timestamp", () => {
@@ -103,7 +115,13 @@ describe("id", () => {
       now: () => Infinity,
       rng: () => {},
     });
-    expect(() => usr.generate()).toThrow();
+    let err: unknown;
+    try {
+      usr.generate();
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("rejects -Infinity timestamp", () => {
@@ -111,7 +129,13 @@ describe("id", () => {
       now: () => -Infinity,
       rng: () => {},
     });
-    expect(() => usr.generate()).toThrow();
+    let err: unknown;
+    try {
+      usr.generate();
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("rejects non-integer timestamps", () => {
@@ -119,7 +143,13 @@ describe("id", () => {
       now: () => 1234.75,
       rng: () => {},
     });
-    expect(() => usr.generate()).toThrow();
+    let err: unknown;
+    try {
+      usr.generate();
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("handles maximal random bytes", () => {
@@ -404,32 +434,68 @@ describe("id", () => {
 
   it("minIdForTime() rejects pre-epoch dates", () => {
     const usr = createTimestampId("usr");
-    expect(() => usr.minIdForTime(new Date(-1))).toThrow();
+    let err: unknown;
+    try {
+      usr.minIdForTime(new Date(-1));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("maxIdForTime() rejects pre-epoch dates", () => {
     const usr = createTimestampId("usr");
-    expect(() => usr.maxIdForTime(new Date(-1))).toThrow();
+    let err: unknown;
+    try {
+      usr.maxIdForTime(new Date(-1));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("minIdForTime() rejects dates that overflow 48 bits", () => {
     const usr = createTimestampId("usr");
-    expect(() => usr.minIdForTime(new Date(2 ** 48))).toThrow();
+    let err: unknown;
+    try {
+      usr.minIdForTime(new Date(2 ** 48));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("maxIdForTime() rejects dates that overflow 48 bits", () => {
     const usr = createTimestampId("usr");
-    expect(() => usr.maxIdForTime(new Date(2 ** 48))).toThrow();
+    let err: unknown;
+    try {
+      usr.maxIdForTime(new Date(2 ** 48));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("minIdForTime() rejects an Invalid Date instead of producing an epoch-zero ID", () => {
     const usr = createTimestampId("usr");
-    expect(() => usr.minIdForTime(new Date(NaN))).toThrow();
+    let err: unknown;
+    try {
+      usr.minIdForTime(new Date(NaN));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("maxIdForTime() rejects an Invalid Date instead of producing an epoch-zero ID", () => {
     const usr = createTimestampId("usr");
-    expect(() => usr.maxIdForTime(new Date(NaN))).toThrow();
+    let err: unknown;
+    try {
+      usr.maxIdForTime(new Date(NaN));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it.each([0, 1, 0x123456789abc, 2 ** 48 - 1])(
@@ -465,18 +531,42 @@ describe("id", () => {
 
   it("generateAt() rejects pre-epoch dates", () => {
     const usr = createTimestampId("usr");
-    expect(() => usr.generateAt(new Date(-1))).toThrow();
+    let err: unknown;
+    try {
+      usr.generateAt(new Date(-1));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("generateAt() rejects dates that overflow 48 bits", () => {
     const usr = createTimestampId("usr");
-    expect(() => usr.generateAt(new Date(2 ** 48))).toThrow();
+    let err: unknown;
+    try {
+      usr.generateAt(new Date(2 ** 48));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("generateAt() rejects an Invalid Date (NaN timestamp)", () => {
     const usr = createTimestampId("usr");
-    expect(() => usr.generateAt(new Date("not a date"))).toThrow();
-    expect(() => usr.generateAt(new Date(NaN))).toThrow();
+    let err: unknown;
+    try {
+      usr.generateAt(new Date("not a date"));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
+    let err2: unknown;
+    try {
+      usr.generateAt(new Date(NaN));
+    } catch (e) {
+      err2 = e;
+    }
+    expect(isIdsError(err2) && err2.code === "invalid_timestamp").toBe(true);
   });
 
   describe("standard schema adapter", () => {

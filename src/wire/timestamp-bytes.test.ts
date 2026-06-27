@@ -5,20 +5,37 @@ import {
   readTimestampMsFromBase32Suffix,
 } from "./timestamp-bytes.js";
 import { encodeBase32 } from "./base32.js";
+import { isIdsError } from "../error.js";
 
 describe("writeTimestamp", () => {
-  it("throws on a negative value", () => {
-    expect(() => writeTimestamp(-1, new Uint8Array(6))).toThrow("timestamp is negative");
+  it("throws IdsError invalid_timestamp on a negative value", () => {
+    let err: unknown;
+    try {
+      writeTimestamp(-1, new Uint8Array(6));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
-  it("throws on a non-integer value", () => {
-    expect(() => writeTimestamp(1.5, new Uint8Array(6))).toThrow("timestamp is not an integer");
+  it("throws IdsError invalid_timestamp on a non-integer value", () => {
+    let err: unknown;
+    try {
+      writeTimestamp(1.5, new Uint8Array(6));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
-  it("throws when ms >= 2**48", () => {
-    expect(() => writeTimestamp(2 ** 48, new Uint8Array(6))).toThrow(
-      "timestamp exceeds 48-bit range",
-    );
+  it("throws IdsError invalid_timestamp when ms >= 2**48", () => {
+    let err: unknown;
+    try {
+      writeTimestamp(2 ** 48, new Uint8Array(6));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("accepts ms === 2**48 - 1 without throwing (upper boundary)", () => {

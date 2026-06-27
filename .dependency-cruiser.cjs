@@ -77,11 +77,11 @@ module.exports = {
     {
       name: "wire-timestamp-bytes-imports-allowlist",
       severity: "error",
-      comment: "timestamp-bytes may import only base32",
+      comment: "timestamp-bytes may import only base32 and error",
       from: { path: "^src/wire/timestamp-bytes\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/wire/base32\\.ts$",
+        pathNot: "^src/(wire/base32|error)\\.ts$",
       },
     },
     {

@@ -18,7 +18,8 @@ export type IdsErrorCode =
   | "invalid_lookup_key"
   | "verification_failed"
   | "invalid_id"
-  | "invalid_namespace";
+  | "invalid_namespace"
+  | "invalid_timestamp";
 
 /**
  * The single error class thrown by caller-reachable public failures.

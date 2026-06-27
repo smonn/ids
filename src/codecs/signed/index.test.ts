@@ -318,8 +318,7 @@ describe("createSignedTimestampId", () => {
     } catch (e) {
       caughtErr = e;
     }
-    expect(caughtErr).toBeInstanceOf(Error);
-    expect(caughtErr).not.toBeInstanceOf(IdsError);
+    expect(isIdsError(caughtErr) && caughtErr.code === "invalid_timestamp").toBe(true);
   });
 
   it("generateAt() rejects dates that overflow 48 bits", async () => {
@@ -331,8 +330,7 @@ describe("createSignedTimestampId", () => {
     } catch (e) {
       caughtErr = e;
     }
-    expect(caughtErr).toBeInstanceOf(Error);
-    expect(caughtErr).not.toBeInstanceOf(IdsError);
+    expect(isIdsError(caughtErr) && caughtErr.code === "invalid_timestamp").toBe(true);
   });
 
   it("generateAt() rejects an Invalid Date (NaN timestamp)", async () => {
@@ -344,8 +342,7 @@ describe("createSignedTimestampId", () => {
     } catch (e) {
       caughtErr = e;
     }
-    expect(caughtErr).toBeInstanceOf(Error);
-    expect(caughtErr).not.toBeInstanceOf(IdsError);
+    expect(isIdsError(caughtErr) && caughtErr.code === "invalid_timestamp").toBe(true);
   });
 
   it("minIdForTime() rejects pre-epoch dates", async () => {
@@ -357,8 +354,7 @@ describe("createSignedTimestampId", () => {
     } catch (e) {
       caughtErr = e;
     }
-    expect(caughtErr).toBeInstanceOf(Error);
-    expect(caughtErr).not.toBeInstanceOf(IdsError);
+    expect(isIdsError(caughtErr) && caughtErr.code === "invalid_timestamp").toBe(true);
   });
 
   it("minIdForTime() rejects dates that overflow 48 bits", async () => {
@@ -370,8 +366,7 @@ describe("createSignedTimestampId", () => {
     } catch (e) {
       caughtErr = e;
     }
-    expect(caughtErr).toBeInstanceOf(Error);
-    expect(caughtErr).not.toBeInstanceOf(IdsError);
+    expect(isIdsError(caughtErr) && caughtErr.code === "invalid_timestamp").toBe(true);
   });
 
   it("minIdForTime() rejects an Invalid Date", async () => {
@@ -383,8 +378,7 @@ describe("createSignedTimestampId", () => {
     } catch (e) {
       caughtErr = e;
     }
-    expect(caughtErr).toBeInstanceOf(Error);
-    expect(caughtErr).not.toBeInstanceOf(IdsError);
+    expect(isIdsError(caughtErr) && caughtErr.code === "invalid_timestamp").toBe(true);
   });
 
   it("maxIdForTime() rejects pre-epoch dates", async () => {
@@ -396,8 +390,7 @@ describe("createSignedTimestampId", () => {
     } catch (e) {
       caughtErr = e;
     }
-    expect(caughtErr).toBeInstanceOf(Error);
-    expect(caughtErr).not.toBeInstanceOf(IdsError);
+    expect(isIdsError(caughtErr) && caughtErr.code === "invalid_timestamp").toBe(true);
   });
 
   it("maxIdForTime() rejects dates that overflow 48 bits", async () => {
@@ -409,8 +402,7 @@ describe("createSignedTimestampId", () => {
     } catch (e) {
       caughtErr = e;
     }
-    expect(caughtErr).toBeInstanceOf(Error);
-    expect(caughtErr).not.toBeInstanceOf(IdsError);
+    expect(isIdsError(caughtErr) && caughtErr.code === "invalid_timestamp").toBe(true);
   });
 
   it("maxIdForTime() rejects an Invalid Date", async () => {
@@ -422,8 +414,7 @@ describe("createSignedTimestampId", () => {
     } catch (e) {
       caughtErr = e;
     }
-    expect(caughtErr).toBeInstanceOf(Error);
-    expect(caughtErr).not.toBeInstanceOf(IdsError);
+    expect(isIdsError(caughtErr) && caughtErr.code === "invalid_timestamp").toBe(true);
   });
 
   // --- minIdForTime / maxIdForTime sentinels ---
