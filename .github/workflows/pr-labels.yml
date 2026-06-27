@@ -1,0 +1,137 @@
+name: PR descriptive labels
+
+# Phase 1 of the namespaced label taxonomy (ADR-0029): apply the DESCRIPTIVE
+# auto-labels to a PR — type: (from the Conventional-Commit title), size: (from
+# reviewable diff churn), codec:/area: (from changed paths), and changeset: (from
+# the .changeset/*.md frontmatter the PR introduces).
+#
+# These are STATUS labels (ADR-0030): purely descriptive, never read by any
+# workflow's `labeled` filter, so applying them triggers no pipeline work. The
+# classification is deterministic and lives in the unit-tested
+# .github/scripts/label-classifier.mjs (imported by classify-pr.mjs here and, in
+# Phase 5, by the one-time backfill — same logic for live and historical labels).
+#
+# Same-repo PRs only: a forked PR gets no repository secrets, so the App token
+# cannot be minted. The pipeline's own PRs are same-repo agent branches; the
+# Phase 5 backfill covers historical/forked items.
+
+on:
+  pull_request:
+    # opened/reopened/synchronize: (re)label as the diff changes. edited: the
+    # title can change, which changes type:.
+    types: [opened, reopened, synchronize, edited]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to (re)label
+        required: true
+        type: string
+
+concurrency:
+  group: pr-labels-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+  cancel-in-progress: true
+
+# Mutations go through the App token minted below; the default GITHUB_TOKEN only
+# needs to check out the classifier scripts.
+permissions:
+  contents: read
+
+jobs:
+  label:
+    # Forked PRs have no secrets to mint the App token. Skip them rather than fail.
+    # (workflow_dispatch carries no pull_request context, so guard for that too.)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: automation
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+    steps:
+      # Check out the BASE branch (main), not the PR head: the classifier and the
+      # local app-token action run as the TRUSTED versions from main, never a
+      # version a PR might have altered. Only PR DATA (title, files, labels) comes
+      # from the PR, fetched via the API below.
+      - name: Checkout main (classifier + local actions)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}
+          persist-credentials: false
+
+      # Bootstrap guard: on the very PR that ADDS this workflow, the classifier
+      # scripts are not on main yet, so there is nothing to run — no-op to success.
+      # Every PR after this one's merge finds the scripts on main and labels for real.
+      - name: Is the classifier present on the base branch?
+        id: check
+        run: |
+          if [ -f .github/scripts/classify-pr.mjs ] && [ -f .github/scripts/label-classifier.mjs ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Classifier not on the base branch yet (bootstrap run before this workflow merges) — skipping."
+          fi
+
+      - name: Generate GitHub App token
+        if: steps.check.outputs.ready == 'true'
+        id: app-token
+        uses: ./.github/actions/app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Least-privilege: this workflow only reads the PR and edits its labels.
+          # Labels are an issues-API concern; pull-requests:read lets `gh pr view`
+          # read the title/files/labels.
+          permission-issues: write
+          permission-pull-requests: read
+
+      - name: Classify and apply labels
+        if: steps.check.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # One read for everything the classifier needs. `files` carries each
+          # changed path with its additions/deletions, so churn needs no checkout
+          # of the PR head. (gh caps this at the API's file page; oversized PRs
+          # under-count churn, which is acceptable for a descriptive label.)
+          data=$(gh pr view "$PR_NUMBER" --json title,headRefOid,labels,files)
+
+          title=$(printf '%s' "$data" | jq -r '.title')
+          head_sha=$(printf '%s' "$data" | jq -r '.headRefOid')
+          current=$(printf '%s' "$data" | jq -c '[.labels[].name]')
+          files=$(printf '%s' "$data" | jq -c '[.files[].path]')
+          # Reconstruct `git diff --numstat` lines (<add>\t<del>\t<path>) so the
+          # shared churnFromNumstat() can reuse its generated-file exclusions.
+          numstat=$(printf '%s' "$data" | jq -r '.files[] | "\(.additions)\t\(.deletions)\t\(.path)"')
+
+          # Read the contents of each .changeset/*.md the PR touches (raw, at the
+          # PR head) so the highest declared bump becomes the changeset: label.
+          changesets='[]'
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            [ "$f" = ".changeset/README.md" ] && continue
+            content=$(gh api "repos/$GH_REPO/contents/$f?ref=$head_sha" \
+              -H "Accept: application/vnd.github.raw" 2>/dev/null || true)
+            changesets=$(jq --arg c "$content" '. += [$c]' <<<"$changesets")
+          done < <(printf '%s' "$data" | jq -r '.files[].path | select(startswith(".changeset/") and endswith(".md"))')
+
+          jq -n --arg title "$title" --argjson current "$current" \
+                --argjson files "$files" --arg numstat "$numstat" \
+                --argjson changesets "$changesets" \
+                '{title:$title, current:$current, files:$files, numstat:$numstat, changesets:$changesets}' \
+            | node .github/scripts/classify-pr.mjs > plan.json
+
+          add=$(jq -r '.add | join(",")' plan.json)
+          remove=$(jq -r '.remove | join(",")' plan.json)
+
+          args=()
+          [ -n "$add" ] && args+=(--add-label "$add")
+          [ -n "$remove" ] && args+=(--remove-label "$remove")
+          if [ ${#args[@]} -eq 0 ]; then
+            echo "Labels already current — nothing to change."
+            exit 0
+          fi
+          gh pr edit "$PR_NUMBER" "${args[@]}"
+          echo "PR #$PR_NUMBER → add=[$add] remove=[$remove]"

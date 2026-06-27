@@ -1,6 +1,22 @@
 # Triage Labels
 
-> **Planned migration.** This file documents the **current** flat label set. A namespaced `namespace:value` taxonomy (`issue:`, `pr:`, `type:`, `size:`, `codec:`, `area:`, `changeset:`, `released:`, `do:*`, …) has been accepted in [ADR-0029](../adr/0029-namespaced-label-taxonomy.md) and [ADR-0030](../adr/0030-label-status-vs-triggers.md), with implementation deferred to follow-up issues. Until those phases land, the flat labels below remain authoritative; the ADRs describe what they migrate to (e.g. `ready-for-agent` → `issue:ready-agent` status plus a `do:implement` trigger).
+> **Planned migration.** This file documents the **current** flat label set. A namespaced `namespace:value` taxonomy (`issue:`, `pr:`, `type:`, `size:`, `codec:`, `area:`, `changeset:`, `released:`, `do:*`, …) has been accepted in [ADR-0029](../adr/0029-namespaced-label-taxonomy.md) and [ADR-0030](../adr/0030-label-status-vs-triggers.md). The flat lifecycle/trigger labels below remain authoritative for now; the ADRs describe what they migrate to (e.g. `ready-for-agent` → `issue:ready-agent` status plus a `do:implement` trigger). **Phase 1 of that rollout has landed** — the descriptive auto-labels described under [Descriptive auto-labels](#descriptive-auto-labels-phase-1) are now applied automatically. They are purely descriptive and never affect the pipeline.
+
+## Descriptive auto-labels (Phase 1)
+
+Two deterministic workflows apply the descriptive namespaced labels — they add triage/archival signal but are **inert**: every label here is a [status label](../adr/0030-label-status-vs-triggers.md) (never read by any workflow's `labeled` filter), so applying one starts no pipeline work.
+
+| Namespace | Applied by | On | Sourced from |
+| --- | --- | --- | --- |
+| `type:` | `pr-labels.yml` / `issue-labels.yml` | PR + issue | PR: the Conventional-Commit title (`pr-title.yml`). Issue: `bug` → `type:fix`, `enhancement` → `type:feat`. |
+| `size:` | `pr-labels.yml` | PR | Calibrated absolute diff churn (additions + deletions), excluding lockfiles. `xs ≤10` · `s ≤50` · `m ≤150` · `l ≤400` · `xl >400`. |
+| `codec:` | `pr-labels.yml` / `issue-labels.yml` | PR + issue | PR: changed `src/codecs/<variant>/` paths. Issue: the "Relevant codec variant" form dropdown. |
+| `area:` | `pr-labels.yml` / `issue-labels.yml` | PR + issue | PR: changed paths (`wire`/`cli`/`adapters`/`docs`/`core`/`build`). Issue: the "Affected surface" form dropdown. |
+| `changeset:` | `pr-labels.yml` | PR | The highest bump declared across the `.changeset/*.md` files the PR introduces (`patch`/`minor`/`major`/`none`). |
+
+The classification logic is a set of pure functions in `.github/scripts/label-classifier.mjs` (unit-tested in the sibling `.test.mjs`); the workflows gather inputs and apply the result, and the Phase 5 backfill imports the same functions so live and historical labels match. These auto-labels are **not** in the agent-prohibited set below — they are App-maintained, but an agent setting one races nothing, since no workflow reads them.
+
+Only same-repo PRs are auto-labelled (a forked PR has no secrets to mint the App token); the Phase 5 backfill covers the rest.
 
 The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
 
