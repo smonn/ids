@@ -14,7 +14,7 @@ pnpm add hono
 ## `idParam` — route params
 
 ```ts
-import { idParam } from "@smonn/ids/hono";
+import { idParam, IdParamError } from "@smonn/ids/hono";
 import { createTimestampId } from "@smonn/ids";
 
 const usr = createTimestampId("usr");
@@ -22,9 +22,17 @@ const org = createTimestampId("org");
 const thing = createTimestampId("thg");
 const handler = (c) => c.json({ ok: true });
 
-// Default: throws HTTPException → app.onError handles rendering
+// Default: throws IdParamError (extends HTTPException) → app.onError handles rendering
 app.get("/users/:id", idParam("id", usr), (c) => {
   const id = c.get("id"); // Id<"usr">, canonical
+});
+
+// Discriminate by reason in app.onError
+app.onError((err, c) => {
+  if (err instanceof IdParamError) {
+    return c.json({ error: err.reason }, err.status); // err.reason: "brand_mismatch" | "malformed"
+  }
+  return c.json({ error: "internal" }, 500);
 });
 
 // Override: consumer fully owns the error response
@@ -40,23 +48,33 @@ app.get(
 app.get("/things/:id", idParam("id", thing, { status: { brand_mismatch: 400 } }), handler);
 ```
 
-- **Default error channel:** on failure the adapter throws `HTTPException(status)`
-  — it does **not** write a body itself, so your existing `app.onError`
-  controls content negotiation.
+- **Default error channel:** on failure the adapter throws `IdParamError` (extends `HTTPException`)
+  carrying both the HTTP `status` and a discriminating `reason` field — it does **not** write a
+  body itself, so your existing `app.onError` controls content negotiation and can branch on
+  `err.reason`.
 - **`options.onError`:** when provided, the hook owns the response entirely.
 - **`options.status`:** remaps the default HTTP status for a failure reason.
 
 ## `idQuery` — query-string params
 
 ```ts
-import { idQuery } from "@smonn/ids/hono";
+import { idQuery, IdParamError } from "@smonn/ids/hono";
 import { createTimestampId } from "@smonn/ids";
 
 const usr = createTimestampId("usr");
 
+// Default: throws IdParamError (extends HTTPException) → app.onError handles rendering
 // GET /users?userId=usr_...
 app.get("/users", idQuery("userId", usr), (c) => {
   const userId = c.get("userId"); // Id<"usr">, canonical
+});
+
+// Discriminate by reason in app.onError
+app.onError((err, c) => {
+  if (err instanceof IdParamError) {
+    return c.json({ error: err.reason }, err.status); // err.reason: "brand_mismatch" | "malformed"
+  }
+  return c.json({ error: "internal" }, 500);
 });
 
 // Override: consumer fully owns the error response
@@ -72,6 +90,35 @@ app.get(
 Same options shape and failure contract as `idParam` — same `IdParamOptions`, same
 `IdParamFailure`, same `onError` / `status` — but reads `c.req.query(name)` instead
 of `c.req.param(name)`. A missing query param is treated as malformed (status 400).
+
+## `IdParamError`
+
+`IdParamError extends HTTPException` is the typed error thrown by `idParam` and `idQuery`
+on the default (no-`onError`) path. It carries:
+
+- **`err.reason`** — `"brand_mismatch"` or `"malformed"` — the discriminator your
+  `app.onError` can branch on even when `options.status` has remapped both reasons to
+  the same HTTP status code.
+- **`err.status`** — the HTTP status code (reflects any `options.status` override).
+- **`err.name`** — `"IdParamError"` for readable stack traces and `instanceof` clarity.
+
+```ts
+import { IdParamError } from "@smonn/ids/hono";
+
+app.onError((err, c) => {
+  if (err instanceof IdParamError) {
+    if (err.reason === "brand_mismatch") {
+      return c.json({ error: "resource not found" }, 404);
+    }
+    return c.json({ error: "malformed ID" }, 400);
+  }
+  return c.json({ error: "internal" }, 500);
+});
+```
+
+`IdParamError` is exported from `@smonn/ids/hono` — no separate import from `@smonn/ids`
+is needed. Because it extends `HTTPException`, existing `instanceof HTTPException` checks
+continue to work.
 
 ## `IdParamFailure` shape
 
