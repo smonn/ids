@@ -37,3 +37,13 @@ overrides:
   # read via the dev server on Windows. Reached transitively via the website
   # toolchain (vite -> esbuild). Dev-only; does not affect the published package.
   esbuild@<0.28.1: ">=0.28.1"
+  # GHSA-5j98-mcp5-4vw2 (high): glob CLI 11.0.x command injection via -c/--cmd
+  # (executes matched paths with shell:true). Reached via @cyclonedx/cdxgen,
+  # which pins glob ^11.0; 11.1.0 is the patched, semver-compatible release.
+  # Dev-only SBOM tooling; the project never invokes the glob CLI.
+  glob@11: ^11.1.0
+  # GHSA-48c2-rrv3-qjmp (moderate): yaml <2.8.3 stack overflow via deeply
+  # nested collections. The vulnerable 2.7.1 copy is reached transitively via
+  # the website toolchain (@astrojs/check); the root devDep already uses 2.9.0.
+  # Patch is semver-compatible within 2.x. Dev-only; not in the published package.
+  yaml@2: ">=2.8.3"
