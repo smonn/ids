@@ -24,15 +24,18 @@ export const UserIdScalar = idScalar(usr, {
 ```
 
 `idScalar(codec, config)` works with any codec variant — any object exposing
-`safeParse` satisfies the required interface (Timestamp, Opaque Timestamp,
-Reverse Timestamp, Signed Timestamp, Digest, and Wrapped key codecs all
-qualify).
+`safeParse` and `is` satisfies the required interface (Timestamp, Opaque
+Timestamp, Reverse Timestamp, Signed Timestamp, Digest, and Wrapped key codecs
+all qualify).
 
 ## Scalar behaviour
 
-- **`serialize`** — validates via `codec.safeParse` and throws `GraphQLError` on
-  a non-conforming value (same behaviour as `parseValue`); always returns the
-  canonical lowercase form.
+- **`serialize`** — validates **strictly** via `codec.is()` and throws
+  `GraphQLError` on a non-canonical value (e.g. an uppercase string that a
+  resolver produced via an unsafe cast). Returns the value **unchanged** on
+  success — no normalization. This is the trusted outbound path: a
+  non-canonical value surfaces as an error rather than being silently
+  corrected.
 - **`parseValue`** — validates variable values via `codec.safeParse`; throws
   `GraphQLError` on brand mismatch or malformed input. Accepts mixed-case and
   Crockford visual aliases (`o → 0`, `i → 1`, `l → 1`); always returns the
@@ -41,8 +44,14 @@ qualify).
   `parseValue`; throws `GraphQLError` for any non-string AST kind (e.g.
   `Kind.INT`, `Kind.BOOLEAN`).
 
+The asymmetry between `serialize` (strict) and `parseValue`/`parseLiteral`
+(lenient) follows ADR-0003: `serialize` is on the trusted outbound path, while
+the parse hooks are on the untrusted inbound path.
+
 ## Error model
 
 Unlike the web adapters, `idScalar` throws `GraphQLError` directly — not
 `IdsError` or an `IdParamFailure`. This matches the GraphQL execution model
-where scalar coercers signal failure via `GraphQLError`.
+where scalar coercers signal failure via `GraphQLError`. Error messages use a
+coarse shape (`invalid <ScalarName>`) that does not expose internal parse-error
+codes to clients.
