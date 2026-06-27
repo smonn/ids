@@ -1,5 +1,7 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it, vi, afterAll, beforeAll } from "vitest";
+import Database from "better-sqlite3";
+import { Kysely, SqliteDialect } from "kysely";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import {
   idColumn,
@@ -294,5 +296,43 @@ describe("kysely", () => {
         ColumnType<Id<"usr"> | null, Id<"usr"> | null, Id<"usr"> | null>
       >();
     });
+  });
+});
+
+describe("kysely — SQLite integration", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  it("idColumn round-trips a generated Id through a :memory: BetterSQLite3 database", async () => {
+    const codec = createTimestampId("kyl", { allowDuplicateBrand: true });
+    const kyCol = idColumn(codec);
+
+    interface KylDb {
+      kyl_items: { id: string };
+    }
+
+    const sqliteDb = new Database(":memory:");
+    const db = new Kysely<KylDb>({
+      dialect: new SqliteDialect({ database: sqliteDb }),
+    });
+
+    await db.schema
+      .createTable("kyl_items")
+      .addColumn("id", "text", (c) => c.primaryKey().notNull())
+      .execute();
+
+    const id = insertId(codec);
+    await db.insertInto("kyl_items").values({ id }).execute();
+
+    const row = await db.selectFrom("kyl_items").select("id").executeTakeFirstOrThrow();
+    const roundTripped = kyCol.fromDriver(row.id);
+    expect(roundTripped).toBe(id);
+
+    await db.destroy();
   });
 });
