@@ -76,6 +76,8 @@ export function isIdsError(value: unknown): value is IdsError;
 | --- | --- | --- |
 | `bytes.ts` `decodeHex` | `invalid hex` | internal helper; the public key decoders validate hex themselves and raise `invalid_key_encoding` before this is reached on a public path |
 | `opaque-key.ts` / `wrapping-key.ts` handle-not-found | `invalid opaque key` / `invalid wrapping key` | only reachable with a forged/foreign handle (requires a cast past the branded type); a misuse/bug, not caller data |
+| `signed/key.ts` handle-not-found | `invalid signing key` | only reachable with a forged/foreign handle; a misuse/bug, not caller data |
+| `digest/key.ts` handle-not-found | `invalid digest key` | only reachable with a forged/foreign handle; a misuse/bug, not caller data |
 | `hono.ts` | `HTTPException` | deliberately a framework error on the no-`onError` path; converting it would break the adapter's contract |
 
 ## Considered Options
