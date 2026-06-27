@@ -5,6 +5,13 @@ import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { makeSpyCodec } from "./test-helpers.js";
 
+describe("IdParamError", () => {
+  it("err.name is 'IdParamError'", () => {
+    const err = new IdParamError("brand_mismatch", 404);
+    expect(err.name).toBe("IdParamError");
+  });
+});
+
 describe("idParam", () => {
   let warnSilencer: ReturnType<typeof vi.spyOn>;
   beforeAll(() => {

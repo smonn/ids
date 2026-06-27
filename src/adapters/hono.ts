@@ -15,6 +15,7 @@ export class IdParamError extends HTTPException {
 
   constructor(reason: "brand_mismatch" | "malformed", status: ContentfulStatusCode) {
     super(status, { message: `ID validation failed: ${reason}` });
+    this.name = "IdParamError";
     this.reason = reason;
   }
 }
