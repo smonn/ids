@@ -37,7 +37,7 @@ See [ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md) and [ADR-0013](./docs/adr
 
 ### `rng`-determinism caveat
 
-The `rng` option on `createOpaqueTimestampId` (and `createTimestampId`) allows overriding the random-number generator. Overriding with a non-CSPRNG weakens Opaque Timestamp confidentiality and timestamp unpredictability: because the Opaque codec relies on per-ID randomness in the plaintext (rather than a random IV) to prevent plaintext-equality leakage, a broken or low-entropy RNG allows an observer to correlate ciphertexts produced in the same millisecond.
+The `rng` option on `createOpaqueTimestampId` (and `createTimestampId`) allows overriding the random-number generator. Overriding with a non-CSPRNG weakens Opaque Timestamp confidentiality and timestamp unpredictability: because the **Opaque Timestamp codec** relies on per-ID randomness in the plaintext (rather than a random IV) to prevent plaintext-equality leakage, a broken or low-entropy RNG allows an observer to correlate ciphertexts produced in the same millisecond.
 
 See [ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md).
 
