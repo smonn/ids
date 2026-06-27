@@ -33,13 +33,17 @@ describe("reverse timestamp codec", () => {
 
   it("property: for many random pairs, newer always sorts before older", () => {
     const rev = createReverseTimestampId("rev");
-    for (let i = 0; i < 100; i++) {
-      const t_old = Math.floor(Math.random() * 2 ** 47);
-      const t_new = t_old + Math.floor(Math.random() * 1_000_000) + 1;
-      const id_old = rev.generateAt(new Date(t_old));
-      const id_new = rev.generateAt(new Date(t_new));
-      expect(id_new < id_old).toBe(true);
-    }
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 2 ** 47 - 1 }),
+        fc.integer({ min: 1, max: 1_000_000 }),
+        (t_old, delta) => {
+          const id_old = rev.generateAt(new Date(t_old));
+          const id_new = rev.generateAt(new Date(t_old + delta));
+          return id_new < id_old;
+        },
+      ),
+    );
   });
 
   it("extractTimestamp roundtrips at ms=0 (epoch boundary)", () => {
