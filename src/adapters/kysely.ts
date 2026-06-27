@@ -192,6 +192,7 @@ export function idPlugin(map: Record<string, IdColumnCodec<string>>): KyselyPlug
     },
     async transformResult(args: PluginTransformResultArgs): Promise<QueryResult<UnknownRow>> {
       const rows = args.result.rows.map((row) => {
+        if (!Object.keys(row).some((k) => lookup.has(k))) return row;
         const newRow: Record<string, unknown> = {};
         for (const [colName, value] of Object.entries(row)) {
           const codec = lookup.get(colName);
