@@ -28,6 +28,10 @@ on:
         type: choice
         default: all
         options: [all, prs, issues]
+      limit:
+        description: Max items per object to scan (open + closed)
+        type: string
+        default: "1000"
 
 concurrency:
   group: backfill-labels
@@ -69,9 +73,10 @@ jobs:
           GH_REPO: ${{ github.repository }}
           DRY_RUN: ${{ inputs.dry_run }}
           SCOPE: ${{ inputs.scope }}
+          LIMIT: ${{ inputs.limit }}
         run: |
           set -euo pipefail
-          args=(--scope="$SCOPE")
+          args=(--scope="$SCOPE" --limit="$LIMIT")
           # Default to dry-run for any value other than an explicit false, so an
           # unexpected input can never silently mutate labels.
           if [ "$DRY_RUN" = "false" ]; then
