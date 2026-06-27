@@ -90,6 +90,7 @@
     "fmt:check": "oxfmt --check",
     "typecheck": "tsc --noEmit",
     "build": "tsdown",
+    "sbom:generate": "cdxgen --type pnpm --spec-version 1.6 --output sbom.cdx.json .",
     "pack:check": "attw --pack . --profile esm-only && publint",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -104,6 +105,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.4",
     "@changesets/cli": "2.31.0",
+    "@cyclonedx/cdxgen": "11.11.0",
     "@mikro-orm/core": "^7.1.4",
     "@nestjs/common": "^11.1.27",
     "@prisma/client": ">=5.0.0",

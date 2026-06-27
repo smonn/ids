@@ -59,13 +59,14 @@ jobs:
           set -euo pipefail
           # cdxgen reads pnpm-lock.yaml directly, so the SBOM is built natively
           # from the pnpm workspace — no throwaway npm lockfile to derive (npm's
-          # --package-lock-only chokes on pnpm's symlinked node_modules). Run via
-          # `pnpm dlx` to keep this on the pnpm toolchain.
-          pnpm dlx @cyclonedx/cdxgen@^11 \
-            --type pnpm \
-            --spec-version 1.6 \
-            --output sbom.cdx.json \
-            .
+          # --package-lock-only chokes on pnpm's symlinked node_modules). cdxgen is
+          # an exact-version devDependency (lockfile-pinned, cooldown-covered), so
+          # this runs the already-installed binary via the `sbom` script — no
+          # floating, network-fetched tool in this privileged job. The cdxgen
+          # invocation lives in package.json so it's runnable and pinned in one
+          # place. (`sbom:generate`, not `sbom`, to avoid pnpm v11's built-in
+          # `pnpm sbom` subcommand shadowing the script.)
+          pnpm sbom:generate
           # Pack the published package as the attestation subject. pnpm pack is
           # deterministic from the built dist/, so this tarball matches the one
           # published to npm and its digest lines up with the provenance subject.
