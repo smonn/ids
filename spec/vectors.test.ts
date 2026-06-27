@@ -137,6 +137,23 @@ describe("spec/vectors.json conformance", () => {
     }
   });
 
+  it("exercises every rejection layer with at least one negative vector", () => {
+    const rejectedLayers = new Set<Layer>();
+    for (const vector of file.vectors) {
+      const expected = vector.expected;
+      if (
+        typeof expected === "object" &&
+        expected !== null &&
+        (expected as { ok?: unknown }).ok === false
+      ) {
+        rejectedLayers.add((expected as { layer: Layer }).layer);
+      }
+    }
+    for (const layer of Object.values(REASON_TO_LAYER)) {
+      expect(rejectedLayers, `no negative vector exercises the ${layer} layer`).toContain(layer);
+    }
+  });
+
   for (const vector of file.vectors) {
     it(vector.name, () => {
       expect(actualOutput(vector)).toEqual(vector.expected);
