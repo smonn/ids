@@ -1,6 +1,6 @@
 import type { Id, LayoutOps, Prefix } from "../../types.js";
 import { toWireId } from "../../wire/envelope.js";
-import { payloadByteLength } from "../../wire/invariants.js";
+import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 import {
   readTimestampMsFromBase32Suffix,
   timestampByteLength,
@@ -46,11 +46,11 @@ export function createTimestampLayoutOps<Brand extends string>(
   minIdForTime(ms: number): Id<Brand>;
   maxIdForTime(ms: number): Id<Brand>;
 } {
-  // Per-codec scratch buffer. Shared across generateAt(), minIdForTime(),
-  // maxIdForTime(), and exampleWireId() — all are synchronous and overwrite both
-  // the timestamp and random slices before encoding, so successive callers see
-  // their own freshly-written bytes. toWireId reads the buffer and returns an
-  // independent string, so the caller never sees the buffer itself.
+  // Per-codec scratch buffer. Shared across generateAt(), minIdForTime(), and
+  // maxIdForTime() — all are synchronous and overwrite both the timestamp and
+  // random slices before encoding, so successive callers see their own
+  // freshly-written bytes. toWireId reads the buffer and returns an independent
+  // string, so the caller never sees the buffer itself.
   const buffer = new Uint8Array(payloadByteLength);
   const randomView = new Uint8Array(buffer.buffer, timestampByteLength, randomByteLength);
 
@@ -68,9 +68,7 @@ export function createTimestampLayoutOps<Brand extends string>(
       buildSentinelPayload(ms, 0xff, buffer, randomView);
       return toWireId(prefix, buffer);
     },
-    exampleWireId: (ms?: number): Id<Brand> => {
-      buildPayload(ms ?? Date.now(), rng, buffer, randomView);
-      return toWireId(prefix, buffer);
-    },
+    exampleWireId: (_ms?: number): Id<Brand> =>
+      (prefix + "0".repeat(payloadBase32Length)) as Id<Brand>,
   };
 }
