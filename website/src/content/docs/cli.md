@@ -191,3 +191,4 @@ cannot use --signed and --opaque together
 | Known flag not supported by this subcommand | `unsupported flag for <cmd>: <flag>`                                                 | 2    |
 | Same flag passed more than once             | `duplicate flag: <flag>`                                                             | 2    |
 | `--digest` with `--count N > 1`             | `--count N > 1 is rejected with --digest: same material always produces the same ID` | 2    |
+| `--ns` with empty or whitespace-only value  | `--ns requires a value`                                                              | 2    |

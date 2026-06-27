@@ -131,7 +131,7 @@ export function isKindError(result: WrappedKindValue | string): result is string
 export function parseNs(values: Map<string, string>): string | undefined {
   const raw = values.get("--ns");
   if (raw === undefined) return undefined;
-  if (raw === "") return "--ns requires a value";
+  if (raw.trim() === "") return "--ns requires a value";
   return raw;
 }
 
