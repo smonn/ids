@@ -75,16 +75,19 @@ jobs:
               echo "#$n: blocked but no parseable blocker reference; leaving for a human."
               continue
             fi
-            all_closed=true
+            # Resolve each blocker's state via `gh issue view` (works for PR numbers
+            # too) and collect {number,state} pairs. The resolution rule — a blocker is
+            # done when CLOSED (issue or closed PR) or MERGED (a merged PR reports
+            # MERGED, not CLOSED; blockers are often PRs, e.g. #179) — lives in the
+            # unit-tested .github/scripts/blocker-status.mjs, shared with triage.yml.
+            pairs='[]'
             for d in $deps; do
               state=$(gh issue view "$d" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
               echo "#$n blocker #$d: $state"
-              # A blocker is resolved when it is CLOSED (issue or closed PR) or
-              # MERGED. `gh issue view` on a *merged* PR reports state MERGED, not
-              # CLOSED — blockers are often PRs (e.g. #179), so treat both as done.
-              case "$state" in CLOSED | MERGED) ;; *) all_closed=false ;; esac
+              pairs=$(jq -c --argjson nn "$d" --arg s "$state" '. += [{number:$nn, state:$s}]' <<<"$pairs")
             done
-            if [ "$all_closed" = true ]; then
+            any_open=$(jq -nc --argjson b "$pairs" '{blockers:$b}' | node .github/scripts/blocker-status.mjs | jq -r '.anyOpen')
+            if [ "$any_open" = false ]; then
               echo "#$n: all blockers closed — unblocking and re-triaging."
               # Re-triage: apply the `do:triage` trigger (fires triage.yml) and reset the
               # issue: status to triage, which clears issue:blocked (set_issue_status
