@@ -1,7 +1,7 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import Fastify from "fastify";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { IdParamError, idParam, idQuery } from "./fastify.js";
 import type { IdParamFailure } from "./fastify.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
