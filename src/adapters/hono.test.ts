@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { idParam, idQuery } from "./hono.js";
+import { idParam, idQuery, IdParamError } from "./hono.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { makeSpyCodec } from "./test-helpers.js";
@@ -108,6 +108,53 @@ describe("idParam", () => {
         c.json({ id: c.get("id") }),
       );
       expect(app).toBeDefined();
+    });
+
+    describe("app.onError receives IdParamError with reason", () => {
+      it("brand_mismatch: app.onError receives IdParamError with reason === 'brand_mismatch'", async () => {
+        let capturedError: unknown;
+        const app = new Hono();
+        app.get("/users/:id", idParam("id", usr), (c) => c.json({ id: c.get("id") }));
+        app.onError((err, c) => {
+          capturedError = err;
+          return c.json({ error: "handled" }, 500);
+        });
+        const orgId = org.generate();
+        await app.request(`/users/${orgId}`);
+        expect(capturedError).toBeInstanceOf(IdParamError);
+        expect((capturedError as IdParamError).reason).toBe("brand_mismatch");
+      });
+
+      it("malformed: app.onError receives IdParamError with reason === 'malformed'", async () => {
+        let capturedError: unknown;
+        const app = new Hono();
+        app.get("/users/:id", idParam("id", usr), (c) => c.json({ id: c.get("id") }));
+        app.onError((err, c) => {
+          capturedError = err;
+          return c.json({ error: "handled" }, 500);
+        });
+        await app.request("/users/usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+        expect(capturedError).toBeInstanceOf(IdParamError);
+        expect((capturedError as IdParamError).reason).toBe("malformed");
+      });
+
+      it("status remap: reason still discriminates even when both reasons map to same status", async () => {
+        const capturedReasons: string[] = [];
+        const app = new Hono();
+        app.get(
+          "/users/:id",
+          idParam("id", usr, { status: { brand_mismatch: 400, malformed: 400 } }),
+          (c) => c.json({ id: c.get("id") }),
+        );
+        app.onError((err, c) => {
+          if (err instanceof IdParamError) capturedReasons.push(err.reason);
+          return c.json({ error: "handled" }, 400);
+        });
+        const orgId = org.generate();
+        await app.request(`/users/${orgId}`);
+        await app.request("/users/usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+        expect(capturedReasons).toEqual(["brand_mismatch", "malformed"]);
+      });
     });
   });
 
@@ -265,6 +312,53 @@ describe("idQuery", () => {
     const orgId = org.generate();
     const res = await app.request(`/users?userId=${orgId}`);
     expect(res.status).toBe(400);
+  });
+
+  describe("app.onError receives IdParamError with reason", () => {
+    it("brand_mismatch: app.onError receives IdParamError with reason === 'brand_mismatch'", async () => {
+      let capturedError: unknown;
+      const app = new Hono();
+      app.get("/users", idQuery("userId", usr), (c) => c.json({ id: c.get("userId") }));
+      app.onError((err, c) => {
+        capturedError = err;
+        return c.json({ error: "handled" }, 500);
+      });
+      const orgId = org.generate();
+      await app.request(`/users?userId=${orgId}`);
+      expect(capturedError).toBeInstanceOf(IdParamError);
+      expect((capturedError as IdParamError).reason).toBe("brand_mismatch");
+    });
+
+    it("malformed: app.onError receives IdParamError with reason === 'malformed'", async () => {
+      let capturedError: unknown;
+      const app = new Hono();
+      app.get("/users", idQuery("userId", usr), (c) => c.json({ id: c.get("userId") }));
+      app.onError((err, c) => {
+        capturedError = err;
+        return c.json({ error: "handled" }, 500);
+      });
+      await app.request("/users?userId=usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+      expect(capturedError).toBeInstanceOf(IdParamError);
+      expect((capturedError as IdParamError).reason).toBe("malformed");
+    });
+
+    it("status remap: reason still discriminates even when both reasons map to same status", async () => {
+      const capturedReasons: string[] = [];
+      const app = new Hono();
+      app.get(
+        "/users",
+        idQuery("userId", usr, { status: { brand_mismatch: 400, malformed: 400 } }),
+        (c) => c.json({ id: c.get("userId") }),
+      );
+      app.onError((err, c) => {
+        if (err instanceof IdParamError) capturedReasons.push(err.reason);
+        return c.json({ error: "handled" }, 400);
+      });
+      const orgId = org.generate();
+      await app.request(`/users?userId=${orgId}`);
+      await app.request("/users?userId=usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+      expect(capturedReasons).toEqual(["brand_mismatch", "malformed"]);
+    });
   });
 
   describe("safeParse-only contract (spy codec)", () => {
