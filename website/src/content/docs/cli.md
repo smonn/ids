@@ -24,14 +24,14 @@ Accepts non-canonical input (uppercase, Crockford aliases). Pass the flag that
 matches the codec used at generation — without a flag, the **Timestamp codec** is
 assumed.
 
-| Flag                                 | Codec variant     | Env var                      | Notes                                                                                                              |
-| ------------------------------------ | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| _(none)_                             | Timestamp         | —                            | Timestamp readable directly; always prints a note to stderr (see below)                                            |
-| `--opaque`                           | Opaque Timestamp  | `IDS_OPAQUE_KEY`             | Wrong key yields a plausible-but-wrong timestamp, not an error; always prints a note to stderr (see below)         |
-| `--reverse`                          | Reverse Timestamp | —                            | No key; timestamp decoded from inverted bytes; always prints a note to stderr (see below)                          |
-| `--wrapped --kind <k>`               | Wrapped key       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`/`i32`/`u64`/`i64`; prints `lookup-key`                                                    |
-| `--signed`                           | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Three verification states (see below); `failed` and `unavailable` exit 1 and write to stderr in addition to stdout |
-| `--from-uuid <uuid> --brand <brand>` | (any)             | —                            | Converts a UUID back to a canonical `Id<Brand>`; `--brand` required (e.g. `usr`); no codec flag needed             |
+| Flag                                 | Codec variant     | Env var                      | Notes                                                                                                                                                                                                               |
+| ------------------------------------ | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| _(none)_                             | Timestamp         | —                            | Timestamp readable directly; always prints a note to stderr (see below)                                                                                                                                             |
+| `--opaque`                           | Opaque Timestamp  | `IDS_OPAQUE_KEY`             | Wrong key yields a plausible-but-wrong timestamp, not an error; always prints a note to stderr (see below)                                                                                                          |
+| `--reverse`                          | Reverse Timestamp | —                            | No key; timestamp decoded from inverted bytes; always prints a note to stderr (see below)                                                                                                                           |
+| `--wrapped --kind <k>`               | Wrapped key       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`/`i32`/`u64`/`i64`; prints `lookup-key`                                                                                                                                                     |
+| `--signed`                           | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Three verification states (see below); `failed` and `unavailable` exit 1 and write to stderr in addition to stdout                                                                                                  |
+| `--from-uuid <uuid> --brand <brand>` | (any)             | —                            | Converts a UUID back to a canonical `Id<Brand>`; `--brand` required (e.g. `usr`); codec-selector flags (`--opaque`, `--signed`, `--reverse`, `--wrapped`) and `--key-format` are rejected as a usage error (exit 2) |
 
 Every keyed flag reads its own `IDS_<CODEC>_KEY` first and falls back to the
 shared `IDS_KEY` **primary secret** when that variable is unset — see
@@ -185,10 +185,12 @@ cannot use --signed and --opaque together
 
 ### Flag errors
 
-| Situation                                   | stderr message                                                                       | Exit |
-| ------------------------------------------- | ------------------------------------------------------------------------------------ | ---- |
-| Unknown flag                                | `unsupported flag: <flag>`                                                           | 2    |
-| Known flag not supported by this subcommand | `unsupported flag for <cmd>: <flag>`                                                 | 2    |
-| Same flag passed more than once             | `duplicate flag: <flag>`                                                             | 2    |
-| `--digest` with `--count N > 1`             | `--count N > 1 is rejected with --digest: same material always produces the same ID` | 2    |
-| `--ns` with empty or whitespace-only value  | `--ns requires a value`                                                              | 2    |
+| Situation                                                         | stderr message                                                                       | Exit |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---- |
+| Unknown flag                                                      | `unsupported flag: <flag>`                                                           | 2    |
+| Known flag not supported by this subcommand                       | `unsupported flag for <cmd>: <flag>`                                                 | 2    |
+| Same flag passed more than once                                   | `duplicate flag: <flag>`                                                             | 2    |
+| `--digest` with `--count N > 1`                                   | `--count N > 1 is rejected with --digest: same material always produces the same ID` | 2    |
+| `--ns` with empty or whitespace-only value                        | `--ns requires a value`                                                              | 2    |
+| `--ns` with leading or trailing whitespace (e.g. `"  pad  "`)     | `--ns must not have leading or trailing whitespace`                                  | 2    |
+| Codec-selector flag or `--key-format` combined with `--from-uuid` | `<flag> cannot be used with --from-uuid`                                             | 2    |

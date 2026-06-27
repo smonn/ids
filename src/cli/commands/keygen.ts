@@ -1,5 +1,5 @@
 import { deriveAllowedFlags, resolveVariant } from "../dispatch.js";
-import { parseBits, splitFlags, unsupportedFlagForCommand } from "../flags.js";
+import { isNsError, parseBits, parseNs, splitFlags, unsupportedFlagForCommand } from "../flags.js";
 import { isKeyFormatError, parseKeyFormatFromFlag } from "../key-io.js";
 import type { RunOpts } from "../types.js";
 import { usageKeygen } from "../usage.js";
@@ -11,8 +11,19 @@ export async function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Pro
     return Promise.resolve(0);
   }
   const allowedFlags = deriveAllowedFlags(keygenPolicy);
+  const selectorFlags = new Set(
+    keygenPolicy.selectable.map((v) => v.flag).filter((f): f is string => f !== undefined),
+  );
+  const valueFlags = new Set([...allowedFlags].filter((f) => !selectorFlags.has(f)));
   const variantExtraFlags = new Set(keygenPolicy.selectable.flatMap((v) => v.extraFlags ?? []));
-  const { flags, values, positionals, errors } = splitFlags(args, allowedFlags);
+  const { flags, values, positionals, errors } = splitFlags(args, valueFlags);
+  // Check --ns whitespace before the broader unsupported-flag guard so the
+  // specific whitespace message reaches the user ahead of "unsupported flag for keygen: --ns".
+  const nsResult = parseNs(values);
+  if (nsResult !== undefined && isNsError(nsResult)) {
+    opts.stderr(nsResult + "\n");
+    return Promise.resolve(2);
+  }
   const unsupported = unsupportedFlagForCommand(
     "keygen",
     flags,

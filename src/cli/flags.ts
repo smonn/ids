@@ -132,9 +132,13 @@ export function parseNs(values: Map<string, string>): string | undefined {
   const raw = values.get("--ns");
   if (raw === undefined) return undefined;
   if (raw.trim() === "") return "--ns requires a value";
+  if (raw !== raw.trim()) return "--ns must not have leading or trailing whitespace";
   return raw;
 }
 
 export function isNsError(result: string): boolean {
-  return result === "--ns requires a value";
+  return (
+    result === "--ns requires a value" ||
+    result === "--ns must not have leading or trailing whitespace"
+  );
 }

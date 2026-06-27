@@ -44,6 +44,15 @@ export async function runInspect(args: ReadonlyArray<string>, opts: RunOpts): Pr
       opts.stderr("--from-uuid requires a value\n");
       return 2;
     }
+    const fromUuidForbiddenFlags = [
+      ...inspectPolicy.selectable.map((v) => v.flag).filter((f): f is string => f !== undefined),
+      "--key-format",
+    ];
+    const forbiddenFlag = fromUuidForbiddenFlags.find((f) => flags.has(f));
+    if (forbiddenFlag !== undefined) {
+      opts.stderr(`${forbiddenFlag} cannot be used with --from-uuid\n`);
+      return 2;
+    }
     const brandValue = values.get("--brand");
     if (brandValue === undefined || brandValue === "") {
       opts.stderr("--from-uuid requires --brand\n");
