@@ -90,8 +90,11 @@ describe("base32", () => {
     const decodedWith0 = decodeBase32("00000000000000000000000000");
     expect(decodedWithO).not.toEqual(decodedWith0);
 
-    expect(() => decodeBase32("iiiiiiiiiiiiiiiiiiiiiiiiii")).not.toThrow();
-    expect(() => decodeBase32("llllllllllllllllllllllllll")).not.toThrow();
+    const decodedWithI = decodeBase32("iiiiiiiiiiiiiiiiiiiiiiiiii");
+    const decodedWithL = decodeBase32("llllllllllllllllllllllllll");
+    const decodedWith1 = decodeBase32("11111111111111111111111111");
+    expect(decodedWithI).not.toEqual(decodedWith1);
+    expect(decodedWithL).not.toEqual(decodedWith1);
   });
 
   it("does not throw on wrong-length input and returns a shorter buffer than the canonical 16 bytes", () => {
