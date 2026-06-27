@@ -88,22 +88,30 @@ jobs:
           # ---------------------------------------------------------------------
           # Namespaced taxonomy (ADR-0029). Phase 0 of the migration adds these
           # ALONGSIDE the flat labels above; nothing reads them yet. The flat set
-          # is retired in Phase 4. Colours are semantic, not by-namespace
-          # (ADR-0029 §Colours): red = needs attention, green = good/go,
-          # yellow = waiting, purple/blue = active, grey = informational/auto.
+          # is retired in Phase 4.
+          #
+          # Colour scheme (ADR-0029 §Colours): saturated hues carry URGENCY on the
+          # state labels — red = needs attention, green = good/go, yellow = waiting,
+          # purple/blue = active. The descriptive auto-derived namespaces below get a
+          # QUIET per-namespace tint instead of flat grey: one low-saturation hue per
+          # namespace, drawn from hues the urgency set does not use, so a soft
+          # descriptive label is namespace-distinguishable at a list-scan glance yet
+          # never reads as an actionable state label. `size:` additionally ramps
+          # light→dark to encode magnitude. `auto-round:` stays grey (ephemeral,
+          # no triage value).
 
           # type: (single, issue + PR) — rides the Conventional-Commit vocabulary
-          # enforced by pr-title.yml. Informational → grey.
-          ensure type:feat       EDEDED "New feature (Conventional Commit: feat)"
-          ensure type:fix        EDEDED "Bug fix (Conventional Commit: fix)"
-          ensure type:docs       EDEDED "Documentation only (Conventional Commit: docs)"
-          ensure type:refactor   EDEDED "Neither fixes a bug nor adds a feature (Conventional Commit: refactor)"
-          ensure type:perf       EDEDED "Performance improvement (Conventional Commit: perf)"
-          ensure type:test       EDEDED "Adds or corrects tests (Conventional Commit: test)"
-          ensure type:build      EDEDED "Build system or dependency change (Conventional Commit: build)"
-          ensure type:ci         EDEDED "CI configuration change (Conventional Commit: ci)"
-          ensure type:chore      EDEDED "Maintenance task (Conventional Commit: chore)"
-          ensure type:revert     EDEDED "Reverts a previous commit (Conventional Commit: revert)"
+          # enforced by pr-title.yml. Quiet slate-blue tint.
+          ensure type:feat       D2DAE8 "New feature (Conventional Commit: feat)"
+          ensure type:fix        D2DAE8 "Bug fix (Conventional Commit: fix)"
+          ensure type:docs       D2DAE8 "Documentation only (Conventional Commit: docs)"
+          ensure type:refactor   D2DAE8 "Neither fixes a bug nor adds a feature (Conventional Commit: refactor)"
+          ensure type:perf       D2DAE8 "Performance improvement (Conventional Commit: perf)"
+          ensure type:test       D2DAE8 "Adds or corrects tests (Conventional Commit: test)"
+          ensure type:build      D2DAE8 "Build system or dependency change (Conventional Commit: build)"
+          ensure type:ci         D2DAE8 "CI configuration change (Conventional Commit: ci)"
+          ensure type:chore      D2DAE8 "Maintenance task (Conventional Commit: chore)"
+          ensure type:revert     D2DAE8 "Reverts a previous commit (Conventional Commit: revert)"
 
           # issue: (single, issue) — object lifecycle. Mirrors the flat issue states.
           ensure issue:triage      FBCA04 "Maintainer needs to evaluate this issue"
@@ -127,34 +135,37 @@ jobs:
           ensure automation:rebasing D93F0B "Automatic rebase in progress; other workflows pause while present"
 
           # size: (single, PR) — calibrated absolute diff churn, excluding
-          # generated/vendored files. Informational → grey.
+          # generated/vendored files. Light→dark warm-grey ramp encodes magnitude.
           ensure size:xs EDEDED "Diff churn ≤10 lines"
-          ensure size:s  EDEDED "Diff churn ≤50 lines"
-          ensure size:m  EDEDED "Diff churn ≤150 lines"
-          ensure size:l  EDEDED "Diff churn ≤400 lines"
-          ensure size:xl EDEDED "Diff churn >400 lines"
+          ensure size:s  E0D8CF "Diff churn ≤50 lines"
+          ensure size:m  D6C7B5 "Diff churn ≤150 lines"
+          ensure size:l  C9B299 "Diff churn ≤400 lines"
+          ensure size:xl BC9D7D "Diff churn >400 lines"
 
           # changeset: (single, PR) — sourced from .changeset/*.md frontmatter.
-          ensure changeset:patch EDEDED "Changeset declares a patch release"
-          ensure changeset:minor EDEDED "Changeset declares a minor release"
-          ensure changeset:major EDEDED "Changeset declares a major release"
-          ensure changeset:none  EDEDED "No changeset / no release"
+          # Quiet lavender tint. (Not an amber ramp: amber collides with yellow=waiting.)
+          ensure changeset:patch E6DCF0 "Changeset declares a patch release"
+          ensure changeset:minor E6DCF0 "Changeset declares a minor release"
+          ensure changeset:major E6DCF0 "Changeset declares a major release"
+          ensure changeset:none  E6DCF0 "No changeset / no release"
 
           # codec: (multi, issue + PR) — which codec slice (ADR-0018) is touched.
-          ensure codec:timestamp EDEDED "Touches the timestamp codec"
-          ensure codec:opaque    EDEDED "Touches the opaque codec"
-          ensure codec:reverse   EDEDED "Touches the reverse codec"
-          ensure codec:signed    EDEDED "Touches the signed codec"
-          ensure codec:wrapped   EDEDED "Touches the wrapped codec"
-          ensure codec:digest    EDEDED "Touches the digest codec"
+          # Quiet teal tint.
+          ensure codec:timestamp C8E6E0 "Touches the timestamp codec"
+          ensure codec:opaque    C8E6E0 "Touches the opaque codec"
+          ensure codec:reverse   C8E6E0 "Touches the reverse codec"
+          ensure codec:signed    C8E6E0 "Touches the signed codec"
+          ensure codec:wrapped   C8E6E0 "Touches the wrapped codec"
+          ensure codec:digest    C8E6E0 "Touches the digest codec"
 
           # area: (multi, issue + PR) — which part of the system is touched.
-          ensure area:wire     EDEDED "Touches the wire format / encoding surface"
-          ensure area:cli      EDEDED "Touches the CLI"
-          ensure area:adapters EDEDED "Touches adapter integrations"
-          ensure area:docs     EDEDED "Touches documentation"
-          ensure area:core     EDEDED "Touches core library code"
-          ensure area:build    EDEDED "Touches build / tooling"
+          # Quiet clay/rose tint.
+          ensure area:wire     F0D5CE "Touches the wire format / encoding surface"
+          ensure area:cli      F0D5CE "Touches the CLI"
+          ensure area:adapters F0D5CE "Touches adapter integrations"
+          ensure area:docs     F0D5CE "Touches documentation"
+          ensure area:core     F0D5CE "Touches core library code"
+          ensure area:build    F0D5CE "Touches build / tooling"
 
           # released: (multi, issue + PR) — keyed on the major version LINE, not
           # the semver version. Stamped by release.yml when v1 cuts. Good/go → green.
