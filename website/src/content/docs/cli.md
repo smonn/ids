@@ -143,6 +143,11 @@ AbCdEf…
 Flags: `--bits 128|192|256` (default 256), `--key-format hex|base64url` (default
 `hex`).
 
+`--bits` sets the primary-secret entropy floor only, not cipher strength. Opaque
+always derives an AES-256 key via HKDF (per
+[ADR-0027](https://github.com/smonn/ids/blob/main/docs/adr/0027-opaque-hkdf-uniform-key-derivation.md)),
+so `--bits 128` does not yield AES-128.
+
 ## Environment variables
 
 All keyed modes read secrets from environment variables — **not from argv**
