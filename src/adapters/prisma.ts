@@ -1,5 +1,10 @@
 import type { ModelQueryOptionsCb, ModelQueryOptionsCbArgs } from "@prisma/client/runtime/library";
-import { readIdColumn, readIdColumnNullable, type IdColumnCodec } from "./adapter-types.js";
+import {
+  readIdColumn,
+  readIdColumnNullable,
+  writeIdColumn,
+  type IdColumnCodec,
+} from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
@@ -173,7 +178,7 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
       return readIdColumnNullable(codec, value);
     },
     write(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     },
     computeField(fieldName: string) {
       return {
@@ -263,7 +268,7 @@ export function nullableIdField<Brand extends string>(
       return readIdColumnNullable(codec, value);
     },
     write(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     },
     computeNullableField(fieldName: string) {
       return {
@@ -313,7 +318,7 @@ export function idFieldReadOnly<Brand extends string>(
       return readIdColumnNullable(codec, value);
     },
     write(value: Id<Brand>): string {
-      return value;
+      return writeIdColumn(value);
     },
     computeField(fieldName: string) {
       return {

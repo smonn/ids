@@ -1,8 +1,15 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { isIdsError } from "../error.js";
-import type { ParseError } from "../types.js";
-import { readIdColumn, readIdColumnNullable, resolveIdParamFailure } from "./adapter-types.js";
+import type { Id, ParseError } from "../types.js";
+import {
+  readIdColumn,
+  readIdColumnNullable,
+  resolveIdParamFailure,
+  writeIdColumn,
+  writeIdColumnNullable,
+} from "./adapter-types.js";
 import { makeSpyCodec } from "./test-helpers.js";
+import { createTimestampId } from "../codecs/timestamp/index.js";
 
 describe("readIdColumn", () => {
   it("caught IdsError.cause is typed as ParseError | undefined", () => {
@@ -104,5 +111,55 @@ describe("resolveIdParamFailure", () => {
   it("options.status.malformed does not affect brand_mismatch status", () => {
     const result = resolveIdParamFailure("invalid_prefix", { status: { malformed: 422 } });
     expect(result).toEqual({ reason: "brand_mismatch", status: 404 });
+  });
+});
+
+describe("writeIdColumn", () => {
+  const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+
+  it("passes a valid Id<Brand> through unchanged", () => {
+    const id = usr.generate();
+    expect(writeIdColumn(id)).toBe(id);
+  });
+
+  it("throws IdsError(invalid_id) when called with null at runtime", () => {
+    expect.assertions(2);
+    try {
+      writeIdColumn(null as unknown as Id<"usr">);
+    } catch (err) {
+      if (isIdsError(err)) {
+        expect(err.code).toBe("invalid_id");
+        expect(err.cause).toBeUndefined();
+      }
+    }
+  });
+
+  it("throws IdsError(invalid_id) when called with undefined at runtime", () => {
+    expect.assertions(2);
+    try {
+      writeIdColumn(undefined as unknown as Id<"usr">);
+    } catch (err) {
+      if (isIdsError(err)) {
+        expect(err.code).toBe("invalid_id");
+        expect(err.cause).toBeUndefined();
+      }
+    }
+  });
+});
+
+describe("writeIdColumnNullable", () => {
+  const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+
+  it("passes a valid Id<Brand> through unchanged", () => {
+    const id = usr.generate();
+    expect(writeIdColumnNullable(id)).toBe(id);
+  });
+
+  it("returns null for null input", () => {
+    expect(writeIdColumnNullable(null)).toBeNull();
+  });
+
+  it("returns null for undefined input", () => {
+    expect(writeIdColumnNullable(undefined)).toBeNull();
   });
 });
