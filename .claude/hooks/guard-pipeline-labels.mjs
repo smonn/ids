@@ -9,7 +9,7 @@
 // Updates that omit `labels` (body/title/state-only) pass through untouched, as
 // do issue writes whose labels are all non-lifecycle (e.g. just `enhancement`).
 //
-// `address-feedback` and `needs-review` are deliberately ABSENT from LIFECYCLE:
+// `do:review` and `do:address` are deliberately ABSENT from LIFECYCLE:
 // they pass through by omission, not via a positive allowlist. A PreToolUse hook
 // cannot verify actor identity, so any agent session may set them — the
 // trade-off is accepted because they drive the review lifecycle (re-run review /

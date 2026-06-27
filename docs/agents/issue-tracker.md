@@ -17,11 +17,11 @@ Infer the repo from `git remote -v` — `gh` does this automatically when run in
 
 **Agents must not set or remove the pipeline/triage lifecycle labels via `gh issue edit --add-label` or `--remove-label`.** The prohibited labels are the same set guarded by `.claude/hooks/guard-pipeline-labels.mjs` on the MCP path:
 
-Flat lifecycle: `blocked`, `needs-triage`, `ready-for-agent`, `ready-for-human`, `in-progress`, `needs-info`, `wontfix`, `needs-human`, `needs-rebase`. Namespaced status (Phase 2–3): `issue:triage`, `issue:ready-agent`, `issue:ready-human`, `issue:in-progress`, `issue:blocked`, `issue:needs-info`, `issue:wontfix`, the `pr:*` set, and `automation:rebasing`. Maintainer-only kickoff triggers (Phase 3): `do:implement`, `do:rebase`, `do:triage`.
+Namespaced status: `issue:triage`, `issue:ready-agent`, `issue:ready-human`, `issue:in-progress`, `issue:blocked`, `issue:needs-info`, `issue:wontfix`, the `pr:*` set, and `automation:rebasing`. Flat escalation: `needs-human`. Maintainer-only kickoff triggers: `do:implement`, `do:rebase`, `do:triage`. (The flat lifecycle/trigger labels — `needs-triage`, `ready-for-agent`, `needs-review`, … — were retired in Phase 4 of ADR-0029 and no longer exist.)
 
-These labels are owned exclusively by the `.github/workflows/` App automations. Setting them by hand races the bot (e.g. `unblock.yml` flips `blocked → needs-triage` when a blocker closes — jumping straight to `ready-for-agent` bypasses that evaluation). Edit issue body, title, or state freely; leave lifecycle labels to the App.
+These labels are owned exclusively by the `.github/workflows/` App automations. Setting them by hand races the bot (e.g. `unblock.yml` applies `do:triage` when a blocker closes — jumping straight to `issue:ready-agent` bypasses that evaluation). Edit issue body, title, or state freely; leave lifecycle labels to the App.
 
-**`address-feedback` / `needs-review` and their `do:*` successors `do:address` / `do:review` are the only exceptions.** They pass through on the `gh` path for the same reason as on the MCP path: they drive the review lifecycle (re-run automated review / address PR feedback), not triage, and are absent from the guarded set by omission rather than via a positive allowlist.
+**The `do:review` / `do:address` review-lifecycle triggers are the only exceptions.** They pass through on the `gh` path for the same reason as on the MCP path: they drive the review lifecycle (re-run automated review / address PR feedback), not triage, and are absent from the guarded set by omission rather than via a positive allowlist.
 
 **Programmatic enforcement:** A `PreToolUse` hook matching `Bash` (`.claude/settings.json` → `.claude/hooks/guard-pipeline-labels-bash.mjs`) parses `gh issue edit --add-label`/`--remove-label` commands and denies any that name a lifecycle label. This covers Claude agent sessions; `gh` calls from `.github/workflows/` CI steps do not route through Claude's Bash tool and are unaffected.
 
@@ -56,11 +56,11 @@ Run `gh issue view <number> --comments`.
 
 ## Authoring issues for the agent pipeline
 
-When filing findings (e.g. from an audit) as issues, the issue body is the steering wheel: `triage.yml` reads it and routes to `ready-for-agent` / `ready-for-human` / `wontfix` / `needs-info`, and `ready-for-agent` chains into `implement.yml`, which builds the change test-first and opens the PR. You do not set lifecycle labels (see the prohibition above); you make triage route correctly by how you write the issue.
+When filing findings (e.g. from an audit) as issues, the issue body is the steering wheel: `triage.yml` reads it and routes to `issue:ready-agent` / `issue:ready-human` / `issue:wontfix` / `issue:needs-info`. An `issue:ready-agent` verdict is pure backlog status — it does NOT auto-start work; a maintainer kicks the issue with the `do:implement` trigger, which runs `implement.yml` to build the change test-first and open the PR. You do not set lifecycle labels (see the prohibition above); you make triage route correctly by how you write the issue.
 
 **Don't restate what already owns these rules — link to them and follow them:**
 
-- **Routing rubric** (agent vs human, the CLOSED-decisions list, and the rule that any change touching `.github/workflows/*` is forced to `ready-for-human` because the implement agent's App token lacks `workflows` permission) lives in the `triage.yml` job prompt.
+- **Routing rubric** (agent vs human, the CLOSED-decisions list, and the rule that any change touching `.github/workflows/*` is forced to `issue:ready-human` because the implement agent's App token lacks `workflows` permission) lives in the `triage.yml` job prompt.
 - **Issue fields** — motivation, desired behavior, the `Out of scope / non-goals` fence, codec variant, affected surface, the agent-readiness self-check — live in the issue templates under `.github/ISSUE_TEMPLATE/`. Use them.
 - **`Blocked by #N` syntax, the lifecycle-label prohibition, and `gh` mechanics** are above in this file and in `AGENTS.md`.
 
@@ -71,6 +71,6 @@ When filing findings (e.g. from an audit) as issues, the issue body is the steer
 2. **Slice for the pipeline, not just for humans:**
    - **One issue per finding by default**, each sized to finish in a single `implement.yml` turn. Prefer small: a fat "roundup" can exhaust an implementing agent's turn budget and mixes unrelated diffs. Trivial one-line _doc_ fixes may be batched into one roundup.
    - **Make each issue's file set disjoint.** `implement.yml` opens one PR per issue and they run in parallel; multiple PRs editing the same file conflict and churn `rebase.yml`. So when several findings touch the same file, **group sub-findings by the file they touch** (e.g. all `reverse/index.test.ts` work in one issue) rather than by finding type. A cross-file fix that would otherwise collide with several issues should be _dissolved into_ those per-file issues, or chained ahead of them with `Blocked by #N`.
-   - **Resolve embedded design decisions before filing as `ready-for-agent`.** If a finding has a genuine trade-off, either decide the direction and bake it into the acceptance criteria (with the rejected option in `Out of scope`), or file it as a maintainer-decision issue that presents the trade-off without prescribing an answer. Never leave an implementing agent to guess — and never file something that reopens a CLOSED decision as agent-ready.
+   - **Resolve embedded design decisions before an issue can be triaged `issue:ready-agent`.** If a finding has a genuine trade-off, either decide the direction and bake it into the acceptance criteria (with the rejected option in `Out of scope`), or file it as a maintainer-decision issue that presents the trade-off without prescribing an answer. Never leave an implementing agent to guess — and never file something that reopens a CLOSED decision as agent-ready.
 
 3. **Durable audit findings go in `docs/audits/<name>-<date>.md`** as a dated, point-in-time snapshot — non-authoritative, superseded once issues are filed, and free of invented issue numbers so it can't rot against GitHub.

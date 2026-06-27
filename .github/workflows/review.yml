@@ -30,13 +30,13 @@ name: Review agent PRs
 # deterministic poster INJECTS all of these (not the agent), so they are always present and
 # correctly formatted regardless of what the producer wrote.
 # Automatic triggers (opened/reopened/synchronize) skip when a bot review already carries
-# the current commit's marker. A forced re-review (the `needs-review` label or
+# the current commit's marker. A forced re-review (the `do:review` label or
 # workflow_dispatch) sweeps this commit's prior inline review comments so the new pass
 # replaces them, while earlier commits' inline comments stay as history. (A submitted
 # COMMENT review object can't be deleted, so a forced re-review of the *same* commit leaves
 # the prior review's summary in place and adds a fresh one — rare, and harmless.)
 #
-# As its final action the `post` step applies `address-feedback` to the PR when the
+# As its final action the `post` step applies `do:address` to the PR when the
 # producer flagged one or more HARD findings (manifest `hard_findings: true`), so
 # address-review.yml picks the PR up automatically and the agent fixes them — no human has
 # to relay a review that surfaced real defects. Reviews with only soft / judgment-call
@@ -68,7 +68,7 @@ jobs:
     timeout-minutes: 30
     env:
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
-      # Explicit re-review (manual dispatch or the needs-review label) forces a
+      # Explicit re-review (manual dispatch or the do:review label) forces a
       # fresh pass; automatic open/reopen events dedup on the reviewed commit.
       FORCED: ${{ github.event_name == 'workflow_dispatch' || github.event.action == 'labeled' }}
     steps:
@@ -78,7 +78,7 @@ jobs:
       # context (no secrets), so a forked PR — which gets no secrets — still runs it and
       # reports a genuine success instead of a skipped-but-required check. A PR is in scope
       # when it's a manual dispatch, or a same-repo agent/issue-* branch on an open/reopen
-      # event (or a `needs-review` re-label). Everything else short-circuits to success.
+      # event (or a `do:review` re-label). Everything else short-circuits to success.
       - name: Decide whether this PR is in scope for an automated review
         id: scope
         env:
@@ -96,22 +96,23 @@ jobs:
           review=false
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             review=true
-          elif { [ "$ACTION" != "labeled" ] || [ "$LABEL" = "needs-review" ] || [ "$LABEL" = "do:review" ]; } &&
+          elif { [ "$ACTION" != "labeled" ] || [ "$LABEL" = "do:review" ]; } &&
                [ "$HEAD_REPO" = "$THIS_REPO" ] &&
                case "$HEAD_REF" in agent/issue-*) true ;; *) false ;; esac; then
             review=true
           fi
-          # Defer while the PR is mid-conflict-rebase: conflicts.yml marks it `conflicting`
-          # and an automatic rebase is in flight, so this commit is about to be superseded.
-          # Report success WITHOUT reviewing (the no-op path keeps the required `review`
-          # check green); the rebase merge commit re-fires review on the new SHA with the
-          # marker already cleared. Only checked when we'd otherwise review, so forks /
-          # out-of-scope PRs make no gh call and stay secret-free.
+          # Defer while the PR is mid-conflict-rebase: conflicts.yml marks it
+          # `automation:rebasing` and an automatic rebase is in flight, so this commit is
+          # about to be superseded. Report success WITHOUT reviewing (the no-op path keeps
+          # the required `review` check green); the rebase merge commit re-fires review on
+          # the new SHA with the mutex already cleared. Any `automation:*` mutex pauses us.
+          # Only checked when we'd otherwise review, so forks / out-of-scope PRs make no gh
+          # call and stay secret-free.
           if [ "$review" = "true" ] &&
              gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null |
-               grep -qx conflicting; then
+               grep -qE '^automation:'; then
             review=false
-            echo "PR #$PR_NUMBER is conflicting — deferring review until the rebase merge commit."
+            echo "PR #$PR_NUMBER has an automation:* mutex — deferring review until the rebase merge commit."
           fi
           echo "review=$review" >> "$GITHUB_OUTPUT"
           if [ "$review" = "true" ]; then
@@ -128,7 +129,7 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           # Least-privilege: review only reads the checked-out PR, posts a review
-          # (issues + pulls), and toggles the address-feedback label. It never pushes —
+          # (issues + pulls), and toggles the do:address label. It never pushes —
           # contents stays read-only.
           permission-contents: read
           permission-issues: write
@@ -154,10 +155,8 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-        # Consume whichever trigger fired (Phase 3 accepts both needs-review and
-        # do:review). Removing the absent one is a harmless no-op under `|| true`.
+        # Consume the do:review trigger so it can be re-applied to force a re-review.
         run: |
-          gh pr edit "$PR_NUMBER" --remove-label needs-review || true
           gh pr edit "$PR_NUMBER" --remove-label do:review || true
 
       - name: Dedup on the reviewed commit
@@ -231,11 +230,10 @@ jobs:
             printf '.github/actions/\n.github/scripts/\n' >> .git/info/exclude
           fi
 
-      # Phase 2 dual-write (ADR-0029 / ADR-0030 start/stop contract): the automated
-      # review is now starting on this commit, so set the in-progress pr: status. The
-      # post step below overwrites it with the outcome (pr:ready / pr:changes-requested).
-      # Inert — nothing reads it. Runs only on the in-scope, non-deduped path, after
-      # provisioning has put the helper on disk.
+      # Start/stop status contract (ADR-0030): the automated review is now starting on
+      # this commit, so set the in-progress pr: status. The post step below overwrites it
+      # with the outcome (pr:ready / pr:changes-requested). Runs only on the in-scope,
+      # non-deduped path, after provisioning has put the helper on disk.
       - name: Mark the PR as under review (namespaced status)
         if: steps.scope.outputs.review == 'true' && steps.gate.outputs.skip != 'true'
         env:
@@ -456,7 +454,7 @@ jobs:
       # quoting. Inline anchors are validated against the diff first: the reviews API is
       # atomic (one off-diff anchor 422s the whole review), so any finding whose anchor
       # isn't on a RIGHT-side diff line is DEMOTED into the summary body instead of
-      # dropped. Finally applies address-feedback when the producer flagged hard findings.
+      # dropped. Finally applies do:address when the producer flagged hard findings.
       - name: Post the review
         if: steps.scope.outputs.review == 'true' && steps.gate.outputs.skip != 'true'
         env:
@@ -467,7 +465,7 @@ jobs:
         run: |
           set -euo pipefail
           source .github/scripts/poster-lib.sh
-          # Phase 2 dual-write of the namespaced pr: status (ADR-0029).
+          # Namespaced pr: status helpers (ADR-0029); authoritative since Phase 4.
           source .github/scripts/lifecycle-status.sh
           require_manifest .review
           summary_file=$(jq -r '.summary_file // "summary.md"' .review/manifest.json)
@@ -539,13 +537,13 @@ jobs:
           echo "Posted a COMMENT review for $HEAD_SHA with $(echo "$comments_json" | jq 'length') inline comment(s)."
 
           # Hand off to the fix loop only when the producer flagged in-scope hard findings.
-          # Dual-write the namespaced pr: outcome status alongside (ADR-0029): hard
-          # findings → pr:changes-requested (mirrors the address-feedback hand-off);
+          # Set the namespaced pr: outcome status (ADR-0029): hard findings →
+          # pr:changes-requested plus the `do:address` trigger that fires address-review.yml;
           # a clean review → pr:ready ("reviewed, no blocking findings").
           if [ "$(jq -r '.hard_findings // false' .review/manifest.json)" = "true" ]; then
-            gh pr edit "$PR_NUMBER" --add-label address-feedback
+            gh pr edit "$PR_NUMBER" --add-label do:address
             set_pr_status "$PR_NUMBER" pr:changes-requested
-            echo "Applied address-feedback (hard findings present)."
+            echo "Applied do:address (hard findings present)."
           else
             set_pr_status "$PR_NUMBER" pr:ready
             echo "No hard findings — leaving the PR for a human."

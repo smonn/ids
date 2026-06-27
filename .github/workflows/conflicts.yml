@@ -16,19 +16,20 @@ name: Auto-rebase conflicting agent PRs
 #   main-sweep re-evaluates mergeability — adding it would only fight the guards.)
 #
 # WHAT it does for a conflicting PR (order matters — see the apply-before-cancel note):
-#   1. Add the `conflicting` label. While present, every PR-triggered run of our
-#      workflows pauses (ci/bench self-cancel; review/address-review/autofix no-op),
-#      so nothing burns compute on the soon-to-be-superseded commit.
+#   1. Add the `automation:rebasing` label. While any `automation:*` mutex is present,
+#      every PR-triggered run of our workflows pauses (ci/bench self-cancel;
+#      review/address-review/autofix no-op), so nothing burns compute on the
+#      soon-to-be-superseded commit.
 #   2. Cancel the in-flight runs of our workflows for that branch (the ones that
 #      started BEFORE the label and so won't re-check it themselves).
-#   3. Dispatch rebase.yml via `workflow_dispatch` (NOT by applying `needs-rebase`:
+#   3. Dispatch rebase.yml via `workflow_dispatch` (NOT by applying `do:rebase`:
 #      rebase.yml documents that an App-applied `labeled` webhook can be silently
 #      dropped, and dispatch-by-number is its reliable path).
 #
-# rebase.yml then removes the `conflicting` label EARLY — before its agent pushes the
-# merge commit — so that the clean merge commit's CI/review/bench run UNBLOCKED and
-# the required checks settle green on the new head. The `conflicting` marker is thus
-# an automation-in-progress flag, not a standing "this PR conflicts" status: once the
+# rebase.yml then removes the `automation:rebasing` mutex EARLY — before its agent pushes
+# the merge commit — so that the clean merge commit's CI/review/bench run UNBLOCKED and
+# the required checks settle green on the new head. The mutex is thus an
+# automation-in-progress flag, not a standing "this PR conflicts" status: once the
 # rebase hands off (resolved, or escalated to `needs-human`) the marker is gone.
 #
 # SCOPE / SECURITY: only OPEN, same-repo `agent/issue-*` PRs are ever touched — forks
@@ -74,7 +75,7 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          # Least-privilege: read PR mergeability + edit the `conflicting` label
+          # Least-privilege: read PR mergeability + edit the `automation:rebasing` label
           # (issues + pull-requests), and cancel runs / dispatch rebase (actions:write).
           permission-issues: write
           permission-pull-requests: write
@@ -165,14 +166,14 @@ jobs:
           for pr in $candidates; do
             status=$(poll_mergeable "$pr")
             labels=$(gh pr view "$pr" --json labels --jq '.labels[].name' 2>/dev/null || true)
-            has_conflicting=false
-            echo "$labels" | grep -qx conflicting && has_conflicting=true
-            echo "PR #$pr: mergeable=$status conflicting-label=$has_conflicting"
+            has_mutex=false
+            echo "$labels" | grep -qx automation:rebasing && has_mutex=true
+            echo "PR #$pr: mergeable=$status automation:rebasing-label=$has_mutex"
 
             case "$status" in
               CONFLICTING)
-                if [ "$has_conflicting" = true ]; then
-                  echo "  already marked conflicting — a rebase is already in flight for this episode; skipping."
+                if [ "$has_mutex" = true ]; then
+                  echo "  already marked automation:rebasing — a rebase is already in flight for this episode; skipping."
                   continue
                 fi
                 if echo "$labels" | grep -qx needs-human; then
@@ -180,10 +181,10 @@ jobs:
                   continue
                 fi
                 branch=$(gh pr view "$pr" --json headRefName --jq .headRefName)
-                # Apply the marker FIRST so any run that STARTS after this point sees it
+                # Apply the mutex FIRST so any run that STARTS after this point sees it
                 # and self-pauses; THEN cancel the runs that started before it.
-                gh pr edit "$pr" --add-label conflicting
-                echo "  applied conflicting; cancelling our in-flight runs on $branch"
+                gh pr edit "$pr" --add-label automation:rebasing
+                echo "  applied automation:rebasing; cancelling our in-flight runs on $branch"
                 cancel_our_runs "$branch"
                 echo "  dispatching rebase for #$pr"
                 gh workflow run rebase.yml -f pr_number="$pr" || \
@@ -191,11 +192,11 @@ jobs:
                 ;;
               MERGEABLE)
                 # Self-heal: a PR that was flagged but now merges cleanly (e.g. main was
-                # reverted) shouldn't stay marked. rebase.yml normally clears the marker
+                # reverted) shouldn't stay marked. rebase.yml normally clears the mutex
                 # itself; this catches the case where no rebase ran.
-                if [ "$has_conflicting" = true ]; then
-                  echo "  merges cleanly but still marked conflicting — clearing the stale marker."
-                  gh pr edit "$pr" --remove-label conflicting || true
+                if [ "$has_mutex" = true ]; then
+                  echo "  merges cleanly but still marked automation:rebasing — clearing the stale mutex."
+                  gh pr edit "$pr" --remove-label automation:rebasing || true
                 fi
                 ;;
               *)

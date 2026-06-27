@@ -5,31 +5,21 @@
 // must not hand-set it (doing so races the bot). The hooks deny any agent
 // issue_write / `gh issue edit` that touches one.
 //
-// Phase 3 of the namespaced taxonomy (ADR-0029 / ADR-0030) adds the namespaced
-// status labels and the maintainer-only `do:*` triggers here, in lock-step with
-// the workflows accepting `do:*` as triggers. The flat labels stay listed through
-// the cutover; they are removed when Phase 4 retires them.
+// Phase 4 of the namespaced taxonomy (ADR-0029 / ADR-0030) has retired the flat
+// lifecycle/trigger labels: this set now lists the namespaced status labels and
+// the maintainer-only `do:*` triggers. `needs-human` is the lone surviving flat
+// label (it stays un-namespaced per ADR-0029) and remains guarded.
 //
 // DELIBERATELY ABSENT (pass through by omission, NOT a positive allowlist) —
-// `needs-review` / `address-feedback` and their `do:*` successors `do:review` /
-// `do:address`. A PreToolUse hook cannot verify actor identity, so any agent
-// session may set these; the trade-off is accepted because they drive the REVIEW
-// lifecycle (re-run automated review / address PR feedback), not the triage
-// lifecycle. The other triggers — `do:implement` / `do:rebase` / `do:triage` —
-// are maintainer kickoff controls (their flat predecessors `ready-for-agent` /
-// `needs-rebase` / `needs-triage` are denied), so they ARE listed. See AGENTS.md
-// and docs/agents/triage-labels.md for the reasoning.
+// the `do:review` / `do:address` review-lifecycle triggers. A PreToolUse hook
+// cannot verify actor identity, so any agent session may set these; the trade-off
+// is accepted because they drive the REVIEW lifecycle (re-run automated review /
+// address PR feedback), not the triage lifecycle. The other triggers —
+// `do:implement` / `do:rebase` / `do:triage` — are maintainer kickoff controls,
+// so they ARE listed. See AGENTS.md and docs/agents/triage-labels.md.
 export const LIFECYCLE = new Set([
-  // Flat lifecycle labels (authoritative through the Phase 3–4 cutover).
-  "blocked",
-  "needs-triage",
-  "ready-for-agent",
-  "ready-for-human",
-  "in-progress",
-  "needs-info",
-  "wontfix",
+  // The lone surviving flat label (cross-cutting escalation, ADR-0029).
   "needs-human",
-  "needs-rebase",
 
   // Namespaced issue: lifecycle status (ADR-0029).
   "issue:triage",

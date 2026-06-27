@@ -1,11 +1,11 @@
 name: Unblock issues
 
-# When an issue or pull request closes, any issue parked as `blocked` that
-# depended on it may now be free. This sweeps open `blocked` issues, re-checks
+# When an issue or pull request closes, any issue parked as `issue:blocked` that
+# depended on it may now be free. This sweeps open `issue:blocked` issues, re-checks
 # their declared blockers ("Blocked by #N" / "Depends on #N" / "Requires #N"),
-# and once every blocker is closed, flips the issue back to `needs-triage` —
-# which re-fires the triage workflow to re-scope it against the now-complete
-# dependency.
+# and once every blocker is closed, applies `do:triage` (and resets the status to
+# `issue:triage`) — which re-fires the triage workflow to re-scope it against the
+# now-complete dependency.
 #
 # Blockers are frequently PRs, not issues (e.g. "Blocked by #179" where #179 is a
 # pull request). Closing/merging a PR fires `pull_request`, never `issues`, so we
@@ -61,9 +61,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # Phase 2 dual-write of the namespaced issue: status (ADR-0029).
+          # Namespaced issue: status helpers (ADR-0029); authoritative since Phase 4.
           source .github/scripts/lifecycle-status.sh
-          blocked=$(gh issue list --state open --label blocked --json number --jq '.[].number')
+          blocked=$(gh issue list --state open --label issue:blocked --json number --jq '.[].number')
           if [ -z "$blocked" ]; then
             echo "No open blocked issues."
             exit 0
@@ -91,7 +91,10 @@ jobs:
             done
             if [ "$all_closed" = true ]; then
               echo "#$n: all blockers closed — unblocking and re-triaging."
-              gh issue edit "$n" --add-label needs-triage --remove-label blocked
+              # Re-triage: apply the `do:triage` trigger (fires triage.yml) and reset the
+              # issue: status to triage, which clears issue:blocked (set_issue_status
+              # reconciles the single-select issue: namespace).
+              gh issue edit "$n" --add-label do:triage --remove-label issue:blocked
               set_issue_status "$n" needs-triage
               gh issue comment "$n" --body "All declared blockers ($(echo "$deps" | sed 's/^/#/' | paste -sd ', ' -)) are now closed; re-triaging."
             else
