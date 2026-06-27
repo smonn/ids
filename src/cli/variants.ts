@@ -11,63 +11,76 @@ import {
   encodeOpaqueKey,
   importOpaqueKey,
   type OpaqueKey,
+  type OpaqueTimestampCodec,
 } from "../codecs/opaque/index.js";
-import { createReverseTimestampId } from "../codecs/reverse/index.js";
+import { createReverseTimestampId, type ReverseTimestampCodec } from "../codecs/reverse/index.js";
 import {
   createSignedTimestampId,
   decodeSigningKey,
   encodeSigningKey,
   importSigningKey,
+  type SafeVerifyResult,
+  type SignedTimestampCodec,
   type SigningKey,
 } from "../codecs/signed/index.js";
-import { createTimestampId } from "../codecs/timestamp/index.js";
+import { createTimestampId, type TimestampCodec } from "../codecs/timestamp/index.js";
 import {
   createWrappedKeyId,
   decodeWrappingKey,
   encodeWrappingKey,
   importWrappingKey,
+  type WrappedKeyCodec,
+  type WrappedKind,
   type WrappingKey,
 } from "../codecs/wrapped/index.js";
 import type { IdCodec } from "../adapters/adapter-types.js";
-import type { SafeVerifyResult } from "../codecs/signed/index.js";
-import type { Id, StandardSchemaProps } from "../types.js";
+import type { Id } from "../types.js";
 import { codecOpts } from "./codec-options.js";
 import { isKindError, isNsError, parseKind, parseNs } from "./flags.js";
 import { formatCliError, invalidIdPrefix } from "./format.js";
 import type { KeyFacet } from "./key-io.js";
 import type { RunOpts } from "./types.js";
 
+/** Codec shape for sync timestamp extraction (Timestamp and Reverse Timestamp codecs). */
+export type SyncTimestampCodec = TimestampCodec<string> | ReverseTimestampCodec<string>;
+/** Codec shape for async timestamp extraction (Opaque Timestamp codec). */
+export type AsyncTimestampCodec = OpaqueTimestampCodec<string>;
+/** Codec shape for lookup-key unwrapping (Wrapped Key codec). */
+export type UnwrapCodec = WrappedKeyCodec<string, WrappedKind>;
+/** Codec shape for HMAC tag verification (Signed Timestamp codec). */
+export type VerifyCodec = SignedTimestampCodec<string>;
+/** Union of all concrete codec types that the inspect command dispatches over. */
+export type InspectableCodec = SyncTimestampCodec | AsyncTimestampCodec | UnwrapCodec | VerifyCodec;
+
 type InspectCapability =
   | {
       readonly mode: "readable";
       readonly note: string;
-      validate(codec: IdCodec<string>, input: string): { value: Id<string> } | { issue: string };
-      extractTimestamp(codec: IdCodec<string>, id: Id<string>): Date;
+      validate(codec: InspectableCodec, input: string): { value: Id<string> } | { issue: string };
+      extractTimestamp(codec: SyncTimestampCodec, id: Id<string>): Date;
     }
   | {
       readonly mode: "keyed-readable";
       readonly note: string;
-      validate(codec: IdCodec<string>, input: string): { value: Id<string> } | { issue: string };
-      extractTimestamp(codec: IdCodec<string>, id: Id<string>): Promise<Date>;
+      validate(codec: InspectableCodec, input: string): { value: Id<string> } | { issue: string };
+      extractTimestamp(codec: AsyncTimestampCodec, id: Id<string>): Promise<Date>;
     }
   | {
       readonly mode: "unwrap";
-      validate(codec: IdCodec<string>, input: string): { value: Id<string> } | { issue: string };
-      unwrap(codec: IdCodec<string>, id: Id<string>): Promise<number | bigint>;
+      validate(codec: InspectableCodec, input: string): { value: Id<string> } | { issue: string };
+      unwrap(codec: UnwrapCodec, id: Id<string>): Promise<number | bigint>;
     }
   | {
       readonly mode: "verify";
-      safeVerify(codec: IdCodec<string>, id: string): Promise<SafeVerifyResult<string>>;
+      safeVerify(codec: VerifyCodec, id: string): Promise<SafeVerifyResult<string>>;
     }
   | { readonly mode: "unsupported" };
 
 function standardValidate(
-  codec: IdCodec<string>,
+  codec: InspectableCodec,
   input: string,
 ): { value: Id<string> } | { issue: string } {
-  const result = (codec as unknown as { "~standard": StandardSchemaProps<string> })[
-    "~standard"
-  ].validate(input);
+  const result = codec["~standard"].validate(input);
   if (result.issues) return { issue: invalidIdPrefix + result.issues[0]!.message };
   return { value: result.value! };
 }
@@ -111,8 +124,8 @@ export const timestampVariant: GeneratorDescriptor = {
     mode: "readable",
     note: "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_OPAQUE_KEY or IDS_KEY",
     validate: standardValidate,
-    extractTimestamp(codec: IdCodec<string>, id: Id<string>): Date {
-      return (codec as unknown as { extractTimestamp(id: Id<string>): Date }).extractTimestamp(id);
+    extractTimestamp(codec: SyncTimestampCodec, id: Id<string>): Date {
+      return codec.extractTimestamp(id);
     },
   },
   construct(brand, opts) {
@@ -137,10 +150,8 @@ export const opaqueVariant: GeneratorDescriptor = {
     mode: "keyed-readable",
     note: "note: timestamp assumes IDS_OPAQUE_KEY or IDS_KEY matches the key used at generation; a wrong key yields a plausible but incorrect timestamp",
     validate: standardValidate,
-    extractTimestamp(codec: IdCodec<string>, id: Id<string>): Promise<Date> {
-      return (
-        codec as unknown as { extractTimestamp(id: Id<string>): Promise<Date> }
-      ).extractTimestamp(id);
+    extractTimestamp(codec: AsyncTimestampCodec, id: Id<string>): Promise<Date> {
+      return codec.extractTimestamp(id);
     },
   },
   construct(brand, opts, key) {
@@ -158,8 +169,8 @@ export const reverseVariant: GeneratorDescriptor = {
     mode: "readable",
     note: "note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_OPAQUE_KEY or IDS_KEY",
     validate: standardValidate,
-    extractTimestamp(codec: IdCodec<string>, id: Id<string>): Date {
-      return (codec as unknown as { extractTimestamp(id: Id<string>): Date }).extractTimestamp(id);
+    extractTimestamp(codec: SyncTimestampCodec, id: Id<string>): Date {
+      return codec.extractTimestamp(id);
     },
   },
   construct(brand, opts) {
@@ -183,8 +194,8 @@ export const wrappedVariant: Descriptor = {
   inspect: {
     mode: "unwrap",
     validate: standardValidate,
-    unwrap(codec: IdCodec<string>, id: Id<string>): Promise<number | bigint> {
-      return (codec as unknown as { unwrap(id: Id<string>): Promise<number | bigint> }).unwrap(id);
+    unwrap(codec: UnwrapCodec, id: Id<string>): Promise<number | bigint> {
+      return codec.unwrap(id);
     },
   },
   extraFlags: ["--kind"],
@@ -215,10 +226,8 @@ export const signedVariant: GeneratorDescriptor = {
   },
   inspect: {
     mode: "verify",
-    safeVerify(codec: IdCodec<string>, id: string): Promise<SafeVerifyResult<string>> {
-      return (
-        codec as unknown as { safeVerify(id: string): Promise<SafeVerifyResult<string>> }
-      ).safeVerify(id);
+    safeVerify(codec: VerifyCodec, id: string): Promise<SafeVerifyResult<string>> {
+      return codec.safeVerify(id);
     },
   },
   construct(brand, opts, key) {
