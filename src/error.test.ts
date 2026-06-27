@@ -14,6 +14,7 @@ const ALL_CODES_MAP: Record<IdsErrorCode, 1> = {
   invalid_lookup_key: 1,
   verification_failed: 1,
   invalid_id: 1,
+  invalid_timestamp: 1,
 };
 const ALL_CODES = Object.keys(ALL_CODES_MAP) as IdsErrorCode[];
 

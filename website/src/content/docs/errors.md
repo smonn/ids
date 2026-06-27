@@ -1,6 +1,6 @@
 ---
 title: Error handling
-description: All 11 IdsErrorCode values, both error channels, IdsError, and how to use isIdsError() to handle errors programmatically.
+description: All 12 IdsErrorCode values, both error channels, IdsError, and how to use isIdsError() to handle errors programmatically.
 ---
 
 The library surfaces failures through two distinct channels depending on the
@@ -71,7 +71,7 @@ try {
 
 ## IdsErrorCode reference
 
-All 11 codes are a public stability contract. Adding a code is minor-additive;
+All 12 codes are a public stability contract. Adding a code is minor-additive;
 renaming or removing one is breaking.
 
 | Code                      | Trigger                                                                                                                                  |
@@ -87,6 +87,7 @@ renaming or removing one is breaking.
 | `invalid_lookup_key`      | Value passed to `wrap()` is out of range, is the wrong JS type, or is negative zero (`u32`/`i32` only)                                   |
 | `verification_failed`     | No keyring entry's tag matches the payload — thrown by `unwrap()` / `verify()`, returned as a string by `safeUnwrap()` / `safeVerify()`  |
 | `invalid_id`              | String is not a structurally valid ID for the brand — thrown by `parse()` and ORM adapter read paths; `err.cause` holds the `ParseError` |
+| `invalid_timestamp`       | Date passed to `generateAt`, `minIdForTime`, or `maxIdForTime` is Invalid Date, pre-epoch, or exceeds the 48-bit range                   |
 
 ## The returned channel: ParseError
 

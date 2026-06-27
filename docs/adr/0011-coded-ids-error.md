@@ -43,8 +43,9 @@ Because `code` carries the discrimination, message text is freed to be standardi
 | `verification_failed` | no keyring entry verifies the payload tag | `unwrap(id)` | wrong/revoked key, or a tampered ID |
 | `invalid_id` | string isn't a valid ID for the brand (carries the `ParseError` on `cause`) | `parse()`, prisma/drizzle/kysely read hooks | use `safeParse`/`safeUnwrap`, or fix the source |
 | `invalid_namespace` | ns is empty or whitespace-only | `createDigestId({ ns })` construction | supply a non-empty, non-whitespace namespace |
+| `invalid_timestamp` | date passed to `generateAt`, `minIdForTime`, or `maxIdForTime` is Invalid Date, pre-epoch, or exceeds the 48-bit range | `generateAt(date)`, `minIdForTime(date)`, `maxIdForTime(date)` on all timestamp-family codecs | pass a valid, in-range `Date` |
 
-All eleven codes are **public stability contract**. The shape is, in TypeScript terms:
+All twelve codes are **public stability contract**. The shape is, in TypeScript terms:
 
 ```ts
 export type IdsErrorCode =
@@ -58,7 +59,8 @@ export type IdsErrorCode =
   | "invalid_lookup_key"
   | "verification_failed"
   | "invalid_id"
-  | "invalid_namespace";
+  | "invalid_namespace"
+  | "invalid_timestamp";
 
 export class IdsError extends Error {
   readonly code: IdsErrorCode;
@@ -74,7 +76,8 @@ export function isIdsError(value: unknown): value is IdsError;
 | --- | --- | --- |
 | `bytes.ts` `decodeHex` | `invalid hex` | internal helper; the public key decoders validate hex themselves and raise `invalid_key_encoding` before this is reached on a public path |
 | `opaque-key.ts` / `wrapping-key.ts` handle-not-found | `invalid opaque key` / `invalid wrapping key` | only reachable with a forged/foreign handle (requires a cast past the branded type); a misuse/bug, not caller data |
-| `wire/timestamp-bytes.ts` | `timestamp is not a number` / `negative` / `exceeds 48-bit range` | guards an internal encoding invariant; only trippable by injecting a pathological `TimestampOptions.now` |
+| `signed/key.ts` handle-not-found | `invalid signing key` | only reachable with a forged/foreign handle; a misuse/bug, not caller data |
+| `digest/key.ts` handle-not-found | `invalid digest key` | only reachable with a forged/foreign handle; a misuse/bug, not caller data |
 | `hono.ts` | `HTTPException` | deliberately a framework error on the no-`onError` path; converting it would break the adapter's contract |
 
 ## Considered Options

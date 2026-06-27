@@ -281,19 +281,37 @@ describe("opaque", () => {
   it("generateAt() rejects pre-epoch dates", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const usr = createOpaqueTimestampId("usr", { key });
-    await expect(usr.generateAt(new Date(-1))).rejects.toBeInstanceOf(Error);
+    let err: unknown;
+    try {
+      await usr.generateAt(new Date(-1));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("generateAt() rejects dates that overflow 48 bits", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const usr = createOpaqueTimestampId("usr", { key });
-    await expect(usr.generateAt(new Date(2 ** 48))).rejects.toBeInstanceOf(Error);
+    let err: unknown;
+    try {
+      await usr.generateAt(new Date(2 ** 48));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   it("generateAt() rejects an Invalid Date (NaN timestamp)", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const usr = createOpaqueTimestampId("usr", { key });
-    await expect(usr.generateAt(new Date(NaN))).rejects.toBeInstanceOf(Error);
+    let err: unknown;
+    try {
+      await usr.generateAt(new Date(NaN));
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err) && err.code === "invalid_timestamp").toBe(true);
   });
 
   // --- Golden vector ---

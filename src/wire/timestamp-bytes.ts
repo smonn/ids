@@ -1,3 +1,4 @@
+import { IdsError } from "../error.js";
 import { decodeBase32 } from "./base32.js";
 
 // Timestamp byte layout: first N bytes of the plaintext payload encode a
@@ -8,10 +9,10 @@ const timestampBase32Length: number = Math.ceil((timestampByteLength * 8) / 5);
 
 /** Write the timestamp in big-endian; encoded via mod-256 to avoid 32-bit bitwise coercion. */
 export function writeTimestamp(ms: number, buffer: Uint8Array): void {
-  if (!Number.isInteger(ms)) throw new Error("timestamp is not an integer");
-  if (ms < 0) throw new Error("timestamp is negative");
+  if (!Number.isInteger(ms)) throw new IdsError("invalid_timestamp", "timestamp is not an integer");
+  if (ms < 0) throw new IdsError("invalid_timestamp", "timestamp is negative");
   if (ms >= 2 ** (timestampByteLength * 8)) {
-    throw new Error("timestamp exceeds 48-bit range");
+    throw new IdsError("invalid_timestamp", "timestamp exceeds 48-bit range");
   }
   for (let i = timestampByteLength - 1; i >= 0; i--) {
     buffer[i] = ms % 256;
