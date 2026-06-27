@@ -61,11 +61,11 @@ jobs:
           # from the pnpm workspace — no throwaway npm lockfile to derive (npm's
           # --package-lock-only chokes on pnpm's symlinked node_modules). cdxgen is
           # an exact-version devDependency (lockfile-pinned, cooldown-covered), so
-          # this runs the already-installed binary via the `sbom` script — no
-          # floating, network-fetched tool in this privileged job. The cdxgen
-          # invocation lives in package.json so it's runnable and pinned in one
-          # place. (`sbom:generate`, not `sbom`, to avoid pnpm v11's built-in
-          # `pnpm sbom` subcommand shadowing the script.)
+          # this runs the already-installed binary via the `sbom:generate`
+          # script — no floating, network-fetched tool in this privileged job.
+          # The cdxgen invocation lives in package.json so it's runnable and
+          # pinned in one place. (Named `sbom:generate`, not `sbom`, to avoid
+          # pnpm v11's built-in `pnpm sbom` subcommand shadowing the script.)
           pnpm sbom:generate
           # Pack the published package as the attestation subject. pnpm pack is
           # deterministic from the built dist/, so this tarball matches the one
