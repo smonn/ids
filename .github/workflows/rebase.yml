@@ -31,9 +31,11 @@ concurrency:
   group: rebase-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  pull-requests: write
+# No default GITHUB_TOKEN scopes: every GitHub mutation in this workflow flows
+# through the narrowly-scoped App token minted at runtime (see the app-token step
+# below), never the built-in token. The checkout authenticates with that App
+# token explicitly. Mirrors the conflicts.yml / labels.yml `permissions: {}` pattern.
+permissions: {}
 
 jobs:
   resolve:

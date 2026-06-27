@@ -1,0 +1,62 @@
+name: Scheduled dependency audit
+
+# A registry-dependent production-dependency audit that runs on a SCHEDULE,
+# independent of PR traffic (BUILD-2). The same check runs inline in ci.yml on
+# every PR, but a transient registry outage there can fail (or flake) unrelated
+# PRs. This dedicated weekly run gives a PR-independent signal: a failure here
+# points at a genuinely new high/critical advisory (or a sustained registry
+# problem), not one unlucky PR. workflow_dispatch allows an on-demand re-check.
+
+on:
+  schedule:
+    # Weekly, Monday 06:00 UTC.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+# Read-only: this job only installs deps and audits them; it pushes nothing and
+# mutates nothing. Mirrors ci.yml's least-privilege default token.
+permissions:
+  contents: read
+
+concurrency:
+  group: security-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Monitor egress in audit mode (log-only, never blocks): the dependency
+      # install runs untrusted postinstall scripts, so logging unexpected outbound
+      # connections is cheap insurance — matches ci.yml.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: ./.github/actions/setup-node-pnpm
+
+      # Same fail-closed audit as ci.yml: capture the JSON, ASSERT it carries a
+      # `.metadata.vulnerabilities` object (proof the registry answered) so an empty
+      # fetch can't read as "no advisories," then fail on any high/critical count.
+      - name: Audit production dependencies (high/critical, fail-closed)
+        run: |
+          set -euo pipefail
+          # pnpm audit exits non-zero when it finds advisories, so don't let that
+          # abort the capture; we inspect the JSON ourselves.
+          audit_json=$(pnpm audit --prod --json 2>/dev/null) || true
+          if [ -z "$audit_json" ] || ! printf '%s' "$audit_json" | jq -e '.metadata.vulnerabilities' >/dev/null 2>&1; then
+            echo "::error::pnpm audit produced no advisory metadata — the registry fetch likely failed. Not treating this as 'no advisories'; failing closed."
+            printf '%s\n' "$audit_json" | head -c 2000
+            exit 1
+          fi
+          high=$(printf '%s' "$audit_json" | jq -r '.metadata.vulnerabilities.high // 0')
+          critical=$(printf '%s' "$audit_json" | jq -r '.metadata.vulnerabilities.critical // 0')
+          echo "Production advisories — high: $high, critical: $critical."
+          if [ "$high" -gt 0 ] || [ "$critical" -gt 0 ]; then
+            echo "::error::Found $high high and $critical critical advisory(ies) in production dependencies."
+            printf '%s' "$audit_json" | jq '.advisories // {}'
+            exit 1
+          fi

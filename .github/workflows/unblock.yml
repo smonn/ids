@@ -50,11 +50,6 @@ jobs:
           # access.
           permission-issues: write
 
-      # Checkout only so the shared .github/scripts/parse-blockers.sh is on disk; the
-      # job still makes no commits and pushes nothing.
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
       - name: Unblock issues whose blockers are all closed
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}

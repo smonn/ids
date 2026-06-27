@@ -67,7 +67,35 @@ jobs:
       # --prod scopes the audit to production deps so dev-only advisories (e.g. the
       # esbuild/vite findings pinned in pnpm-workspace.yaml overrides) don't block,
       # while a real runtime high/critical does. Dependabot still surfaces the rest.
-      - run: pnpm audit --prod --audit-level=high
+      #
+      # Hardened against a fail-open (BUILD-2): the audit hits the live registry on
+      # every PR, and a transient outage can yield empty/garbage output that a bare
+      # `pnpm audit` might read as "no advisories." So we capture the JSON and ASSERT
+      # it carries a `.metadata.vulnerabilities` object (proof the registry actually
+      # answered) before trusting it; missing/empty metadata fails the step loudly
+      # instead of passing as clean. Then fail on any high/critical count — the same
+      # threshold as the retired `--audit-level=high` flag. A scheduled, PR-independent
+      # sweep also runs in security-audit.yml so registry flakiness on one PR is not
+      # the only signal.
+      - name: Audit production dependencies (high/critical, fail-closed)
+        run: |
+          set -euo pipefail
+          # pnpm audit exits non-zero when it finds advisories, so don't let that
+          # abort the capture; we inspect the JSON ourselves.
+          audit_json=$(pnpm audit --prod --json 2>/dev/null) || true
+          if [ -z "$audit_json" ] || ! printf '%s' "$audit_json" | jq -e '.metadata.vulnerabilities' >/dev/null 2>&1; then
+            echo "::error::pnpm audit produced no advisory metadata — the registry fetch likely failed. Not treating this as 'no advisories'; failing closed."
+            printf '%s\n' "$audit_json" | head -c 2000
+            exit 1
+          fi
+          high=$(printf '%s' "$audit_json" | jq -r '.metadata.vulnerabilities.high // 0')
+          critical=$(printf '%s' "$audit_json" | jq -r '.metadata.vulnerabilities.critical // 0')
+          echo "Production advisories — high: $high, critical: $critical."
+          if [ "$high" -gt 0 ] || [ "$critical" -gt 0 ]; then
+            echo "::error::Found $high high and $critical critical advisory(ies) in production dependencies."
+            printf '%s' "$audit_json" | jq '.advisories // {}'
+            exit 1
+          fi
 
       - run: pnpm lint
 
