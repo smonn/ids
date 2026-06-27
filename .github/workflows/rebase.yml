@@ -151,11 +151,9 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Provision workflow helpers from main if absent
-        # This job checks out an agent/PR branch; local actions (./.github/actions/*)
-        # and scripts (.github/scripts/*) resolve from that branch's tree. A branch that
-        # predates these helpers lacks them, breaking the references below. If any are
-        # missing, fetch them from main and extract as UNTRACKED, git-ignored files:
-        # available on disk for uses:/bash, but never staged into the agent's commits.
+        # Provision local actions/scripts from main when this branch predates them (kept
+        # UNTRACKED, so they never enter the agent's commits) — see
+        # .github/workflows/README.md "Provisioning workflow helpers from main".
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}

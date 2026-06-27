@@ -21,15 +21,11 @@ permissions:
   contents: read
   issues: write
 
-# PRODUCE / POST split (mirrors review.yml). Everything MECHANICAL — reading the
-# issue, parsing `Blocked by #N` blockers and their state, the idempotency check,
-# JSON encoding, and the comment/label mutations — lives in deterministic `run:`
-# steps. The Claude step is a pure PRODUCER: it reads the precomputed context under
-# `.triage-context/`, makes the triage judgment, and WRITES its decision to files
-# under `.triage/` (a raw-markdown `comment.md` plus a scalars-only `manifest.json`).
-# It runs NO gh and NO git and makes ZERO GitHub mutations; a later deterministic
-# `post` step reads those files and does all the commenting + labeling. Two purely
-# mechanical decisions short-circuit BEFORE the agent is ever invoked:
+# PRODUCE / POST split (see .github/workflows/README.md "Producer / poster split"). The
+# producer reads `.triage-context/`, makes the triage judgment, and writes its decision
+# under `.triage/` (a raw-markdown `comment.md` plus a scalars-only `manifest.json`); the
+# deterministic `post` step does all the commenting + labeling. Two purely mechanical
+# decisions short-circuit BEFORE the agent is ever invoked:
 #   - IDEMPOTENCY: if the issue already carries a decision label it was triaged.
 #   - BLOCKERS: if any declared blocker is still OPEN, the gate posts the "blocked"
 #     comment + label deterministically and stops (unblock.yml re-triages later).
