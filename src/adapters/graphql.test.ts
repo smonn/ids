@@ -42,21 +42,21 @@ describe("idScalar", () => {
       const orgId = org.generate();
       expect(() => scalar.parseValue(orgId)).toThrow(GraphQLError);
       expect(() => scalar.parseValue(orgId)).toThrow(
-        expect.objectContaining({ message: expect.stringContaining("invalid_prefix") }),
+        expect.objectContaining({ message: "invalid UserId" }),
       );
     });
 
     it("malformed input throws GraphQLError", () => {
       expect(() => scalar.parseValue("usr_uuuuuuuuuuuuuuuuuuuuuuuuuu")).toThrow(GraphQLError);
       expect(() => scalar.parseValue("usr_uuuuuuuuuuuuuuuuuuuuuuuuuu")).toThrow(
-        expect.objectContaining({ message: expect.stringContaining("invalid_base32") }),
+        expect.objectContaining({ message: "invalid UserId" }),
       );
     });
 
     it("non-string input throws GraphQLError", () => {
       expect(() => scalar.parseValue(42)).toThrow(GraphQLError);
       expect(() => scalar.parseValue(42)).toThrow(
-        expect.objectContaining({ message: expect.stringContaining("not_string") }),
+        expect.objectContaining({ message: "invalid UserId" }),
       );
     });
   });
@@ -76,7 +76,7 @@ describe("idScalar", () => {
       const orgId = org.generate();
       expect(() => scalar.parseLiteral(makeStringNode(orgId), {})).toThrow(GraphQLError);
       expect(() => scalar.parseLiteral(makeStringNode(orgId), {})).toThrow(
-        expect.objectContaining({ message: expect.stringContaining("invalid_prefix") }),
+        expect.objectContaining({ message: "invalid UserId" }),
       );
     });
 
@@ -86,7 +86,7 @@ describe("idScalar", () => {
       ).toThrow(GraphQLError);
       expect(() =>
         scalar.parseLiteral(makeStringNode("usr_uuuuuuuuuuuuuuuuuuuuuuuuuu"), {}),
-      ).toThrow(expect.objectContaining({ message: expect.stringContaining("invalid_base32") }));
+      ).toThrow(expect.objectContaining({ message: "invalid UserId" }));
     });
 
     it("non-string AST kind throws GraphQLError", () => {
@@ -109,18 +109,26 @@ describe("idScalar", () => {
       expect(typeof result).toBe("string");
     });
 
+    it("non-canonical input (uppercase) throws GraphQLError", () => {
+      const id = usr.generate();
+      expect(() => scalar.serialize(id.toUpperCase())).toThrow(GraphQLError);
+      expect(() => scalar.serialize(id.toUpperCase())).toThrow(
+        expect.objectContaining({ message: "invalid UserId" }),
+      );
+    });
+
     it("wrong-brand ID throws GraphQLError", () => {
       const orgId = org.generate();
       expect(() => scalar.serialize(orgId)).toThrow(GraphQLError);
       expect(() => scalar.serialize(orgId)).toThrow(
-        expect.objectContaining({ message: expect.stringContaining("invalid_prefix") }),
+        expect.objectContaining({ message: "invalid UserId" }),
       );
     });
 
     it("invalid string throws GraphQLError", () => {
       expect(() => scalar.serialize("not-an-id-at-all")).toThrow(GraphQLError);
       expect(() => scalar.serialize("not-an-id-at-all")).toThrow(
-        expect.objectContaining({ message: expect.stringContaining("invalid_prefix") }),
+        expect.objectContaining({ message: "invalid UserId" }),
       );
     });
   });
@@ -140,12 +148,25 @@ describe("idScalar", () => {
     });
   });
 
-  describe("safeParse-only contract (spy codec)", () => {
+  describe("hook-codec contract (spy codec)", () => {
+    it("serialize calls only is() on the codec", () => {
+      const spyCodec = makeSpyCodec("spy");
+      const spyScalar = idScalar(spyCodec, { name: "SpyId" });
+      const fakeId = spyCodec.generate();
+      spyScalar.serialize(fakeId);
+      expect(spyCodec.is).toHaveBeenCalled();
+      expect(spyCodec.safeParse).not.toHaveBeenCalled();
+      expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
+      expect(spyCodec.wrap).not.toHaveBeenCalled();
+      expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+
     it("parseValue calls only safeParse on the codec", () => {
       const spyCodec = makeSpyCodec("spy");
       const spyScalar = idScalar(spyCodec, { name: "SpyId" });
       spyScalar.parseValue("any_input");
       expect(spyCodec.safeParse).toHaveBeenCalled();
+      expect(spyCodec.is).not.toHaveBeenCalled();
       expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
