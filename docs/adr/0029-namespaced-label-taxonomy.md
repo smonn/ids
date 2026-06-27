@@ -39,17 +39,20 @@ Notable cross-decisions baked into the table:
 - **`released:` is keyed on the major version _line_, not the semver version.** `released:v1` (later `v2`) is multi-select so a back-ported fix shipped in two lines carries both. Per-semver-version labels (`released:1.4.0`) were rejected — see Considered options.
 - **`needs-human` stays flat.** It is a cross-cutting "all automation gave up" escalation fired from five workflows on both objects; a namespace buys nothing and complicates five grep sites.
 
-## Colours: semantic, not by-namespace
+## Colours: urgency on state labels, quiet tints on descriptive ones
 
-Once labels are namespaced the **prefix text already encodes the grouping**, so colouring a whole namespace one hue is redundant with what is written on the label. Colour is therefore spent on what the text does _not_ convey at a glance — urgency — extending the intent already present in today's `labels.yml`:
+Saturated colour is spent on what the text does _not_ convey at a glance — **urgency** — extending the intent already present in today's `labels.yml`:
 
 - **Red** — needs attention: `needs-human`, `issue:blocked`, `pr:changes-requested`
 - **Green** — good/go: `issue:ready-agent`, `pr:ready`, `released:*`
 - **Yellow** — waiting: `issue:triage`, `issue:needs-info`, `pr:outdated`
 - **Blue/purple** — active: `issue:in-progress`, `pr:reviewing`, `pr:addressing-feedback`, `do:*`
-- **Neutral grey** — informational / auto-derived: `type:*`, `size:*`, `codec:*`, `area:*`, `changeset:*`, `auto-round:*`
 
-The descriptive auto-labels recede to grey so the actionable state labels carry the colour budget; an issue/PR list scans as "red needs me, green is done."
+The descriptive, auto-derived namespaces (`type:*`, `size:*`, `codec:*`, `area:*`, `changeset:*`, `auto-round:*`) carry no urgency, so they get no saturated colour — the actionable state labels keep the colour budget, and an issue/PR list still scans as "red needs me, green is done."
+
+**Amendment (post-acceptance):** these descriptive labels were originally all flat grey (`EDEDED`). In a long issue/PR list that produced an undifferentiated grey blob — you could not tell a `codec:` chip from a `size:` chip from a `type:` chip without reading each one. The wholesale "colour-by-namespace" rejection below conflated two cases: it is correct for **state** namespaces (`issue:`, `pr:`), where a single namespace hue would hide the `ready`-vs-`blocked` urgency difference colour exists to surface — but for the descriptive namespaces every value is equally informational, so a per-namespace hue buries **no** signal. The only remaining objection (redundant with the prefix text) is weak because colour is preattentive: at list-scan distance the block of colour registers before the text is read.
+
+So the descriptive namespaces now get a **quiet per-namespace tint** instead of flat grey: one low-saturation hue per namespace, drawn from hues the urgency set does not use (slate-blue, teal, clay, lavender — _not_ pastel red/green/yellow/purple), kept light enough that a descriptive label never out-shouts or is mistaken for a state label. `size:` additionally ramps light→dark (`xs`→`xl`) to encode magnitude, the one ordinal axis whose meaning the text does not give at a glance. `auto-round:` stays grey — it is ephemeral and carries no triage value. The exact hexes live in `labels.yml`; this is a cosmetic, `labels.yml`-only change (no workflow filters on colour).
 
 ## `size:` is calibrated absolute churn, not a percentage
 
@@ -77,13 +80,13 @@ A big-bang rename would break 14 workflows at once. The rollout keeps every inte
 - **Per-semver-version `released:1.4.0`** — rejected. One new label per release forever bloats the picker, and dynamically-created labels have no `ensure` line, breaking the single-source-of-truth + weekly self-heal invariant. Major-line `released:v1` is bounded and statically enumerable; per-version filtering, if ever wanted, belongs on milestones, not labels.
 - **Percentage-based `size:`** — rejected (see above): ambiguous denominator, moving target, and it duplicates `scope:`'s blast-radius role.
 - **Per-adapter `adapter:` namespace** — deferred, not adopted. Ten adapters would be ten labels for thin integration shims; `area:adapters` is coarse enough to start, and a hot adapter can be promoted later additively with no migration. Codecs earn per-variant labels because they are the core surface with dedicated ADRs and a template dropdown.
-- **Colour-by-namespace** — rejected: redundant with the prefix text, and it makes `issue:ready` and `issue:blocked` look identical, hiding exactly the distinction colour should surface.
+- **Colour-by-namespace** — rejected _for state namespaces_, because for `issue:`/`pr:` it makes `issue:ready` and `issue:blocked` look identical, hiding exactly the distinction colour should surface. The "redundant with the prefix text" half of this objection does **not** hold for the descriptive namespaces, which carry no within-namespace urgency to hide and benefit from a preattentive per-namespace tint — see the amendment in §Colours.
 - **Big-bang rename** — rejected: 14 workflows match exact strings; a single cutover has no reversible intermediate state. The additive-first phasing trades a few PRs for safety.
 - **Reporter-friendly `bug`/`enhancement` `type:` nouns with a CC mapping** — rejected: a mapping table to maintain plus a permanent mismatch between a PR's `type:` word and its own enforced CC title. Unified CC vocabulary needs no mapping and stays consistent by construction.
 
 ## Consequences
 
 - **Blast radius is wide but mechanical:** `.github/workflows/labels.yml` (rewrite), 14 workflows matching label strings (316 references), the two guard hooks (`.claude/hooks/guard-pipeline-labels.mjs`, `guard-pipeline-labels-bash.mjs`) whose hardcoded lifecycle sets must track the renames, the issue templates' `labels:` fields and dropdowns, `docs/agents/triage-labels.md` and `docs/agents/issue-tracker.md`, and a new `.gitattributes`.
-- **Net new labels** add descriptive triage/archival signal (`type`/`size`/`codec`/`area`/`changeset`/`released`) the flat set never had — at the cost of more labels overall, mitigated by namespacing them into discoverable groups and greying out the inert ones.
+- **Net new labels** add descriptive triage/archival signal (`type`/`size`/`codec`/`area`/`changeset`/`released`) the flat set never had — at the cost of more labels overall, mitigated by namespacing them into discoverable groups and giving the inert ones quiet per-namespace tints (see §Colours) so they recede without becoming an undifferentiated grey blob.
 - **The single-source-of-truth invariant is preserved**: every label remains statically enumerable in `labels.yml` (the reason `released:` is line-keyed, not version-keyed), so the weekly self-heal keeps working unchanged.
 - **The flat names survive through the entire transition**, so no in-flight issue or PR is stranded mid-migration; retirement is an explicit, auditable Phase 4 step, not a side effect.
