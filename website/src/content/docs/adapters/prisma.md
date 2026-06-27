@@ -33,7 +33,7 @@ await xprisma.user.create({ data: { id: userIdField.write(usr.generate()), name:
 
 `idField(codec)` requires `IdGeneratingCodec` — a codec variant exposing a synchronous `generate()`. Only the **Timestamp codec** and **Reverse Timestamp codec** satisfy this constraint; the Opaque, Signed, Wrapped, and Digest codecs do not expose a synchronous `generate()` and cannot be passed to `idField()`. For those codecs, use [`idFieldReadOnly`](#read-only-path-for-non-generating-codecs-idFieldReadOnly) instead.
 
-- **Write path:** `write` is an identity function — `Id<Brand>` is already canonical.
+- **Write path:** `write` passes the canonical `Id<Brand>` through unchanged. Passing `null` or `undefined` throws `IdsError("invalid_id")` at runtime.
 - **Read path:** values are normalised via `codec.safeParse()`. An unrecognised value throws at read time so corrupt data surfaces immediately.
 
 ## Auto-generating IDs on create — `defaultQuery`

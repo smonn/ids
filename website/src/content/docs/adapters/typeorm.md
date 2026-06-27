@@ -28,8 +28,7 @@ class User {
 
 `idTransformer(codec)` works with any codec variant.
 
-- **Write path:** `to` is an identity function — `Id<Brand>` is already
-  canonical.
+- **Write path:** `to` passes the canonical `Id<Brand>` through unchanged. Passing `null` or `undefined` throws `IdsError("invalid_id")` at runtime — use `nullableIdTransformer` for nullable columns.
 - **Read path:** values are normalised via `codec.safeParse()`. An unrecognised
   value throws at read time so corrupt data surfaces immediately.
 

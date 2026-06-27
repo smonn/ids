@@ -90,7 +90,7 @@ const id = usrCol.fromDriver(row.id as unknown as string);
 
 `idColumn(codec)` works with any codec variant.
 
-- **Write path:** `toDriver` passes the already-canonical `Id<Brand>` unchanged.
+- **Write path:** `toDriver` passes the already-canonical `Id<Brand>` unchanged. Passing `null` or `undefined` throws `IdsError("invalid_id")` at runtime — use `nullableIdColumn` for nullable columns.
 - **Read path:** `fromDriver` normalises the raw DB string via `codec.safeParse()`. An unrecognised value throws at read time so corrupt data surfaces immediately.
 
 ### Error handling

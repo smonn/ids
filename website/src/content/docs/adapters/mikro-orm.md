@@ -31,8 +31,7 @@ class User {
 `safeParse` satisfies the required interface (Timestamp, Opaque Timestamp,
 Reverse Timestamp, Signed Timestamp, Digest, and Wrapped key codecs all qualify).
 
-- **Write path:** `convertToDatabaseValue` passes the already-canonical
-  `Id<Brand>` to the driver unchanged.
+- **Write path:** `convertToDatabaseValue` passes the canonical `Id<Brand>` to the driver unchanged. Passing `null` or `undefined` throws `IdsError("invalid_id")` at runtime — use `nullableIdType` for nullable columns.
 - **Read path:** `convertToJSValue` normalises the raw DB value via
   `codec.safeParse()`. An unrecognised value throws at read time so corrupt
   data surfaces immediately.
