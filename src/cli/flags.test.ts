@@ -5,6 +5,7 @@ import {
   parseBits,
   parseKind,
   parseNs,
+  isNsError,
   unsupportedFlagForCommand,
 } from "./flags.js";
 import { maxGenerateCount } from "./constants.js";
@@ -163,6 +164,38 @@ describe("parseNs", () => {
     const result = parseNs(new Map([["--ns", "   "]]));
     expect(typeof result).toBe("string");
     expect(result as string).toContain("--ns");
+  });
+
+  it("value with leading whitespace returns an error string containing 'whitespace'", () => {
+    const result = parseNs(new Map([["--ns", "  pad"]]));
+    expect(typeof result).toBe("string");
+    expect(result as string).toContain("whitespace");
+  });
+
+  it("value with trailing whitespace returns an error string containing 'whitespace'", () => {
+    const result = parseNs(new Map([["--ns", "pad  "]]));
+    expect(typeof result).toBe("string");
+    expect(result as string).toContain("whitespace");
+  });
+
+  it("value with both leading and trailing whitespace returns an error string containing 'whitespace'", () => {
+    const result = parseNs(new Map([["--ns", "  pad  "]]));
+    expect(typeof result).toBe("string");
+    expect(result as string).toContain("whitespace");
+  });
+});
+
+describe("isNsError", () => {
+  it("returns true for '--ns requires a value'", () => {
+    expect(isNsError("--ns requires a value")).toBe(true);
+  });
+
+  it("returns true for the whitespace error message", () => {
+    expect(isNsError("--ns must not have leading or trailing whitespace")).toBe(true);
+  });
+
+  it("returns false for a valid namespace string", () => {
+    expect(isNsError("checkout")).toBe(false);
   });
 });
 
