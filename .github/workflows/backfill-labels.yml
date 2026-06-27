@@ -1,0 +1,80 @@
+name: Backfill namespaced labels
+
+# Phase 5 of the namespaced label taxonomy (ADR-0029 §Migration): a one-time backfill
+# that stamps the mechanical descriptive labels (type:/size:/codec:/area:/changeset:)
+# across open AND closed issues/PRs, and the issue: lifecycle status on open issues.
+# It reuses the SAME pure classifiers the Phase 1 live workflows use
+# (.github/scripts/{label-classifier,lifecycle-classifier}.mjs), so historical and live
+# labels match exactly.
+#
+# Manual only (workflow_dispatch) — there is no `labeled`/`issues`/`pull_request`
+# trigger, so the no-status-triggers CI lint (ADR-0030) does not apply. Every label it
+# writes is descriptive/lifecycle STATUS, never read by any workflow's `labeled` filter,
+# so the backfill starts no pipeline work.
+#
+# DRY-RUN by default: the first dispatch prints the planned changes and mutates nothing.
+# Re-dispatch with `dry_run: false` to apply. The script is idempotent — a second run
+# finds the labels already current and is a no-op.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print the plan without applying it
+        type: boolean
+        default: true
+      scope:
+        description: Which items to backfill
+        type: choice
+        default: all
+        options: [all, prs, issues]
+
+concurrency:
+  group: backfill-labels
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    environment: automation
+    steps:
+      - name: Checkout (classifiers + local actions)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: ./.github/actions/app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Least-privilege for what the backfill does:
+          #  - issues:write — edit issue labels (and read issue events for lifecycle).
+          #  - pull-requests:write — `gh pr edit --add-label` (the addLabelsToLabelable
+          #    GraphQL mutation on a PR node needs pull-requests:write; issues:write
+          #    does NOT cover it).
+          #  - contents:read — read each changed `.changeset/*.md` via the raw contents
+          #    API for the changeset: label.
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: Backfill labels
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+          args=(--scope="$SCOPE")
+          # Default to dry-run for any value other than an explicit false, so an
+          # unexpected input can never silently mutate labels.
+          if [ "$DRY_RUN" = "false" ]; then
+            args+=(--apply)
+          fi
+          node .github/scripts/backfill-labels.mjs "${args[@]}"
