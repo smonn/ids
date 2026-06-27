@@ -6,14 +6,27 @@ name: Review agent PRs
 # commit is reviewed once — this keeps the required `review` check fresh on the current
 # head SHA instead of stranding it on the opened commit after later pushes.
 #
-# The job ALWAYS runs (there is no job-level `if`) and the agent/event/label scoping
-# lives in the first `scope` step instead. This is deliberate: the `review` check is a
-# required status check, and we want it to report a real, visible `success` on the head
-# commit for every PR — including human and forked PRs — rather than leaning on GitHub's
-# implicit "a job skipped by a conditional counts as success" rule. Out-of-scope PRs run
-# only the `scope` step (which needs no secrets, so forks report a genuine success too)
-# and then every later step no-ops, so the job finishes green without reviewing. In-scope
-# agent PRs run the full review, and a genuine review failure still fails the check.
+# The job runs for every event that establishes or refreshes the head commit
+# (opened/reopened/synchronize) and for manual dispatch, and the agent/event scoping
+# lives in the first `scope` step instead of a restrictive job-level `if`. This is
+# deliberate: the `review` check is a required status check, and we want it to report a
+# real, visible `success` on the head commit for every PR — including human and forked
+# PRs — rather than leaning on GitHub's implicit "a job skipped by a conditional counts
+# as success" rule. Out-of-scope PRs run only the `scope` step (which needs no secrets,
+# so forks report a genuine success too) and then every later step no-ops, so the job
+# finishes green without reviewing. In-scope agent PRs run the full review, and a
+# genuine review failure still fails the check.
+#
+# The ONE event the job does NOT run on is a `labeled` event for any label other than
+# `do:review` (the forced-re-review trigger). A `labeled` event never changes the head
+# commit — its SHA already carries the success the push/open run produced — so there is
+# nothing to re-report, and reacting to a status/descriptive label write (`pr:reviewing`,
+# `area:*`, `size:*`, …) would be a status-as-trigger misfire (ADR-0030). Worse, those
+# label writes share the PR and would, under one cancel-in-progress concurrency group,
+# cancel the real in-flight review (concurrency is evaluated BEFORE the job `if`), so the
+# review silently never posts and the `pr:` lifecycle label never advances past
+# `pr:reviewing`. The job `if` below skips them and the concurrency group parks them
+# away from the real review's group — see both for the full guard.
 #
 # PRODUCE / POST split. The Claude step is a pure PRODUCER: it writes findings to files
 # under `.review/` and makes ZERO GitHub mutations. A separate deterministic `post` step
@@ -54,7 +67,17 @@ on:
         type: string
 
 concurrency:
-  group: review-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+  # Real reviews — push/open/reopen, manual dispatch, and the `do:review` re-review —
+  # share one per-PR group and cancel in progress, so a newer commit (or a forced
+  # re-review) supersedes an in-flight review. A `labeled` event for any OTHER label
+  # must NOT share that group: it is skipped by the job `if`, but concurrency is
+  # evaluated BEFORE the `if`, so a shared group would still cancel the running real
+  # review the instant a status label (e.g. this job's own `pr:reviewing`) is written.
+  # Park every non-`do:review` label event in its own per-label throwaway group.
+  group: >-
+    review-${{ github.event.pull_request.number || github.event.inputs.pr_number }}${{
+      github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name != 'do:review'
+      && format('-label-{0}', github.event.label.name) || '' }}
   cancel-in-progress: true
 
 permissions:
@@ -63,6 +86,16 @@ permissions:
 
 jobs:
   review:
+    # Run for the events that establish/refresh the head commit (opened/reopened/
+    # synchronize) and for manual dispatch — the scope step decides in-scope from there,
+    # keeping the required `review` check a genuine success on every head commit. A
+    # `labeled` event runs ONLY for the `do:review` re-review trigger; every other label
+    # write (status/descriptive) is skipped so a status label never starts review work
+    # (ADR-0030) and the review can't cancel itself by writing its own `pr:reviewing`.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.action != 'labeled' ||
+      github.event.label.name == 'do:review'
     runs-on: ubuntu-latest
     environment: automation
     timeout-minutes: 30
