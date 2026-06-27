@@ -1,5 +1,7 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import { afterAll, beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 import { pgTable } from "drizzle-orm/pg-core";
 import { mysqlTable } from "drizzle-orm/mysql-core";
 import { sqliteTable } from "drizzle-orm/sqlite-core";
@@ -610,5 +612,28 @@ describe("drizzle — SQLite", () => {
     it("getSQLType is 'text'", () => {
       expect(posts.authorId.getSQLType()).toBe("text");
     });
+  });
+});
+
+describe("drizzle — SQLite integration", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  it("idColumnSqlite round-trips a generated Id through a :memory: BetterSQLite3 database", () => {
+    const sqliteDb = new Database(":memory:");
+    const codec = createTimestampId("dri", { allowDuplicateBrand: true });
+    const tbl = sqliteTable("dri_items", { id: idColumnSqlite(codec) });
+    sqliteDb.exec("CREATE TABLE dri_items (id TEXT NOT NULL)");
+    const db = drizzle(sqliteDb);
+    const id = codec.generate();
+    db.insert(tbl).values({ id }).run();
+    const rows = db.select().from(tbl).all();
+    expect(rows[0]!.id).toBe(id);
+    sqliteDb.close();
   });
 });
