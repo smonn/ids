@@ -49,15 +49,30 @@ jobs:
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
     steps:
       # Check out the BASE branch (main), not the PR head: the classifier and the
-      # local app-token action must be the trusted versions from main, never a
-      # version a PR might have altered.
+      # local app-token action run as the TRUSTED versions from main, never a
+      # version a PR might have altered. Only PR DATA (title, files, labels) comes
+      # from the PR, fetched via the API below.
       - name: Checkout main (classifier + local actions)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}
           persist-credentials: false
 
+      # Bootstrap guard: on the very PR that ADDS this workflow, the classifier
+      # scripts are not on main yet, so there is nothing to run — no-op to success.
+      # Every PR after this one's merge finds the scripts on main and labels for real.
+      - name: Is the classifier present on the base branch?
+        id: check
+        run: |
+          if [ -f .github/scripts/classify-pr.mjs ] && [ -f .github/scripts/label-classifier.mjs ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Classifier not on the base branch yet (bootstrap run before this workflow merges) — skipping."
+          fi
+
       - name: Generate GitHub App token
+        if: steps.check.outputs.ready == 'true'
         id: app-token
         uses: ./.github/actions/app-token
         with:
@@ -69,8 +84,8 @@ jobs:
           permission-issues: write
           permission-pull-requests: read
 
-      - name: Build classifier input
-        id: input
+      - name: Classify and apply labels
+        if: steps.check.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
@@ -106,16 +121,8 @@ jobs:
                 --argjson files "$files" --arg numstat "$numstat" \
                 --argjson changesets "$changesets" \
                 '{title:$title, current:$current, files:$files, numstat:$numstat, changesets:$changesets}' \
-            > input.json
-          echo "Built classifier input for PR #$PR_NUMBER."
+            | node .github/scripts/classify-pr.mjs > plan.json
 
-      - name: Classify and apply labels
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          node .github/scripts/classify-pr.mjs < input.json > plan.json
           add=$(jq -r '.add | join(",")' plan.json)
           remove=$(jq -r '.remove | join(",")' plan.json)
 

@@ -44,7 +44,20 @@ jobs:
         with:
           persist-credentials: false
 
+      # Bootstrap guard: before this workflow's own merge the classifier scripts
+      # are not on the default branch yet — no-op to success rather than fail.
+      - name: Is the classifier present?
+        id: check
+        run: |
+          if [ -f .github/scripts/classify-issue.mjs ] && [ -f .github/scripts/label-classifier.mjs ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Classifier not present yet (bootstrap run before this workflow merges) — skipping."
+          fi
+
       - name: Generate GitHub App token
+        if: steps.check.outputs.ready == 'true'
         id: app-token
         uses: ./.github/actions/app-token
         with:
@@ -55,6 +68,7 @@ jobs:
           permission-issues: write
 
       - name: Classify and apply labels
+        if: steps.check.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
