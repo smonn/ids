@@ -212,9 +212,9 @@ describe("HKDF domain separation", () => {
 
     expect(getOpaqueKeyCryptoKey(opaqueKey).algorithm.name).toBe("AES-CBC");
 
-    // Verify the Opaque label is independent: derive a stand-in HMAC key using
-    // the Opaque info label and assert its output differs from all three HMAC codecs.
-    // If importOpaqueKey's label were changed to match any HMAC label, one of these would equal.
+    // Derive a stand-in HMAC key under the Opaque info label and confirm its output
+    // differs from all three HMAC codec outputs — catches the case where an HMAC
+    // codec copies the Opaque label string (@smonn/ids/opaque/aes).
     const opaqueInfo = new TextEncoder().encode("@smonn/ids/opaque/aes");
     const standInHmacKey = await deriveKey(
       ikm,
