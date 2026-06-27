@@ -39,6 +39,50 @@ export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
   generate(): Id<Brand>;
 };
 
+function buildIdColumn<Brand extends string, Col>(
+  columnFactory: (config: {
+    dataType(): string;
+    toDriver(value: Id<Brand>): string;
+    fromDriver(value: string): Id<Brand>;
+  }) => Col,
+  codec: IdColumnCodec<Brand>,
+  columnType: string,
+): Col {
+  return columnFactory({
+    dataType() {
+      return columnType;
+    },
+    toDriver(value: Id<Brand>): string {
+      return writeIdColumn(value);
+    },
+    fromDriver(value: string): Id<Brand> {
+      return readIdColumn(codec, value);
+    },
+  });
+}
+
+function buildNullableIdColumn<Brand extends string, Col>(
+  columnFactory: (config: {
+    dataType(): string;
+    toDriver(value: Id<Brand> | null | undefined): string | null;
+    fromDriver(value: string | null): Id<Brand> | null;
+  }) => Col,
+  codec: IdColumnCodec<Brand>,
+  columnType: string,
+): Col {
+  return columnFactory({
+    dataType() {
+      return columnType;
+    },
+    toDriver(value: Id<Brand> | null | undefined): string | null {
+      return writeIdColumnNullable(value);
+    },
+    fromDriver(value: string | null): Id<Brand> | null {
+      return readIdColumnNullable(codec, value);
+    },
+  });
+}
+
 /**
  * Drizzle custom column type that stores an `Id<Brand>` as a canonical SQL string value in PostgreSQL.
  *
@@ -72,18 +116,11 @@ export function idColumn<Brand extends string>(
   codec: IdColumnCodec<Brand>,
   options?: { columnType?: string },
 ): PgCustomColumnBuilder<ConvertCustomConfig<"", { data: Id<Brand>; driverData: string }>> {
-  const columnType = options?.columnType ?? "text";
-  return customType<{ data: Id<Brand>; driverData: string }>({
-    dataType() {
-      return columnType;
-    },
-    toDriver(value: Id<Brand>): string {
-      return writeIdColumn(value);
-    },
-    fromDriver(value: string): Id<Brand> {
-      return readIdColumn(codec, value);
-    },
-  })();
+  return buildIdColumn(
+    (config) => customType<{ data: Id<Brand>; driverData: string }>(config)(),
+    codec,
+    options?.columnType ?? "text",
+  );
 }
 
 /**
@@ -109,59 +146,11 @@ export function idColumn<Brand extends string>(
 export function idColumnMysql<Brand extends string>(
   codec: IdColumnCodec<Brand>,
 ): MySqlCustomColumnBuilder<ConvertCustomConfigMysql<"", { data: Id<Brand>; driverData: string }>> {
-  return customTypeMysql<{ data: Id<Brand>; driverData: string }>({
-    dataType() {
-      return "text";
-    },
-    toDriver(value: Id<Brand>): string {
-      return writeIdColumn(value);
-    },
-    fromDriver(value: string): Id<Brand> {
-      return readIdColumn(codec, value);
-    },
-  })();
-}
-
-/**
- * Drizzle custom column type for a **nullable** `Id<Brand>` column in MySQL.
- *
- * Behaves identically to {@link idColumnMysql} except that `null` and `undefined`
- * driver values are passed through as `null` rather than throwing. Use for
- * optional foreign keys, `LEFT JOIN` results, and any column that is
- * legitimately absent.
- *
- * Column type is always `text` and cannot be overridden in MySQL.
- *
- * @param codec - The brand-scoped codec used to parse values read from the database.
- *
- * @example
- * ```ts
- * import { nullableIdColumnMysql } from "@smonn/ids/drizzle";
- * import { createTimestampId } from "@smonn/ids";
- *
- * const usr = createTimestampId("usr");
- * export const posts = mysqlTable("posts", {
- *   authorId: nullableIdColumnMysql(usr),
- * });
- * // posts.authorId is Id<"usr"> | null end-to-end
- * ```
- */
-export function nullableIdColumnMysql<Brand extends string>(
-  codec: IdColumnCodec<Brand>,
-): MySqlCustomColumnBuilder<
-  ConvertCustomConfigMysql<"", { data: Id<Brand> | null; driverData: string | null }>
-> {
-  return customTypeMysql<{ data: Id<Brand> | null; driverData: string | null }>({
-    dataType() {
-      return "text";
-    },
-    toDriver(value: Id<Brand> | null | undefined): string | null {
-      return writeIdColumnNullable(value);
-    },
-    fromDriver(value: string | null): Id<Brand> | null {
-      return readIdColumnNullable(codec, value);
-    },
-  })();
+  return buildIdColumn(
+    (config) => customTypeMysql<{ data: Id<Brand>; driverData: string }>(config)(),
+    codec,
+    "text",
+  );
 }
 
 /**
@@ -189,59 +178,11 @@ export function idColumnSqlite<Brand extends string>(
 ): SQLiteCustomColumnBuilder<
   ConvertCustomConfigSqlite<"", { data: Id<Brand>; driverData: string }>
 > {
-  return customTypeSqlite<{ data: Id<Brand>; driverData: string }>({
-    dataType() {
-      return "text";
-    },
-    toDriver(value: Id<Brand>): string {
-      return writeIdColumn(value);
-    },
-    fromDriver(value: string): Id<Brand> {
-      return readIdColumn(codec, value);
-    },
-  })();
-}
-
-/**
- * Drizzle custom column type for a **nullable** `Id<Brand>` column in SQLite.
- *
- * Behaves identically to {@link idColumnSqlite} except that `null` and `undefined`
- * driver values are passed through as `null` rather than throwing. Use for
- * optional foreign keys, `LEFT JOIN` results, and any column that is
- * legitimately absent.
- *
- * Column type is always `text` and cannot be overridden in SQLite.
- *
- * @param codec - The brand-scoped codec used to parse values read from the database.
- *
- * @example
- * ```ts
- * import { nullableIdColumnSqlite } from "@smonn/ids/drizzle";
- * import { createTimestampId } from "@smonn/ids";
- *
- * const usr = createTimestampId("usr");
- * export const posts = sqliteTable("posts", {
- *   authorId: nullableIdColumnSqlite(usr),
- * });
- * // posts.authorId is Id<"usr"> | null end-to-end
- * ```
- */
-export function nullableIdColumnSqlite<Brand extends string>(
-  codec: IdColumnCodec<Brand>,
-): SQLiteCustomColumnBuilder<
-  ConvertCustomConfigSqlite<"", { data: Id<Brand> | null; driverData: string | null }>
-> {
-  return customTypeSqlite<{ data: Id<Brand> | null; driverData: string | null }>({
-    dataType() {
-      return "text";
-    },
-    toDriver(value: Id<Brand> | null | undefined): string | null {
-      return writeIdColumnNullable(value);
-    },
-    fromDriver(value: string | null): Id<Brand> | null {
-      return readIdColumnNullable(codec, value);
-    },
-  })();
+  return buildIdColumn(
+    (config) => customTypeSqlite<{ data: Id<Brand>; driverData: string }>(config)(),
+    codec,
+    "text",
+  );
 }
 
 /**
@@ -289,18 +230,83 @@ export function nullableIdColumn<Brand extends string>(
 ): PgCustomColumnBuilder<
   ConvertCustomConfig<"", { data: Id<Brand> | null; driverData: string | null }>
 > {
-  const columnType = options?.columnType ?? "text";
-  return customType<{ data: Id<Brand> | null; driverData: string | null }>({
-    dataType() {
-      return columnType;
-    },
-    toDriver(value: Id<Brand> | null | undefined): string | null {
-      return writeIdColumnNullable(value);
-    },
-    fromDriver(value: string | null): Id<Brand> | null {
-      return readIdColumnNullable(codec, value);
-    },
-  })();
+  return buildNullableIdColumn(
+    (config) => customType<{ data: Id<Brand> | null; driverData: string | null }>(config)(),
+    codec,
+    options?.columnType ?? "text",
+  );
+}
+
+/**
+ * Drizzle custom column type for a **nullable** `Id<Brand>` column in MySQL.
+ *
+ * Behaves identically to {@link idColumnMysql} except that `null` and `undefined`
+ * driver values are passed through as `null` rather than throwing. Use for
+ * optional foreign keys, `LEFT JOIN` results, and any column that is
+ * legitimately absent.
+ *
+ * Column type is always `text` and cannot be overridden in MySQL.
+ *
+ * @param codec - The brand-scoped codec used to parse values read from the database.
+ *
+ * @example
+ * ```ts
+ * import { nullableIdColumnMysql } from "@smonn/ids/drizzle";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ * export const posts = mysqlTable("posts", {
+ *   authorId: nullableIdColumnMysql(usr),
+ * });
+ * // posts.authorId is Id<"usr"> | null end-to-end
+ * ```
+ */
+export function nullableIdColumnMysql<Brand extends string>(
+  codec: IdColumnCodec<Brand>,
+): MySqlCustomColumnBuilder<
+  ConvertCustomConfigMysql<"", { data: Id<Brand> | null; driverData: string | null }>
+> {
+  return buildNullableIdColumn(
+    (config) => customTypeMysql<{ data: Id<Brand> | null; driverData: string | null }>(config)(),
+    codec,
+    "text",
+  );
+}
+
+/**
+ * Drizzle custom column type for a **nullable** `Id<Brand>` column in SQLite.
+ *
+ * Behaves identically to {@link idColumnSqlite} except that `null` and `undefined`
+ * driver values are passed through as `null` rather than throwing. Use for
+ * optional foreign keys, `LEFT JOIN` results, and any column that is
+ * legitimately absent.
+ *
+ * Column type is always `text` and cannot be overridden in SQLite.
+ *
+ * @param codec - The brand-scoped codec used to parse values read from the database.
+ *
+ * @example
+ * ```ts
+ * import { nullableIdColumnSqlite } from "@smonn/ids/drizzle";
+ * import { createTimestampId } from "@smonn/ids";
+ *
+ * const usr = createTimestampId("usr");
+ * export const posts = sqliteTable("posts", {
+ *   authorId: nullableIdColumnSqlite(usr),
+ * });
+ * // posts.authorId is Id<"usr"> | null end-to-end
+ * ```
+ */
+export function nullableIdColumnSqlite<Brand extends string>(
+  codec: IdColumnCodec<Brand>,
+): SQLiteCustomColumnBuilder<
+  ConvertCustomConfigSqlite<"", { data: Id<Brand> | null; driverData: string | null }>
+> {
+  return buildNullableIdColumn(
+    (config) => customTypeSqlite<{ data: Id<Brand> | null; driverData: string | null }>(config)(),
+    codec,
+    "text",
+  );
 }
 
 /**
@@ -343,18 +349,11 @@ export function generatedIdColumn<Brand extends string>(
     PgCustomColumnBuilder<ConvertCustomConfig<"", { data: Id<Brand>; driverData: string }>>
   >
 > {
-  const columnType = options?.columnType ?? "text";
-  return customType<{ data: Id<Brand>; driverData: string }>({
-    dataType() {
-      return columnType;
-    },
-    toDriver(value: Id<Brand>): string {
-      return writeIdColumn(value);
-    },
-    fromDriver(value: string): Id<Brand> {
-      return readIdColumn(codec, value);
-    },
-  })().$defaultFn(() => codec.generate());
+  return buildIdColumn(
+    (config) => customType<{ data: Id<Brand>; driverData: string }>(config)(),
+    codec,
+    options?.columnType ?? "text",
+  ).$defaultFn(() => codec.generate());
 }
 
 /**
@@ -397,18 +396,11 @@ export function generatedIdColumnMysql<Brand extends string>(
     MySqlCustomColumnBuilder<ConvertCustomConfigMysql<"", { data: Id<Brand>; driverData: string }>>
   >
 > {
-  const columnType = options?.columnType ?? "text";
-  return customTypeMysql<{ data: Id<Brand>; driverData: string }>({
-    dataType() {
-      return columnType;
-    },
-    toDriver(value: Id<Brand>): string {
-      return writeIdColumn(value);
-    },
-    fromDriver(value: string): Id<Brand> {
-      return readIdColumn(codec, value);
-    },
-  })().$defaultFn(() => codec.generate());
+  return buildIdColumn(
+    (config) => customTypeMysql<{ data: Id<Brand>; driverData: string }>(config)(),
+    codec,
+    options?.columnType ?? "text",
+  ).$defaultFn(() => codec.generate());
 }
 
 /**
@@ -453,16 +445,9 @@ export function generatedIdColumnSqlite<Brand extends string>(
     >
   >
 > {
-  const columnType = options?.columnType ?? "text";
-  return customTypeSqlite<{ data: Id<Brand>; driverData: string }>({
-    dataType() {
-      return columnType;
-    },
-    toDriver(value: Id<Brand>): string {
-      return writeIdColumn(value);
-    },
-    fromDriver(value: string): Id<Brand> {
-      return readIdColumn(codec, value);
-    },
-  })().$defaultFn(() => codec.generate());
+  return buildIdColumn(
+    (config) => customTypeSqlite<{ data: Id<Brand>; driverData: string }>(config)(),
+    codec,
+    options?.columnType ?? "text",
+  ).$defaultFn(() => codec.generate());
 }
