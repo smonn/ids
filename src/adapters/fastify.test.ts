@@ -503,7 +503,7 @@ describe("idParam / idQuery — real fastify() app (integration)", () => {
       reply.send({ ok: true });
     });
     app.setErrorHandler((err, _request, reply) => {
-      const e = fromAny<IdParamError>(err);
+      const e: IdParamError = fromAny(err);
       reply.status(e.statusCode ?? 500).send({ error: e.reason });
     });
     await app.ready();
@@ -520,7 +520,7 @@ describe("idParam / idQuery — real fastify() app (integration)", () => {
       reply.send({ ok: true });
     });
     app.setErrorHandler((err, _request, reply) => {
-      const e = fromAny<IdParamError>(err);
+      const e: IdParamError = fromAny(err);
       reply.status(e.statusCode ?? 500).send({ error: e.reason });
     });
     await app.ready();
@@ -549,7 +549,7 @@ describe("idParam / idQuery — real fastify() app (integration)", () => {
       reply.send({ ok: true });
     });
     app.setErrorHandler((err, _request, reply) => {
-      const e = fromAny<IdParamError>(err);
+      const e: IdParamError = fromAny(err);
       reply.status(e.statusCode ?? 500).send({ error: e.reason });
     });
     await app.ready();
@@ -566,7 +566,7 @@ describe("idParam / idQuery — real fastify() app (integration)", () => {
       reply.send({ ok: true });
     });
     app.setErrorHandler((err, _request, reply) => {
-      const e = fromAny<IdParamError>(err);
+      const e: IdParamError = fromAny(err);
       reply.status(e.statusCode ?? 500).send({ error: e.reason });
     });
     await app.ready();
