@@ -140,12 +140,27 @@ jobs:
           # the required `review` check green); the rebase merge commit re-fires review on
           # the new SHA with the mutex already cleared. Any `automation:*` mutex pauses us.
           # Only checked when we'd otherwise review, so forks / out-of-scope PRs make no gh
-          # call and stay secret-free.
-          if [ "$review" = "true" ] &&
-             gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null |
-               grep -qE '^automation:'; then
-            review=false
-            echo "PR #$PR_NUMBER has an automation:* mutex — deferring review until the rebase merge commit."
+          # call and stay secret-free. The scope decision (in-scope / deferred / out-of-
+          # scope) is mirrored and unit-tested in .github/scripts/review-scope.mjs — keep
+          # the two in lock-step. NB the decision never looks at the label COUNT: only the
+          # event, the `do:review` trigger, the head repo/branch, and this mutex move a PR
+          # in or out of scope, so changing any number of status/descriptive labels can
+          # neither start nor stop a review.
+          if [ "$review" = "true" ]; then
+            pr_labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || true)
+            if printf '%s\n' "$pr_labels" | grep -qE '^automation:'; then
+              review=false
+              echo "PR #$PR_NUMBER has an automation:* mutex — deferring review until the rebase merge commit."
+              # A deferral must not strand a `pr:reviewing` left by a superseded/cancelled
+              # run (conflicts.yml cancels our in-flight runs when it sets the mutex), or the
+              # PR is stuck showing "reviewing" until — and unless — the rebase lands. Clear
+              # it here; the rebase merge commit re-fires review and re-sets it. Idempotent:
+              # only edits when the label is actually present.
+              if printf '%s\n' "$pr_labels" | grep -qxF 'pr:reviewing'; then
+                gh pr edit "$PR_NUMBER" --remove-label pr:reviewing || true
+                echo "Cleared stale pr:reviewing while deferring."
+              fi
+            fi
           fi
           echo "review=$review" >> "$GITHUB_OUTPUT"
           if [ "$review" = "true" ]; then
