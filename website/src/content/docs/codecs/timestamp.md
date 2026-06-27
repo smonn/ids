@@ -196,7 +196,7 @@ users.toJsonSchema();
 //   type: "string",
 //   pattern: "^usr_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$",
 //   description: "Branded ID for 'usr'",
-//   example: "usr_06f80z92d2dbsqqg28t5cy4tqg",
+//   example: "usr_00000000000000000000000000",
 // }
 ```
 
@@ -204,7 +204,7 @@ Drop the result straight into an OpenAPI `components.schemas` entry. The
 `pattern` describes the **canonical form only** — it matches `generate()` output
 and `is()`, but rejects the uppercase and aliases that `safeParse()` tolerates
 (see [ADR-0003](https://github.com/smonn/ids/blob/main/docs/adr/0003-canonical-strict-is.md)).
-`example` is freshly generated on each call, so it always matches the `pattern`.
+`example` is a deterministic structural placeholder (`prefix + "0".repeat(26)`) — stable across calls and consistent with the other codec families.
 
 ## Native `uuid` column storage
 
