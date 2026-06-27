@@ -7,6 +7,8 @@ import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js
 
 const laneByteLength = 8;
 const tagByteLength = 8;
+const _wrappedByteCheck: typeof payloadByteLength = laneByteLength + tagByteLength;
+void _wrappedByteCheck;
 
 type LayoutWrappingKey = {
   aesKey: webcrypto.CryptoKey;
