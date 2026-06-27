@@ -106,6 +106,7 @@
     "@changesets/cli": "2.31.0",
     "@mikro-orm/core": "^7.1.4",
     "@nestjs/common": "^11.1.27",
+    "@nestjs/testing": "^11.1.27",
     "@prisma/client": ">=5.0.0",
     "@total-typescript/shoehorn": "^0.1.2",
     "@types/express": "^5.0.6",

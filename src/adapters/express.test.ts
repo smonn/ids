@@ -1,10 +1,13 @@
 import { fromAny } from "@total-typescript/shoehorn";
+import express from "express";
 import type { NextFunction, Request } from "express";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { IdParamError, idParam, idQuery } from "./express.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { makeSpyCodec } from "./test-helpers.js";
+import { makeFailingSpyCodec, makeSpyCodec } from "./test-helpers.js";
 
 function makeReq(paramName: string, value: string | undefined): Request {
   return fromAny({ params: { [paramName]: value } });
@@ -399,5 +402,117 @@ describe("idQuery", () => {
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
+  });
+
+  describe("failure-mapping (spy codec)", () => {
+    it("safeParse failure from spy codec maps to malformed/400 and calls next(err)", () => {
+      const failing = makeFailingSpyCodec("spy", "not_string");
+      const middleware = idQuery("id", failing);
+      const req = makeQueryReq("id", "any_value");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      expect(next).toHaveBeenCalledOnce();
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect(err.reason).toBe("malformed");
+      expect(err.status).toBe(400);
+    });
+
+    it("invalid_prefix failure from spy codec maps to brand_mismatch/404 and calls next(err)", () => {
+      const failing = makeFailingSpyCodec("spy", "invalid_prefix");
+      const middleware = idQuery("id", failing);
+      const req = makeQueryReq("id", "any_value");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      expect(next).toHaveBeenCalledOnce();
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect(err.reason).toBe("brand_mismatch");
+      expect(err.status).toBe(404);
+    });
+  });
+});
+
+describe("idParam / idQuery — real express() app (integration)", () => {
+  const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+  const org = createTimestampId("org", { allowDuplicateBrand: true });
+
+  let origin: string;
+  let server: ReturnType<typeof createServer>;
+
+  beforeAll(() => {
+    const app = express();
+
+    app.get("/users/:id", idParam("id", usr), (_req, res) => {
+      res.json({ id: res.locals["id"] });
+    });
+    app.get("/search", idQuery("userId", usr), (_req, res) => {
+      res.json({ id: res.locals["userId"] });
+    });
+    app.get("/spy/:id", idParam("id", makeFailingSpyCodec("spy", "not_string")), (_req, res) => {
+      res.json({ ok: true });
+    });
+
+    app.use((err: unknown, _req: Request, res: express.Response, _next: NextFunction): void => {
+      const e = err as IdParamError;
+      res.status(e.status).json({ error: e.reason });
+    });
+
+    server = createServer(app);
+    return new Promise<void>((resolve) => {
+      server.listen(0, () => {
+        const addr = server.address() as AddressInfo;
+        origin = `http://localhost:${addr.port}`;
+        resolve();
+      });
+    });
+  });
+
+  afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
+
+  it("idParam happy path: real HTTP GET returns 200 with canonical Id", async () => {
+    const id = usr.generate();
+    const res = await fetch(`${origin}/users/${id}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { id: string };
+    expect(body.id).toBe(id);
+  });
+
+  it("idParam error path: wrong brand returns 404 with brand_mismatch", async () => {
+    const orgId = org.generate();
+    const res = await fetch(`${origin}/users/${orgId}`);
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("brand_mismatch");
+  });
+
+  it("idParam error path: malformed ID returns 400 with malformed", async () => {
+    const res = await fetch(`${origin}/users/usr_uuuuuuuuuuuuuuuuuuuuuuuuuu`);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("malformed");
+  });
+
+  it("idQuery happy path: real HTTP GET with query param returns 200 with canonical Id", async () => {
+    const id = usr.generate();
+    const res = await fetch(`${origin}/search?userId=${id}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { id: string };
+    expect(body.id).toBe(id);
+  });
+
+  it("idQuery error path: wrong brand in query param returns 404", async () => {
+    const orgId = org.generate();
+    const res = await fetch(`${origin}/search?userId=${orgId}`);
+    expect(res.status).toBe(404);
+  });
+
+  it("failure-mapping: safeParse failure from spy codec returns 400 via real HTTP", async () => {
+    const res = await fetch(`${origin}/spy/anything`);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("malformed");
   });
 });

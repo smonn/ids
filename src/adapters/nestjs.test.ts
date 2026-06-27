@@ -1,11 +1,12 @@
-import { BadRequestException, HttpException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Controller, HttpException, NotFoundException } from "@nestjs/common";
 import type { ArgumentMetadata } from "@nestjs/common";
+import { Test } from "@nestjs/testing";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ParseIdPipe } from "./nestjs.js";
 import type { IdParamFailure } from "./nestjs.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { makeSpyCodec } from "./test-helpers.js";
+import { makeFailingSpyCodec, makeSpyCodec } from "./test-helpers.js";
 
 const METADATA: ArgumentMetadata = { type: "param", metatype: String, data: "id" };
 const QUERY_METADATA: ArgumentMetadata = { type: "query", metatype: String, data: "id" };
@@ -194,5 +195,87 @@ describe("ParseIdPipe with @Query decorator (source-agnostic pipe)", () => {
   it("missing query param (undefined) throws BadRequestException (status 400)", () => {
     const pipe = new ParseIdPipe(usr);
     expect(() => pipe.transform(undefined, QUERY_METADATA)).toThrow(BadRequestException);
+  });
+});
+
+describe("ParseIdPipe — NestJS testing module (integration)", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+  const org = createTimestampId("org", { allowDuplicateBrand: true });
+
+  class TestController {}
+  Controller("users")(TestController);
+
+  it("happy path: pipe resolved from TestingModule returns canonical Id", async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [TestController],
+      providers: [{ provide: ParseIdPipe, useValue: new ParseIdPipe(usr) }],
+    }).compile();
+
+    const pipe = moduleRef.get(ParseIdPipe) as ParseIdPipe<"usr">;
+    const id = usr.generate();
+    expect(pipe.transform(id, METADATA)).toBe(id);
+
+    await moduleRef.close();
+  });
+
+  it("error path: pipe from TestingModule throws NotFoundException for brand mismatch", async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [TestController],
+      providers: [{ provide: ParseIdPipe, useValue: new ParseIdPipe(usr) }],
+    }).compile();
+
+    const pipe = moduleRef.get(ParseIdPipe) as ParseIdPipe<"usr">;
+    const orgId = org.generate();
+    expect(() => pipe.transform(orgId, METADATA)).toThrow(NotFoundException);
+
+    await moduleRef.close();
+  });
+
+  it("error path: pipe from TestingModule throws BadRequestException for malformed ID", async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [TestController],
+      providers: [{ provide: ParseIdPipe, useValue: new ParseIdPipe(usr) }],
+    }).compile();
+
+    const pipe = moduleRef.get(ParseIdPipe) as ParseIdPipe<"usr">;
+    expect(() => pipe.transform("usr_uuuuuuuuuuuuuuuuuuuuuuuuuu", METADATA)).toThrow(
+      BadRequestException,
+    );
+
+    await moduleRef.close();
+  });
+
+  it("failure-mapping: spy codec with safeParse failure throws BadRequestException", async () => {
+    const failing = makeFailingSpyCodec("spy", "not_string");
+    const pipe = new ParseIdPipe(failing);
+    const moduleRef = await Test.createTestingModule({
+      providers: [{ provide: ParseIdPipe, useValue: pipe }],
+    }).compile();
+
+    const resolvedPipe = moduleRef.get(ParseIdPipe) as typeof pipe;
+    expect(() => resolvedPipe.transform("any_value", METADATA)).toThrow(BadRequestException);
+
+    await moduleRef.close();
+  });
+
+  it("failure-mapping: spy codec with invalid_prefix failure throws NotFoundException", async () => {
+    const failing = makeFailingSpyCodec("spy", "invalid_prefix");
+    const pipe = new ParseIdPipe(failing);
+    const moduleRef = await Test.createTestingModule({
+      providers: [{ provide: ParseIdPipe, useValue: pipe }],
+    }).compile();
+
+    const resolvedPipe = moduleRef.get(ParseIdPipe) as typeof pipe;
+    expect(() => resolvedPipe.transform("any_value", METADATA)).toThrow(NotFoundException);
+
+    await moduleRef.close();
   });
 });

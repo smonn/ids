@@ -1,9 +1,17 @@
-import { GraphQLError, Kind } from "graphql";
-import type { StringValueNode, IntValueNode } from "graphql";
+import {
+  GraphQLError,
+  GraphQLNonNull,
+  GraphQLObjectType,
+  GraphQLSchema,
+  GraphQLString,
+  Kind,
+  graphql,
+} from "graphql";
+import type { IntValueNode, StringValueNode } from "graphql";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { idScalar } from "./graphql.js";
-import { makeSpyCodec } from "./test-helpers.js";
+import { makeFailingSpyCodec, makeSpyCodec } from "./test-helpers.js";
 
 function makeStringNode(value: string): StringValueNode {
   return { kind: Kind.STRING, value };
@@ -171,5 +179,128 @@ describe("idScalar", () => {
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
+
+    it("failure-mapping: failing spy codec causes parseValue to throw GraphQLError", () => {
+      const failingCodec = makeFailingSpyCodec("spy", "not_string");
+      const failScalar = idScalar(failingCodec, { name: "SpyId" });
+      expect(() => failScalar.parseValue("any_input")).toThrow(GraphQLError);
+    });
+
+    it("failure-mapping: failing spy codec causes serialize to throw GraphQLError", () => {
+      const failingCodec = makeFailingSpyCodec("spy", "not_string");
+      const failScalar = idScalar(failingCodec, { name: "SpyId" });
+      expect(() => failScalar.serialize("any_input")).toThrow(GraphQLError);
+    });
+  });
+});
+
+describe("idScalar — graphql() execution engine (integration)", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+  const UserId = idScalar(usr, { name: "UserId" });
+
+  const schema = new GraphQLSchema({
+    query: new GraphQLObjectType({
+      name: "Query",
+      fields: {
+        echo: {
+          type: UserId,
+          args: { id: { type: new GraphQLNonNull(UserId) } },
+          resolve: (_root: unknown, args: { id: unknown }) => args.id,
+        },
+        greeting: {
+          type: GraphQLString,
+          args: { id: { type: new GraphQLNonNull(UserId) } },
+          resolve: (_root: unknown, args: { id: unknown }) => `hello ${String(args.id)}`,
+        },
+      },
+    }),
+  });
+
+  it("happy path (variable): graphql() resolves with canonical Id", async () => {
+    const id = usr.generate();
+    const result = await graphql({
+      schema,
+      source: "query($id: UserId!) { echo(id: $id) }",
+      variableValues: { id },
+    });
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.["echo"]).toBe(id);
+  });
+
+  it("happy path (inline literal): graphql() resolves with canonical Id", async () => {
+    const id = usr.generate();
+    const result = await graphql({ schema, source: `{ greeting(id: "${id}") }` });
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.["greeting"]).toBe(`hello ${id}`);
+  });
+
+  it("error path (variable): invalid Id variable produces a GraphQLError", async () => {
+    const result = await graphql({
+      schema,
+      source: "query($id: UserId!) { echo(id: $id) }",
+      variableValues: { id: "not-a-valid-id" },
+    });
+    expect(result.errors).toBeDefined();
+    expect(result.errors![0]).toBeInstanceOf(GraphQLError);
+  });
+
+  it("error path (inline literal): wrong-brand literal produces a GraphQLError", async () => {
+    const result = await graphql({
+      schema,
+      source: '{ greeting(id: "org_00000000000000000000000000") }',
+    });
+    expect(result.errors).toBeDefined();
+    expect(result.errors![0]).toBeInstanceOf(GraphQLError);
+  });
+
+  it("failure-mapping: failing spy codec causes parseValue error in graphql() execution", async () => {
+    const failingCodec = makeFailingSpyCodec("spy", "not_string");
+    const SpyId = idScalar(failingCodec, { name: "SpyId" });
+    const failSchema = new GraphQLSchema({
+      query: new GraphQLObjectType({
+        name: "Query",
+        fields: {
+          test: {
+            type: GraphQLString,
+            args: { id: { type: SpyId } },
+            resolve: () => "ok",
+          },
+        },
+      }),
+    });
+    const result = await graphql({
+      schema: failSchema,
+      source: "query($id: SpyId) { test(id: $id) }",
+      variableValues: { id: "any-value" },
+    });
+    expect(result.errors).toBeDefined();
+    expect(result.errors![0]).toBeInstanceOf(GraphQLError);
+  });
+
+  it("failure-mapping: failing spy codec causes serialize error in graphql() execution", async () => {
+    const failingCodec = makeFailingSpyCodec("spy", "not_string");
+    const SpyId = idScalar(failingCodec, { name: "SpyId" });
+    const serializeSchema = new GraphQLSchema({
+      query: new GraphQLObjectType({
+        name: "Query",
+        fields: {
+          echo: {
+            type: SpyId,
+            resolve: () => "some-value",
+          },
+        },
+      }),
+    });
+    const result = await graphql({ schema: serializeSchema, source: "{ echo }" });
+    expect(result.errors).toBeDefined();
+    expect(result.errors![0]).toBeInstanceOf(GraphQLError);
   });
 });
