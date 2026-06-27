@@ -183,7 +183,11 @@ describe("idScalar", () => {
 
   describe("execution-engine integration", () => {
     it("inline string literal is coerced to canonical Id<Brand> through the graphql execution engine", async () => {
-      const execUsr = createTimestampId("usr", { allowDuplicateBrand: true });
+      const execUsr = createTimestampId("usr", {
+        allowDuplicateBrand: true,
+        now: () => new Date("2026-05-28T12:00:00Z").getTime(),
+        rng: (target) => target.fill(0x42),
+      });
       const execScalar = idScalar(execUsr, { name: "UserId" });
 
       let resolvedId: unknown;
