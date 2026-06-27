@@ -5,6 +5,10 @@ packages:
   - website
 
 allowBuilds:
+  # cdxgen pulls @appthreat/sqlite3 (native) only for its vuln/evidence
+  # features; the `--type pnpm` lockfile SBOM doesn't need it, so its build
+  # script is not run (consistent with not building unneeded native deps).
+  "@appthreat/sqlite3": false
   "@prisma/client": true
   esbuild: true
   sharp: true
