@@ -368,6 +368,15 @@ describe("buildCodec", () => {
     expect(result.kind).toBe("usage");
   });
 
+  it("returns CodecError(usage) for digest codec when --ns is whitespace-only", async () => {
+    const opts = makeOpts({ IDS_DIGEST_KEY: testDigestHex });
+    const result = await buildCodec(digestVariant, "tst", new Map([["--ns", "   "]]), opts);
+    expect(isCodecError(result)).toBe(true);
+    if (!isCodecError(result)) throw new Error("expected CodecError");
+    expect(result.message).toContain("--ns");
+    expect(result.kind).toBe("usage");
+  });
+
   it("returns CodecError(usage) for digest codec when IDS_DIGEST_KEY is missing", async () => {
     const values = new Map([["--ns", "checkout"]]);
     const result = await buildCodec(digestVariant, "tst", values, makeOpts({}));
