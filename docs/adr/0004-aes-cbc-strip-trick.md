@@ -34,4 +34,7 @@ Birthday bound on the 128-bit ciphertext space (~2⁶⁴ IDs before collisions b
 - `generate` / `generateAt` cost one SubtleCrypto encrypt call.
 - `extractTimestamp` costs two SubtleCrypto calls (compute `C2`, then decrypt). The constructed `C2` always produces valid PKCS#7 padding, so the decrypt never throws on a structurally-valid input.
 - The `CryptoKey` must be imported for `AES-CBC` with usages `["encrypt", "decrypt"]`. The `importOpaqueKey` helper handles this.
+
+> **Correction (2026-06-27):** The "you supply the AES key" / operator-chosen key-size model described throughout this ADR is superseded. Per [ADR-0027](./0027-opaque-hkdf-uniform-key-derivation.md), `importOpaqueKey` now treats its bytes as HKDF input keying material (IKM), not the AES key directly — it derives the encryption key via HKDF-Expand under the label `@smonn/ids/opaque/aes`. Input size (16/24/32 bytes) sets the entropy floor only; Opaque now **always derives an AES-256 key** regardless of input length. The strip-and-reconstruct mechanics above are unchanged — the single-block trick is indifferent to key size.
+
 - Tampered or wrong-key input decrypts to garbage bytes without error. `extractTimestamp` returns an arbitrary `Date`, consistent with the existing trust-the-type contract (see [ADR-0002](./0002-payload-layout.md)). Integrity belongs to a future Signed Timestamp codec, not here.

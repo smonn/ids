@@ -217,7 +217,7 @@ The byte-layout shapes, for orientation (see each ADR for current prose detail):
 
 | Codec | Layout shape | Construction (deferred) |
 | --- | --- | --- |
-| Opaque Timestamp | encrypted `ts6 ‖ rand10` | Timestamp layout, AES-CBC single-block encrypted under a caller key; timestamp recoverable only with the key. [ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md) |
+| Opaque Timestamp | encrypted `ts6 ‖ rand10` | Timestamp layout, AES-CBC single-block encrypted under an HKDF-derived AES-256 key; timestamp recoverable only with the key. [ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md), [ADR-0027](./docs/adr/0027-opaque-hkdf-uniform-key-derivation.md) |
 | Signed Timestamp | `ts6 ‖ rand5 ‖ tag5` | plaintext timestamp + 40-bit truncated HMAC-SHA-256 over `brand ‖ ts ‖ random`. [ADR-0012](./docs/adr/0012-signed-timestamp-construction.md) |
 | Wrapped key | `enc(lane8 ‖ tag8)` | 8-byte big-endian integer lane + 64-bit truncated domain-separated HMAC, AES-encrypted as one block. [ADR-0009](./docs/adr/0009-wrapped-key-compact-construction.md) |
 | Digest | `HMAC-SHA-256(key, framed message)[0..16)` | leftmost 16 bytes of a keyed HMAC over length-prefixed `brand ‖ ns ‖ material`; one-way. [ADR-0017](./docs/adr/0017-digest-codec-construction.md) |
