@@ -191,7 +191,12 @@ export function idPlugin(map: Record<string, IdColumnCodec<string>>): KyselyPlug
       return args.node;
     },
     async transformResult(args: PluginTransformResultArgs): Promise<QueryResult<UnknownRow>> {
-      const rows = args.result.rows.map((row) => {
+      const { rows } = args.result;
+      const firstRow = rows[0];
+      if (firstRow === undefined || !Object.keys(firstRow).some((k) => lookup.has(k))) {
+        return args.result;
+      }
+      const newRows = rows.map((row) => {
         const newRow: Record<string, unknown> = {};
         for (const [colName, value] of Object.entries(row)) {
           const codec = lookup.get(colName);
@@ -199,7 +204,7 @@ export function idPlugin(map: Record<string, IdColumnCodec<string>>): KyselyPlug
         }
         return newRow;
       });
-      return { ...args.result, rows };
+      return { ...args.result, rows: newRows };
     },
   };
 }

@@ -191,6 +191,22 @@ describe("kysely", () => {
       expect(result.rows[0]!.id).toBe(id);
     });
 
+    it("transformResult returns the original result reference when no column matches the map", async () => {
+      const plugin = idPlugin({ id: usr });
+      const row = { name: "Alice", count: 42 };
+      const inputResult = fromAny({ rows: [row] });
+      const result = await plugin.transformResult(fromAny({ queryId: {}, result: inputResult }));
+      expect(result).toBe(inputResult);
+      expect(result.rows[0]).toBe(row);
+    });
+
+    it("transformResult returns the original result reference for an empty row set", async () => {
+      const plugin = idPlugin({ id: usr });
+      const inputResult = fromAny({ rows: [] });
+      const result = await plugin.transformResult(fromAny({ queryId: {}, result: inputResult }));
+      expect(result).toBe(inputResult);
+    });
+
     it("qualified key takes precedence over a plain key for the same column name", async () => {
       const usrId = usr.generate();
       // "users.id" (qualified) wins over "id" (plain) for column "id"; usrId parses via usr codec
