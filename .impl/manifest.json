@@ -1,0 +1,6 @@
+{
+  "issue_number": 725,
+  "branch": "agent/issue-725",
+  "escalate": false,
+  "pr_title": "test(adapters): real-app harnesses for express/fastify/nestjs/graphql + makeFailingSpyCodec"
+}
