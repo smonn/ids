@@ -1,5 +1,23 @@
 # @smonn/ids
 
+## 1.0.0-rc.3
+
+### Minor Changes
+
+- a92f627: Add `nullableIdColumnMysql`, `nullableIdColumnSqlite`, `columnType` option on MySQL/SQLite generated columns; fix Express `idQuery` type cast; normalize NestJS `ParseIdPipe` exception body shape; document Kysely `idPlugin` unbranded-map constraint, `readIdColumn` ORM-boundary divergence, and Fastify-vs-Express storage divergence.
+- fcf26d7: Add `IdParamError extends HTTPException` to the Hono adapter so `app.onError` handlers can discriminate `brand_mismatch` from `malformed` via `err.reason`.
+- 234ae2d: Add `invalid_timestamp` IdsError code for invalid dates passed to `generateAt`, `minIdForTime`, and `maxIdForTime` on timestamp-family codecs.
+
+### Patch Changes
+
+- 4c2fd73: Reject non-canonical, whitespace-containing, and out-of-alphabet base64url key strings with `invalid_key_encoding`.
+- 8c04c72: Fix CLI flag-parsing bugs: keygen selector flags no longer swallow positionals or accept inline values; `inspect --from-uuid` rejects codec-selector and `--key-format` flags; `--ns` with leading or trailing whitespace is now a usage error.
+- fed2b7a: Validate the digest key before `generate --digest` blocks on stdin, so a missing or invalid key fails immediately (exit 2) instead of after stdin is read.
+- 2e7de02: Fix `generate --digest` UX: print a hint to stderr when stdin is a TTY, and reject empty digest material with exit 1.
+- ef0cb95: Fix `toJsonSchema().example` to be a stable structural placeholder for Timestamp and Reverse Timestamp codecs, matching all other codec families.
+- 48f46ad: Cap graphql peerDependency to <18.0.0; add execution-engine inline-literal integration test.
+- b11cc64: Extract shared `writeIdColumn` and `writeIdColumnNullable` helpers into `adapter-types.ts`; all five ORM adapters (Drizzle, Prisma, Kysely, TypeORM, MikroORM) now delegate their write paths to these helpers. Non-nullable writes throw `IdsError("invalid_id")` if `null` or `undefined` reaches the driver at runtime, closing the silent-propagation gap (#749).
+
 ## 1.0.0-rc.2
 
 ### Minor Changes
