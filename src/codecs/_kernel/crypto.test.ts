@@ -128,9 +128,10 @@ describe("encryptPayload / decryptPayload", () => {
       ["encrypt", "decrypt"],
     );
     const plaintext = new Uint8Array(16).fill(0x5a);
-    const ct1 = await encryptPayload(key, plaintext);
-    const ct2 = await encryptPayload(key, plaintext);
-    expect(ct1).toEqual(ct2);
+    const ct = await encryptPayload(key, plaintext);
+    expect(ct).toEqual(
+      new Uint8Array([59, 133, 58, 49, 172, 122, 53, 157, 121, 253, 219, 185, 183, 70, 121, 31]),
+    );
   });
 });
 
