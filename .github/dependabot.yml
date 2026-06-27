@@ -27,7 +27,6 @@ updates:
           - "@prisma/client"
           - "typeorm"
           - "express"
-          - "@types/express"
           - "fastify"
           - "hono"
           - "graphql"
@@ -45,7 +44,6 @@ updates:
           - "@prisma/client"
           - "typeorm"
           - "express"
-          - "@types/express"
           - "fastify"
           - "hono"
           - "graphql"
@@ -54,5 +52,15 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "github-actions"
+    directory: "/.github/actions/setup-node-pnpm"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "github-actions"
+    directory: "/.github/actions/app-token"
     schedule:
       interval: "weekly"
