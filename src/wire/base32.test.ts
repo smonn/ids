@@ -31,6 +31,18 @@ describe("base32", () => {
     expect(decodeBase32("000g40r40m30e209185gr38e1w")).toEqual(expected);
   });
 
+  it("encodes empty input to empty string", () => {
+    expect(encodeBase32(new Uint8Array(0))).toBe("");
+  });
+
+  it("encodes 5-byte input to exactly 8 characters", () => {
+    expect(encodeBase32(new Uint8Array(5)).length).toBe(8);
+  });
+
+  it("encodes 10-byte input to exactly 16 characters", () => {
+    expect(encodeBase32(new Uint8Array(10)).length).toBe(16);
+  });
+
   it("round-trips a 16-byte buffer through encode then decode", () => {
     const buf = new Uint8Array([
       0xde, 0xad, 0xbe, 0xef, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa,

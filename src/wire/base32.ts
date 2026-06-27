@@ -25,7 +25,7 @@ export function encodeBase32(bytes: Uint8Array): string {
   // Faster than `result += char` (avoids cons-string overhead) and than
   // Uint8Array variants (apply has a fast path for plain Arrays).
   // oxlint-disable-next-line no-new-array
-  const codes = new Array<number>(Math.floor((bytes.length * 8) / 5) + 1);
+  const codes = new Array<number>(Math.ceil((bytes.length * 8) / 5));
   let chi = 0;
   let bits = 0;
   let value = 0;
@@ -38,7 +38,9 @@ export function encodeBase32(bytes: Uint8Array): string {
       codes[chi++] = valueToCharCode[(value >>> bits) & 0x1f]!;
     }
   }
-  codes[chi] = valueToCharCode[(value << (5 - bits)) & 0x1f]!;
+  if (bits > 0) {
+    codes[chi++] = valueToCharCode[(value << (5 - bits)) & 0x1f]!;
+  }
   return String.fromCharCode.apply(null, codes);
 }
 
