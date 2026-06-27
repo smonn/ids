@@ -118,7 +118,7 @@ describe("encryptPayload / decryptPayload", () => {
     expect(result).toHaveLength(16);
   });
 
-  it("determinism KAT: same key and plaintext produce identical ciphertext (IV=0 AES-CBC, ADR-0004)", async () => {
+  it("same key and plaintext produce identical ciphertext", async () => {
     const rawKey = new Uint8Array(32).map((_, i) => i);
     const key = await crypto.subtle.importKey(
       "raw",
