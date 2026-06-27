@@ -17,7 +17,7 @@ function makeCapturingOpts(env: Record<string, string> = {}) {
   return { opts, out, err };
 }
 
-describe("runKeygen — selector-flag stray positionals (CLI-1)", () => {
+describe("runKeygen — selector-flag stray positionals (#726)", () => {
   it("keygen --wrapped <extra> exits 2 with 'unexpected argument'", async () => {
     const { opts, err } = makeCapturingOpts();
     const code = await runKeygen(["--wrapped", "extrapos"], opts);
@@ -40,7 +40,7 @@ describe("runKeygen — selector-flag stray positionals (CLI-1)", () => {
   });
 });
 
-describe("runKeygen — inline value on selector flags (CLI-2)", () => {
+describe("runKeygen — inline value on selector flags (#726)", () => {
   it("keygen --wrapped=foo exits 2 with 'flag does not take a value: --wrapped'", async () => {
     const { opts, err } = makeCapturingOpts();
     const code = await runKeygen(["--wrapped=foo"], opts);
@@ -63,7 +63,7 @@ describe("runKeygen — inline value on selector flags (CLI-2)", () => {
   });
 });
 
-describe("runKeygen — --ns whitespace rejection (CLI-4)", () => {
+describe("runKeygen — --ns whitespace rejection (#726)", () => {
   it("keygen --digest --ns '  pad  ' exits 2 with --ns whitespace error", async () => {
     const { opts, err } = makeCapturingOpts();
     const code = await runKeygen(["--digest", "--ns", "  pad  "], opts);
@@ -73,7 +73,7 @@ describe("runKeygen — --ns whitespace rejection (CLI-4)", () => {
   });
 });
 
-describe("runKeygen — stdout/stderr separation (CLI-8/9)", () => {
+describe("runKeygen — stdout/stderr separation (#726)", () => {
   it("successful keygen writes key to stdout and warning to stderr only", async () => {
     const { opts, out, err } = makeCapturingOpts();
     const code = await runKeygen([], opts);

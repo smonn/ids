@@ -68,7 +68,7 @@ jobs:
       # esbuild/vite findings pinned in pnpm-workspace.yaml overrides) don't block,
       # while a real runtime high/critical does. Dependabot still surfaces the rest.
       #
-      # Hardened against a fail-open (BUILD-2): the audit hits the live registry on
+      # Hardened against a fail-open (#748): the audit hits the live registry on
       # every PR, and a transient outage can yield empty/garbage output that a bare
       # `pnpm audit` might read as "no advisories." So we capture the JSON and ASSERT
       # it carries a `.metadata.vulnerabilities` object (proof the registry actually

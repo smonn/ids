@@ -19,7 +19,7 @@ function makeCapturingOpts(env: Record<string, string> = {}) {
   return { opts, out, err };
 }
 
-describe("runInspect — --from-uuid flag conflicts (CLI-3)", () => {
+describe("runInspect — --from-uuid flag conflicts (#726)", () => {
   it("--from-uuid with --opaque exits 2 with a usage error naming both flags", async () => {
     const { opts, err } = makeCapturingOpts();
     const code = await runInspect(["--from-uuid", testUuid, "--brand", "usr", "--opaque"], opts);
