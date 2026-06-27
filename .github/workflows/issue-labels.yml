@@ -1,0 +1,84 @@
+name: Issue descriptive labels
+
+# Phase 1 of the namespaced label taxonomy (ADR-0029): apply the DESCRIPTIVE
+# auto-labels to an issue — type: (mapped from the template's bug/enhancement
+# label) and codec:/area: (sourced from the issue-form dropdowns). size: and
+# changeset: are PR-only.
+#
+# These are STATUS labels (ADR-0030): purely descriptive, absent from every
+# workflow's `labeled` filter, so applying them triggers no pipeline work
+# (triage.yml acts only on `needs-triage`, implement.yml only on
+# `ready-for-agent`). The classification is deterministic and lives in the
+# unit-tested .github/scripts/label-classifier.mjs.
+
+on:
+  issues:
+    # opened: the template label + dropdowns are present at creation. edited: a
+    # reporter may change a dropdown selection in the body. (We deliberately do
+    # NOT trigger on `labeled` — this workflow's own App-token label writes would
+    # otherwise re-trigger it; opened/edited cover every input it reads.)
+    types: [opened, edited, reopened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to (re)label
+        required: true
+        type: string
+
+concurrency:
+  group: issue-labels-${{ github.event.issue.number || github.event.inputs.issue_number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    environment: automation
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+    steps:
+      - name: Checkout main (classifier + local actions)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: ./.github/actions/app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Least-privilege: reads the issue and edits its labels — issues:write
+          # covers both.
+          permission-issues: write
+
+      - name: Classify and apply labels
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          data=$(gh issue view "$ISSUE_NUMBER" --json body,labels)
+          body=$(printf '%s' "$data" | jq -r '.body // ""')
+          labels=$(printf '%s' "$data" | jq -c '[.labels[].name]')
+
+          # `labels` is both the source of the bug/enhancement → type: mapping and
+          # the current-label set to reconcile against.
+          jq -n --arg body "$body" --argjson labels "$labels" --argjson current "$labels" \
+                '{body:$body, labels:$labels, current:$current}' \
+            | node .github/scripts/classify-issue.mjs > plan.json
+
+          add=$(jq -r '.add | join(",")' plan.json)
+          remove=$(jq -r '.remove | join(",")' plan.json)
+
+          args=()
+          [ -n "$add" ] && args+=(--add-label "$add")
+          [ -n "$remove" ] && args+=(--remove-label "$remove")
+          if [ ${#args[@]} -eq 0 ]; then
+            echo "Labels already current — nothing to change."
+            exit 0
+          fi
+          gh issue edit "$ISSUE_NUMBER" "${args[@]}"
+          echo "Issue #$ISSUE_NUMBER → add=[$add] remove=[$remove]"
