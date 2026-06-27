@@ -1,5 +1,16 @@
 # @smonn/ids
 
+## 1.0.0-rc.2
+
+### Minor Changes
+
+- 7b205db: Add `columnType` option to `nullableIdType` (mikro-orm) and `nullableIdColumn` (drizzle PG), and normalize `undefined`→`null` on all four nullable ORM adapter write paths.
+
+### Patch Changes
+
+- 599e91c: Fix CLI `--ns` flag to reject whitespace-only values with exit code 2 (usage error).
+- d225ba6: `idScalar` `serialize` now validates via `codec.is()` (strict) and throws `GraphQLError` on a non-canonical outbound value instead of silently normalizing it. Error messages for all three hooks (`serialize`, `parseValue`, `parseLiteral`) are coarsened to `invalid <ScalarName>` with no internal parse-error code exposed to clients.
+
 ## 1.0.0-rc.1
 
 ### Minor Changes
