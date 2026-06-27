@@ -6,6 +6,20 @@ import type { Id } from "../types.js";
 
 export type { IdParamFailure };
 
+/**
+ * Typed error thrown into Hono's `app.onError` on validation failure.
+ * Inspect `err.reason` and `err.status` in your error handler.
+ */
+export class IdParamError extends HTTPException {
+  readonly reason: "brand_mismatch" | "malformed";
+
+  constructor(reason: "brand_mismatch" | "malformed", status: ContentfulStatusCode) {
+    super(status, { message: `ID validation failed: ${reason}` });
+    this.name = "IdParamError";
+    this.reason = reason;
+  }
+}
+
 /** Options for `idParam` and `idQuery`. All fields are optional. */
 export type IdParamOptions = {
   /**
@@ -23,8 +37,9 @@ export type IdParamOptions = {
 /**
  * Hono middleware that validates a named route param against a codec via `safeParse`.
  *
- * **Default (no options):** throws `HTTPException(status)` so the app's existing `onError` handler
- * controls rendering and content negotiation. The adapter does not write a response body itself.
+ * **Default (no options):** throws `IdParamError` (extends `HTTPException`) carrying both the HTTP
+ * status and `reason` so the app's existing `onError` handler can discriminate by reason. The
+ * adapter does not write a response body itself.
  *
  * **`options.onError`:** when provided, the hook owns the response entirely — the adapter neither
  * throws nor writes a response.
@@ -39,14 +54,22 @@ export type IdParamOptions = {
  *
  * @example
  * ```ts
- * import { idParam } from "@smonn/ids/hono";
+ * import { idParam, IdParamError } from "@smonn/ids/hono";
  * import { createTimestampId } from "@smonn/ids";
  *
  * const usr = createTimestampId("usr");
  *
- * // Default: throws HTTPException → app.onError renders it
+ * // Default: throws IdParamError (extends HTTPException) → app.onError renders it
  * app.get("/users/:id", idParam("id", usr), (c) => {
  *   const id = c.get("id"); // Id<"usr">, canonical
+ * });
+ *
+ * // Discriminate by reason in app.onError
+ * app.onError((err, c) => {
+ *   if (err instanceof IdParamError) {
+ *     return c.json({ error: err.reason }, err.status); // err.reason: "brand_mismatch" | "malformed"
+ *   }
+ *   return c.json({ error: "internal" }, 500);
  * });
  *
  * // Override: consumer fully owns the response
@@ -71,7 +94,7 @@ export function idParam<ParamKey extends string, Brand extends string>(
       if (options?.onError) {
         return options.onError(failure, c);
       }
-      throw new HTTPException(failure.status as ContentfulStatusCode);
+      throw new IdParamError(failure.reason, failure.status as ContentfulStatusCode);
     }
     c.set(paramName, result.id);
     await next();
@@ -85,8 +108,9 @@ export function idParam<ParamKey extends string, Brand extends string>(
  * Same failure contract as `idParam` — same `IdParamFailure` shape, same `onError` / `status`
  * options — but reads `c.req.query(queryName)` instead of `c.req.param(queryName)`.
  *
- * **Default (no options):** throws `HTTPException(status)` so the app's existing `onError` handler
- * controls rendering and content negotiation. The adapter does not write a response body itself.
+ * **Default (no options):** throws `IdParamError` (extends `HTTPException`) carrying both the HTTP
+ * status and `reason` so the app's existing `onError` handler can discriminate by reason. The
+ * adapter does not write a response body itself.
  *
  * **`options.onError`:** when provided, the hook owns the response entirely — the adapter neither
  * throws nor writes a response.
@@ -101,15 +125,23 @@ export function idParam<ParamKey extends string, Brand extends string>(
  *
  * @example
  * ```ts
- * import { idQuery } from "@smonn/ids/hono";
+ * import { idQuery, IdParamError } from "@smonn/ids/hono";
  * import { createTimestampId } from "@smonn/ids";
  *
  * const usr = createTimestampId("usr");
  *
- * // Default: throws HTTPException → app.onError renders it
+ * // Default: throws IdParamError (extends HTTPException) → app.onError renders it
  * // GET /users?userId=usr_...
  * app.get("/users", idQuery("userId", usr), (c) => {
  *   const userId = c.get("userId"); // Id<"usr">, canonical
+ * });
+ *
+ * // Discriminate by reason in app.onError
+ * app.onError((err, c) => {
+ *   if (err instanceof IdParamError) {
+ *     return c.json({ error: err.reason }, err.status); // err.reason: "brand_mismatch" | "malformed"
+ *   }
+ *   return c.json({ error: "internal" }, 500);
  * });
  *
  * // Override: consumer fully owns the response
@@ -131,7 +163,7 @@ export function idQuery<ParamKey extends string, Brand extends string>(
       if (options?.onError) {
         return options.onError(failure, c);
       }
-      throw new HTTPException(failure.status as ContentfulStatusCode);
+      throw new IdParamError(failure.reason, failure.status as ContentfulStatusCode);
     }
     c.set(queryName, result.id);
     await next();
