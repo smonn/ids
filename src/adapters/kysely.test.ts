@@ -195,9 +195,7 @@ describe("kysely", () => {
       const plugin = idPlugin({ id: usr });
       const row = { name: "Alice", count: 42 };
       const inputResult = fromAny({ rows: [row] });
-      const result = await plugin.transformResult(
-        fromAny({ queryId: {}, result: inputResult }),
-      );
+      const result = await plugin.transformResult(fromAny({ queryId: {}, result: inputResult }));
       expect(result).toBe(inputResult);
       expect(result.rows[0]).toBe(row);
     });
@@ -205,9 +203,7 @@ describe("kysely", () => {
     it("transformResult returns the original result reference for an empty row set", async () => {
       const plugin = idPlugin({ id: usr });
       const inputResult = fromAny({ rows: [] });
-      const result = await plugin.transformResult(
-        fromAny({ queryId: {}, result: inputResult }),
-      );
+      const result = await plugin.transformResult(fromAny({ queryId: {}, result: inputResult }));
       expect(result).toBe(inputResult);
     });
 
