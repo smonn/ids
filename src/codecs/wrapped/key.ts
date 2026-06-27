@@ -120,8 +120,7 @@ export function getWrappingKeyMaterial(key: WrappingKey): WrappingKeyMaterial {
 
 function getWrappingKeyInternals(key: WrappingKey): WrappingKeyInternals {
   const keyInternals = internals.get(key);
-  if (keyInternals === undefined) {
-    throw new Error("invalid wrapping key");
-  }
+  /* v8 ignore next -- defensive guard; only reachable with a forged WrappingKey handle */
+  if (keyInternals === undefined) throw new Error("invalid wrapping key");
   return keyInternals;
 }

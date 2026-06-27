@@ -109,8 +109,7 @@ export function getSigningKeyHmacKey(key: SigningKey): webcrypto.CryptoKey {
 
 function getSigningKeyInternals(key: SigningKey): SigningKeyInternals {
   const keyInternals = internals.get(key);
-  if (keyInternals === undefined) {
-    throw new Error("invalid signing key");
-  }
+  /* v8 ignore next -- defensive guard; only reachable with a forged SigningKey handle */
+  if (keyInternals === undefined) throw new Error("invalid signing key");
   return keyInternals;
 }

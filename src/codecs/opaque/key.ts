@@ -60,9 +60,8 @@ export async function importOpaqueKey(bytes: Uint8Array): Promise<OpaqueKey> {
 
 export function getOpaqueKeyCryptoKey(key: OpaqueKey): webcrypto.CryptoKey {
   const cryptoKey = opaqueKeyInternals.get(key);
-  if (cryptoKey === undefined) {
-    throw new Error("invalid opaque key");
-  }
+  /* v8 ignore next -- defensive guard; only reachable with a forged OpaqueKey handle */
+  if (cryptoKey === undefined) throw new Error("invalid opaque key");
   return cryptoKey;
 }
 

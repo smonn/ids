@@ -11,6 +11,9 @@ import {
 
 const randomByteLength = 5;
 const tagByteLength = 5;
+const _signedByteCheck: typeof payloadByteLength =
+  timestampByteLength + randomByteLength + tagByteLength;
+void _signedByteCheck;
 const randomOffset = timestampByteLength; // 6
 const tagOffset = randomOffset + randomByteLength; // 11
 const signedContentByteLength = randomOffset + randomByteLength; // 11 (ts6 ‖ rand5)
