@@ -215,12 +215,12 @@ export function idPlugin(map: Record<string, IdColumnCodec<string>>): KyselyPlug
 export function nullableIdColumn<Brand extends string>(
   codec: IdColumnCodec<Brand>,
 ): {
-  toDriver(value: Id<Brand> | null): string | null;
+  toDriver(value: Id<Brand> | null | undefined): string | null;
   fromDriver(value: string | null): Id<Brand> | null;
 } {
   return {
-    toDriver(value: Id<Brand> | null): string | null {
-      return value;
+    toDriver(value: Id<Brand> | null | undefined): string | null {
+      return value ?? null;
     },
     fromDriver(value: string | null): Id<Brand> | null {
       return readIdColumnNullable(codec, value);

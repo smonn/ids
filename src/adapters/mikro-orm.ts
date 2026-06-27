@@ -118,8 +118,14 @@ export function idType<Brand extends string>(
  * Factory that returns a MikroORM `Type` subclass for a **nullable** `Id<Brand>` column.
  *
  * Behaves like {@link idType} but `convertToJSValue` returns `null` for `null` /
- * `undefined` database values and `convertToDatabaseValue` passes `null` through
- * unchanged. Use for optional foreign keys.
+ * `undefined` database values and `convertToDatabaseValue` normalises `null` and
+ * `undefined` to `null`. Use for optional foreign keys.
+ *
+ * @param codec - The brand-scoped codec used to parse values read from the database.
+ * @param options - Optional column configuration.
+ * @param options.columnType - SQL column type to use (default: `"text"`). Pass
+ *   `"varchar(30)"` or `"char(26)"` to match an existing DDL or index strategy.
+ *   The value is passed through verbatim — no validation is performed.
  *
  * @example
  * ```ts
@@ -134,20 +140,28 @@ export function idType<Brand extends string>(
  *   @Property({ type: nullableIdType(usr), nullable: true })
  *   authorId!: Id<"usr"> | null;
  * }
+ *
+ * // explicit varchar column
+ * class Comment {
+ *   @Property({ type: nullableIdType(usr, { columnType: "varchar(30)" }), nullable: true })
+ *   authorId!: Id<"usr"> | null;
+ * }
  * ```
  */
 export function nullableIdType<Brand extends string>(
   codec: IdColumnCodec<Brand>,
+  options?: { columnType?: string },
 ): new () => Type<Id<Brand> | null, string | null> {
+  const columnType = options?.columnType ?? "text";
   return class extends Type<Id<Brand> | null, string | null> {
-    override convertToDatabaseValue(value: Id<Brand> | null): string | null {
-      return value;
+    override convertToDatabaseValue(value: Id<Brand> | null | undefined): string | null {
+      return value ?? null;
     }
     override convertToJSValue(value: string | null): Id<Brand> | null {
       return readIdColumnNullable(codec, value);
     }
     override getColumnType(): string {
-      return "text";
+      return columnType;
     }
   };
 }

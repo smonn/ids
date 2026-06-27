@@ -53,7 +53,7 @@ class Post {
 ```
 
 - **Read path (`from`):** returns `null` for `null` / `undefined` database values. Non-null values go through `codec.safeParse()` and throw `IdsError("invalid_id")` if they do not parse as a valid `Id<Brand>`.
-- **Write path (`to`):** `null` and `undefined` are passed through unchanged; `Id<Brand>` values are passed through as canonical strings.
+- **Write path (`to`):** `null` and `undefined` are normalised to `null`; `Id<Brand>` values are passed through as canonical strings.
 
 ## Error handling
 

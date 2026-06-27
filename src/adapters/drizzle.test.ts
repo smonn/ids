@@ -261,9 +261,48 @@ describe("drizzle", () => {
       expect(posts.authorId.mapToDriverValue(fromAny(null))).toBeNull();
     });
 
+    it("write path normalises undefined to null", () => {
+      expect(posts.authorId.mapToDriverValue(fromAny(undefined))).toBeNull();
+    });
+
     it("write path passes Id<Brand> through unchanged", () => {
       const id = usr.generate();
       expect(posts.authorId.mapToDriverValue(id)).toBe(id);
+    });
+
+    it("getSQLType defaults to 'text' with no options (backward compat)", () => {
+      expect(posts.authorId.getSQLType()).toBe("text");
+    });
+
+    describe("columnType option", () => {
+      it("getSQLType returns the provided columnType", () => {
+        const charPosts = pgTable("char_posts", {
+          authorId: nullableIdColumn(usr, { columnType: "char(26)" }),
+        });
+        expect(charPosts.authorId.getSQLType()).toBe("char(26)");
+      });
+
+      it("accepts columnType as an optional string in its type signature", () => {
+        expectTypeOf(nullableIdColumn<"usr">)
+          .parameter(1)
+          .toMatchTypeOf<{ columnType?: string } | undefined>();
+      });
+
+      it("write path is unaffected by columnType option", () => {
+        const charPosts = pgTable("char_posts_write", {
+          authorId: nullableIdColumn(usr, { columnType: "char(26)" }),
+        });
+        const id = usr.generate();
+        expect(charPosts.authorId.mapToDriverValue(id)).toBe(id);
+      });
+
+      it("read path is unaffected by columnType option", () => {
+        const charPosts = pgTable("char_posts_read", {
+          authorId: nullableIdColumn(usr, { columnType: "char(26)" }),
+        });
+        const id = usr.generate();
+        expect(charPosts.authorId.mapFromDriverValue(fromAny(id))).toBe(id);
+      });
     });
   });
 });

@@ -146,8 +146,8 @@ export function nullableIdTransformer<Brand extends string>(
   codec: IdColumnCodec<Brand>,
 ): ValueTransformer {
   return {
-    to(value: Id<Brand> | null | undefined): string | null | undefined {
-      return value;
+    to(value: Id<Brand> | null | undefined): string | null {
+      return value ?? null;
     },
     from(value: unknown): Id<Brand> | null {
       return readIdColumnNullable(codec, value);

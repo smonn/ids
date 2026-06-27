@@ -139,7 +139,7 @@ const authorId = authorCol.fromDriver(row.author_id as unknown as string | null)
 ```
 
 - **Read path:** `fromDriver` returns `null` for `null` / `undefined` driver values. Non-null values are normalised via `codec.safeParse()` and throw `IdsError("invalid_id")` if they do not parse as a valid `Id<Brand>`.
-- **Write path:** `toDriver` passes `null` through as `null` and `Id<Brand>` values through as canonical strings.
+- **Write path:** `toDriver` normalises `null` and `undefined` to `null`; `Id<Brand>` values are passed through as canonical strings.
 
 ### `idPlugin` and nullable columns
 

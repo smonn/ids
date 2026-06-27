@@ -66,7 +66,7 @@ key codecs all qualify).
 
 ## Nullable columns
 
-`nullableIdColumn(codec)` is a PostgreSQL-only variant that passes `null` and `undefined` driver values through as `null` rather than throwing. Use it for optional foreign keys and `LEFT JOIN` results.
+`nullableIdColumn(codec)` is a PostgreSQL-only variant that normalises `null` and `undefined` driver values to `null` rather than throwing. Use it for optional foreign keys and `LEFT JOIN` results.
 
 ```ts
 import { pgTable } from "drizzle-orm/pg-core";
@@ -75,10 +75,16 @@ import { createTimestampId } from "@smonn/ids";
 
 const usr = createTimestampId("usr");
 
+// default: text column
 export const posts = pgTable("posts", {
   authorId: nullableIdColumn(usr),
 });
 // posts.authorId is Id<"usr"> | null end-to-end
+
+// explicit char column — matches existing DDL
+export const comments = pgTable("comments", {
+  authorId: nullableIdColumn(usr, { columnType: "char(26)" }),
+});
 ```
 
 :::note[PostgreSQL only]
@@ -86,7 +92,8 @@ export const posts = pgTable("posts", {
 :::
 
 - **Read path:** `null` and `undefined` driver values are returned as `null`. Non-null values go through `codec.safeParse()` and throw `IdsError("invalid_id")` if the stored value does not parse as a valid `Id<Brand>`.
-- **Write path:** `null` is passed to the driver unchanged; non-null `Id<Brand>` values are passed through as canonical strings.
+- **Write path:** `toDriver` normalises `null` and `undefined` to `null`; non-null `Id<Brand>` values are passed through as canonical strings.
+- **Column type:** `dataType()` returns `"text"` by default; pass `{ columnType: "..." }` as the second argument to `nullableIdColumn` to override (e.g. `nullableIdColumn(usr, { columnType: "char(26)" })`).
 
 ## Error handling
 
