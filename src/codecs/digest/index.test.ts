@@ -191,6 +191,21 @@ describe("createDigestId", () => {
     expect(fromString).toBe(fromBytes);
   });
 
+  // --- Mutation stability (ADR-0017 determinism invariant) ---
+
+  it("mutation stability: mutating Uint8Array input after un-awaited call does not change the result", async () => {
+    const key = await makeKey();
+    const idk = createDigestId("idk", { ns: "checkout", key, allowDuplicateBrand: true });
+    const material = new Uint8Array(16).fill(0x42);
+    const expected = await idk.digest(new Uint8Array(material));
+
+    const promise = idk.digest(material); // call without awaiting
+    material.fill(0); // mutate in place before the promise settles
+    const actual = await promise;
+
+    expect(actual).toBe(expected);
+  });
+
   // --- One-wayness ---
 
   it("codec has no unwrap method", async () => {
