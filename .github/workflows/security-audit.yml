@@ -1,7 +1,7 @@
 name: Scheduled dependency audit
 
 # A registry-dependent production-dependency audit that runs on a SCHEDULE,
-# independent of PR traffic (BUILD-2). The same check runs inline in ci.yml on
+# independent of PR traffic (#748). The same check runs inline in ci.yml on
 # every PR, but a transient registry outage there can fail (or flake) unrelated
 # PRs. This dedicated weekly run gives a PR-independent signal: a failure here
 # points at a genuinely new high/critical advisory (or a sustained registry

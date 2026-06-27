@@ -161,7 +161,7 @@ describe("runGenerate — normal generate (timestamp variant)", () => {
   });
 });
 
-describe("runGenerate — --digest TTY hint (CLI-5)", () => {
+describe("runGenerate — --digest TTY hint (#746)", () => {
   it("prints hint to stderr when isTTY is true, then emits ID and exits 0", async () => {
     const { opts, out, err } = makeCapturingOpts({ IDS_DIGEST_KEY: testDigestHex });
     const code = await runGenerate(["tst", "--digest", "--ns", "orders"], {
@@ -207,7 +207,7 @@ describe("runGenerate — --digest key validation precedes stdin (#766)", () => 
   });
 });
 
-describe("runGenerate — --digest empty material (CLI-6)", () => {
+describe("runGenerate — --digest empty material (#746)", () => {
   it("exits 1 with diagnostic on stderr and nothing on stdout when material is empty", async () => {
     const { opts, out, err } = makeCapturingOpts({ IDS_DIGEST_KEY: testDigestHex });
     const code = await runGenerate(["tst", "--digest", "--ns", "orders"], {
