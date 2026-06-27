@@ -30,10 +30,11 @@ concurrency:
   group: implement-${{ github.event.issue.number || github.event.inputs.issue_number }}
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+# No default GITHUB_TOKEN scopes: every GitHub mutation in this workflow flows
+# through the narrowly-scoped App tokens minted at runtime (see the app-token
+# steps below), never the built-in token. The checkouts target a public repo and
+# need no token. Mirrors the conflicts.yml / labels.yml `permissions: {}` pattern.
+permissions: {}
 
 jobs:
   implement:
