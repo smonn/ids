@@ -1,13 +1,14 @@
 import { fromAny } from "@total-typescript/shoehorn";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import Fastify from "fastify";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { IdParamError, idParam, idQuery } from "./fastify.js";
 import type { IdParamFailure } from "./fastify.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createReverseTimestampId } from "../codecs/reverse/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
-import { makeSpyCodec } from "./test-helpers.js";
+import { makeFailingSpyCodec, makeSpyCodec } from "./test-helpers.js";
 
 type MockRequest = {
   params: Record<string, unknown>;
@@ -454,5 +455,124 @@ describe("idQuery", () => {
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
     });
+  });
+
+  describe("failure-mapping (spy codec)", () => {
+    it("safeParse failure from spy codec maps to malformed/400 and throws IdParamError", async () => {
+      const failing = makeFailingSpyCodec("spy", "not_string");
+      const handler = idQuery("id", failing);
+      const req = makeQueryReq("id", "any_value");
+      const err = await catchError(() => handler(asQueryReq(req), asReply()));
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("malformed");
+      expect((err as IdParamError).statusCode).toBe(400);
+    });
+
+    it("invalid_prefix failure from spy codec maps to brand_mismatch/404 and throws IdParamError", async () => {
+      const failing = makeFailingSpyCodec("spy", "invalid_prefix");
+      const handler = idQuery("id", failing);
+      const req = makeQueryReq("id", "any_value");
+      const err = await catchError(() => handler(asQueryReq(req), asReply()));
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("brand_mismatch");
+      expect((err as IdParamError).statusCode).toBe(404);
+    });
+  });
+});
+
+describe("idParam / idQuery — real fastify() app (integration)", () => {
+  const usr = createTimestampId("usr", { allowDuplicateBrand: true });
+  const org = createTimestampId("org", { allowDuplicateBrand: true });
+
+  it("idParam happy path: inject GET returns 200 with canonical Id", async () => {
+    const app = Fastify({ logger: false });
+    app.get("/users/:id", { preHandler: idParam("id", usr) }, (request, reply) => {
+      reply.send({ id: (request.params as Record<string, string>)["id"] });
+    });
+    await app.ready();
+    const id = usr.generate();
+    const res = await app.inject({ method: "GET", url: `/users/${id}` });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { id: string }).id).toBe(id);
+    await app.close();
+  });
+
+  it("idParam error path: wrong brand returns 404 via setErrorHandler", async () => {
+    const app = Fastify({ logger: false });
+    app.get("/users/:id", { preHandler: idParam("id", usr) }, (_request, reply) => {
+      reply.send({ ok: true });
+    });
+    app.setErrorHandler((err, _request, reply) => {
+      const e: IdParamError = fromAny(err);
+      reply.status(e.statusCode ?? 500).send({ error: e.reason });
+    });
+    await app.ready();
+    const orgId = org.generate();
+    const res = await app.inject({ method: "GET", url: `/users/${orgId}` });
+    expect(res.statusCode).toBe(404);
+    expect((res.json() as { error: string }).error).toBe("brand_mismatch");
+    await app.close();
+  });
+
+  it("idParam error path: malformed ID returns 400 via setErrorHandler", async () => {
+    const app = Fastify({ logger: false });
+    app.get("/users/:id", { preHandler: idParam("id", usr) }, (_request, reply) => {
+      reply.send({ ok: true });
+    });
+    app.setErrorHandler((err, _request, reply) => {
+      const e: IdParamError = fromAny(err);
+      reply.status(e.statusCode ?? 500).send({ error: e.reason });
+    });
+    await app.ready();
+    const res = await app.inject({ method: "GET", url: "/users/usr_uuuuuuuuuuuuuuuuuuuuuuuuuu" });
+    expect(res.statusCode).toBe(400);
+    expect((res.json() as { error: string }).error).toBe("malformed");
+    await app.close();
+  });
+
+  it("idQuery happy path: inject GET with query param returns 200 with canonical Id", async () => {
+    const app = Fastify({ logger: false });
+    app.get("/search", { preHandler: idQuery("userId", usr) }, (request, reply) => {
+      reply.send({ id: (request.query as Record<string, string>)["userId"] });
+    });
+    await app.ready();
+    const id = usr.generate();
+    const res = await app.inject({ method: "GET", url: `/search?userId=${id}` });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { id: string }).id).toBe(id);
+    await app.close();
+  });
+
+  it("idQuery error path: wrong brand returns 404", async () => {
+    const app = Fastify({ logger: false });
+    app.get("/search", { preHandler: idQuery("userId", usr) }, (_request, reply) => {
+      reply.send({ ok: true });
+    });
+    app.setErrorHandler((err, _request, reply) => {
+      const e: IdParamError = fromAny(err);
+      reply.status(e.statusCode ?? 500).send({ error: e.reason });
+    });
+    await app.ready();
+    const orgId = org.generate();
+    const res = await app.inject({ method: "GET", url: `/search?userId=${orgId}` });
+    expect(res.statusCode).toBe(404);
+    await app.close();
+  });
+
+  it("failure-mapping: safeParse failure from spy codec returns 400 via app.inject()", async () => {
+    const failing = makeFailingSpyCodec("spy", "not_string");
+    const app = Fastify({ logger: false });
+    app.get("/test/:id", { preHandler: idParam("id", failing) }, (_request, reply) => {
+      reply.send({ ok: true });
+    });
+    app.setErrorHandler((err, _request, reply) => {
+      const e: IdParamError = fromAny(err);
+      reply.status(e.statusCode ?? 500).send({ error: e.reason });
+    });
+    await app.ready();
+    const res = await app.inject({ method: "GET", url: "/test/anything" });
+    expect(res.statusCode).toBe(400);
+    expect((res.json() as { error: string }).error).toBe("malformed");
+    await app.close();
   });
 });
