@@ -5,18 +5,15 @@ name: Autofix agent PR CI
 # only for `agent/issue-*` branches. A per-branch attempt cap prevents an autofix →
 # CI → autofix loop: after MAX_ATTEMPTS the PR is escalated to `needs-human`.
 #
-# PRECOMPUTE / PRODUCE / POST split. The failing CI logs are PRECOMPUTED into
-# `.autofix-context/ci-failed.log` so the agent diagnoses by reading a file instead of
-# running `gh run list` / `gh run view`. The Claude step is then a hermetic PRODUCER:
-# it gets a strictly READ-ONLY App token (no GH_TOKEN in its env) and its checkout has
-# `persist-credentials: false`, so even though the action wires a token into the agent's
-# git/gh, that token can only READ — it can commit LOCALLY (keeping the `[ci-autofix]`
-# marker the cap gate counts) but it CANNOT push and CANNOT mutate GitHub. It records
-# its outcome as scalars in `.autofix/manifest.json` and, when escalating, writes the
-# escalation comment body verbatim to `.autofix/escalation.md`. A separate deterministic
-# POSTER step is the ONLY place with push credentials and a GitHub token: it reads the
-# manifest and either pushes the local fix commits (plain, never force), or posts the
-# escalation comment + `needs-human` label, or no-ops — one explicit outcome each.
+# PRECOMPUTE / PRODUCE / POST split (see .github/workflows/README.md "Producer / poster
+# split" and "App token & the read/write security split"). The failing CI logs are
+# PRECOMPUTED into `.autofix-context/ci-failed.log` so the agent diagnoses by reading a
+# file. The producer gets a READ-ONLY token and a `persist-credentials: false` checkout, so
+# it can commit LOCALLY (keeping the `[ci-autofix]` marker the cap gate counts) but cannot
+# push or mutate GitHub; it records its outcome in `.autofix/manifest.json` and, when
+# escalating, writes the comment body to `.autofix/escalation.md`. The deterministic POSTER
+# is the ONLY place with push credentials: it pushes the local fix commits (plain, never
+# force), or posts the escalation comment + `needs-human`, or no-ops — one outcome each.
 
 on:
   workflow_run:
@@ -137,12 +134,10 @@ jobs:
             exit 0
           fi
           echo "pr=$pr" >> "$GITHUB_OUTPUT"
-          # Defer while the PR is mid-conflict-rebase (conflicts.yml marked it
-          # `automation:rebasing` and an automatic rebase is in flight). The CI failure that
-          # triggered us is likely the doomed pre-rebase commit; fixing it now would
-          # waste compute AND burn an attempt from the cap below. The rebase merge commit
-          # re-runs CI, and autofix only re-fires if THAT fails. Any `automation:*` mutex
-          # defers us. Check before the cap.
+          # Defer while the PR is mid-conflict-rebase (an `automation:*` mutex is present —
+          # see .github/workflows/README.md "The automation:* rebase pause-mutex"). The CI
+          # failure that triggered us is likely the doomed pre-rebase commit; fixing it now
+          # would waste compute AND burn an attempt from the cap below. Check before the cap.
           if gh pr view "$pr" --json labels --jq '.labels[].name' 2>/dev/null | grep -qE '^automation:'; then
             echo "PR #$pr has an automation:* mutex — deferring autofix until the rebase lands."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
@@ -190,11 +185,9 @@ jobs:
 
       - name: Provision workflow helpers from main if absent
         if: steps.gate.outputs.proceed == 'true'
-        # This job checks out an agent/PR branch; local actions (./.github/actions/*)
-        # and scripts (.github/scripts/*) resolve from that branch's tree. A branch that
-        # predates these helpers lacks them, breaking the references below. If any are
-        # missing, fetch them from main and extract as UNTRACKED, git-ignored files:
-        # available on disk for uses:/bash, but never staged into the agent's commits.
+        # Provision local actions/scripts from main when this branch predates them (kept
+        # UNTRACKED, so they never enter the agent's commits) — see
+        # .github/workflows/README.md "Provisioning workflow helpers from main".
         env:
           GH_TOKEN: ${{ steps.app-token-ro.outputs.token }}
           GH_REPO: ${{ github.repository }}

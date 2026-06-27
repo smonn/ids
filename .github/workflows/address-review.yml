@@ -12,23 +12,19 @@ name: Address PR review feedback
 # is restricted to same-repo agent/issue-* branches — a forked PR can never run
 # attacker-controlled code with our secrets.
 #
-# PRODUCE / POST split with ENFORCED no-push. This workflow's agent does two kinds of
-# work and only one of them stays with it:
+# PRODUCE / POST split with ENFORCED no-push (see .github/workflows/README.md "Producer /
+# poster split" and "App token & the read/write security split"). This workflow's agent
+# does two kinds of work and only one of them stays with it:
 #   - JUDGMENT (stays): read the feedback, edit code via the `/tdd` skill, make one
 #     LOCAL commit per fix with a good message, run the full CI gate, and decide each
 #     point's resolution (fixed / declined / deferred + follow-up).
 #   - MECHANICAL (moves to a deterministic poster): pushing the branch, posting the
 #     in-thread replies, resolving the fixed threads, filing follow-up issues.
-# The agent is a PRODUCER for everything it writes to GitHub: a precompute step writes
-# the review context under `.address-context/` so the agent runs NO gh to read it, and
-# the agent writes its output (raw reply/issue bodies + a scalars-only manifest) under
-# `.address/` and makes ZERO GitHub mutations. The push itself is denied at the
-# credential level — the checkout uses `persist-credentials: false` and the producer
-# step gets NO `GH_TOKEN` — so the agent's git has no push credential and its gh is
-# unauthenticated. A separate deterministic `post` step (which DOES get the token and
-# sets up push credentials) reads `.address/` and does ALL pushing and posting, with
-# jq doing every bit of JSON encoding from raw body files so bodies can't be corrupted
-# by shell quoting. Mechanical work leaves the agent; only judgment stays.
+# The agent writes its output (raw reply/issue bodies + a scalars-only manifest) under
+# `.address/` and makes ZERO GitHub mutations. The no-push is ENFORCED at the credential
+# level — the checkout uses `persist-credentials: false` and the producer step gets NO
+# `GH_TOKEN`, so its git has no push credential and its gh is unauthenticated; only the
+# deterministic `post` step (which gets the token) pushes and posts.
 
 on:
   pull_request:
@@ -140,13 +136,12 @@ jobs:
             echo "proceed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Defer while the PR is mid-conflict-rebase (conflicts.yml marked it
-          # `automation:rebasing` and an automatic rebase is in flight). The current commit
-          # is about to be superseded, so addressing feedback now would be wasted and could
-          # race the rebase's push. No-op here; review.yml re-applies `do:address` after the
-          # rebase merge commit is re-reviewed, which re-fires this workflow. Any
-          # `automation:*` mutex defers us. NB: the "Remove the address trigger label" step
-          # below is guarded on proceed==true, so this no-op does NOT consume the trigger.
+          # Defer while an `automation:*` mutex marks this PR mid-conflict-rebase — see
+          # .github/workflows/README.md "The automation:* rebase pause-mutex". Addressing
+          # feedback now would be wasted and could race the rebase's push; review.yml
+          # re-applies `do:address` after the rebase merge commit is re-reviewed. NB the
+          # "Remove the address trigger label" step below is guarded on proceed==true, so
+          # this no-op does NOT consume the trigger.
           if echo "$labels" | grep -qE '^automation:'; then
             echo "PR #$PR_NUMBER has an automation:* mutex — deferring address-review until the rebase lands."
             # Don't strand a `pr:addressing-feedback` left by a superseded/cancelled run
@@ -217,11 +212,9 @@ jobs:
 
       - name: Provision workflow helpers from main if absent
         if: steps.gate.outputs.proceed == 'true'
-        # This job checks out an agent/PR branch; local actions (./.github/actions/*)
-        # and scripts (.github/scripts/*) resolve from that branch's tree. A branch that
-        # predates these helpers lacks them, breaking the references below. If any are
-        # missing, fetch them from main and extract as UNTRACKED, git-ignored files:
-        # available on disk for uses:/bash, but never staged into the agent's commits.
+        # Provision local actions/scripts from main when this branch predates them (kept
+        # UNTRACKED, so they never enter the agent's commits) — see
+        # .github/workflows/README.md "Provisioning workflow helpers from main".
         env:
           GH_TOKEN: ${{ steps.app-token-ro.outputs.token }}
           GH_REPO: ${{ github.repository }}

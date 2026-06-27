@@ -28,15 +28,12 @@ name: Review agent PRs
 # `pr:reviewing`. The job `if` below skips them and the concurrency group parks them
 # away from the real review's group — see both for the full guard.
 #
-# PRODUCE / POST split. The Claude step is a pure PRODUCER: it writes findings to files
-# under `.review/` and makes ZERO GitHub mutations. A separate deterministic `post` step
-# reads those files and posts ONE pull-request review (a single `event: COMMENT` review
-# bundling every inline finding plus a top-level summary body). Keeping the posting in a
-# script — instead of having the agent shell-quote bodies into `gh api` — is what makes
-# bodies reliable: the agent writes raw markdown with the Write tool (real newlines, no
-# escapes) and `jq` does all JSON encoding at post time. The review is COMMENT-only by
-# design: it never approves or requests changes (and GitHub would reject either anyway,
-# since the App that posts the review also authored the PR — you can't approve your own).
+# PRODUCE / POST split (see .github/workflows/README.md "Producer / poster split"). Here
+# the producer writes findings under `.review/` and the deterministic `post` step posts
+# ONE pull-request review (a single `event: COMMENT` review bundling every inline finding
+# plus a top-level summary body). The review is COMMENT-only by design: it never approves
+# or requests changes (and GitHub would reject either anyway, since the App that posts the
+# review also authored the PR — you can't approve your own).
 #
 # The review body and every inline comment carry a per-commit marker (`<!-- code-review:SHA
 # -->`), and the summary also carries the stable `<!-- code-review-summary -->` marker. The
@@ -134,18 +131,17 @@ jobs:
                case "$HEAD_REF" in agent/issue-*) true ;; *) false ;; esac; then
             review=true
           fi
-          # Defer while the PR is mid-conflict-rebase: conflicts.yml marks it
-          # `automation:rebasing` and an automatic rebase is in flight, so this commit is
-          # about to be superseded. Report success WITHOUT reviewing (the no-op path keeps
-          # the required `review` check green); the rebase merge commit re-fires review on
-          # the new SHA with the mutex already cleared. Any `automation:*` mutex pauses us.
-          # Only checked when we'd otherwise review, so forks / out-of-scope PRs make no gh
-          # call and stay secret-free. The scope decision (in-scope / deferred / out-of-
-          # scope) is mirrored and unit-tested in .github/scripts/review-scope.mjs — keep
-          # the two in lock-step. NB the decision never looks at the label COUNT: only the
-          # event, the `do:review` trigger, the head repo/branch, and this mutex move a PR
-          # in or out of scope, so changing any number of status/descriptive labels can
-          # neither start nor stop a review.
+          # Defer while an `automation:*` mutex marks this PR mid-conflict-rebase — see
+          # .github/workflows/README.md "The automation:* rebase pause-mutex". Report
+          # success WITHOUT reviewing (the no-op keeps the required `review` check green);
+          # the rebase merge commit re-fires review on the new SHA. Only checked when we'd
+          # otherwise review, so forks / out-of-scope PRs make no gh call and stay
+          # secret-free. The scope decision (in-scope / deferred / out-of-scope) is mirrored
+          # and unit-tested in .github/scripts/review-scope.mjs — keep the two in lock-step.
+          # NB the decision never looks at the label COUNT: only the event, the `do:review`
+          # trigger, the head repo/branch, and this mutex move a PR in or out of scope, so
+          # changing any number of status/descriptive labels can neither start nor stop a
+          # review.
           if [ "$review" = "true" ]; then
             pr_labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || true)
             if printf '%s\n' "$pr_labels" | grep -qE '^automation:'; then
@@ -257,11 +253,9 @@ jobs:
 
       - name: Provision workflow helpers from main if absent
         if: steps.scope.outputs.review == 'true' && steps.gate.outputs.skip != 'true'
-        # This job checks out an agent/PR branch; local actions (./.github/actions/*)
-        # and scripts (.github/scripts/*) resolve from that branch's tree. A branch that
-        # predates these helpers lacks them, breaking the references below. If any are
-        # missing, fetch them from main and extract as UNTRACKED, git-ignored files:
-        # available on disk for uses:/bash, but never staged into the agent's commits.
+        # Provision local actions/scripts from main when this branch predates them (kept
+        # UNTRACKED, so they never enter the agent's commits) — see
+        # .github/workflows/README.md "Provisioning workflow helpers from main".
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}

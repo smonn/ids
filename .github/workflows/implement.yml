@@ -2,30 +2,18 @@ name: Implement ready-for-agent issues
 
 # Implements a triaged `ready-for-agent` issue test-first and opens its PR.
 #
-# PRODUCE / POST split. The Claude step is a PRODUCER: it grounds itself in the
-# repo, implements the acceptance criteria via the `/tdd` skill, commits LOCALLY
-# on the implementation branch, and runs the full CI gate — but it makes ZERO
-# GitHub mutations and NEVER pushes. It cannot: the checkout sets
-# `persist-credentials: false` (no pushable git remote) and the producer step is
-# NOT given GH_TOKEN (its `gh` is unauthenticated). The agent's entire GitHub
-# output is files under `.impl/`: the raw PR body (`pr-body.md`, written with the
-# Write tool as verbatim bytes — real newlines, no backslash escapes) and a
-# scalars-only `manifest.json`. If it must escalate (a CLOSED decision, blocked,
-# out of scope) it writes the escalation comment body to a file and flags it in
-# the manifest, committing nothing it can't stand behind.
+# PRODUCE / POST split with ENFORCED no-push (see .github/workflows/README.md "Producer /
+# poster split"). The producer implements the acceptance criteria via the `/tdd` skill and
+# commits LOCALLY, but cannot push: the checkout sets `persist-credentials: false` and the
+# step gets NO GH_TOKEN. Its entire GitHub output is files under `.impl/` — the raw PR body
+# (`pr-body.md`) and a scalars-only `manifest.json`; to escalate (a CLOSED decision,
+# blocked, out of scope) it writes the comment body to a file and flags it in the manifest.
 #
-# A separate deterministic POSTER step owns ALL GitHub mutation. It reads the
-# manifest and: on escalation, posts the comment + flips the issue to
-# ready-for-human (no push); otherwise it pushes the branch (plain, never force,
-# never to main), creates the PR from the raw body file (`--body-file`, so the
-# body can't be corrupted by shell quoting), then transitions the issue
-# (in-progress / -ready-for-agent) and comments the new PR URL. The ordering —
-# push -> create PR -> transition issue — is forced by the data: the PR needs the
-# pushed branch, and the issue comment needs the created PR's URL.
-#
-# Mechanical work (push, PR creation, issue state, JSON/body encoding) leaves the
-# agent; only judgment (what to build, how to slice it, the commits, the body
-# prose) stays with it.
+# The deterministic POSTER owns ALL mutation, in a data-forced order: on escalation, post
+# the comment + flip the issue to ready-for-human (no push); otherwise push the branch
+# (plain, never force, never to main) -> create the PR from the body file -> transition the
+# issue (in-progress / ready-for-agent) + comment the PR URL. The order is forced because
+# the PR needs the pushed branch and the issue comment needs the created PR's URL.
 
 on:
   issues:
