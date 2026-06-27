@@ -218,12 +218,27 @@ jobs:
           if [ ! -f .github/actions/setup-node-pnpm/action.yml ] \
              || [ ! -f .github/scripts/poster-lib.sh ] \
              || [ ! -f .github/scripts/git-identity.sh ] \
+             || [ ! -f .github/scripts/lifecycle-status.sh ] \
              || [ ! -f .github/scripts/fetch-closing-issues.sh ]; then
             echo "Provisioning workflow helpers from main (this branch predates them)."
             git fetch --no-tags --depth=1 "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" main >/dev/null 2>&1
             git archive FETCH_HEAD .github/actions .github/scripts | tar -x
             printf '.github/actions/\n.github/scripts/\n' >> .git/info/exclude
           fi
+
+      # Phase 2 dual-write (ADR-0029): the agent is about to address feedback, so mirror
+      # that lifecycle state with the namespaced pr: status. Inert — nothing reads it;
+      # the subsequent re-review of the pushed fix sets the pr: outcome (ready /
+      # changes-requested). Placed after provisioning so the helper is on disk.
+      - name: Mark the PR as addressing feedback (namespaced status)
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/lifecycle-status.sh
+          set_pr_status "$PR_NUMBER" pr:addressing-feedback
 
       - name: Configure git identity and working branch
         if: steps.gate.outputs.proceed == 'true'

@@ -219,12 +219,28 @@ jobs:
           if [ ! -f .github/actions/setup-node-pnpm/action.yml ] \
              || [ ! -f .github/scripts/poster-lib.sh ] \
              || [ ! -f .github/scripts/git-identity.sh ] \
+             || [ ! -f .github/scripts/lifecycle-status.sh ] \
              || [ ! -f .github/scripts/fetch-closing-issues.sh ]; then
             echo "Provisioning workflow helpers from main (this branch predates them)."
             git fetch --no-tags --depth=1 "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" main >/dev/null 2>&1
             git archive FETCH_HEAD .github/actions .github/scripts | tar -x
             printf '.github/actions/\n.github/scripts/\n' >> .git/info/exclude
           fi
+
+      # Phase 2 dual-write (ADR-0029 / ADR-0030 start/stop contract): the automated
+      # review is now starting on this commit, so set the in-progress pr: status. The
+      # post step below overwrites it with the outcome (pr:ready / pr:changes-requested).
+      # Inert — nothing reads it. Runs only on the in-scope, non-deduped path, after
+      # provisioning has put the helper on disk.
+      - name: Mark the PR as under review (namespaced status)
+        if: steps.scope.outputs.review == 'true' && steps.gate.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/lifecycle-status.sh
+          set_pr_status "$PR_NUMBER" pr:reviewing
 
       # Precompute every input the producer needs and write it under .review-context/, so
       # the agent itself runs NO git and NO gh — it reads files and writes files, nothing
@@ -447,6 +463,8 @@ jobs:
         run: |
           set -euo pipefail
           source .github/scripts/poster-lib.sh
+          # Phase 2 dual-write of the namespaced pr: status (ADR-0029).
+          source .github/scripts/lifecycle-status.sh
           require_manifest .review
           summary_file=$(jq -r '.summary_file // "summary.md"' .review/manifest.json)
           test -f ".review/$summary_file" || { echo "::error::summary file .review/$summary_file missing"; exit 1; }
@@ -517,9 +535,14 @@ jobs:
           echo "Posted a COMMENT review for $HEAD_SHA with $(echo "$comments_json" | jq 'length') inline comment(s)."
 
           # Hand off to the fix loop only when the producer flagged in-scope hard findings.
+          # Dual-write the namespaced pr: outcome status alongside (ADR-0029): hard
+          # findings → pr:changes-requested (mirrors the address-feedback hand-off);
+          # a clean review → pr:ready ("reviewed, no blocking findings").
           if [ "$(jq -r '.hard_findings // false' .review/manifest.json)" = "true" ]; then
             gh pr edit "$PR_NUMBER" --add-label address-feedback
+            set_pr_status "$PR_NUMBER" pr:changes-requested
             echo "Applied address-feedback (hard findings present)."
           else
+            set_pr_status "$PR_NUMBER" pr:ready
             echo "No hard findings — leaving the PR for a human."
           fi

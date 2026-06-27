@@ -189,6 +189,9 @@ jobs:
           ANY_OPEN: ${{ steps.context.outputs.any_open }}
         run: |
           set -euo pipefail
+          # Phase 2 dual-write: mirror each flat lifecycle flip with its namespaced
+          # issue: status (ADR-0029). Best-effort; the flat labels stay authoritative.
+          source .github/scripts/lifecycle-status.sh
 
           # IDEMPOTENCY: any decision label already present means triage is done.
           if grep -qxE 'ready-for-agent|ready-for-human|wontfix|needs-info|blocked' .triage-context/labels.txt; then
@@ -209,6 +212,7 @@ jobs:
             } > blocked-comment.md
             gh issue comment "$ISSUE_NUMBER" --body-file blocked-comment.md
             gh issue edit "$ISSUE_NUMBER" --add-label blocked --remove-label needs-triage
+            set_issue_status "$ISSUE_NUMBER" blocked
             echo "#$ISSUE_NUMBER parked as blocked (open blockers: $open_list)."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -339,6 +343,8 @@ jobs:
         run: |
           set -euo pipefail
           source .github/scripts/poster-lib.sh
+          # Phase 2 dual-write of the namespaced issue: status (ADR-0029).
+          source .github/scripts/lifecycle-status.sh
           require_manifest .triage
           test -f .triage/comment.md   || { echo "::error::producer wrote no .triage/comment.md"; exit 1; }
 
@@ -350,6 +356,7 @@ jobs:
 
           gh issue comment "$ISSUE_NUMBER" --body-file .triage/comment.md
           gh issue edit "$ISSUE_NUMBER" --add-label "$label" --remove-label needs-triage
+          set_issue_status "$ISSUE_NUMBER" "$label"
           echo "Triaged #$ISSUE_NUMBER as '$label'."
 
       # Catch the "hollow success" backstop: when the producer ran, the poster must have

@@ -363,6 +363,8 @@ jobs:
         run: |
           set -euo pipefail
           source .github/scripts/poster-lib.sh
+          # Phase 2 dual-write of the namespaced issue: status (ADR-0029).
+          source .github/scripts/lifecycle-status.sh
           require_manifest .impl
 
           issue=$(jq -r '.issue_number' .impl/manifest.json)
@@ -377,6 +379,7 @@ jobs:
             echo "Escalating #$issue to a human (reason: $(jq -r '.escalate_reason // "unspecified"' .impl/manifest.json))."
             gh issue comment "$issue" --body-file ".impl/$body_file"
             gh issue edit "$issue" --add-label ready-for-human --remove-label ready-for-agent
+            set_issue_status "$issue" ready-for-human
             echo "✓ Posted escalation comment and flipped #$issue to ready-for-human; no PR opened."
             exit 0
           fi
@@ -415,6 +418,7 @@ jobs:
             echo "Escalating #$issue: commits touch .github/workflows/ (token lacks workflows permission)."
             gh issue comment "$issue" --body-file .impl/workflow-escalation.md
             gh issue edit "$issue" --add-label ready-for-human --remove-label ready-for-agent
+            set_issue_status "$issue" ready-for-human
             echo "✓ Posted workflow-escalation comment and flipped #$issue to ready-for-human; no push, no PR."
             exit 0
           fi
@@ -432,6 +436,7 @@ jobs:
 
           # 3) Transition the issue and link the PR (URL now known).
           gh issue edit "$issue" --add-label in-progress --remove-label ready-for-agent
+          set_issue_status "$issue" in-progress
           gh issue comment "$issue" --body "Implementation opened as $pr_url"
           echo "✓ Transitioned #$issue to in-progress and linked the PR."
 

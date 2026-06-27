@@ -1,6 +1,26 @@
 # Triage Labels
 
-> **Planned migration.** This file documents the **current** flat label set. A namespaced `namespace:value` taxonomy (`issue:`, `pr:`, `type:`, `size:`, `codec:`, `area:`, `changeset:`, `released:`, `do:*`, …) has been accepted in [ADR-0029](../adr/0029-namespaced-label-taxonomy.md) and [ADR-0030](../adr/0030-label-status-vs-triggers.md). The flat lifecycle/trigger labels below remain authoritative for now; the ADRs describe what they migrate to (e.g. `ready-for-agent` → `issue:ready-agent` status plus a `do:implement` trigger). **Phase 1 of that rollout has landed** — the descriptive auto-labels described under [Descriptive auto-labels](#descriptive-auto-labels-phase-1) are now applied automatically. They are purely descriptive and never affect the pipeline.
+> **Planned migration.** This file documents the **current** flat label set. A namespaced `namespace:value` taxonomy (`issue:`, `pr:`, `type:`, `size:`, `codec:`, `area:`, `changeset:`, `released:`, `do:*`, …) has been accepted in [ADR-0029](../adr/0029-namespaced-label-taxonomy.md) and [ADR-0030](../adr/0030-label-status-vs-triggers.md). The flat lifecycle/trigger labels below remain authoritative for now; the ADRs describe what they migrate to (e.g. `ready-for-agent` → `issue:ready-agent` status plus a `do:implement` trigger). **Phases 1–2 of that rollout have landed:** the descriptive auto-labels under [Descriptive auto-labels](#descriptive-auto-labels-phase-1) are applied automatically, and the lifecycle workflows now [dual-write the namespaced status](#namespaced-lifecycle-status-mirror-phase-2) beside each flat label. Both are purely descriptive and never affect the pipeline.
+
+## Namespaced lifecycle status mirror (Phase 2)
+
+Wherever a lifecycle workflow sets a flat lifecycle label it now **also writes the namespaced `issue:`/`pr:` status** (ADR-0029 Phase 2), so the namespaced set is populated before Phase 3 flips any trigger onto it. The flat labels stay authoritative through the transition; the namespaced ones are inert mirrors (status, never in a `labeled` filter) and writing them is best-effort — a status label failing to land never fails the job.
+
+| Flat label | Namespaced mirror | Written by |
+| --- | --- | --- |
+| `needs-triage` | `issue:triage` | `unblock.yml` (re-triage); removed when a decision lands |
+| `needs-info` | `issue:needs-info` | `triage.yml` |
+| `ready-for-agent` | `issue:ready-agent` | `triage.yml` |
+| `ready-for-human` | `issue:ready-human` | `triage.yml`, `implement.yml` (escalation) |
+| `in-progress` | `issue:in-progress` | `implement.yml` |
+| `blocked` | `issue:blocked` | `triage.yml` |
+| `wontfix` | `issue:wontfix` | `triage.yml` |
+| (automated review starts on a commit) | `pr:reviewing` | `review.yml` |
+| (hard review findings → `address-feedback`) | `pr:changes-requested` | `review.yml` |
+| (clean review) | `pr:ready` | `review.yml` |
+| (addressing review feedback) | `pr:addressing-feedback` | `address-review.yml` |
+
+The mapping and the single-select set/clear live in `.github/scripts/lifecycle-status.sh` (`set_issue_status` / `set_pr_status`), sourced by each workflow. Each namespace is single-select: setting one value removes the sibling values currently present. `needs-human` stays flat (cross-cutting escalation, no namespace) per ADR-0029.
 
 ## Descriptive auto-labels (Phase 1)
 
