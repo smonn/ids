@@ -2,6 +2,18 @@
 module.exports = {
   forbidden: [
     {
+      name: "no-circular",
+      severity: "error",
+      from: {},
+      to: { circular: true },
+    },
+    {
+      name: "not-to-unresolvable",
+      severity: "error",
+      from: {},
+      to: { couldNotResolve: true },
+    },
+    {
       name: "adapter-types-imports-allowlist",
       severity: "error",
       comment:
