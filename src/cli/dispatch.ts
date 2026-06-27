@@ -61,19 +61,57 @@ export async function buildCodec(
   values: Map<string, string>,
   opts: RunOpts,
 ): Promise<(IdCodec<string> & { generate?(): string | Promise<string> }) | CodecError> {
-  let key: unknown;
-  if (variant.key !== undefined) {
-    const format = parseKeyFormat(values, opts, variant.key);
-    if (isKeyFormatError(format)) return { kind: "usage", message: format };
-    const keyResult = await loadKey(opts, format, variant.key);
-    if (isLoadKeyError(keyResult)) {
-      return {
-        kind: keyResult.kind === "missing" ? "usage" : "runtime",
-        message: keyResult.message,
-      };
-    }
-    key = keyResult;
+  const key = await resolveCodecKey(variant, values, opts);
+  if (isCodecError(key)) return key;
+  return constructCodec(variant, brand, opts, key, values);
+}
+
+/**
+ * Resolve and import the operator key a variant requires, reading only flags and
+ * env vars — never stdin. Returns `undefined` for keyless variants, the imported
+ * key handle on success, or a CodecError (usage for a missing key or bad format,
+ * runtime for a bad encoding). Split out from {@link buildCodec} so callers can
+ * validate the key before blocking on stdin material (#766).
+ */
+export async function resolveCodecKey(
+  variant: Descriptor,
+  values: Map<string, string>,
+  opts: RunOpts,
+): Promise<unknown | CodecError> {
+  if (variant.key === undefined) return undefined;
+  const format = parseKeyFormat(values, opts, variant.key);
+  if (isKeyFormatError(format)) return { kind: "usage", message: format };
+  const keyResult = await loadKey(opts, format, variant.key);
+  if (isLoadKeyError(keyResult)) {
+    return {
+      kind: keyResult.kind === "missing" ? "usage" : "runtime",
+      message: keyResult.message,
+    };
   }
+  return keyResult;
+}
+
+export function constructCodec(
+  variant: GeneratorDescriptor,
+  brand: string,
+  opts: RunOpts,
+  key: unknown,
+  values: Map<string, string>,
+): (IdCodec<string> & { generate(): string | Promise<string> }) | CodecError;
+export function constructCodec(
+  variant: Descriptor,
+  brand: string,
+  opts: RunOpts,
+  key: unknown,
+  values: Map<string, string>,
+): IdCodec<string> | CodecError;
+export function constructCodec(
+  variant: Descriptor,
+  brand: string,
+  opts: RunOpts,
+  key: unknown,
+  values: Map<string, string>,
+): (IdCodec<string> & { generate?(): string | Promise<string> }) | CodecError {
   const codecOrError = variant.construct(brand, opts, key, values);
   if (typeof codecOrError === "string") {
     return {
