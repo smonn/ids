@@ -1,6 +1,6 @@
 # Audit dimensions
 
-The reviewer roster for Phase 1. Each row is one sub-agent. Adjust the set to the codebase; the listed dimensions are the default for a library with a security-sensitive core.
+The reviewer roster for Phase 1 — one sub-agent per row. This roster is an **example profile** tuned for a security-sensitive library; treat the dimensions as a starting set and the focus bullets as illustrations, not a fixed checklist. Add, drop, or retarget rows to fit the codebase under audit — e.g. a web app swaps the crypto focus for authn/z, XSS, and data-access concerns. Where a row overlaps an existing review skill (`/code-review`, `/simplify`, `/security-review`), have its agent draw on that skill for the angle.
 
 ## Shared reviewer contract (prepend to every agent prompt)
 

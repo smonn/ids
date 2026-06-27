@@ -10,7 +10,7 @@ An **audit** runs the same shape every time: load what's already **decided**, re
 
 Do this **before** any reviewer runs; its output is an input to every one of them.
 
-1. **Pin scope.** Ask: whole `src/` tree, or the diff since a fixed point (commit / branch / tag / merge-base)? For a diff, capture `git diff <point>...HEAD` and confirm it resolves and is non-empty (fail here, not inside a sub-agent).
+1. **Pin scope.** Ask: the whole source tree, or the diff since a fixed point (commit / branch / tag / merge-base)? For a diff, capture `git diff <point>...HEAD` and confirm it resolves and is non-empty (fail here, not inside a sub-agent).
 2. **Read the decided record:** every `docs/adr/*.md` (title + its **Status** line — Accepted / Rejected / Superseded), `CONTEXT.md`, `SPEC.md` (especially "closed", "rejected", "not yet frozen", "deferred to v2"), and any `CODING_STANDARDS.md` / `CONTRIBUTING.md`.
 3. **Write the decided digest:** one line per settled question — `<topic> → ADR-N (status)`. This digest is the gate.
 
@@ -18,15 +18,9 @@ Do this **before** any reviewer runs; its output is an input to every one of the
 
 ## Phase 1 — Review across dimensions (parallel)
 
-Launch one sub-agent per dimension in [`DIMENSIONS.md`](DIMENSIONS.md), all in a **single message** so they run concurrently. Hand each agent: the scope (tree or diff command), the area/file map, the **decided digest** from Phase 0, and the finding schema below. Scale the roster to the codebase — give security and accuracy the deepest briefs on crypto- or security-sensitive code, and add a dimension when the codebase warrants one.
+Launch one sub-agent per dimension in [`DIMENSIONS.md`](DIMENSIONS.md), all in a **single message** so they run concurrently. Hand each agent the **shared reviewer contract** from `DIMENSIONS.md` (it carries the gate rule and the finding schema), plus the scope (tree or diff command), the area/file map, and the **decided digest** from Phase 0. Where a dimension overlaps an existing review skill — `/code-review`, `/simplify`, `/security-review` — point the agent at it for the angle. Scale the roster to the codebase, and add a dimension when it warrants one.
 
-Every reviewer obeys the gate: for any candidate a digest line or ADR settles, it **drops the finding or marks it `closed:ADR-N`** — a decided thing is never raised as actionable.
-
-Finding schema (every dimension, every finding):
-
-```
-severity | file:line | title | concrete cost or failure scenario | suggested direction | status: open | closed:ADR-N
-```
+The gate is non-negotiable: every reviewer drops or `closed:ADR-N`-tags anything a digest line or ADR settles (the rule and schema live in `DIMENSIONS.md`) — a decided thing is never raised as actionable.
 
 **Completion criterion:** every dimension has reported, and each finding is sorted into **Open** or **Closed-by-ADR** with a citation.
 
