@@ -180,7 +180,7 @@ describe("deriveKey", () => {
     expect(sig1).toEqual(sig2);
   });
 
-  it("same IKM, different info labels produce independent key material (opaque/aes vs signed/hmac)", async () => {
+  it("same IKM, different info labels produce independent key material", async () => {
     const ikm = new Uint8Array(32).fill(0x99);
     const opaqueInfo = new TextEncoder().encode("@smonn/ids/opaque/aes");
     const signedInfo = new TextEncoder().encode("@smonn/ids/signed/hmac");
