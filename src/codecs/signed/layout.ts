@@ -11,8 +11,8 @@ import {
 
 const randomByteLength = 5;
 const tagByteLength = 5;
-const _signedByteCheck: typeof payloadByteLength =
-  timestampByteLength + randomByteLength + tagByteLength;
+type Equals<A, B> = A extends B ? (B extends A ? true : never) : never;
+const _signedByteCheck: Equals<typeof payloadByteLength, 16> = true; // timestampByteLength(6) + randomByteLength(5) + tagByteLength(5)
 void _signedByteCheck;
 const randomOffset = timestampByteLength; // 6
 const tagOffset = randomOffset + randomByteLength; // 11
