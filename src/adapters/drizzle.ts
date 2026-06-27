@@ -162,29 +162,43 @@ export function idColumnSqlite<Brand extends string>(
  * optional foreign keys, `LEFT JOIN` results, and any column that is
  * legitimately absent.
  *
+ * @param codec - The brand-scoped codec used to parse values read from the database.
+ * @param options - Optional column configuration.
+ * @param options.columnType - SQL column type to use (default: `"text"`). Pass
+ *   `"varchar(30)"` or `"char(26)"` to match an existing DDL or index strategy.
+ *   The value is passed through verbatim — no validation is performed.
+ *
  * @example
  * ```ts
  * import { nullableIdColumn } from "@smonn/ids/drizzle";
  * import { createTimestampId } from "@smonn/ids";
  *
  * const usr = createTimestampId("usr");
+ * // default: text column
  * export const posts = pgTable("posts", {
  *   authorId: nullableIdColumn(usr),
  * });
  * // posts.authorId is Id<"usr"> | null end-to-end
+ *
+ * // explicit char column
+ * export const comments = pgTable("comments", {
+ *   authorId: nullableIdColumn(usr, { columnType: "char(26)" }),
+ * });
  * ```
  */
 export function nullableIdColumn<Brand extends string>(
   codec: IdColumnCodec<Brand>,
+  options?: { columnType?: string },
 ): PgCustomColumnBuilder<
   ConvertCustomConfig<"", { data: Id<Brand> | null; driverData: string | null }>
 > {
+  const columnType = options?.columnType ?? "text";
   return customType<{ data: Id<Brand> | null; driverData: string | null }>({
     dataType() {
-      return "text";
+      return columnType;
     },
-    toDriver(value: Id<Brand> | null): string | null {
-      return value;
+    toDriver(value: Id<Brand> | null | undefined): string | null {
+      return value ?? null;
     },
     fromDriver(value: string | null): Id<Brand> | null {
       return readIdColumnNullable(codec, value);

@@ -86,10 +86,17 @@ class Post {
   @Property({ type: nullableIdType(usr), nullable: true })
   authorId!: Id<"usr"> | null;
 }
+
+// explicit varchar column — matches existing DDL
+class Comment {
+  @Property({ type: nullableIdType(usr, { columnType: "varchar(30)" }), nullable: true })
+  authorId!: Id<"usr"> | null;
+}
 ```
 
 - **Read path:** `convertToJSValue` returns `null` for `null` / `undefined` database values. Non-null values go through `codec.safeParse()` and throw `IdsError("invalid_id")` if they do not parse as a valid `Id<Brand>`.
-- **Write path:** `convertToDatabaseValue` passes `null` through unchanged; non-null `Id<Brand>` values are passed through as canonical strings.
+- **Write path:** `convertToDatabaseValue` normalises `null` and `undefined` to `null`; non-null `Id<Brand>` values are passed through as canonical strings.
+- **Column type:** `getColumnType` returns `"text"` by default; pass `{ columnType: "..." }` as the second argument to `nullableIdType` to override (e.g. `nullableIdType(usr, { columnType: "char(26)" })`).
 
 ## Error handling
 

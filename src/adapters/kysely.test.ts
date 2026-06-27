@@ -264,6 +264,10 @@ describe("kysely", () => {
       expectTypeOf(nullableUsrCol.toDriver(null)).toEqualTypeOf<string | null>();
     });
 
+    it("write path normalises undefined to null", () => {
+      expect(nullableUsrCol.toDriver(fromAny(undefined))).toBeNull();
+    });
+
     it("write path passes Id<Brand> through as string", () => {
       const id = usr.generate();
       expect(nullableUsrCol.toDriver(id)).toBe(id);

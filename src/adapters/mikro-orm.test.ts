@@ -206,6 +206,12 @@ describe("mikro-orm", () => {
       expect(nullableInstance.convertToDatabaseValue(fromAny(null), undefined as never)).toBeNull();
     });
 
+    it("write path normalises undefined to null", () => {
+      expect(
+        nullableInstance.convertToDatabaseValue(fromAny(undefined), undefined as never),
+      ).toBeNull();
+    });
+
     it("write path passes Id<Brand> through as string", () => {
       const id = usr.generate();
       expect(nullableInstance.convertToDatabaseValue(id, undefined as never)).toBe(id);
@@ -213,6 +219,40 @@ describe("mikro-orm", () => {
 
     it("getColumnType returns text", () => {
       expect(nullableInstance.getColumnType(undefined as never, undefined as never)).toBe("text");
+    });
+
+    describe("columnType option", () => {
+      it("getColumnType defaults to 'text' when no options passed (backward compat)", () => {
+        const DefaultType = nullableIdType(usr);
+        expect(new DefaultType().getColumnType(undefined as never, undefined as never)).toBe(
+          "text",
+        );
+      });
+
+      it("getColumnType returns the provided columnType", () => {
+        const VarcharType = nullableIdType(usr, { columnType: "varchar(30)" });
+        expect(new VarcharType().getColumnType(undefined as never, undefined as never)).toBe(
+          "varchar(30)",
+        );
+      });
+
+      it("accepts columnType as an optional string in its type signature", () => {
+        expectTypeOf(nullableIdType<"usr">)
+          .parameter(1)
+          .toMatchTypeOf<{ columnType?: string } | undefined>();
+      });
+
+      it("write path is unaffected by columnType option", () => {
+        const VarcharType = nullableIdType(usr, { columnType: "varchar(30)" });
+        const id = usr.generate();
+        expect(new VarcharType().convertToDatabaseValue(id, undefined as never)).toBe(id);
+      });
+
+      it("read path is unaffected by columnType option", () => {
+        const VarcharType = nullableIdType(usr, { columnType: "varchar(30)" });
+        const id = usr.generate();
+        expect(new VarcharType().convertToJSValue(fromAny(id), undefined as never)).toBe(id);
+      });
     });
   });
 });

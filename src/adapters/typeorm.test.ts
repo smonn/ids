@@ -199,8 +199,8 @@ describe("typeorm", () => {
       expect(nullableTransformer.to(fromAny(null))).toBeNull();
     });
 
-    it("write path passes undefined through unchanged", () => {
-      expect(nullableTransformer.to(fromAny(undefined))).toBeUndefined();
+    it("write path normalises undefined to null", () => {
+      expect(nullableTransformer.to(fromAny(undefined))).toBeNull();
     });
 
     it("write path passes Id<Brand> through as string", () => {
