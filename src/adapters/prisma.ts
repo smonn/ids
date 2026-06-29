@@ -4,24 +4,14 @@ import {
   readIdColumnNullable,
   writeIdColumn,
   type IdColumnCodec,
+  type IdGeneratingCodec,
 } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 
-export type { IdColumnCodec };
-
-/**
- * Extension of {@link IdColumnCodec} that also exposes synchronous `generate()`.
- * Required by {@link idField} so that {@link IdTransform.defaultQuery} can produce
- * IDs at write time. Every full codec variant (Timestamp, Reverse Timestamp) satisfies
- * this; async-generate codecs (Opaque, Signed, Wrapped, Digest) do not and are
- * therefore unsupported by `defaultQuery`.
- */
-export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
-  generate(): Id<Brand>;
-};
+export type { IdColumnCodec, IdGeneratingCodec };
 
 /**
  * The per-model object returned by {@link IdTransform.defaultQuery}, suitable for

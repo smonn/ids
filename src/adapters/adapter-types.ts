@@ -14,6 +14,11 @@ export type IdCodec<Brand extends string> = {
 /** Re-exported from ORM adapter subpaths (`@smonn/ids/drizzle`, `@smonn/ids/prisma`, `@smonn/ids/kysely`) under the public name; structurally identical to {@link IdCodec}. */
 export type IdColumnCodec<Brand extends string> = IdCodec<Brand>;
 
+/** Structural interface required by `idField()` (Prisma, MikroORM) and the `generatedIdColumn` family (Drizzle) — extends {@link IdColumnCodec} with a synchronous `generate()`. Only the **Timestamp codec** and **Reverse Timestamp codec** satisfy this; async-generate codecs (Opaque, Signed, Wrapped, Digest) do not. */
+export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
+  generate(): Id<Brand>;
+};
+
 /**
  * Parses `value` as `Id<Brand>` via `codec.safeParse`; throws `IdsError("invalid_id")` on failure. Shared read helper for ORM adapters.
  *
