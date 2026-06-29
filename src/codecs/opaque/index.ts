@@ -11,7 +11,7 @@ import type {
   StandardSchemaProps,
   ValidBrand,
 } from "../../types.js";
-import { schemaExampleId, wireMethods } from "../../wire/codec-shell.js";
+import { wireMethods } from "../../wire/codec-shell.js";
 
 export {
   decodeOpaqueKey,
@@ -145,7 +145,7 @@ export function createOpaqueTimestampId<Brand extends string>(
     parse: wire.parse,
     safeParse: wire.safeParse,
     extractTimestamp: layout.extractTimestamp,
-    toJsonSchema: () => wire.toJsonSchema(brand, schemaExampleId(prefix)),
+    toJsonSchema: wire.toJsonSchema,
     "~standard": wire["~standard"],
     toUUID: wire.toUUID,
     fromUUID: wire.fromUUID,
