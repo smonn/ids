@@ -12,6 +12,10 @@ export type RunOpts = {
   readStdin?: () => Promise<string>;
   /** Whether stdin is a TTY. Injected in tests; defaults to process.stdin.isTTY in generate. */
   isTTY?: boolean;
+  /** Read a key file's contents. Injected in tests; defaults to node:fs/promises in key resolution. */
+  readFile?: (path: string) => Promise<string>;
+  /** The package version, surfaced by `ids --version`. Injected by the binary entry point. */
+  version?: string;
 };
 
 export type CommandHandler = (args: ReadonlyArray<string>, opts: RunOpts) => Promise<number>;
