@@ -11,6 +11,9 @@ Codec variants beyond the Timestamp codec (Opaque Timestamp, and future Signed T
 ## Consequences
 
 - Shared types (`Id<Brand>`, parse types, the brand registry) stay in the main entry and are imported by each variant subpath.
+
+  > **Correction (2026-06-29):** `createTimestampId` is intentionally also exported from the root barrel (`src/index.ts`) as the default codec — subpath isolation applies to the other five codec variants only. This exception is deliberate: the Timestamp codec is the dominant, sync-only, zero-dependency variant, and surfacing it from the main entry preserves the "small, fast, sync" identity without polluting the entry with any async or keyed-codec surface. A reader should not "fix" this by adding a redundant `@smonn/ids/timestamp` subpath or removing the root export.
+
 - Adding a new codec variant means a new `src/codecs/<name>/` slice (`index.ts`, `layout.ts`, and optionally `key.ts`) plus a new entry in `package.json#exports` and `tsdown.config.ts` — no churn to existing variants and no `.dependency-cruiser.cjs` edits required (see [ADR-0018](./0018-by-feature-codec-slices.md)).
 - Discoverability cost: `createOpaqueTimestampId` is not surfaced by autocomplete on `@smonn/ids`. README and JSDoc on `createTimestampId` cover the pointer.
 - Establishes the precedent for adapter integrations too (see [docs/IDEAS.md](../IDEAS.md)).
