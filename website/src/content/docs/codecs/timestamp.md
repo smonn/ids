@@ -130,7 +130,7 @@ All three validate the date and throw `IdsError` with `code: "invalid_timestamp"
 on invalid input:
 
 - **negative timestamp** — `date.getTime() < 0`
-- **non-integer timestamp** — `date.getTime()` is NaN, Infinity, or a float
+- **non-integer timestamp** — `date.getTime()` is Infinity or a float (e.g. `1.5`)
 - **timestamp exceeds 48-bit range** — `date.getTime() >= 2 ** 48`
 - **`Invalid Date`** — `date.getTime()` is `NaN`
 
