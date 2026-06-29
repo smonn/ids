@@ -209,6 +209,40 @@ describe("kysely", () => {
       expect(result).toBe(inputResult);
     });
 
+    it("wide row — only ID columns are rewritten, all non-ID columns are untouched", async () => {
+      const id = usr.generate();
+      const plugin = idPlugin({ id: usr });
+      const extra = { nested: "obj" };
+      const wideRow = {
+        id,
+        col1: "a",
+        col2: 2,
+        col3: true,
+        col4: null,
+        col5: extra,
+        col6: "f",
+        col7: "g",
+        col8: "h",
+        col9: "i",
+        col10: "j",
+      };
+      const result = await plugin.transformResult(
+        fromAny({ queryId: {}, result: { rows: [wideRow] } }),
+      );
+      const row = result.rows[0]!;
+      expect(row.id).toBe(id);
+      expect(row.col1).toBe("a");
+      expect(row.col2).toBe(2);
+      expect(row.col3).toBe(true);
+      expect(row.col4).toBeNull();
+      expect(row.col5).toBe(extra);
+      expect(row.col6).toBe("f");
+      expect(row.col7).toBe("g");
+      expect(row.col8).toBe("h");
+      expect(row.col9).toBe("i");
+      expect(row.col10).toBe("j");
+    });
+
     it("qualified key takes precedence over a plain key for the same column name", async () => {
       const usrId = usr.generate();
       // "users.id" (qualified) wins over "id" (plain) for column "id"; usrId parses via usr codec

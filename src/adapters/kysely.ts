@@ -182,14 +182,24 @@ export function idPlugin(map: Record<string, IdColumnCodec<string>>): KyselyPlug
     async transformResult(args: PluginTransformResultArgs): Promise<QueryResult<UnknownRow>> {
       const { rows } = args.result;
       const firstRow = rows[0];
-      if (firstRow === undefined || !Object.keys(firstRow).some((k) => lookup.has(k))) {
+      if (firstRow === undefined) {
+        return args.result;
+      }
+      // Precompute: find which ID columns actually appear in this result set.
+      const idCols: Array<[string, IdColumnCodec<string>]> = [];
+      for (const key of Object.keys(firstRow)) {
+        const codec = lookup.get(key);
+        if (codec !== undefined) {
+          idCols.push([key, codec]);
+        }
+      }
+      if (idCols.length === 0) {
         return args.result;
       }
       const newRows = rows.map((row) => {
-        const newRow: Record<string, unknown> = {};
-        for (const [colName, value] of Object.entries(row)) {
-          const codec = lookup.get(colName);
-          newRow[colName] = codec !== undefined ? readIdColumn(codec, value) : value;
+        const newRow = { ...row };
+        for (const [colName, codec] of idCols) {
+          newRow[colName] = readIdColumn(codec, row[colName]);
         }
         return newRow;
       });
