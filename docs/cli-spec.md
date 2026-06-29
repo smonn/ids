@@ -108,7 +108,7 @@ ids timestamp inspect <id>            [--json] [--quiet]
 ids reverse   inspect <id>            [--json] [--quiet]
 ids signed    inspect <id> --key ...  [--json] [--quiet]
 ids opaque    inspect <id> --key ...  [--json] [--quiet]
-ids wrapped   inspect <id> --key ...  [--json] [--quiet]
+ids wrapped   inspect <id> --key ...  [--kind u32|i32|u64|i64] [--json] [--quiet]
 ```
 
 Per-codec behavior and reported fields:
@@ -125,7 +125,7 @@ Notes:
 
 - Every `inspect` reports a `uuid` field — the [Raw UUID mapping](./adr/0024-uuid-interop-raw-mapping.md) of the ID's payload. It is total and free on every codec. The reverse direction (uuid → id) is the top-level `convert` command.
 - `signed inspect` couples verification and extraction. Reaching output implies the signature verified; `verified: true` is reported explicitly. A failed signature is a failure (stderr diagnostic, nonzero exit), not a printed `verified: false`.
-- `wrapped inspect` is self-describing: the kind is encoded in the ID, so no `--kind` flag is needed on read. `value` is the recovered integer; `kind` is its type.
+- `wrapped inspect` is self-describing: no `--kind` flag is needed on read. The kind is **not stored in the ID** — it is folded into the verification tag — so it is recovered by **trial**: each of `u32`/`i32`/`u64`/`i64` is attempted in turn and the one whose tag verifies wins (false-cross ≈ 2⁻⁶⁴ per kind, so the result is unambiguous). An optional `--kind u32|i32|u64|i64` may be supplied to skip the trial and verify against that kind only. `value` is the recovered integer; `kind` is its type.
 - `--quiet` suppresses stdout. The exit code remains the signal. Useful for gating: `if ids signed inspect "$id" --key ... --quiet; then ...`.
 
 ### `match` (digest)

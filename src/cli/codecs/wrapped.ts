@@ -31,43 +31,40 @@ export const wrappedCli: CodecModule = {
           keyed: true,
           codecKey: wrappingKey,
           extraFlags: [{ name: "--kind", value: true }],
-          prepare: (_o, key, values) => async (id) => {
-            const brand = brandOfId(id);
-            if (isCliError(brand)) return brand;
-
+          // --kind is validated once here (not per ID), so a bad --kind is a single
+          // usage error rather than a per-line failure in a batch.
+          prepare: (_o, key, values) => {
             const kindOpt = parseKind(values);
-            let kinds: readonly WrappedKind[];
-            if (kindOpt === undefined) {
-              kinds = trialKinds;
-            } else if (isKindError(kindOpt)) {
-              return usageError(kindOpt);
-            } else {
-              kinds = [kindOpt];
-            }
+            if (kindOpt !== undefined && isKindError(kindOpt)) return usageError(kindOpt);
+            const kinds: readonly WrappedKind[] = kindOpt === undefined ? trialKinds : [kindOpt];
 
-            for (const kind of kinds) {
-              const codec = createWrappedKeyId(brand, {
-                kind,
-                keys: [key!],
-                allowDuplicateBrand: true,
-              });
-              const result = await codec.safeUnwrap(id);
-              if (result.ok) {
-                return {
-                  shape: "wrapped",
-                  brand,
-                  codec: "wrapped",
-                  value: result.lookupKey,
+            return async (id) => {
+              const brand = brandOfId(id);
+              if (isCliError(brand)) return brand;
+              for (const kind of kinds) {
+                const codec = createWrappedKeyId(brand, {
                   kind,
-                  uuid: codec.toUUID(result.id),
-                };
+                  keys: [key!],
+                  allowDuplicateBrand: true,
+                });
+                const result = await codec.safeUnwrap(id);
+                if (result.ok) {
+                  return {
+                    shape: "wrapped",
+                    brand,
+                    codec: "wrapped",
+                    value: result.lookupKey,
+                    kind,
+                    uuid: codec.toUUID(result.id),
+                  };
+                }
+                // A structural parse error is the same for every kind — fail fast.
+                if (result.error !== "verification_failed") {
+                  return runtimeError(`invalid_id: ${result.error}`);
+                }
               }
-              // A structural parse error is the same for every kind — fail fast.
-              if (result.error !== "verification_failed") {
-                return runtimeError(`invalid_id: ${result.error}`);
-              }
-            }
-            return runtimeError("verification_failed: no key/kind matches this id");
+              return runtimeError("verification_failed: no key/kind matches this id");
+            };
           },
         },
         argv,

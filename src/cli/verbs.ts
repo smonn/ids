@@ -1,4 +1,5 @@
 import { isIdsError } from "../error.js";
+import type { Id } from "../types.js";
 import { type FlagSpec, parseArgs } from "./args.js";
 import { type CliError, exitCodeFor, isCliError, runtimeError, usageError } from "./errors.js";
 import {
@@ -73,7 +74,9 @@ function parseAt(values: Map<string, string>): Date | undefined | CliError {
   const raw = values.get("--at");
   if (raw === undefined) return undefined;
   if (raw === "") return usageError("--at requires a value");
-  const date = /^\d+$/.test(raw) ? new Date(Number(raw)) : new Date(toUtcIso(raw));
+  // A leading-minus integer is still epoch-ms (a pre-epoch instant), not an ISO string;
+  // generateAt then rejects it with invalid_timestamp (mapped to a usage error).
+  const date = /^-?\d+$/.test(raw) ? new Date(Number(raw)) : new Date(toUtcIso(raw));
   if (Number.isNaN(date.getTime())) return usageError(`--at: invalid date '${raw}'`);
   return date;
 }
@@ -189,9 +192,13 @@ function readAllStdin(opts: RunOpts): Promise<string> {
   return (opts.readStdin ?? readProcessStdin)();
 }
 
+/** Recovers a report from one ID, or a per-ID error (e.g. malformed input). */
+type Recover = (id: string) => Promise<InspectReport | CliError>;
+
 /**
- * Per-codec inspect configuration. `prepare` binds the resolved key (if any) and
- * returns a function mapping one input ID to a report or a per-ID error.
+ * Per-codec inspect configuration. `prepare` runs once with the resolved key (if any)
+ * and returns either the per-ID recovery function or a setup-time {@link CliError}
+ * (e.g. a bad `--kind`) — so an invocation-level error is reported once, not per line.
  */
 export type InspectSpec<K> = {
   readonly keyed: boolean;
@@ -201,7 +208,7 @@ export type InspectSpec<K> = {
     opts: RunOpts,
     key: K | undefined,
     values: Map<string, string>,
-  ) => (id: string) => Promise<InspectReport | CliError>;
+  ) => Recover | CliError;
 };
 
 /**
@@ -232,6 +239,17 @@ export async function runInspect<K>(
     return fail(opts, usageError(`unexpected argument: ${positionals[1]!}`));
   }
 
+  // Resolve the key and bind recovery BEFORE reading stdin, so a bad key or bad
+  // setup flag fails fast rather than after consuming piped input (#766).
+  let key: K | undefined;
+  if (spec.keyed) {
+    const resolved = await resolveKey(values, flags, opts, spec.codecKey!);
+    if (isCliError(resolved)) return fail(opts, resolved);
+    key = resolved;
+  }
+  const recover = spec.prepare(opts, key, values);
+  if (isCliError(recover)) return fail(opts, recover);
+
   const single = positionals.length === 1;
   let inputs: string[];
   if (single) {
@@ -247,18 +265,9 @@ export async function runInspect<K>(
     }
   }
 
-  let key: K | undefined;
-  if (spec.keyed) {
-    const resolved = await resolveKey(values, flags, opts, spec.codecKey!);
-    if (isCliError(resolved)) return fail(opts, resolved);
-    key = resolved;
-  }
-
-  const recover = spec.prepare(opts, key, values);
   const json = flags.has("--json");
   const quiet = flags.has("--quiet");
   let anyFail = false;
-
   for (const input of inputs) {
     let report: InspectReport | CliError;
     try {
@@ -277,6 +286,41 @@ export async function runInspect<K>(
   return anyFail ? 1 : 0;
 }
 
+/**
+ * InspectSpec for a keyless timestamp-family codec (Timestamp, Reverse Timestamp):
+ * structural parse, then a plaintext timestamp read. Removes the per-codec duplication.
+ */
+export function keylessTimestampInspect(
+  codecName: string,
+  make: (
+    brand: string,
+    opts: RunOpts,
+  ) => {
+    safeParse(value: unknown): { ok: true; id: Id<string> } | { ok: false; error: string };
+    extractTimestamp(id: Id<string>): Date;
+    toUUID(id: Id<string>): string;
+  },
+): InspectSpec<never> {
+  return {
+    keyed: false,
+    prepare: (o) => (id) => {
+      const brand = brandOfId(id);
+      if (isCliError(brand)) return Promise.resolve(brand);
+      const codec = make(brand, o);
+      const parsed = codec.safeParse(id);
+      if (!parsed.ok) return Promise.resolve(runtimeError(`invalid_id: ${parsed.error}`));
+      const ts = codec.extractTimestamp(parsed.id);
+      return Promise.resolve({
+        shape: "timestamp",
+        brand,
+        codec: codecName,
+        ms: ts.getTime(),
+        uuid: codec.toUUID(parsed.id),
+      });
+    },
+  };
+}
+
 function parseLookupValue(kind: WrappedKindValue, raw: string): number | bigint | CliError {
   if (raw === "") return usageError("--value requires a value");
   if (kind === "u32" || kind === "i32") {
@@ -288,12 +332,10 @@ function parseLookupValue(kind: WrappedKindValue, raw: string): number | bigint 
     }
     return n;
   }
-  let value: bigint;
-  try {
-    value = BigInt(raw);
-  } catch {
-    return usageError(`--value must be an integer, got '${raw}'`);
-  }
+  // Guard before BigInt(): it would otherwise accept 0x/0o/0b prefixes and surrounding
+  // whitespace, silently turning a typo'd value into a wrong-but-valid integer.
+  if (!/^-?\d+$/.test(raw)) return usageError(`--value must be an integer, got '${raw}'`);
+  const value = BigInt(raw);
   const [min, max] =
     kind === "u64"
       ? [0n, 18_446_744_073_709_551_615n]
@@ -395,12 +437,14 @@ export async function runDerive<K>(
   if (positionals.length > 1)
     return fail(opts, usageError(`unexpected argument: ${positionals[1]!}`));
 
+  // Resolve the key before reading material from stdin, so a missing/invalid key
+  // fails fast instead of after consuming (possibly sensitive) piped input (#766).
   const ns = parseNsValue(values);
   if (isCliError(ns)) return fail(opts, ns);
-  const material = await resolveMaterial(values, opts);
-  if (isCliError(material)) return fail(opts, material);
   const key = await resolveKey(values, flags, opts, codecKey);
   if (isCliError(key)) return fail(opts, key);
+  const material = await resolveMaterial(values, opts);
+  if (isCliError(material)) return fail(opts, material);
 
   try {
     const id = await build(brand, key, ns).digest(material);
@@ -438,16 +482,19 @@ export async function runMatch<K>(
   if (id === undefined) return fail(opts, usageError("missing id"));
   if (positionals.length > 1)
     return fail(opts, usageError(`unexpected argument: ${positionals[1]!}`));
-  if (!/^[a-z]{3}_/i.test(id)) return fail(opts, usageError("invalid_id: not a valid ID"));
+  // A malformed ID is a usage error for match's grep-like contract (exit 2), so
+  // re-tag brandOfId's runtime error as usage.
+  const brand = brandOfId(id);
+  if (isCliError(brand)) return fail(opts, usageError(brand.message));
 
+  // Key before material so a bad key fails fast, before consuming stdin (#766).
   const ns = parseNsValue(values);
   if (isCliError(ns)) return fail(opts, ns);
-  const material = await resolveMaterial(values, opts);
-  if (isCliError(material)) return fail(opts, material);
   const key = await resolveKey(values, flags, opts, codecKey);
   if (isCliError(key)) return fail(opts, key);
+  const material = await resolveMaterial(values, opts);
+  if (isCliError(material)) return fail(opts, material);
 
-  const brand = id.slice(0, 3).toLowerCase();
   let matched: boolean;
   let canonical: string;
   try {

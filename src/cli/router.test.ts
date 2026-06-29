@@ -500,3 +500,54 @@ describe("more edge cases", () => {
     expect(await run(capture(["convert", "usr"]).opts)).toBe(2);
   });
 });
+
+describe("review regression fixes", () => {
+  it("rejects a hex --value for a 64-bit kind (no BigInt 0x leniency)", async () => {
+    const w = capture([
+      "wrapped",
+      "wrap",
+      "ord",
+      "--value",
+      "0x1f",
+      "--kind",
+      "u64",
+      "--key",
+      keyHex,
+    ]);
+    expect(await run(w.opts)).toBe(2);
+    expect(w.err.join("")).toContain("must be an integer");
+  });
+
+  it("treats a negative epoch-ms --at as a pre-epoch usage error", async () => {
+    const g = capture(["timestamp", "generate", "usr", "--at", "-1"]);
+    expect(await run(g.opts)).toBe(2);
+  });
+
+  it("reports a bad --kind once with exit 2 in a batch inspect (not per line)", async () => {
+    const batch = capture(["wrapped", "inspect", "--kind", "bogus", "--key", keyHex], {
+      readStdin: () => Promise.resolve("ord_aaa\nord_bbb\n"),
+    });
+    expect(await run(batch.opts)).toBe(2);
+    expect(batch.err.join("").match(/--kind/g)).toHaveLength(1);
+  });
+
+  it("fails fast with a key error before consuming stdin material (#766)", async () => {
+    let stdinRead = false;
+    const d = capture(["digest", "derive", "psd", "--ns", "billing"], {
+      readStdin: () => {
+        stdinRead = true;
+        return Promise.resolve("secret-pii");
+      },
+    });
+    expect(await run(d.opts)).toBe(2);
+    expect(d.err.join("")).toContain("missing key");
+    expect(stdinRead).toBe(false);
+  });
+
+  it("does not bind a following flag as a key value", async () => {
+    // --json is recognized, so --key has no value -> usage error, not a bogus key
+    const ins = capture(["signed", "inspect", "usr_xxxxxxxxxxxxxxxxxxxxxxxxxx", "--key", "--json"]);
+    expect(await run(ins.opts)).toBe(2);
+    expect(ins.err.join("")).toContain("--key requires a value");
+  });
+});

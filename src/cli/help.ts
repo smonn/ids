@@ -17,8 +17,9 @@ export function usage(): string {
   ].join("\n");
 }
 
-export function helpForCodec(codec: string): string {
-  return `Usage: ids ${codec} <verb> [args] [flags]\nRun 'ids --help' for the full command list.\n`;
+export function helpForCodec(codec: string, verbs: readonly string[] = []): string {
+  const list = verbs.length > 0 ? verbs.join(", ") : "<verb>";
+  return `Usage: ids ${codec} <verb> [args] [flags]\nVerbs: ${list}\nRun 'ids --help' for the full command list.\n`;
 }
 
 export function helpForCommand(name: string): string {

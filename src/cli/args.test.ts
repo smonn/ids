@@ -45,6 +45,12 @@ describe("parseArgs", () => {
     expect(parseArgs(["--count"], specs).values.get("--count")).toBe("");
   });
 
+  it("does not swallow a recognized following flag as a value", () => {
+    const r = parseArgs(["--count", "--json"], specs);
+    expect(r.values.get("--count")).toBe("");
+    expect(r.flags.has("--json")).toBe(true);
+  });
+
   it("treats a lone dash as a positional", () => {
     expect(parseArgs(["-"], specs).positionals).toEqual(["-"]);
   });

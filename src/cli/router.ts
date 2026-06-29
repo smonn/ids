@@ -66,24 +66,24 @@ export async function run(opts: RunOpts): Promise<number> {
     const rest = argv.slice(1);
     const verbName = rest[0];
     if (verbName === undefined) {
-      opts.stderr(helpForCodec(mod.codec));
+      opts.stderr(helpForCodec(mod.codec, Object.keys(mod.verbs)));
       return 2;
     }
     if (isHelp(verbName)) {
-      opts.stdout(helpForCodec(mod.codec));
+      opts.stdout(helpForCodec(mod.codec, Object.keys(mod.verbs)));
       return 0;
     }
 
     const handler = mod.verbs[verbName];
     if (handler === undefined) {
       opts.stderr(`unknown verb for ${mod.codec}: ${verbName}\n`);
-      opts.stderr(helpForCodec(mod.codec));
+      opts.stderr(helpForCodec(mod.codec, Object.keys(mod.verbs)));
       return 2;
     }
 
     const verbArgs = rest.slice(1);
     if (verbArgs.some(isHelp)) {
-      opts.stdout(helpForCodec(mod.codec));
+      opts.stdout(helpForCodec(mod.codec, Object.keys(mod.verbs)));
       return 0;
     }
     return await handler(verbArgs, opts);

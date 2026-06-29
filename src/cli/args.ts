@@ -71,8 +71,18 @@ export function parseArgs(argv: ReadonlyArray<string>, specs: ReadonlyArray<Flag
         values.set(spec.name, inline);
         continue;
       }
+      // Consume the next token as the value — but NOT if it's a recognized flag, so a
+      // forgotten value (`--key --json`) reports "requires a value" instead of binding
+      // `--json` as the key. A negative number (`--value -5`) isn't a known flag, so it
+      // is still consumed.
       const next = argv[i + 1];
-      if (next === undefined) {
+      const nextToken =
+        next === undefined
+          ? undefined
+          : next.includes("=")
+            ? next.slice(0, next.indexOf("="))
+            : next;
+      if (next === undefined || (nextToken !== undefined && byToken.has(nextToken))) {
         values.set(spec.name, "");
       } else {
         values.set(spec.name, next);
