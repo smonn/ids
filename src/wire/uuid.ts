@@ -11,7 +11,6 @@ for (let i = 0; i <= 9; i++) hexNibble["0".charCodeAt(0) + i] = i;
 for (let i = 0; i <= 5; i++) hexNibble["a".charCodeAt(0) + i] = 10 + i;
 for (let i = 0; i <= 5; i++) hexNibble["A".charCodeAt(0) + i] = 10 + i;
 
-// Offsets in the 36-char UUID string that are hex chars (skipping the 4 hyphens).
 const hexOffsets = [0, 2, 4, 6, 9, 11, 14, 16, 19, 21, 24, 26, 28, 30, 32, 34] as const;
 
 // RFC 9562 canonical form: 8-4-4-4-12 hyphenated hex, case-insensitive.
