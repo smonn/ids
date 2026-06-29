@@ -3,12 +3,37 @@ import { IdsError } from "../error.js";
 import { brandOfId, mapThrown } from "./verbs.js";
 
 describe("mapThrown", () => {
-  it("maps a usage-coded IdsError to a usage error", () => {
-    expect(mapThrown(new IdsError("invalid_brand", "bad brand")).kind).toBe("usage");
-  });
+  const usageCodes = [
+    "invalid_brand",
+    "invalid_key_format",
+    "invalid_key_encoding",
+    "invalid_key_length",
+    "invalid_kind",
+    "invalid_lookup_key",
+    "invalid_namespace",
+    "invalid_timestamp",
+  ] as const;
 
-  it("maps a non-usage IdsError and any other error to a runtime error", () => {
-    expect(mapThrown(new IdsError("verification_failed", "nope")).kind).toBe("runtime");
+  const runtimeCodes = [
+    "empty_keyring",
+    "duplicate_keyring_entry",
+    "verification_failed",
+    "invalid_id",
+  ] as const;
+
+  for (const code of usageCodes) {
+    it(`maps IdsError(${code}) to usage`, () => {
+      expect(mapThrown(new IdsError(code, "msg")).kind).toBe("usage");
+    });
+  }
+
+  for (const code of runtimeCodes) {
+    it(`maps IdsError(${code}) to runtime`, () => {
+      expect(mapThrown(new IdsError(code, "msg")).kind).toBe("runtime");
+    });
+  }
+
+  it("maps an unknown error to runtime", () => {
     expect(mapThrown(new Error("boom")).kind).toBe("runtime");
   });
 });

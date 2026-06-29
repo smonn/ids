@@ -1,4 +1,4 @@
-import { isIdsError } from "../error.js";
+import { isIdsError, type IdsErrorCode } from "../error.js";
 import type { Id } from "../types.js";
 import { type FlagSpec, parseArgs } from "./args.js";
 import { type CliError, exitCodeFor, isCliError, runtimeError, usageError } from "./errors.js";
@@ -27,22 +27,25 @@ type Minter = {
   generateAt(date: Date): string | Promise<string>;
 };
 
-/** IdsError codes that signal a malformed invocation (exit 2) rather than a runtime fault (exit 1). */
-const usageCodes: ReadonlySet<string> = new Set([
-  "invalid_brand",
-  "invalid_timestamp",
-  "invalid_namespace",
-  "invalid_kind",
-  "invalid_lookup_key",
-  "invalid_key_length",
-  "invalid_key_encoding",
-  "invalid_key_format",
-]);
+/** Maps every IdsErrorCode to its CLI exit bucket — "usage" (exit 2) or "runtime" (exit 1).
+ *  TypeScript enforces exhaustiveness: adding a new IdsErrorCode without an entry here is a type error. */
+const usageCodeBuckets: Record<IdsErrorCode, "usage" | "runtime"> = {
+  invalid_brand: "usage",
+  invalid_timestamp: "usage",
+  invalid_namespace: "usage",
+  invalid_kind: "usage",
+  invalid_lookup_key: "usage",
+  invalid_key_length: "usage",
+  invalid_key_encoding: "usage",
+  invalid_key_format: "usage",
+  empty_keyring: "runtime",
+  duplicate_keyring_entry: "runtime",
+  verification_failed: "runtime",
+  invalid_id: "runtime",
+};
 
 export function mapThrown(err: unknown): CliError {
-  // In practice every error thrown on a CLI path is a usage-coded IdsError
-  // (invalid_brand/timestamp/namespace/kind/lookup_key/key_*); anything else is runtime.
-  if (isIdsError(err) && usageCodes.has(err.code)) {
+  if (isIdsError(err) && usageCodeBuckets[err.code] === "usage") {
     return usageError(formatCliError(err));
   }
   return runtimeError(formatCliError(err));
