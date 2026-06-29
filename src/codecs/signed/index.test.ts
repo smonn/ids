@@ -5,14 +5,12 @@ import {
   decodeSigningKey,
   encodeSigningKey,
   importSigningKey,
-  IdsError,
-  isIdsError,
   type SafeVerifyResult,
   type SignedTimestampCodec,
   type SigningKey,
   type SigningKeyFormat,
-  type IdsErrorCode,
 } from "./index.js";
+import { IdsError, isIdsError } from "../../error.js";
 import type { Id } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 
@@ -29,32 +27,9 @@ describe("@smonn/ids/signed re-exports", () => {
     expect(typeof decodeSigningKey).toBe("function");
   });
 
-  it("exports IdsError class", () => {
-    expect(typeof IdsError).toBe("function");
-    const err = new IdsError("invalid_key_length", "test");
-    expect(err).toBeInstanceOf(IdsError);
-  });
-
-  it("exports isIdsError guard", () => {
-    expect(typeof isIdsError).toBe("function");
-    const err = new IdsError("empty_keyring", "test");
-    expect(isIdsError(err)).toBe(true);
-  });
-
   it("SigningKeyFormat type covers hex and base64url", () => {
     const formats: SigningKeyFormat[] = ["hex", "base64url"];
     expect(formats).toHaveLength(2);
-  });
-
-  it("IdsErrorCode includes signing-key-relevant codes", () => {
-    const codes: IdsErrorCode[] = [
-      "invalid_key_format",
-      "invalid_key_encoding",
-      "invalid_key_length",
-      "empty_keyring",
-      "duplicate_keyring_entry",
-    ];
-    expect(codes).toHaveLength(5);
   });
 
   it("key helpers work end-to-end via the signed subpath", async () => {

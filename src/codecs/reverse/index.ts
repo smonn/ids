@@ -12,9 +12,6 @@ import type {
 } from "../../types.js";
 import { wireMethods } from "../../wire/codec-shell.js";
 
-/** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
-export { IdsError, isIdsError, type IdsErrorCode } from "../../error.js";
-
 /**
  * Configuration options for a Reverse Timestamp codec instance.
  */

@@ -4,14 +4,12 @@ import {
   createDigestId,
   decodeDigestKey,
   encodeDigestKey,
-  IdsError,
   importDigestKey,
-  isIdsError,
   type DigestCodec,
   type DigestKey,
   type DigestKeyFormat,
-  type IdsErrorCode,
 } from "./index.js";
+import { IdsError, isIdsError } from "../../error.js";
 import type { Id } from "../../types.js";
 
 describe("@smonn/ids/digest re-exports", () => {
@@ -27,31 +25,9 @@ describe("@smonn/ids/digest re-exports", () => {
     expect(typeof decodeDigestKey).toBe("function");
   });
 
-  it("exports IdsError class", () => {
-    expect(typeof IdsError).toBe("function");
-    const err = new IdsError("invalid_key_length", "test");
-    expect(err).toBeInstanceOf(IdsError);
-  });
-
-  it("exports isIdsError guard", () => {
-    expect(typeof isIdsError).toBe("function");
-    const err = new IdsError("invalid_namespace", "test");
-    expect(isIdsError(err)).toBe(true);
-  });
-
   it("DigestKeyFormat type covers hex and base64url", () => {
     const formats: DigestKeyFormat[] = ["hex", "base64url"];
     expect(formats).toHaveLength(2);
-  });
-
-  it("IdsErrorCode includes digest-key-relevant codes", () => {
-    const codes: IdsErrorCode[] = [
-      "invalid_key_format",
-      "invalid_key_encoding",
-      "invalid_key_length",
-      "invalid_namespace",
-    ];
-    expect(codes).toHaveLength(4);
   });
 
   it("key helpers work end-to-end via the digest subpath", async () => {
