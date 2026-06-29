@@ -1,72 +1,45 @@
-import { deriveAllowedFlags, resolveVariant } from "../dispatch.js";
-import { isNsError, parseBits, parseNs, splitFlags, unsupportedFlagForCommand } from "../flags.js";
-import { isKeyFormatError, parseKeyFormatFromFlag } from "../key-io.js";
+import { encodeOpaqueKey } from "../../codecs/opaque/index.js";
+import { type FlagSpec, parseArgs } from "../args.js";
+import { type CliError, isCliError, usageError } from "../errors.js";
+import { resolveKeyEncoding } from "../key.js";
 import type { RunOpts } from "../types.js";
-import { usageKeygen } from "../usage.js";
-import { keygenPolicy } from "../variants.js";
+import { fail } from "../verbs.js";
 
-export async function runKeygen(args: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
-  if (args.includes("--help") || args.includes("-h")) {
-    opts.stdout(usageKeygen());
-    return Promise.resolve(0);
-  }
-  const allowedFlags = deriveAllowedFlags(keygenPolicy);
-  const selectorFlags = new Set(
-    keygenPolicy.selectable.map((v) => v.flag).filter((f): f is string => f !== undefined),
+function parseBytes(values: Map<string, string>): 16 | 24 | 32 | CliError {
+  const raw = values.get("--bytes");
+  if (raw === undefined) return 32;
+  if (raw === "16") return 16;
+  if (raw === "24") return 24;
+  if (raw === "32") return 32;
+  return usageError(
+    raw === "" ? "--bytes requires a value" : `--bytes must be 16, 24, or 32, got '${raw}'`,
   );
-  const valueFlags = new Set([...allowedFlags].filter((f) => !selectorFlags.has(f)));
-  const variantExtraFlags = new Set(keygenPolicy.selectable.flatMap((v) => v.extraFlags ?? []));
-  const { flags, values, positionals, errors } = splitFlags(args, valueFlags);
-  // Check --ns whitespace before the broader unsupported-flag guard so the
-  // specific whitespace message reaches the user ahead of "unsupported flag for keygen: --ns".
-  const nsResult = parseNs(values);
-  if (nsResult !== undefined && isNsError(nsResult)) {
-    opts.stderr(nsResult + "\n");
-    return Promise.resolve(2);
-  }
-  const unsupported = unsupportedFlagForCommand(
-    "keygen",
-    flags,
-    new Set([...allowedFlags].filter((f) => !variantExtraFlags.has(f))),
-  );
-  if (unsupported !== undefined) {
-    opts.stderr(unsupported + "\n");
-    return Promise.resolve(2);
-  }
-  if (errors[0] !== undefined) {
-    opts.stderr(errors[0] + "\n");
-    return Promise.resolve(2);
-  }
-  const extra = positionals[0];
-  if (extra !== undefined) {
-    opts.stderr(`unexpected argument: ${extra}\n`);
-    return Promise.resolve(2);
-  }
-  const variant = resolveVariant(keygenPolicy, flags);
-  if (typeof variant === "string") {
-    opts.stderr(variant + "\n");
-    return Promise.resolve(2);
-  }
-  const bits = parseBits(values);
-  if (typeof bits === "string") {
-    opts.stderr(bits + "\n");
-    return Promise.resolve(2);
-  }
-  const format = parseKeyFormatFromFlag(values);
-  if (isKeyFormatError(format)) {
-    opts.stderr(format + "\n");
-    return Promise.resolve(2);
-  }
-  /* v8 ignore next 4 -- defensive guard; all keygenPolicy variants have key defined */
-  if (variant.key === undefined) {
-    opts.stderr("internal: keygen policy variant has no key facet\n");
-    return Promise.resolve(1);
-  }
-  const bytes = new Uint8Array(bits / 8);
-  crypto.getRandomValues(bytes);
+}
+
+/**
+ * Emit fresh random key material. Codec-agnostic: one key backs every keyed codec, so
+ * any codec's encoder works (`encodeOpaqueKey` is used as the shared hex/base64url codec).
+ */
+export async function runKeygen(argv: ReadonlyArray<string>, opts: RunOpts): Promise<number> {
+  const specs: FlagSpec[] = [
+    { name: "--bytes", value: true },
+    { name: "--key-encoding", value: true },
+  ];
+  const { values, positionals, error } = parseArgs(argv, specs);
+  if (error !== undefined) return fail(opts, usageError(error));
+  if (positionals.length > 0)
+    return fail(opts, usageError(`unexpected argument: ${positionals[0]!}`));
+
+  const bytes = parseBytes(values);
+  if (isCliError(bytes)) return fail(opts, bytes);
+  const encoding = resolveKeyEncoding(values, opts);
+  if (isCliError(encoding)) return fail(opts, encoding);
+
+  const raw = new Uint8Array(bytes);
+  crypto.getRandomValues(raw);
   opts.stderr(
     "Warning: secret key material — redirect to a file (chmod 0600) and avoid shell history.\n",
   );
-  opts.stdout(variant.key.encode(bytes, format) + "\n");
+  opts.stdout(`${encodeOpaqueKey(raw, encoding)}\n`);
   return Promise.resolve(0);
 }
