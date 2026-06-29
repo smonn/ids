@@ -1,5 +1,6 @@
 import type { webcrypto } from "node:crypto";
 import type { Id, LayoutOps, Prefix } from "../../types.js";
+import { hmacSignTruncated } from "../_kernel/crypto.js";
 import { writeLen32 } from "../_kernel/bytes.js";
 import { toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
@@ -41,10 +42,7 @@ export function createDigestLayoutOps<Brand extends string>(
     digest: async (material: string | Uint8Array): Promise<Id<Brand>> => {
       const materialBytes = typeof material === "string" ? encoder.encode(material) : material;
       const message = buildMessage(brandBytes, nsBytes, materialBytes);
-      const hmacOutput = new Uint8Array(
-        await crypto.subtle.sign("HMAC", hmacKey, message as Uint8Array<ArrayBuffer>),
-      );
-      const payload = hmacOutput.subarray(0, payloadByteLength);
+      const payload = await hmacSignTruncated(hmacKey, message, payloadByteLength);
       return toWireId(prefix, payload);
     },
     exampleWireId: (_ms?: number): Id<Brand> =>

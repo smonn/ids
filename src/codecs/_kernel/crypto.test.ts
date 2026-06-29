@@ -1,8 +1,10 @@
+import type { webcrypto } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   decryptPayload,
   deriveKey,
   encryptPayload,
+  hmacSignTruncated,
   timingSafeEqual,
   writeLen32,
 } from "./crypto.js";
@@ -212,6 +214,46 @@ describe("deriveKey", () => {
       await crypto.subtle.sign("HMAC", keyFromSignedLabel, testData),
     );
     expect(sigFromOpaqueLabel).not.toEqual(sigFromSignedLabel);
+  });
+});
+
+describe("hmacSignTruncated", () => {
+  async function makeHmacKey(raw: Uint8Array): Promise<webcrypto.CryptoKey> {
+    return crypto.subtle.importKey(
+      "raw",
+      raw as Uint8Array<ArrayBuffer>,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+  }
+
+  it("returns a Uint8Array of the requested length", async () => {
+    const key = await makeHmacKey(new Uint8Array(32).fill(0x42));
+    const message = new TextEncoder().encode("test message");
+    const tag = await hmacSignTruncated(key, message, 5);
+    expect(tag).toHaveLength(5);
+  });
+
+  it("matches the leading bytes of the full HMAC-SHA-256 output", async () => {
+    const raw = new Uint8Array(32).fill(0x11);
+    const key = await makeHmacKey(raw);
+    const message = new TextEncoder().encode("hello world");
+    const tagLength = 8;
+    const tag = await hmacSignTruncated(key, message, tagLength);
+    const fullSig = new Uint8Array(
+      await crypto.subtle.sign("HMAC", key, message as Uint8Array<ArrayBuffer>),
+    );
+    expect(tag).toEqual(fullSig.subarray(0, tagLength));
+  });
+
+  it("different keys produce different tags for the same message", async () => {
+    const keyA = await makeHmacKey(new Uint8Array(32).fill(0xaa));
+    const keyB = await makeHmacKey(new Uint8Array(32).fill(0xbb));
+    const message = new TextEncoder().encode("same message");
+    const tagA = await hmacSignTruncated(keyA, message, 5);
+    const tagB = await hmacSignTruncated(keyB, message, 5);
+    expect(tagA).not.toEqual(tagB);
   });
 });
 

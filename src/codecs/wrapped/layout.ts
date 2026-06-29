@@ -1,6 +1,11 @@
 import type { webcrypto } from "node:crypto";
 import type { Id, LayoutOps, Prefix } from "../../types.js";
-import { decryptPayload, encryptPayload, timingSafeEqual } from "../_kernel/crypto.js";
+import {
+  decryptPayload,
+  encryptPayload,
+  hmacSignTruncated,
+  timingSafeEqual,
+} from "../_kernel/crypto.js";
 import { writeLen32 } from "../_kernel/bytes.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
@@ -140,14 +145,7 @@ async function computeTag(
   template: HmacMessageTemplate,
   lane: Uint8Array,
 ): Promise<Uint8Array> {
-  const signature = new Uint8Array(
-    await crypto.subtle.sign(
-      "HMAC",
-      key.hmacKey,
-      hmacMessage(template, lane) as Uint8Array<ArrayBuffer>,
-    ),
-  );
-  return signature.subarray(0, tagByteLength);
+  return hmacSignTruncated(key.hmacKey, hmacMessage(template, lane), tagByteLength);
 }
 
 function buildPlaintext(lane: Uint8Array, tag: Uint8Array): Uint8Array {

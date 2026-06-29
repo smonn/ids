@@ -61,6 +61,16 @@ export async function decryptPayload(
   );
 }
 
+export async function hmacSignTruncated(
+  key: webcrypto.CryptoKey,
+  message: Uint8Array,
+  tagLength: number,
+): Promise<Uint8Array> {
+  return new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, message as Uint8Array<ArrayBuffer>),
+  ).subarray(0, tagLength);
+}
+
 export { writeLen32 } from "./bytes.js";
 
 /**
