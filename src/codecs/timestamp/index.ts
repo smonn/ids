@@ -96,8 +96,7 @@ export type TimestampCodec<Brand extends string> = {
 const defaultTimestampOptions: ResolvedTimestampOptions = {
   now: Date.now,
   // crypto.randomUUID harvest fast path (~7× faster than crypto.getRandomValues);
-  // see fastTenByteRng. The Reverse Timestamp codec shares the identical 10-byte
-  // random tail and the same default.
+  // see fastTenByteRng. The Reverse Timestamp codec uses the identical default.
   rng: fastTenByteRng,
 };
 
