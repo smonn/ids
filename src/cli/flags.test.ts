@@ -39,12 +39,19 @@ describe("parseKind / isKindError", () => {
 
 describe("parseNs / isNsError", () => {
   it("accepts a non-empty namespace", () => {
-    expect(parseNs(new Map([["--ns", "billing"]]))).toBe("billing");
+    expect(parseNs(new Map([["--ns", "billing"]]))).toEqual({ ok: true, value: "billing" });
+  });
+
+  it("returns undefined when absent", () => {
+    expect(parseNs(new Map())).toBeUndefined();
   });
 
   it("rejects empty and whitespace-padded namespaces", () => {
-    expect(parseNs(new Map([["--ns", ""]]))).toBe("--ns requires a value");
-    expect(isNsError(parseNs(new Map([["--ns", "  "]])) ?? "")).toBe(true);
-    expect(isNsError(parseNs(new Map([["--ns", " x "]])) ?? "")).toBe(true);
+    const empty = parseNs(new Map([["--ns", ""]]));
+    expect(empty && isNsError(empty)).toBe(true);
+    const whitespace = parseNs(new Map([["--ns", "  "]]));
+    expect(whitespace && isNsError(whitespace)).toBe(true);
+    const padded = parseNs(new Map([["--ns", " x "]]));
+    expect(padded && isNsError(padded)).toBe(true);
   });
 });

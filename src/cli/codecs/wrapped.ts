@@ -5,7 +5,7 @@ import {
   type WrappedKind,
   type WrappingKey,
 } from "../../codecs/wrapped/index.js";
-import { isCliError, runtimeError, usageError } from "../errors.js";
+import { runtimeError, usageError } from "../errors.js";
 import type { CodecKey } from "../key.js";
 import type { CodecModule } from "../types.js";
 import { brandOfId, runInspect, runWrap } from "../verbs.js";
@@ -40,7 +40,7 @@ export const wrappedCli: CodecModule = {
 
             return async (id) => {
               const brand = brandOfId(id);
-              if (isCliError(brand)) return brand;
+              if (brand === undefined) return runtimeError("invalid_id: not a valid ID");
               for (const kind of kinds) {
                 const codec = createWrappedKeyId(brand, {
                   kind,

@@ -97,8 +97,7 @@ export function idParam<ParamKey extends string, Brand extends string>(
       throw new IdParamError(failure.reason, failure.status as ContentfulStatusCode);
     }
     c.set(paramName, result.id);
-    await next();
-    return;
+    return next();
   };
 }
 
@@ -166,7 +165,6 @@ export function idQuery<ParamKey extends string, Brand extends string>(
       throw new IdParamError(failure.reason, failure.status as ContentfulStatusCode);
     }
     c.set(queryName, result.id);
-    await next();
-    return;
+    return next();
   };
 }

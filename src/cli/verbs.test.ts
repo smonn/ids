@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { IdsError } from "../error.js";
 import { brandOfId, mapThrown } from "./verbs.js";
-import { isCliError } from "./errors.js";
 
 describe("mapThrown", () => {
   it("maps a usage-coded IdsError to a usage error", () => {
@@ -19,8 +18,7 @@ describe("brandOfId", () => {
     expect(brandOfId("USR_06f8")).toBe("usr");
   });
 
-  it("returns a runtime invalid_id error for a non-id token", () => {
-    const r = brandOfId("not-an-id");
-    expect(isCliError(r) && r.kind).toBe("runtime");
+  it("returns undefined for a non-id token", () => {
+    expect(brandOfId("not-an-id")).toBeUndefined();
   });
 });

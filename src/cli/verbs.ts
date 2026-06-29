@@ -48,9 +48,9 @@ export function mapThrown(err: unknown): CliError {
   return runtimeError(formatCliError(err));
 }
 
-/** Lowercased three-letter brand of an ID, or a runtime invalid_id error if it doesn't look like one. */
-export function brandOfId(id: string): string | CliError {
-  if (!/^[a-z]{3}_/i.test(id)) return runtimeError("invalid_id: not a valid ID");
+/** Lowercased three-letter brand of an ID, or `undefined` if it doesn't look like one. */
+export function brandOfId(id: string): string | undefined {
+  if (!/^[a-z]{3}_/i.test(id)) return undefined;
   return id.slice(0, 3).toLowerCase();
 }
 
@@ -308,7 +308,7 @@ export function keylessTimestampInspect(
     keyed: false,
     prepare: (o) => (id) => {
       const brand = brandOfId(id);
-      if (isCliError(brand)) return Promise.resolve(brand);
+      if (brand === undefined) return Promise.resolve(runtimeError("invalid_id: not a valid ID"));
       const codec = make(brand, o);
       const parsed = codec.safeParse(id);
       if (!parsed.ok) return Promise.resolve(runtimeError(`invalid_id: ${parsed.error}`));
@@ -350,8 +350,8 @@ function parseLookupValue(kind: WrappedKindValue, raw: string): number | bigint 
 function parseNsValue(values: Map<string, string>): string | CliError {
   const ns = parseNs(values);
   if (ns === undefined) return usageError("--ns is required");
-  if (isNsError(ns)) return usageError(ns);
-  return ns;
+  if (isNsError(ns)) return usageError(ns.error);
+  return ns.value;
 }
 
 async function resolveMaterial(
@@ -485,10 +485,9 @@ export async function runMatch<K>(
   if (id === undefined) return fail(opts, usageError("missing id"));
   if (positionals.length > 1)
     return fail(opts, usageError(`unexpected argument: ${positionals[1]!}`));
-  // A malformed ID is a usage error for match's grep-like contract (exit 2), so
-  // re-tag brandOfId's runtime error as usage.
+  // A malformed ID is a usage error for match's grep-like contract (exit 2).
   const brand = brandOfId(id);
-  if (isCliError(brand)) return fail(opts, usageError(brand.message));
+  if (brand === undefined) return fail(opts, usageError("invalid_id: not a valid ID"));
 
   // Key before material so a bad key fails fast, before consuming stdin (#766).
   const ns = parseNsValue(values);
