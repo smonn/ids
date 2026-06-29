@@ -9,6 +9,7 @@
     "adapter-consistency-750",
     "base64url-strict-validation",
     "cli-flag-parsing-bugs",
+    "codec-first-cli-grammar",
     "digest-key-before-stdin",
     "drizzle-mikroorm-column-type",
     "drizzle-mysql-sqlite-dialects",
@@ -20,6 +21,7 @@
     "graphql-serialize-strict-is",
     "hono-id-param-error",
     "idquery-web-adapters",
+    "ids-error-reexport-cleanup",
     "ids-opaque-key-rename",
     "invalid-timestamp-ids-error",
     "kysely-idplugin",
@@ -31,6 +33,7 @@
     "opaque-hkdf-aes256",
     "prisma-default-query",
     "prisma-id-field-read-only",
+    "prisma-peer-floor-v7",
     "typeorm-before-insert-hook",
     "write-id-column-shared-helpers"
   ]
