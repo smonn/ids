@@ -1,7 +1,7 @@
 import type { webcrypto } from "node:crypto";
 import type { Id, Prefix } from "../../types.js";
 import { hmacSignTruncated } from "../_kernel/crypto.js";
-import { writeLen32 } from "../_kernel/bytes.js";
+import { len32ByteLength, writeLen32 } from "../_kernel/bytes.js";
 import { toWireId } from "../../wire/envelope.js";
 import { payloadByteLength } from "../../wire/invariants.js";
 
@@ -12,15 +12,16 @@ function buildMessage(
   nsBytes: Uint8Array,
   material: Uint8Array,
 ): Uint8Array {
-  const msgLen = 4 + brandBytes.length + 4 + nsBytes.length + material.length;
+  const msgLen =
+    len32ByteLength + brandBytes.length + len32ByteLength + nsBytes.length + material.length;
   const message = new Uint8Array(msgLen);
   let offset = 0;
   writeLen32(brandBytes.length, message, offset);
-  offset += 4;
+  offset += len32ByteLength;
   message.set(brandBytes, offset);
   offset += brandBytes.length;
   writeLen32(nsBytes.length, message, offset);
-  offset += 4;
+  offset += len32ByteLength;
   message.set(nsBytes, offset);
   offset += nsBytes.length;
   message.set(material, offset);
