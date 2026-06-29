@@ -10,7 +10,7 @@ import { formatCliError } from "./format.js";
 import { helpForCodec, helpForCommand, usage } from "./help.js";
 import type { CodecModule, RunOpts, VerbHandler } from "./types.js";
 
-const codecModules: readonly CodecModule[] = [
+export const codecModules: readonly CodecModule[] = [
   timestampCli,
   reverseCli,
   signedCli,
@@ -33,12 +33,13 @@ export async function run(opts: RunOpts): Promise<number> {
     const argv = opts.argv;
     const first = argv[0];
 
+    const codecNames = codecModules.map((m) => m.codec);
     if (first === undefined) {
-      opts.stdout(usage());
+      opts.stdout(usage(codecNames));
       return 2;
     }
     if (isHelp(first)) {
-      opts.stdout(usage());
+      opts.stdout(usage(codecNames));
       return 0;
     }
     if (first === "--version") {
@@ -59,7 +60,7 @@ export async function run(opts: RunOpts): Promise<number> {
     const mod = codecModules.find((m) => m.codec === first);
     if (mod === undefined) {
       opts.stderr(`unknown command: ${first}\n`);
-      opts.stderr(usage());
+      opts.stderr(usage(codecNames));
       return 2;
     }
 
