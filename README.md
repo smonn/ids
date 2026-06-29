@@ -80,7 +80,7 @@ Every codec also implements [Standard Schema v1](https://standardschema.dev/), s
 
 ## API surface
 
-Exports from the main `@smonn/ids` entry point only. Codec-specific subpath exports (`@smonn/ids/reverse`, `@smonn/ids/opaque`, `@smonn/ids/signed`, `@smonn/ids/wrapped`, `@smonn/ids/digest`) and adapter subpaths are not listed here. `IdsError`, `isIdsError`, and `IdsErrorCode` are available **only** from `@smonn/ids` — they are not re-exported from any codec subpath.
+Exports from the main `@smonn/ids` entry point only. Codec-specific subpath exports (`@smonn/ids/reverse`, `@smonn/ids/opaque`, `@smonn/ids/signed`, `@smonn/ids/wrapped`, `@smonn/ids/digest`) and adapter subpaths are not listed here. `IdsError`, `isIdsError`, and `IdsErrorCode` are available from `@smonn/ids` and are also re-exported for convenience from every ORM adapter subpath (`@smonn/ids/drizzle`, `@smonn/ids/kysely`, `@smonn/ids/mikro-orm`, `@smonn/ids/prisma`, `@smonn/ids/typeorm`) and the GraphQL adapter subpath (`@smonn/ids/graphql`) — but not from any codec subpath (`/reverse`, `/opaque`, `/signed`, `/wrapped`, `/digest`).
 
 ### Types
 
