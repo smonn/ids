@@ -2,7 +2,7 @@ import { type CliError, usageError } from "./errors.js";
 import { maxGenerateCount } from "./constants.js";
 
 export function parseCount(values: Map<string, string>): number | CliError {
-  const raw = values.get("--count") ?? values.get("-c");
+  const raw = values.get("--count");
   if (raw === undefined) return 1;
   if (raw === "") return usageError("--count requires a value");
   if (!/^[1-9][0-9]*$/.test(raw))
