@@ -10,6 +10,8 @@ import {
 } from "./key.js";
 import { importSigningKey, getSigningKeyHmacKey } from "../signed/key.js";
 import { importDigestKey, getDigestKeyHmacKey } from "../digest/key.js";
+import { importOpaqueKey, getOpaqueKeyCryptoKey } from "../opaque/key.js";
+import { deriveKey } from "../_kernel/crypto.js";
 import { isIdsError, type IdsErrorCode } from "../../error.js";
 
 const bytes16 = new Uint8Array(16).map((_, i) => i);
@@ -181,14 +183,15 @@ describe("HKDF domain separation", () => {
     expect(new Uint8Array(wrapSig)).not.toEqual(new Uint8Array(digestSig));
   });
 
-  it("Wrapped, Signed, and Digest HMAC outputs are pairwise-distinct for the same IKM", async () => {
+  it("all four keyed codecs from same IKM yield pairwise-distinct HMAC outputs and Opaque is AES-CBC", async () => {
     const ikm = new Uint8Array(32).fill(0x77);
 
     const wrappingKey = await importWrappingKey(ikm);
     const signingKey = await importSigningKey(ikm);
     const digestKey = await importDigestKey(ikm);
+    const opaqueKey = await importOpaqueKey(ikm);
 
-    const testData = new TextEncoder().encode("three-codec-label-independence");
+    const testData = new TextEncoder().encode("four-codec-label-independence");
 
     const sigWrapped = new Uint8Array(
       await crypto.subtle.sign("HMAC", getWrappingKeyMaterial(wrappingKey).hmacKey, testData),
@@ -203,6 +206,23 @@ describe("HKDF domain separation", () => {
     expect(sigWrapped).not.toEqual(sigSigned);
     expect(sigWrapped).not.toEqual(sigDigest);
     expect(sigSigned).not.toEqual(sigDigest);
+
+    expect(getOpaqueKeyCryptoKey(opaqueKey).algorithm.name).toBe("AES-CBC");
+
+    // catches the case where an HMAC codec copies the Opaque label string (@smonn/ids/opaque/aes)
+    const opaqueInfo = new TextEncoder().encode("@smonn/ids/opaque/aes");
+    const standInHmacKey = await deriveKey(
+      ikm,
+      opaqueInfo,
+      { name: "HMAC", hash: "SHA-256", length: 256 },
+      ["sign"],
+    );
+    const sigOpaqueLabel = new Uint8Array(
+      await crypto.subtle.sign("HMAC", standInHmacKey, testData),
+    );
+    expect(sigOpaqueLabel).not.toEqual(sigWrapped);
+    expect(sigOpaqueLabel).not.toEqual(sigSigned);
+    expect(sigOpaqueLabel).not.toEqual(sigDigest);
   });
 
   it("two independent importWrappingKey calls on same bytes yield consistent HMAC output", async () => {
