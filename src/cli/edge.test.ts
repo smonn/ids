@@ -172,6 +172,9 @@ describe("match edge cases", () => {
     expect(await run(m.opts)).toBe(0);
     expect(m.out.join("")).toBe("");
   });
+  it("missing --ns → 2", async () => {
+    expect(await exit(["digest", "match", "psd_zzz", "--material", "x", "--key", keyHex])).toBe(2);
+  });
   it("missing id → 2", async () => {
     expect(await exit(["digest", "match", "--ns", "b", "--material", "x", "--key", keyHex])).toBe(
       2,

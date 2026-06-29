@@ -5,11 +5,11 @@ import {
   type WrappedKind,
   type WrappingKey,
 } from "../../codecs/wrapped/index.js";
-import { runtimeError, usageError } from "../errors.js";
+import { isCliError, runtimeError } from "../errors.js";
 import type { CodecKey } from "../key.js";
 import type { CodecModule } from "../types.js";
 import { brandOfId, runInspect, runWrap } from "../verbs.js";
-import { isKindError, parseKind } from "../flags.js";
+import { parseKind } from "../flags.js";
 
 const wrappingKey: CodecKey<WrappingKey> = { decode: decodeWrappingKey, import: importWrappingKey };
 const trialKinds: readonly WrappedKind[] = ["u32", "i32", "u64", "i64"];
@@ -35,7 +35,7 @@ export const wrappedCli: CodecModule = {
           // usage error rather than a per-line failure in a batch.
           prepare: (_o, key, values) => {
             const kindOpt = parseKind(values);
-            if (kindOpt !== undefined && isKindError(kindOpt)) return usageError(kindOpt);
+            if (kindOpt !== undefined && isCliError(kindOpt)) return kindOpt;
             const kinds: readonly WrappedKind[] = kindOpt === undefined ? trialKinds : [kindOpt];
 
             return async (id) => {

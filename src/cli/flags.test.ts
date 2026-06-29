@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { maxGenerateCount } from "./constants.js";
-import { isKindError, isNsError, parseCount, parseKind, parseNs } from "./flags.js";
+import { isCliError } from "./errors.js";
+import { parseCount, parseKind, parseNs } from "./flags.js";
 
 describe("parseCount", () => {
   it("defaults to 1", () => {
@@ -12,13 +13,16 @@ describe("parseCount", () => {
   });
 
   it("rejects non-integers and over-cap values", () => {
-    expect(parseCount(new Map([["--count", "abc"]]))).toContain("positive integer");
-    expect(parseCount(new Map([["--count", String(maxGenerateCount + 1)]]))).toContain("at most");
-    expect(parseCount(new Map([["--count", ""]]))).toBe("--count requires a value");
+    const abc = parseCount(new Map([["--count", "abc"]]));
+    expect(isCliError(abc) ? abc.message : "").toContain("positive integer");
+    const tooLarge = parseCount(new Map([["--count", String(maxGenerateCount + 1)]]));
+    expect(isCliError(tooLarge) ? tooLarge.message : "").toContain("at most");
+    const empty = parseCount(new Map([["--count", ""]]));
+    expect(isCliError(empty) ? empty.message : "").toBe("--count requires a value");
   });
 });
 
-describe("parseKind / isKindError", () => {
+describe("parseKind", () => {
   it("accepts the four kinds", () => {
     expect(parseKind(new Map([["--kind", "u64"]]))).toBe("u64");
   });
@@ -28,18 +32,17 @@ describe("parseKind / isKindError", () => {
   });
 
   it("rejects an empty --kind value", () => {
-    expect(parseKind(new Map([["--kind", ""]]))).toBe("--kind requires a value");
+    expect(isCliError(parseKind(new Map([["--kind", ""]])))).toBe(true);
   });
 
   it("flags an invalid kind", () => {
-    const result = parseKind(new Map([["--kind", "u8"]]));
-    expect(typeof result === "string" && isKindError(result)).toBe(true);
+    expect(isCliError(parseKind(new Map([["--kind", "u8"]])))).toBe(true);
   });
 });
 
-describe("parseNs / isNsError", () => {
+describe("parseNs", () => {
   it("accepts a non-empty namespace", () => {
-    expect(parseNs(new Map([["--ns", "billing"]]))).toEqual({ ok: true, value: "billing" });
+    expect(parseNs(new Map([["--ns", "billing"]]))).toBe("billing");
   });
 
   it("returns undefined when absent", () => {
@@ -47,11 +50,8 @@ describe("parseNs / isNsError", () => {
   });
 
   it("rejects empty and whitespace-padded namespaces", () => {
-    const empty = parseNs(new Map([["--ns", ""]]));
-    expect(empty && isNsError(empty)).toBe(true);
-    const whitespace = parseNs(new Map([["--ns", "  "]]));
-    expect(whitespace && isNsError(whitespace)).toBe(true);
-    const padded = parseNs(new Map([["--ns", " x "]]));
-    expect(padded && isNsError(padded)).toBe(true);
+    expect(isCliError(parseNs(new Map([["--ns", ""]])))).toBe(true);
+    expect(isCliError(parseNs(new Map([["--ns", "  "]])))).toBe(true);
+    expect(isCliError(parseNs(new Map([["--ns", " x "]])))).toBe(true);
   });
 });

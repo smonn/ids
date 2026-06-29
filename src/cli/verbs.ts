@@ -2,14 +2,7 @@ import { isIdsError, type IdsErrorCode } from "../error.js";
 import type { Id } from "../types.js";
 import { type FlagSpec, parseArgs } from "./args.js";
 import { type CliError, exitCodeFor, isCliError, runtimeError, usageError } from "./errors.js";
-import {
-  isKindError,
-  isNsError,
-  parseCount,
-  parseKind,
-  parseNs,
-  type WrappedKindValue,
-} from "./flags.js";
+import { parseCount, parseKind, parseNs, type WrappedKindValue } from "./flags.js";
 import { formatCliError } from "./format.js";
 import { type CodecKey, resolveKey } from "./key.js";
 import {
@@ -60,11 +53,6 @@ export function brandOfId(id: string): string | undefined {
 export function fail(opts: RunOpts, error: CliError): number {
   opts.stderr(error.message + "\n");
   return exitCodeFor(error);
-}
-
-function parseCountValue(values: Map<string, string>): number | CliError {
-  const result = parseCount(values);
-  return typeof result === "string" ? usageError(result) : result;
 }
 
 function toUtcIso(raw: string): string {
@@ -118,7 +106,7 @@ async function runGenerate(
     return fail(opts, usageError(`unexpected argument: ${positionals[1]!}`));
   }
 
-  const count = parseCountValue(values);
+  const count = parseCount(values);
   if (isCliError(count)) return fail(opts, count);
   const at = parseAt(values);
   if (isCliError(at)) return fail(opts, at);
@@ -350,13 +338,6 @@ function parseLookupValue(kind: WrappedKindValue, raw: string): number | bigint 
   return value;
 }
 
-function parseNsValue(values: Map<string, string>): string | CliError {
-  const ns = parseNs(values);
-  if (ns === undefined) return usageError("--ns is required");
-  if (isNsError(ns)) return usageError(ns.error);
-  return ns.value;
-}
-
 async function resolveMaterial(
   values: Map<string, string>,
   opts: RunOpts,
@@ -406,7 +387,7 @@ export async function runWrap<K>(
 
   const kind = parseKind(values);
   if (kind === undefined) return fail(opts, usageError("--kind is required"));
-  if (isKindError(kind)) return fail(opts, usageError(kind));
+  if (isCliError(kind)) return fail(opts, kind);
 
   const valueRaw = values.get("--value");
   if (valueRaw === undefined) return fail(opts, usageError("--value is required"));
@@ -445,15 +426,16 @@ export async function runDerive<K>(
 
   // Resolve the key before reading material from stdin, so a missing/invalid key
   // fails fast instead of after consuming (possibly sensitive) piped input (#766).
-  const ns = parseNsValue(values);
-  if (isCliError(ns)) return fail(opts, ns);
+  const rawNs = parseNs(values);
+  if (rawNs === undefined) return fail(opts, usageError("--ns is required"));
+  if (isCliError(rawNs)) return fail(opts, rawNs);
   const key = await resolveKey(values, flags, opts, codecKey);
   if (isCliError(key)) return fail(opts, key);
   const material = await resolveMaterial(values, opts);
   if (isCliError(material)) return fail(opts, material);
 
   try {
-    const id = await build(brand, key, ns).digest(material);
+    const id = await build(brand, key, rawNs).digest(material);
     opts.stdout(`${id}\n`);
   } catch (err) {
     return fail(opts, mapThrown(err));
@@ -493,8 +475,9 @@ export async function runMatch<K>(
   if (brand === undefined) return fail(opts, usageError("invalid_id: not a valid ID"));
 
   // Key before material so a bad key fails fast, before consuming stdin (#766).
-  const ns = parseNsValue(values);
-  if (isCliError(ns)) return fail(opts, ns);
+  const rawNs = parseNs(values);
+  if (rawNs === undefined) return fail(opts, usageError("--ns is required"));
+  if (isCliError(rawNs)) return fail(opts, rawNs);
   const key = await resolveKey(values, flags, opts, codecKey);
   if (isCliError(key)) return fail(opts, key);
   const material = await resolveMaterial(values, opts);
@@ -503,7 +486,7 @@ export async function runMatch<K>(
   let matched: boolean;
   let canonical: string;
   try {
-    const codec = build(brand, key, ns);
+    const codec = build(brand, key, rawNs);
     const parsed = codec.safeParse(id);
     if (!parsed.ok) return fail(opts, usageError(`invalid_id: ${parsed.error}`));
     canonical = parsed.id;
