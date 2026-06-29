@@ -50,6 +50,9 @@ export type SignedTimestampOptions = {
   allowDuplicateBrand?: boolean;
 };
 
+type ResolvedSignedTimestampOptions = Required<Pick<SignedTimestampOptions, "now" | "rng">> &
+  Pick<SignedTimestampOptions, "allowDuplicateBrand">;
+
 /**
  * Result returned by {@link SignedTimestampCodec.safeVerify}.
  *
@@ -171,6 +174,11 @@ export type SignedTimestampCodec<Brand extends string> = {
  * usr.extractTimestamp(id);               // Date — sync, timestamp is plaintext
  * ```
  */
+const defaultSignedTimestampOptions: ResolvedSignedTimestampOptions = {
+  now: Date.now,
+  rng: defaultRng,
+};
+
 export function createSignedTimestampId<Brand extends string>(
   brand: Brand & ValidBrand<Brand>,
   opts: SignedTimestampOptions,
@@ -180,14 +188,16 @@ export function createSignedTimestampId<Brand extends string>(
   assertValidKeyring(opts.keys, signingKeysEqual, "signing");
 
   const hmacKeys = opts.keys.map(getSigningKeyHmacKey);
-  const now = opts.now ?? Date.now;
-  const rng = opts.rng ?? defaultRng;
+  const options = {
+    now: opts.now ?? defaultSignedTimestampOptions.now,
+    rng: opts.rng ?? defaultSignedTimestampOptions.rng,
+  } satisfies ResolvedSignedTimestampOptions;
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);
-  const layout = createSignedTimestampLayoutOps(prefix, brand, rng, hmacKeys);
+  const layout = createSignedTimestampLayoutOps(prefix, brand, options.rng, hmacKeys);
 
   return {
-    generate: () => layout.generateAt(now()),
+    generate: () => layout.generateAt(options.now()),
     generateAt: (date: Date) => layout.generateAt(date.getTime()),
     verify: async (id) => {
       const ok = await layout.tryVerify(id);
