@@ -47,9 +47,12 @@ const internals = new WeakMap<WrappingKey, WrappingKeyInternals>();
 /**
  * Import raw operator secret bytes into a {@link WrappingKey} handle.
  *
- * One raw secret derives into AES and HMAC subkeys held inside the returned
- * handle. Accepts 16, 24, or 32 bytes (AES-128 / AES-192 / AES-256 strength).
- * To store or transport key material, use {@link encodeWrappingKey} /
+ * The bytes are HKDF **input keying material**, not raw AES or HMAC keys: the
+ * codec derives an **AES-256** subkey and an **HMAC-SHA-256** subkey via HKDF
+ * under the labels `@smonn/ids/wrapped/aes` and `@smonn/ids/wrapped/hmac`.
+ * Accepts 16, 24, or 32 bytes; the input size sets the entropy floor only — a
+ * 16-byte handle still yields AES-256 and HMAC-SHA-256 subkeys with a 128-bit
+ * entropy floor. To store or transport key material, use {@link encodeWrappingKey} /
  * {@link decodeWrappingKey} (`"hex"` or `"base64url"` — not Crockford base32).
  *
  * @param bytes - 16, 24, or 32 raw key bytes.
