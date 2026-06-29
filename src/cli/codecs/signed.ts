@@ -5,7 +5,7 @@ import {
   type SigningKey,
 } from "../../codecs/signed/index.js";
 import { codecOpts } from "../codec-options.js";
-import { isCliError, runtimeError } from "../errors.js";
+import { runtimeError } from "../errors.js";
 import type { CodecKey } from "../key.js";
 import type { CodecModule } from "../types.js";
 import { brandOfId, runGenerateKeyed, runInspect } from "../verbs.js";
@@ -29,7 +29,7 @@ export const signedCli: CodecModule = {
           codecKey: signingKey,
           prepare: (o, key) => async (id) => {
             const brand = brandOfId(id);
-            if (isCliError(brand)) return brand;
+            if (brand === undefined) return runtimeError("invalid_id: not a valid ID");
             const codec = createSignedTimestampId(brand, { keys: [key!], ...codecOpts(o) });
             const verified = await codec.safeVerify(id);
             if (!verified.ok) {

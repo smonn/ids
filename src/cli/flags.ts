@@ -26,17 +26,17 @@ export function isKindError(result: WrappedKindValue | string): result is string
   return result !== "u32" && result !== "i32" && result !== "u64" && result !== "i64";
 }
 
-export function parseNs(values: Map<string, string>): string | undefined {
+export type ParseNsResult = { ok: true; value: string } | { ok: false; error: string };
+
+export function parseNs(values: Map<string, string>): ParseNsResult | undefined {
   const raw = values.get("--ns");
   if (raw === undefined) return undefined;
-  if (raw.trim() === "") return "--ns requires a value";
-  if (raw !== raw.trim()) return "--ns must not have leading or trailing whitespace";
-  return raw;
+  if (raw.trim() === "") return { ok: false, error: "--ns requires a value" };
+  if (raw !== raw.trim())
+    return { ok: false, error: "--ns must not have leading or trailing whitespace" };
+  return { ok: true, value: raw };
 }
 
-export function isNsError(result: string): boolean {
-  return (
-    result === "--ns requires a value" ||
-    result === "--ns must not have leading or trailing whitespace"
-  );
+export function isNsError(result: ParseNsResult): result is { ok: false; error: string } {
+  return !result.ok;
 }
