@@ -14,7 +14,7 @@ import * as fc from "fast-check";
 import { decodeBase32, encodeBase32 } from "../../wire/base32.js";
 import { createTimestampId, type TimestampOptions } from "./index.js";
 import { IdsError, isIdsError } from "../../error.js";
-import type { Id, JsonSchema, LayoutOps } from "../../types.js";
+import type { Id, JsonSchema } from "../../types.js";
 
 describe("id", () => {
   // These tests recreate many codecs for the same brand. That's intentional —
@@ -870,10 +870,6 @@ describe("dev-mode duplicate-brand warning", () => {
 });
 
 describe("LayoutOps contract", () => {
-  it("LayoutOps<Brand> exampleWireId is () => Id<Brand>", () => {
-    expectTypeOf<LayoutOps<"usr">["exampleWireId"]>().toEqualTypeOf<() => Id<"usr">>();
-  });
-
   it("toJsonSchema() example matches the brand pattern", () => {
     const usr = createTimestampId("uzz");
     const schema = usr.toJsonSchema();

@@ -1,5 +1,5 @@
 import type { webcrypto } from "node:crypto";
-import type { Id, LayoutOps, Prefix } from "../../types.js";
+import type { Id, Prefix } from "../../types.js";
 import {
   decryptPayload,
   encryptPayload,
@@ -8,7 +8,7 @@ import {
 } from "../_kernel/crypto.js";
 import { writeLen32 } from "../_kernel/bytes.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
-import { payloadByteLength, schemaExampleId } from "../../wire/invariants.js";
+import { payloadByteLength } from "../../wire/invariants.js";
 
 const laneByteLength = 8;
 const tagByteLength = 8;
@@ -189,7 +189,7 @@ export function createWrappedLayoutOps<Brand extends string, Kind extends Layout
   brand: Brand,
   kind: Kind,
   keys: readonly LayoutWrappingKey[],
-): LayoutOps<Brand> & {
+): {
   wrap(lookupKey: LayoutLookupKey<Kind>): Promise<Id<Brand>>;
   tryUnwrap(id: Id<Brand>): Promise<LayoutLookupKey<Kind> | null>;
 } {
@@ -210,6 +210,5 @@ export function createWrappedLayoutOps<Brand extends string, Kind extends Layout
       }
       return null;
     },
-    exampleWireId: (): Id<Brand> => schemaExampleId(prefix),
   };
 }
