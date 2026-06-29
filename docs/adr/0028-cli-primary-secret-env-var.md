@@ -1,5 +1,7 @@
 # CLI primary-secret env var, and symmetric per-codec env vars
 
+> **Superseded by [ADR-0033](./0033-cli-single-key-env-var.md) (2026-06-29):** The codec-first CLI redesign ([ADR-0032](./0032-codec-first-cli-grammar.md)) removes the per-codec key env vars decided here. With the codec promoted to an explicit command token, encoding it in the variable name is redundant, so the four `IDS_<CODEC>_KEY` variables and their `_FORMAT` partners collapse to a single `IDS_KEY` / `IDS_KEY_ENCODING`. The reasoning below is preserved for historical context.
+
 Make the CLI's four per-codec key env vars symmetric by renaming Opaque's `IDS_KEY` → `IDS_OPAQUE_KEY`, and repurpose the freed bare `IDS_KEY` as a **primary-secret fallback** that any keyed subcommand reads when its codec-specific variable is unset. This carries the one-secret-many-codecs model from [ADR-0027](./0027-opaque-hkdf-uniform-key-derivation.md) into the CLI ergonomics.
 
 This is a design-acceptance gate. Implementation — the rename across `src/cli/variants.ts`, `src/cli/key-io.ts`, `src/cli/usage.ts`, and tests, plus the fallback resolution and its error messages — is deferred to follow-up issues filed after this ADR reaches `main`.
