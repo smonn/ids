@@ -126,10 +126,29 @@ users.extractTimestamp(id); // → 2024-03-15T12:00:00.000Z
 const ids = oldRows.map((r) => users.generateAt(extractTime(r)));
 ```
 
-All three validate the date exactly like `generate()`. The following cases throw
-a plain `Error` (not `IdsError`): a non-integer timestamp (NaN, Infinity, or a
-float), a negative value (pre-epoch), a value past the 48-bit ceiling
-(`>= 2^48` ms), or an `Invalid Date`.
+All three validate the date and throw `IdsError` with `code: "invalid_timestamp"`
+on invalid input:
+
+- **negative timestamp** — `date.getTime() < 0`
+- **non-integer timestamp** — `date.getTime()` is NaN, Infinity, or a float
+- **timestamp exceeds 48-bit range** — `date.getTime() >= 2 ** 48`
+- **`Invalid Date`** — `date.getTime()` is `NaN`
+
+Use `isIdsError` from `@smonn/ids` to catch it — `instanceof Error` alone matches
+but does not discriminate the code:
+
+```ts
+import { isIdsError } from "@smonn/ids";
+
+try {
+  users.generateAt(date);
+} catch (err) {
+  if (isIdsError(err) && err.code === "invalid_timestamp") {
+    // date is invalid — negative, non-integer, out of range, or Invalid Date
+  }
+  throw err;
+}
+```
 
 :::caution
 Two IDs generated in the same millisecond have independent random tails and do
