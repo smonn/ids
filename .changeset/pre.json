@@ -34,6 +34,7 @@
     "prisma-default-query",
     "prisma-id-field-read-only",
     "prisma-peer-floor-v7",
+    "side-effects-false",
     "typeorm-before-insert-hook",
     "write-id-column-shared-helpers"
   ]

@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 1.0.0-rc.5
+
+### Patch Changes
+
+- c4c302c: Add `"sideEffects": false` to package.json to enable bundler tree-shaking of unused subpath exports.
+
 ## 1.0.0-rc.4
 
 ### Major Changes
