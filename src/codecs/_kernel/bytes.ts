@@ -50,6 +50,9 @@ export function encodeBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+/** Byte width of a len32 prefix written by {@link writeLen32}. */
+export const len32ByteLength = 4;
+
 /** Writes a 32-bit integer as four big-endian bytes into target[offset..offset+3]. */
 export function writeLen32(value: number, target: Uint8Array, offset: number): void {
   target[offset] = (value >>> 24) & 0xff;

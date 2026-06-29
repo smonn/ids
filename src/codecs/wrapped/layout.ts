@@ -6,7 +6,7 @@ import {
   hmacSignTruncated,
   timingSafeEqual,
 } from "../_kernel/crypto.js";
-import { writeLen32 } from "../_kernel/bytes.js";
+import { len32ByteLength, writeLen32 } from "../_kernel/bytes.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadByteLength } from "../../wire/invariants.js";
 
@@ -120,15 +120,15 @@ function createHmacMessageTemplate(brand: string, kind: LayoutWrappedKind): Hmac
   const encoder = new TextEncoder();
   const brandBytes = encoder.encode(brand);
   const kindBytes = encoder.encode(kind);
-  const laneOffset = 4 + brandBytes.length + 4 + kindBytes.length;
+  const laneOffset = len32ByteLength + brandBytes.length + len32ByteLength + kindBytes.length;
   const buffer = new Uint8Array(laneOffset + laneByteLength);
   let offset = 0;
   writeLen32(brandBytes.length, buffer, offset);
-  offset += 4;
+  offset += len32ByteLength;
   buffer.set(brandBytes, offset);
   offset += brandBytes.length;
   writeLen32(kindBytes.length, buffer, offset);
-  offset += 4;
+  offset += len32ByteLength;
   buffer.set(kindBytes, offset);
   return { buffer, laneOffset };
 }
