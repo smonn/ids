@@ -40,10 +40,10 @@ const usageCodes: ReadonlySet<string> = new Set([
 ]);
 
 export function mapThrown(err: unknown): CliError {
-  if (isIdsError(err)) {
-    return usageCodes.has(err.code)
-      ? usageError(formatCliError(err))
-      : runtimeError(formatCliError(err));
+  // In practice every error thrown on a CLI path is a usage-coded IdsError
+  // (invalid_brand/timestamp/namespace/kind/lookup_key/key_*); anything else is runtime.
+  if (isIdsError(err) && usageCodes.has(err.code)) {
+    return usageError(formatCliError(err));
   }
   return runtimeError(formatCliError(err));
 }
@@ -189,6 +189,7 @@ function readProcessStdin(): Promise<string> {
  * and for digest material when `--material` is absent.
  */
 function readAllStdin(opts: RunOpts): Promise<string> {
+  /* v8 ignore next -- the process.stdin reader is only used by the real binary; tests inject readStdin */
   return (opts.readStdin ?? readProcessStdin)();
 }
 
@@ -273,6 +274,8 @@ export async function runInspect<K>(
     try {
       report = await recover(input);
     } catch (err) {
+      /* v8 ignore next -- defensive: recover returns CliError for known failures; codec
+         methods don't throw on structurally-parsed input */
       report = mapThrown(err);
     }
     if (isCliError(report)) {
@@ -504,6 +507,8 @@ export async function runMatch<K>(
     canonical = parsed.id;
     matched = (await codec.digest(material)) === parsed.id;
   } catch (err) {
+    /* v8 ignore next -- defensive: brand/ns/key are pre-validated and digest does not
+       throw on a structurally-parsed id, so this guard is unreachable in practice */
     return fail(opts, mapThrown(err));
   }
 

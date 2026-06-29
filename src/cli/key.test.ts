@@ -1,3 +1,6 @@
+import { writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { isCliError } from "./errors.js";
 import { type CodecKey, resolveKey, resolveKeyEncoding } from "./key.js";
@@ -5,6 +8,11 @@ import type { RunOpts } from "./types.js";
 
 function opts(over: Partial<RunOpts> = {}): RunOpts {
   return { argv: [], stdout: () => {}, stderr: () => {}, env: {}, ...over };
+}
+
+// RunOpts with no injected env, so resolution falls through to process.env.
+function noEnvOpts(): RunOpts {
+  return { argv: [], stdout: () => {}, stderr: () => {} };
 }
 
 const fakeKey: CodecKey<{ bytes: Uint8Array }> = {
@@ -35,6 +43,20 @@ describe("resolveKeyEncoding", () => {
   it("rejects an invalid encoding as a usage error", () => {
     const r = resolveKeyEncoding(new Map([["--key-encoding", "pem"]]), opts());
     expect(isCliError(r) && r.kind).toBe("usage");
+  });
+
+  it("rejects an empty --key-encoding value", () => {
+    const r = resolveKeyEncoding(new Map([["--key-encoding", ""]]), opts());
+    expect(isCliError(r) && r.message).toContain("requires a value");
+  });
+
+  it("rejects an invalid IDS_KEY_ENCODING", () => {
+    const r = resolveKeyEncoding(new Map(), opts({ env: { IDS_KEY_ENCODING: "pem" } }));
+    expect(isCliError(r) && r.message).toContain("IDS_KEY_ENCODING");
+  });
+
+  it("falls back to process.env when no env is injected", () => {
+    expect(resolveKeyEncoding(new Map(), noEnvOpts())).toBe("hex");
   });
 });
 
@@ -90,5 +112,81 @@ describe("resolveKey", () => {
   it("maps a decode failure to a usage error", async () => {
     const r = await resolveKey(new Map([["--key", "bad"]]), new Set(["--key"]), opts(), fakeKey);
     expect(isCliError(r) && r.kind).toBe("usage");
+  });
+
+  it("rejects an empty --key-file path", async () => {
+    const r = await resolveKey(
+      new Map([["--key-file", ""]]),
+      new Set(["--key-file"]),
+      opts(),
+      fakeKey,
+    );
+    expect(isCliError(r) && r.message).toContain("--key-file requires a value");
+  });
+
+  it("maps a --key-file read failure to a usage error", async () => {
+    const r = await resolveKey(
+      new Map([["--key-file", "missing"]]),
+      new Set(["--key-file"]),
+      opts({ readFile: () => Promise.reject(new Error("ENOENT")) }),
+      fakeKey,
+    );
+    expect(isCliError(r) && r.message).toContain("cannot read --key-file");
+  });
+
+  it("rejects an empty (whitespace-only) --key-file", async () => {
+    const r = await resolveKey(
+      new Map([["--key-file", "k"]]),
+      new Set(["--key-file"]),
+      opts({ readFile: () => Promise.resolve("\n  \n") }),
+      fakeKey,
+    );
+    expect(isCliError(r) && r.message).toContain("is empty");
+  });
+
+  it("maps a key import failure to a usage error", async () => {
+    const throwingKey: CodecKey<{ bytes: Uint8Array }> = {
+      decode: () => new Uint8Array(32),
+      import: () => {
+        throw new Error("bad key handle");
+      },
+    };
+    const r = await resolveKey(
+      new Map([["--key", "deadbeef"]]),
+      new Set(["--key"]),
+      opts(),
+      throwingKey,
+    );
+    expect(isCliError(r) && r.kind).toBe("usage");
+  });
+
+  it("returns the encoding error before resolving the value", async () => {
+    const r = await resolveKey(
+      new Map([
+        ["--key-encoding", "pem"],
+        ["--key", "deadbeef"],
+      ]),
+      new Set(["--key"]),
+      opts(),
+      fakeKey,
+    );
+    expect(isCliError(r) && r.message).toContain("--key-encoding");
+  });
+
+  it("falls back to process.env for the key value when no env is injected", async () => {
+    const r = await resolveKey(new Map(), new Set(), noEnvOpts(), fakeKey);
+    expect(isCliError(r) && r.message).toContain("missing key");
+  });
+
+  it("reads a key file from disk via the default reader (no opts.readFile)", async () => {
+    const path = join(tmpdir(), `ids-key-${process.pid}.hex`);
+    await writeFile(path, "deadbeef\n", "utf8");
+    const r = await resolveKey(
+      new Map([["--key-file", path]]),
+      new Set(["--key-file"]),
+      opts(),
+      fakeKey,
+    );
+    expect(isCliError(r)).toBe(false);
   });
 });

@@ -27,6 +27,10 @@ describe("parseKind / isKindError", () => {
     expect(parseKind(new Map())).toBeUndefined();
   });
 
+  it("rejects an empty --kind value", () => {
+    expect(parseKind(new Map([["--kind", ""]]))).toBe("--kind requires a value");
+  });
+
   it("flags an invalid kind", () => {
     const result = parseKind(new Map([["--kind", "u8"]]));
     expect(typeof result === "string" && isKindError(result)).toBe(true);
@@ -39,6 +43,7 @@ describe("parseNs / isNsError", () => {
   });
 
   it("rejects empty and whitespace-padded namespaces", () => {
+    expect(parseNs(new Map([["--ns", ""]]))).toBe("--ns requires a value");
     expect(isNsError(parseNs(new Map([["--ns", "  "]])) ?? "")).toBe(true);
     expect(isNsError(parseNs(new Map([["--ns", " x "]])) ?? "")).toBe(true);
   });

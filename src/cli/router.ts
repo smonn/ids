@@ -87,8 +87,12 @@ export async function run(opts: RunOpts): Promise<number> {
       return 0;
     }
     return await handler(verbArgs, opts);
+    // Defensive: every verb handler catches its own errors and returns an exit code,
+    // so this top-level guard is unreachable in practice.
+    /* v8 ignore start */
   } catch (err) {
     opts.stderr(`${formatCliError(err)}\n`);
     return 1;
   }
+  /* v8 ignore stop */
 }

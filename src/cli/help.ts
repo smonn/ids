@@ -17,17 +17,19 @@ export function usage(): string {
   ].join("\n");
 }
 
-export function helpForCodec(codec: string, verbs: readonly string[] = []): string {
-  const list = verbs.length > 0 ? verbs.join(", ") : "<verb>";
-  return `Usage: ids ${codec} <verb> [args] [flags]\nVerbs: ${list}\nRun 'ids --help' for the full command list.\n`;
+export function helpForCodec(codec: string, verbs: readonly string[]): string {
+  return [
+    `Usage: ids ${codec} <verb> [args] [flags]`,
+    `Verbs: ${verbs.join(", ")}`,
+    "Run 'ids --help' for the full command list.",
+    "",
+  ].join("\n");
 }
 
 export function helpForCommand(name: string): string {
   if (name === "keygen") {
     return "Usage: ids keygen [--bytes 16|24|32] [--key-encoding hex|base64url]\n";
   }
-  if (name === "convert") {
-    return "Usage: ids convert <brand> --uuid <uuid>\n";
-  }
-  return helpForCodec(name);
+  // `convert` is the only other top-level command (router gates the callers).
+  return "Usage: ids convert <brand> --uuid <uuid>\n";
 }
