@@ -9,28 +9,6 @@ import {
 
 const randomByteLength: number = payloadByteLength - timestampByteLength;
 
-/** Writes a 16-byte timestamp-layout payload into codec-owned scratch. */
-function buildPayload(
-  ms: number,
-  rng: (target: Uint8Array) => void,
-  buffer: Uint8Array,
-  randomView: Uint8Array,
-): void {
-  writeTimestamp(ms, buffer);
-  rng(randomView);
-}
-
-/** Writes sentinel min/max random bytes into codec-owned scratch. */
-function buildSentinelPayload(
-  ms: number,
-  fill: number,
-  buffer: Uint8Array,
-  randomView: Uint8Array,
-): void {
-  writeTimestamp(ms, buffer);
-  randomView.fill(fill);
-}
-
 /** Decodes the creation timestamp from a trusted wire ID. */
 function extractTimestampFromId<Brand extends string>(prefix: Prefix<Brand>, id: Id<Brand>): Date {
   return new Date(readTimestampMsFromBase32Suffix(id.slice(prefix.length)));
@@ -56,16 +34,19 @@ export function createTimestampLayoutOps<Brand extends string>(
 
   return {
     generateAt: (ms: number): Id<Brand> => {
-      buildPayload(ms, rng, buffer, randomView);
+      writeTimestamp(ms, buffer);
+      rng(randomView);
       return toWireId(prefix, buffer);
     },
     extractTimestamp: (id: Id<Brand>): Date => extractTimestampFromId(prefix, id),
     minIdForTime: (ms: number): Id<Brand> => {
-      buildSentinelPayload(ms, 0x00, buffer, randomView);
+      writeTimestamp(ms, buffer);
+      randomView.fill(0x00);
       return toWireId(prefix, buffer);
     },
     maxIdForTime: (ms: number): Id<Brand> => {
-      buildSentinelPayload(ms, 0xff, buffer, randomView);
+      writeTimestamp(ms, buffer);
+      randomView.fill(0xff);
       return toWireId(prefix, buffer);
     },
   };
