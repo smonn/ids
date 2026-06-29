@@ -124,6 +124,22 @@ const cases = [
     fixture: "test/fixtures/depcruise/codecs/_kernel/crypto.ts",
     rule: "crypto-leaf-no-upward",
   },
+  {
+    fixture: "test/fixtures/depcruise/non-rng-consumer.ts",
+    rule: "rng-leaf-restricted",
+  },
+  {
+    fixture: "test/fixtures/depcruise/codecs/_kernel/rng.ts",
+    rule: "rng-leaf-no-upward",
+  },
+  {
+    fixture: "test/fixtures/depcruise/codecs/_kernel/registry.ts",
+    rule: "leaves-no-upward",
+  },
+  {
+    fixture: "test/fixtures/depcruise/wire/uuid-allowlist.ts",
+    rule: "wire-uuid-imports-allowlist",
+  },
   // codec slice rules
   {
     fixture: "test/fixtures/depcruise/codecs/cross-codec-violation/index.ts",
