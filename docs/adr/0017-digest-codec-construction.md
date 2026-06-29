@@ -94,6 +94,8 @@ It is **wire-indistinguishable** from every other codec ([ADR-0007](./0007-wire-
 
   > **Correction (2026-06-24):** The deferred call resolved: `invalid_namespace` shipped as the error code for an empty or whitespace-only `ns`. It is one of the eleven stable codes frozen in [ADR-0011](./0011-coded-ids-error.md) and listed in `CONTEXT.md`.
 
+  > **Correction (2026-06-29):** The count above was eleven; twelve is correct — `invalid_namespace` was already the twelfth code when the 2026-06-24 note was written.
+
 - `CONTEXT.md` promotes **Digest codec** from sketch to a concrete accepted variant and adds **Digest key** and **Namespace (`ns`)**; **Equality leakage** is generalised to cover both deterministic codecs. `docs/IDEAS.md` strikes through the `createDigestId` sketch and points here.
 - README consumer tables and the "choosing a codec variant" row are intentionally left untouched until the codec ships, mirroring [ADR-0012](./0012-signed-timestamp-construction.md), so consumers are not pointed at an unbuildable `@smonn/ids/digest` import.
 - Re-keying is an explicit breaking operator action (every ID changes), not an in-band rotation. If a future use case genuinely needs multiple live digest keys, it requires its own ADR and a verification story, because a one-way digest offers nothing to trial.
