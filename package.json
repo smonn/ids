@@ -15,6 +15,7 @@
     "spec/vectors.json"
   ],
   "type": "module",
+  "sideEffects": false,
   "types": "./dist/index.d.mts",
   "exports": {
     ".": {
