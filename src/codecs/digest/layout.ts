@@ -45,6 +45,6 @@ export function createDigestLayoutOps<Brand extends string>(
       const payload = await hmacSignTruncated(hmacKey, message, payloadByteLength);
       return toWireId(prefix, payload);
     },
-    exampleWireId: (): Id<Brand> => schemaExampleId(prefix) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix),
   };
 }

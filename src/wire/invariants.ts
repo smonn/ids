@@ -1,3 +1,5 @@
+import type { Id, Prefix } from "../types.js";
+
 // Payload is always 16 bytes on the wire (every codec). 16 bytes → 26 Crockford
 // base32 chars. ADR-0002 codifies this as the shared wire-format invariant.
 export const payloadByteLength = 16 as const;
@@ -13,6 +15,6 @@ export const base32CharClass: string = "[0-9a-hjkmnp-tv-z]";
 export const base32FinalCharClass: string = "[048cgmrw]";
 
 /** Returns the zero-filled schema example ID string for a given prefix. */
-export function schemaExampleId(prefix: string): string {
-  return prefix + "0".repeat(payloadBase32Length);
+export function schemaExampleId<Brand extends string>(prefix: Prefix<Brand>): Id<Brand> {
+  return (prefix + "0".repeat(payloadBase32Length)) as Id<Brand>;
 }

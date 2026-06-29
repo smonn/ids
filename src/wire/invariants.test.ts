@@ -31,10 +31,4 @@ describe("invariants", () => {
   it("schemaExampleId returns prefix followed by 26 zeros", () => {
     expect(schemaExampleId("usr_")).toBe("usr_" + "0".repeat(26));
   });
-
-  it("schemaExampleId is the single source of the schema-example literal", () => {
-    const result = schemaExampleId("rev_");
-    expect(result).toBe("rev_" + "0".repeat(26));
-    expect(result).toMatch(/^rev_0{26}$/);
-  });
 });

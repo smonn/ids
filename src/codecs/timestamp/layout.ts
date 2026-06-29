@@ -68,6 +68,6 @@ export function createTimestampLayoutOps<Brand extends string>(
       buildSentinelPayload(ms, 0xff, buffer, randomView);
       return toWireId(prefix, buffer);
     },
-    exampleWireId: (): Id<Brand> => schemaExampleId(prefix) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix),
   };
 }

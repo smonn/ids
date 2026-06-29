@@ -50,6 +50,6 @@ export function createOpaqueLayoutOps<Brand extends string>(
   return {
     generateAt: (ms: number): Promise<Id<Brand>> => generateWireId(prefix, key, rng, ms),
     extractTimestamp: (id: Id<Brand>): Promise<Date> => extractTimestampFromId(prefix, key, id),
-    exampleWireId: (): Id<Brand> => schemaExampleId(prefix) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix),
   };
 }

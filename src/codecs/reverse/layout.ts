@@ -78,6 +78,6 @@ export function createReverseTimestampLayoutOps<Brand extends string>(
       buildReverseSentinelPayload(ms, 0xff, buffer, randomView);
       return toWireId(prefix, buffer);
     },
-    exampleWireId: (): Id<Brand> => schemaExampleId(prefix) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix),
   };
 }

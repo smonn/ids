@@ -86,6 +86,6 @@ export function createSignedTimestampLayoutOps<Brand extends string>(
       syncBuffer.fill(0xff, randomOffset, payloadByteLength);
       return toWireId(prefix, syncBuffer);
     },
-    exampleWireId: (): Id<Brand> => schemaExampleId(prefix) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix),
   };
 }

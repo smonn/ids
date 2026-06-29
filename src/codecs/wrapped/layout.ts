@@ -210,6 +210,6 @@ export function createWrappedLayoutOps<Brand extends string, Kind extends Layout
       }
       return null;
     },
-    exampleWireId: (): Id<Brand> => schemaExampleId(prefix) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix),
   };
 }
