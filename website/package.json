@@ -13,7 +13,7 @@
     "@astrojs/preact": "^5.1.5",
     "@astrojs/starlight": "^0.40.0",
     "@smonn/ids": "workspace:*",
-    "astro": "^6.4.8",
+    "astro": "^7.0.3",
     "preact": "^10.29.2"
   },
   "devDependencies": {
