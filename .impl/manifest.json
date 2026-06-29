@@ -1,6 +1,0 @@
-{
-  "issue_number": 798,
-  "branch": "agent/issue-798",
-  "escalate": false,
-  "pr_title": "refactor(wire): hoist schemaExampleId, drop dead exampleWireId param, extract invertTimestampBytes"
-}
