@@ -48,6 +48,12 @@ describe("ids timestamp generate", () => {
     const { opts } = capture(["timestamp", "generate", "TOOLONG"]);
     expect(await run(opts)).toBe(2);
   });
+
+  it("emits the golden vector when now=0 and rng fills with 0x00 (known-answer)", async () => {
+    const { opts, out } = capture(["timestamp", "generate", "usr"], { now: () => 0 });
+    expect(await run(opts)).toBe(0);
+    expect(out.join("").trim()).toBe("usr_00000000000000000000000000");
+  });
 });
 
 describe("ids timestamp inspect", () => {
@@ -347,6 +353,18 @@ describe("ids keygen", () => {
     const key = kg.out.join("").trim();
     const gen = capture(["signed", "generate", "usr", "--key", key]);
     expect(await run(gen.opts)).toBe(0);
+  });
+
+  it("emits an all-zero key when rng fills with 0x00 (known-answer)", async () => {
+    const { opts, out } = capture(["keygen"]);
+    expect(await run(opts)).toBe(0);
+    expect(out.join("").trim()).toBe("00".repeat(32));
+  });
+
+  it("falls back to crypto.getRandomValues when opts.rng is absent", async () => {
+    const { opts, out } = capture(["keygen"], { rng: undefined });
+    expect(await run(opts)).toBe(0);
+    expect(out.join("").trim()).toMatch(/^[0-9a-f]{64}$/);
   });
 });
 
