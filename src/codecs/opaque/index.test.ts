@@ -18,11 +18,11 @@ import {
   decodeOpaqueKey,
   encodeOpaqueKey,
   importOpaqueKey,
-  isIdsError,
   type OpaqueKey,
   type OpaqueKeyFormat,
   type OpaqueTimestampOptions,
 } from "./index.js";
+import { isIdsError } from "../../error.js";
 import type { Id, JsonSchema, ParseResult } from "../../types.js";
 import { toWireId } from "../../wire/envelope.js";
 

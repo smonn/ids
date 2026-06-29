@@ -5,13 +5,12 @@ import {
   createWrappedKeyId,
   decodeWrappingKey,
   encodeWrappingKey,
-  IdsError,
   importWrappingKey,
-  isIdsError,
   type UnwrapResult,
   type WrappedKeyCodec,
   type WrappingKeyFormat,
 } from "./index.js";
+import { IdsError, isIdsError } from "../../error.js";
 import { getWrappingKeyMaterial, type WrappingKey } from "./key.js";
 import type { Id } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";

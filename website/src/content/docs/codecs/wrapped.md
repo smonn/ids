@@ -131,7 +131,7 @@ Cryptographic verification happens only in `unwrap` / `safeUnwrap`, not in the
 structural methods above:
 
 ```ts
-import { createWrappedKeyId, importWrappingKey, isIdsError } from "@smonn/ids/wrapped";
+import { createWrappedKeyId, importWrappingKey } from "@smonn/ids/wrapped";
 
 const key = await importWrappingKey(new Uint8Array(32));
 const invoices = createWrappedKeyId("inv", { kind: "u32", keys: [key] });
@@ -158,7 +158,7 @@ of the package in one process (the ESM + CJS dual-package hazard). For the full
 error-code reference see [the errors page](/errors/).
 
 ```ts
-import { isIdsError } from "@smonn/ids/wrapped";
+import { isIdsError } from "@smonn/ids";
 ```
 
 | Code                      | Surfaced by                                                      |
