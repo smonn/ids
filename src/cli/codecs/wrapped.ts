@@ -5,6 +5,7 @@ import {
   type WrappedKind,
   type WrappingKey,
 } from "../../codecs/wrapped/index.js";
+import { sharedCodecOpts } from "../codec-options.js";
 import { isCliError, runtimeError } from "../errors.js";
 import type { CodecKey } from "../key.js";
 import type { CodecModule } from "../types.js";
@@ -21,7 +22,7 @@ export const wrappedCli: CodecModule = {
       runWrap(
         wrappingKey,
         (brand, key, kind) =>
-          createWrappedKeyId(brand, { kind, keys: [key], allowDuplicateBrand: true }),
+          createWrappedKeyId(brand, { kind, keys: [key], ...sharedCodecOpts(opts) }),
         argv,
         opts,
       ),
@@ -33,7 +34,7 @@ export const wrappedCli: CodecModule = {
           extraFlags: [{ name: "--kind", value: true }],
           // --kind is validated once here (not per ID), so a bad --kind is a single
           // usage error rather than a per-line failure in a batch.
-          prepare: (_o, key, values) => {
+          prepare: (o, key, values) => {
             const kindOpt = parseKind(values);
             if (kindOpt !== undefined && isCliError(kindOpt)) return kindOpt;
             const kinds: readonly WrappedKind[] = kindOpt === undefined ? trialKinds : [kindOpt];
@@ -45,7 +46,7 @@ export const wrappedCli: CodecModule = {
                 const codec = createWrappedKeyId(brand, {
                   kind,
                   keys: [key!],
-                  allowDuplicateBrand: true,
+                  ...sharedCodecOpts(o),
                 });
                 const result = await codec.safeUnwrap(id);
                 if (result.ok) {

@@ -1,10 +1,15 @@
-import type { TimestampOptions } from "../codecs/timestamp/index.js";
 import type { RunOpts } from "./types.js";
 
-export function codecOpts(opts: RunOpts): Partial<TimestampOptions> {
+type SharedCodecOpts = {
+  now?: () => number;
+  rng?: (target: Uint8Array) => void;
+  allowDuplicateBrand: true;
+};
+
+export function sharedCodecOpts(opts: RunOpts): SharedCodecOpts {
   // CLI invocations are intentionally ephemeral: one codec per run, never
   // retained, so this is not the duplicate-brand warning case.
-  const o: Partial<TimestampOptions> = { allowDuplicateBrand: true };
+  const o: SharedCodecOpts = { allowDuplicateBrand: true };
   if (opts.now !== undefined) o.now = opts.now;
   if (opts.rng !== undefined) o.rng = opts.rng;
   return o;
