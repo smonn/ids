@@ -140,26 +140,6 @@ describe("encodeWrappingKey / decodeWrappingKey", () => {
   });
 });
 
-describe("wrappingKeysEqual", () => {
-  it("returns true for two handles from the same raw bytes", async () => {
-    const a = await importWrappingKey(bytes16);
-    const b = await importWrappingKey(bytes16);
-    expect(wrappingKeysEqual(a, b)).toBe(true);
-  });
-
-  it("returns false for handles from different raw bytes (different length)", async () => {
-    const a = await importWrappingKey(bytes16);
-    const b = await importWrappingKey(bytes32);
-    expect(wrappingKeysEqual(a, b)).toBe(false);
-  });
-
-  it("returns false for handles from same-length but different raw bytes", async () => {
-    const a = await importWrappingKey(new Uint8Array(16).fill(0xaa));
-    const b = await importWrappingKey(new Uint8Array(16).fill(0xbb));
-    expect(wrappingKeysEqual(a, b)).toBe(false);
-  });
-});
-
 describe("HKDF domain separation", () => {
   it("wrapped AES subkey has algorithm AES-CBC", async () => {
     const key = await importWrappingKey(bytes32);
@@ -259,6 +239,26 @@ describe("HKDF domain separation", () => {
     );
 
     expect(new Uint8Array(enc1)).toEqual(new Uint8Array(enc2));
+  });
+});
+
+describe("wrappingKeysEqual", () => {
+  it("returns true for two handles from the same raw bytes", async () => {
+    const a = await importWrappingKey(bytes16);
+    const b = await importWrappingKey(bytes16);
+    expect(wrappingKeysEqual(a, b)).toBe(true);
+  });
+
+  it("returns false for handles from different raw bytes (different length)", async () => {
+    const a = await importWrappingKey(bytes16);
+    const b = await importWrappingKey(bytes32);
+    expect(wrappingKeysEqual(a, b)).toBe(false);
+  });
+
+  it("returns false for handles from same-length but different raw bytes", async () => {
+    const a = await importWrappingKey(new Uint8Array(16).fill(0xaa));
+    const b = await importWrappingKey(new Uint8Array(16).fill(0xbb));
+    expect(wrappingKeysEqual(a, b)).toBe(false);
   });
 });
 
