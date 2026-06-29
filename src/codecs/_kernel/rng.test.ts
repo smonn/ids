@@ -21,13 +21,13 @@ describe("defaultRng", () => {
 
 describe("fastTenByteRng", () => {
   it("overwrites exactly bytes 0–9 and leaves bytes beyond 9 untouched", () => {
-    const sentinel = 0xab;
-    const buf = new Uint8Array(12).fill(sentinel);
-    const snapshot = Array.from(buf.subarray(0, 10));
-    fastTenByteRng(buf);
-    expect(Array.from(buf.subarray(0, 10))).not.toEqual(snapshot);
-    expect(buf[10]).toBe(sentinel);
-    expect(buf[11]).toBe(sentinel);
+    const buf1 = new Uint8Array(12).fill(0xab);
+    const buf2 = new Uint8Array(12).fill(0xcd);
+    fastTenByteRng(buf1);
+    fastTenByteRng(buf2);
+    expect([buf1[9], buf2[9]]).not.toEqual([0xab, 0xcd]);
+    expect(buf1[10]).toBe(0xab);
+    expect(buf1[11]).toBe(0xab);
   });
 
   it("produces different output on independent calls", () => {
