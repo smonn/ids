@@ -1,6 +1,6 @@
 # Audit — whole source tree (2026-06-29, follow-up pass)
 
-Point-in-time snapshot. **Non-authoritative**: superseded by the filed issues (#852–#861). It runs *after* the morning whole-tree audit (`whole-tree-2026-06-29.md`, snapshotted in #824), whose 15 findings all shipped (#838–#851); the gate suppressed every already-fixed item.
+Point-in-time snapshot. **Non-authoritative**: superseded by the filed issues (#852–#861). It runs _after_ the morning whole-tree audit (`whole-tree-2026-06-29.md`, snapshotted in #824), whose 15 findings all shipped (#838–#851); the gate suppressed every already-fixed item.
 
 **Scope:** whole `src/` tree, plus `test/`, `spec/`, `docs/adr/`, and `website/` for the relevant dimensions. **Method:** ten parallel dimension reviewers, each gated against the decided digest (all 33 ADRs with terminal status + the SPEC/CONTEXT/CONTRIBUTING closed items). Findings a digest line or ADR settles were dropped or tagged `closed:ADR-N` and do not appear as Open below — see the appendix.
 
@@ -60,15 +60,15 @@ Surfaced by reviewers and correctly suppressed by the gate:
 
 ## Filed as
 
-| # | Finding | Issue |
-| --- | --- | --- |
-| 1 | errors.md `isIdsError` re-export list | #852 |
-| 2 | timestamp.md `generateAt` error type | #853 |
-| 3 | ADR-0018 phantom CLI modules | #854 |
-| 4 | CLI wrong-key tests (opaque + wrapped) | #855 |
-| 6 | parameterless `toJsonSchema` | #856 |
-| 7 | timestamp forwarding helpers | #857 |
-| 8 | opaque/signed option-defaulting (Blocked by #856) | #858 |
-| 9 | key-material test + depcruise exemption | #859 |
-| 10 | digest `len32ByteLength` | #860 |
-| 11 | `codecOpts` shared base | #861 |
+| #   | Finding                                           | Issue |
+| --- | ------------------------------------------------- | ----- |
+| 1   | errors.md `isIdsError` re-export list             | #852  |
+| 2   | timestamp.md `generateAt` error type              | #853  |
+| 3   | ADR-0018 phantom CLI modules                      | #854  |
+| 4   | CLI wrong-key tests (opaque + wrapped)            | #855  |
+| 6   | parameterless `toJsonSchema`                      | #856  |
+| 7   | timestamp forwarding helpers                      | #857  |
+| 8   | opaque/signed option-defaulting (Blocked by #856) | #858  |
+| 9   | key-material test + depcruise exemption           | #859  |
+| 10  | digest `len32ByteLength`                          | #860  |
+| 11  | `codecOpts` shared base                           | #861  |
