@@ -1,5 +1,43 @@
 import { describe, it, expect } from "vitest";
-import { harvestUUIDBytes } from "./rng.js";
+import { defaultRng, fastTenByteRng, harvestUUIDBytes } from "./rng.js";
+
+describe("defaultRng", () => {
+  it("overwrites every byte in the target buffer", () => {
+    const sentinel = 0xab;
+    const buf = new Uint8Array(16).fill(sentinel);
+    const snapshot = Array.from(buf);
+    defaultRng(buf);
+    expect(Array.from(buf)).not.toEqual(snapshot);
+  });
+
+  it("produces different output on independent calls", () => {
+    const a = new Uint8Array(16);
+    const b = new Uint8Array(16);
+    defaultRng(a);
+    defaultRng(b);
+    expect(Array.from(a)).not.toEqual(Array.from(b));
+  });
+});
+
+describe("fastTenByteRng", () => {
+  it("overwrites exactly bytes 0–9 and leaves bytes beyond 9 untouched", () => {
+    const buf1 = new Uint8Array(12).fill(0xab);
+    const buf2 = new Uint8Array(12).fill(0xcd);
+    fastTenByteRng(buf1);
+    fastTenByteRng(buf2);
+    expect([buf1[9], buf2[9]]).not.toEqual([0xab, 0xcd]);
+    expect(buf1[10]).toBe(0xab);
+    expect(buf1[11]).toBe(0xab);
+  });
+
+  it("produces different output on independent calls", () => {
+    const a = new Uint8Array(10);
+    const b = new Uint8Array(10);
+    fastTenByteRng(a);
+    fastTenByteRng(b);
+    expect(Array.from(a)).not.toEqual(Array.from(b));
+  });
+});
 
 describe("harvestUUIDBytes", () => {
   it("maps '00112233-4455-4677-8899-aabbccddeeff' to the expected byte sequence", () => {
