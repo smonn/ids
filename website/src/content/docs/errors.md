@@ -35,16 +35,11 @@ Use `isIdsError(value)` to test whether a caught value is an `IdsError`. Do
 not use bare `instanceof` — it silently fails when the package is loaded more
 than once in the same process (the ESM + CJS dual-package hazard).
 
-`isIdsError` is re-exported from every codec and ORM adapter entry point:
+`isIdsError` is re-exported from the root entry point, the GraphQL adapter, and every ORM adapter entry point:
 
 - `@smonn/ids`
-- `@smonn/ids/opaque`
-- `@smonn/ids/reverse`
-- `@smonn/ids/signed`
-- `@smonn/ids/wrapped`
-- `@smonn/ids/digest`
-- `@smonn/ids/drizzle`
 - `@smonn/ids/graphql`
+- `@smonn/ids/drizzle`
 - `@smonn/ids/kysely`
 - `@smonn/ids/prisma`
 - `@smonn/ids/typeorm`
