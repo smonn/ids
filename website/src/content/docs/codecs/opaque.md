@@ -74,12 +74,29 @@ The [CLI](/cli/) `keygen` command emits keys in this format.
 
 ## `generateAt` validation
 
-`generateAt(date)` rejects invalid input and throws a plain `Error` (not an `IdsError`):
+`generateAt(date)` rejects invalid input and throws an `IdsError` with
+`code: "invalid_timestamp"`:
 
 - **negative timestamp** — `date.getTime() < 0`
 - **non-integer timestamp** — `date.getTime()` is a float (e.g. `1.5`)
 - **timestamp exceeds 48-bit range** — `date.getTime() >= 2 ** 48`
 - **`Invalid Date`** — `date.getTime()` is `NaN`
+
+Use `isIdsError` from `@smonn/ids` to catch it — `instanceof Error` alone matches
+but does not discriminate the code:
+
+```ts
+import { isIdsError } from "@smonn/ids";
+
+try {
+  const id = await invoices.generateAt(date);
+} catch (err) {
+  if (isIdsError(err) && err.code === "invalid_timestamp") {
+    // date is invalid — negative, non-integer, out of range, or Invalid Date
+  }
+  throw err;
+}
+```
 
 ## Testing
 
