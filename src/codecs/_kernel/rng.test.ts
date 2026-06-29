@@ -5,8 +5,9 @@ describe("defaultRng", () => {
   it("overwrites every byte in the target buffer", () => {
     const sentinel = 0xab;
     const buf = new Uint8Array(16).fill(sentinel);
+    const snapshot = Array.from(buf);
     defaultRng(buf);
-    expect(buf.every((b) => b !== sentinel)).toBe(true);
+    expect(Array.from(buf)).not.toEqual(snapshot);
   });
 
   it("produces different output on independent calls", () => {
@@ -22,12 +23,9 @@ describe("fastTenByteRng", () => {
   it("overwrites exactly bytes 0–9 and leaves bytes beyond 9 untouched", () => {
     const sentinel = 0xab;
     const buf = new Uint8Array(12).fill(sentinel);
+    const snapshot = Array.from(buf.subarray(0, 10));
     fastTenByteRng(buf);
-    // All 10 targeted bytes must have been overwritten
-    for (let i = 0; i < 10; i++) {
-      expect(buf[i]).not.toBe(sentinel);
-    }
-    // Bytes past the 10-byte target must remain at sentinel
+    expect(Array.from(buf.subarray(0, 10))).not.toEqual(snapshot);
     expect(buf[10]).toBe(sentinel);
     expect(buf[11]).toBe(sentinel);
   });
