@@ -168,6 +168,18 @@ describe("ids opaque", () => {
     expect(obj.codec).toBe("opaque");
     expect(obj.timestamp.iso).toBe(at);
   });
+
+  it("wrong key returns exit 0 with a garbage timestamp (GIGO — opaque cannot detect key mismatch)", async () => {
+    const at = "2023-11-14T22:13:20.000Z";
+    const gen = capture(["opaque", "generate", "usr", "--key", keyHex, "--at", at]);
+    expect(await run(gen.opts)).toBe(0);
+    const id = gen.out.join("").trim();
+
+    const ins = capture(["opaque", "inspect", id, "--key", otherKeyHex, "--json"]);
+    expect(await run(ins.opts)).toBe(0);
+    const obj = JSON.parse(ins.out.join("")) as { timestamp: { iso: string } };
+    expect(obj.timestamp.iso).not.toBe(at);
+  });
 });
 
 describe("ids wrapped", () => {
@@ -239,6 +251,26 @@ describe("ids wrapped", () => {
     await run(w.opts);
     const id = w.out.join("").trim();
     const ins = capture(["wrapped", "inspect", id, "--key", keyHex, "--kind", "i64"]);
+    expect(await run(ins.opts)).toBe(1);
+    expect(ins.err.join("")).toContain("verification_failed");
+  });
+
+  it("wrong key on inspect returns exit 1 with verification_failed", async () => {
+    const w = capture([
+      "wrapped",
+      "wrap",
+      "ord",
+      "--value",
+      "42",
+      "--kind",
+      "u32",
+      "--key",
+      keyHex,
+    ]);
+    expect(await run(w.opts)).toBe(0);
+    const id = w.out.join("").trim();
+
+    const ins = capture(["wrapped", "inspect", id, "--key", otherKeyHex]);
     expect(await run(ins.opts)).toBe(1);
     expect(ins.err.join("")).toContain("verification_failed");
   });
