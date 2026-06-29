@@ -36,7 +36,11 @@ export async function runKeygen(argv: ReadonlyArray<string>, opts: RunOpts): Pro
   if (isCliError(encoding)) return fail(opts, encoding);
 
   const raw = new Uint8Array(bytes);
-  crypto.getRandomValues(raw);
+  if (opts.rng !== undefined) {
+    opts.rng(raw);
+  } else {
+    crypto.getRandomValues(raw);
+  }
   opts.stderr(
     "Warning: secret key material — redirect to a file (chmod 0600) and avoid shell history.\n",
   );
