@@ -1,202 +1,195 @@
 ---
 title: CLI
-description: Brand-agnostic inspect, generate, and keygen subcommands — no install required.
+description: Codec-first command-line interface for generating, inspecting, and matching IDs — no install required.
 ---
 
-Brand-agnostic subcommands, no install required. Run `npx @smonn/ids --help` for
-the full flag list.
+A codec-first CLI, no install required. The codec is the **first token** and is
+never inferred — every command is `ids <codec> <verb>`. Run `npx @smonn/ids --help`
+for the full list, or `npx @smonn/ids <codec> --help` for one codec's verbs.
 
-## `inspect` (`i`)
+```
+ids <codec> <verb> [args] [flags]
+ids keygen [--bytes 16|24|32] [--key-encoding hex|base64url]
+ids convert <brand> --uuid <uuid>
+ids --version | --help
+```
 
-Decode an ID and print brand, timestamp (or lookup key), canonical form, and
-whether the input was already canonical.
+The full contract lives in the repo's [CLI specification](https://github.com/smonn/ids/blob/main/docs/cli-spec.md);
+the rationale is in [ADR-0032](https://github.com/smonn/ids/blob/main/docs/adr/0032-codec-first-cli-grammar.md)
+(grammar) and [ADR-0033](https://github.com/smonn/ids/blob/main/docs/adr/0033-cli-single-key-env-var.md)
+(key model).
+
+## Codec / verb matrix
+
+| codec       | write verb | read verb | needs key | write input            |
+| ----------- | ---------- | --------- | --------- | ---------------------- |
+| `timestamp` | `generate` | `inspect` | no        | brand only             |
+| `reverse`   | `generate` | `inspect` | no        | brand only             |
+| `signed`    | `generate` | `inspect` | yes       | brand only             |
+| `opaque`    | `generate` | `inspect` | yes       | brand only             |
+| `wrapped`   | `wrap`     | `inspect` | yes       | brand + integer + kind |
+| `digest`    | `derive`   | `match`   | yes       | brand + material + ns  |
+
+## Write verbs
+
+Write verbs name their input, because it differs per codec. All write output is the
+bare ID(s), one per line — directly pipeable.
 
 ```bash
-$ npx @smonn/ids inspect usr_06f80z92d2dbsqqg28t5cy4tqg
+# Timestamp / Reverse (no key)
+$ npx @smonn/ids timestamp generate usr --count 3
+usr_…
+usr_…
+usr_…
+
+# Backfill at an explicit creation time (ISO 8601 or epoch-ms, interpreted UTC)
+$ npx @smonn/ids timestamp generate usr --at 2026-06-01T00:00:00Z
+
+# Signed / Opaque (keyed)
+$ npx @smonn/ids signed generate usr --key-file ./key.hex
+
+# Wrapped — wrap an integer; --kind is required (ranges overlap, so it can't be inferred)
+$ npx @smonn/ids wrapped wrap ord --value 18446744073709551615 --kind u64 --key-file ./key.hex
+
+# Digest — derive a stable ID from material; material via --material or stdin (stdin keeps PII off argv)
+$ printf '%s' "user@example.com" | npx @smonn/ids digest derive psd --ns billing --key-file ./key.hex
+```
+
+- `--count N` (`generate` only, default 1, max 10000): mint N independent IDs.
+- `--at WHEN` (`generate` only): ISO 8601 datetime or integer epoch-ms, interpreted as
+  **UTC**. With `--count`, all share the timestamp but keep distinct random tails.
+- `--value` / `--kind` (`wrap`): the integer and its width/signedness (`u32`/`i32`/`u64`/`i64`).
+  `--value` is parsed as a string then range-checked.
+- `--ns` / `--material` (`derive`): the namespace (required, non-empty) and the material
+  (via `--material`, or stdin when absent).
+
+## Read verbs
+
+`inspect` reads an ID and reports what the codec can recover; `match` (digest only)
+recomputes the digest and compares. Human output is aligned `key: value` lines;
+`--json` switches to a machine object, `--quiet` silences stdout (exit code remains
+the signal).
+
+```bash
+$ npx @smonn/ids timestamp inspect usr_06f80z92d2dbsqqg28t5cy4tqg
 brand:     usr
-timestamp: 2026-06-01T00:02:25.000Z (25 days ago)
-canonical: usr_06f80z92d2dbsqqg28t5cy4tqg
+codec:     timestamp
+timestamp: 1780012945000 (2026-06-01T00:02:25.000Z)
 uuid:      019e807d-2268-9abc-def0-123456789abc
-input:     canonical
+
+$ npx @smonn/ids wrapped inspect ord_… --key-file ./key.hex --json
+{"brand":"ord","codec":"wrapped","value":"18446744073709551615","kind":"u64","uuid":"…"}
 ```
 
-Accepts non-canonical input (uppercase, Crockford aliases). Pass the flag that
-matches the codec used at generation — without a flag, the **Timestamp codec** is
-assumed.
+Per codec:
 
-| Flag                                 | Codec variant     | Env var                      | Notes                                                                                                                                                                                                               |
-| ------------------------------------ | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| _(none)_                             | Timestamp         | —                            | Timestamp readable directly; always prints a note to stderr (see below)                                                                                                                                             |
-| `--opaque`                           | Opaque Timestamp  | `IDS_OPAQUE_KEY`             | Wrong key yields a plausible-but-wrong timestamp, not an error; always prints a note to stderr (see below)                                                                                                          |
-| `--reverse`                          | Reverse Timestamp | —                            | No key; timestamp decoded from inverted bytes; always prints a note to stderr (see below)                                                                                                                           |
-| `--wrapped --kind <k>`               | Wrapped key       | `IDS_WRAPPING_KEY`           | `--kind` required: `u32`/`i32`/`u64`/`i64`; prints `lookup-key`                                                                                                                                                     |
-| `--signed`                           | Signed Timestamp  | `IDS_SIGNING_KEY` (optional) | Three verification states (see below); `failed` and `unavailable` exit 1 and write to stderr in addition to stdout                                                                                                  |
-| `--from-uuid <uuid> --brand <brand>` | (any)             | —                            | Converts a UUID back to a canonical `Id<Brand>`; `--brand` required (e.g. `usr`); codec-selector flags (`--opaque`, `--signed`, `--reverse`, `--wrapped`) and `--key-format` are rejected as a usage error (exit 2) |
+| codec       | operation                        | fields reported                                   |
+| ----------- | -------------------------------- | ------------------------------------------------- |
+| `timestamp` | decode timestamp                 | `brand`, `codec`, `timestamp`, `uuid`             |
+| `reverse`   | decode timestamp                 | `brand`, `codec`, `timestamp`, `uuid`             |
+| `signed`    | verify signature, then decode ts | `brand`, `codec`, `timestamp`, `verified`, `uuid` |
+| `opaque`    | decrypt, then decode timestamp   | `brand`, `codec`, `timestamp`, `uuid`             |
+| `wrapped`   | unwrap to the original integer   | `brand`, `codec`, `value`, `kind`, `uuid`         |
 
-Every keyed flag reads its own `IDS_<CODEC>_KEY` first and falls back to the
-shared `IDS_KEY` **primary secret** when that variable is unset — see
-[Environment variables](#environment-variables).
+Notes:
 
-The bare path (no codec flag) and `--reverse` both read the timestamp as
-plaintext. Since Opaque-encoded IDs are wire-indistinguishable from plaintext
-Timestamp IDs, these paths always write a note to stderr warning that the
-timestamp is meaningless if the ID was Opaque-encoded:
+- Every `inspect` reports a `uuid` field. The reverse direction (uuid → id) is the
+  top-level [`convert`](#convert) command.
+- `signed inspect` couples verification with extraction: it requires the key, and only
+  on a verified signature does it emit the report (`verified: true`) with exit 0. A
+  failed signature, missing/invalid key, or malformed ID is a failure — a stderr
+  diagnostic, a non-zero exit, and **no** stdout report (there is no `verified: false`).
+- `opaque inspect` reports whatever the (unauthenticated) codec decrypts: a wrong key
+  yields a plausible-but-wrong timestamp, not an error — Opaque and plaintext Timestamp
+  IDs are wire-indistinguishable.
+- `wrapped inspect` is self-describing: the kind is recovered by trial (each of
+  `u32`/`i32`/`u64`/`i64` is verified against the tag), so no `--kind` is needed on read —
+  though an optional `--kind` skips the trial. A `u64`/`i64` value is emitted in JSON as a
+  **string** to avoid precision loss above 2^53.
 
-```
-note: timestamp assumes a plaintext Timestamp ID; if this ID was Opaque-encoded, the timestamp is meaningless — re-run with --opaque and the correct IDS_OPAQUE_KEY or IDS_KEY
-```
+### Batch input (stdin)
+
+`inspect` reads many IDs from stdin (one per line) in addition to a single positional —
+best-effort: stdout carries only successes (`--json` ⇒ NDJSON), stderr a per-line
+diagnostic, and the exit code is 0 only if every line succeeded.
 
 ```bash
-# Opaque Timestamp (IDS_OPAQUE_KEY required, or the IDS_KEY fallback):
-IDS_OPAQUE_KEY=<hex-or-base64url-key> npx @smonn/ids inspect inv_… --opaque
+grep -o 'usr_[0-9a-z]*' app.log | npx @smonn/ids opaque inspect --key-file ./key.hex --json
 ```
 
-`--opaque` always writes a note to stderr regardless of whether the key is correct:
-
-```
-note: timestamp assumes IDS_OPAQUE_KEY or IDS_KEY matches the key used at generation; a wrong key yields a plausible but incorrect timestamp
-```
+`match` is single-shot (one ID per invocation) with a grep-like exit: `0` matched,
+`1` no match, `2` error.
 
 ```bash
-# Wrapped key (IDS_WRAPPING_KEY and --kind required):
-IDS_WRAPPING_KEY=<hex-or-base64url-key> npx @smonn/ids inspect ord_… --wrapped --kind u64
+$ printf '%s' "user@example.com" | npx @smonn/ids digest match psd_… --ns billing --key-file ./key.hex
+match: true
 ```
 
-`--wrapped` output uses five labels:
+## Top-level commands
 
-```
-brand:      ord
-lookup-key: 12345
-canonical:  ord_…
-uuid:       xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-input:      canonical
-```
+These are codec-agnostic, so they sit outside the codec tree.
 
-```bash
-# Signed Timestamp — with verification:
-IDS_SIGNING_KEY=<hex-or-base64url-key> npx @smonn/ids inspect evt_… --signed
-```
+### `keygen`
 
-`--signed` has three verification outcomes:
-
-| State         | stdout                                  | stderr                                                                                       | Exit |
-| ------------- | --------------------------------------- | -------------------------------------------------------------------------------------------- | ---- |
-| `ok`          | output with `verification: ok`          | —                                                                                            | 0    |
-| `failed`      | output with `verification: failed`      | `verification_failed: <message>` (message is non-contractual)                                | 1    |
-| `unavailable` | output with `verification: unavailable` | `missing IDS_SIGNING_KEY environment variable` (or `invalid hex key: …` for a malformed key) | 1    |
-
-The `unavailable` state occurs when `IDS_SIGNING_KEY` is absent or malformed — the
-timestamp is still printed to stdout (it is readable without the key), but
-verification cannot be performed.
-
-## `generate` (`g`)
-
-Mint one or more canonical IDs for a brand. Output is one ID per line
-(pipeable).
-
-```bash
-$ npx @smonn/ids generate usr --count 3
-usr_…
-usr_…
-usr_…
-```
-
-| Flag                 | Codec variant     | Env var           | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| -------------------- | ----------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| _(none)_             | Timestamp         | —                 | Default; one ID per `--count`                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `--opaque`           | Opaque Timestamp  | `IDS_OPAQUE_KEY`  | Same env var and format rules as `inspect --opaque`                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `--reverse`          | Reverse Timestamp | —                 | Newest-first sort order                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `--signed`           | Signed Timestamp  | `IDS_SIGNING_KEY` | Same env var and format rules as `inspect --signed`                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `--digest --ns <ns>` | Digest            | `IDS_DIGEST_KEY`  | Reads material from stdin; `--ns` (non-secret namespace) required. Key format set by `IDS_DIGEST_KEY_FORMAT` or `--key-format`. Same `(material, ns, key)` always produces the same ID. `--count N > 1` is rejected: same material always produces the same ID. A missing or invalid key is reported before stdin is read, so a misconfigured key fails immediately rather than after you supply material. When stdin is a TTY, a hint is printed to stderr. |
-| `--uuid`             | (any)             | —                 | Emits the raw UUID form of each generated ID instead of the canonical `Id<Brand>`                                                                                                                                                                                                                                                                                                                                                                            |
-
-Flags: `--count` / `-c N` (default 1, max 10000); `--key-format hex|base64url`.
-
-Digest IDs are derived from stdin material — pipe the input directly:
-
-```bash
-$ echo "user@example.com" | IDS_DIGEST_KEY=<hex-or-base64url-key> npx @smonn/ids generate ref --digest --ns emails
-ref_…
-```
-
-## `keygen` (`k`)
-
-Emit a random key to stdout — for use with `importOpaqueKey`,
-`importWrappingKey`, `importSigningKey`, or `importDigestKey`. **A secret — do not log or commit.**
-Default: 256-bit hex for the Opaque key domain.
+Emit fresh random key material for any keyed codec. **A secret — do not log or commit.**
+One key backs every keyed codec (the library derives per-codec subkeys internally). A
+reminder is printed to stderr, so `export IDS_KEY=$(npx @smonn/ids keygen)` and pipes are
+unaffected.
 
 ```bash
 $ npx @smonn/ids keygen
-a1b2c3…
+a1b2c3…                                  # 32 bytes, hex
 
-$ npx @smonn/ids keygen --wrapped --bits 128 --key-format base64url
+$ npx @smonn/ids keygen --bytes 16 --key-encoding base64url
 AbCdEf…
 ```
 
-| Flag        | Key domain | Intended for       | Import function     |
-| ----------- | ---------- | ------------------ | ------------------- |
-| _(none)_    | Opaque     | `IDS_OPAQUE_KEY`   | `importOpaqueKey`   |
-| `--wrapped` | Wrapping   | `IDS_WRAPPING_KEY` | `importWrappingKey` |
-| `--signed`  | Signing    | `IDS_SIGNING_KEY`  | `importSigningKey`  |
-| `--digest`  | Digest     | `IDS_DIGEST_KEY`   | `importDigestKey`   |
+- `--bytes 16|24|32` (default 32). Shorter keys only lower the entropy floor — the
+  library always derives AES-256 via HKDF (per
+  [ADR-0027](https://github.com/smonn/ids/blob/main/docs/adr/0027-opaque-hkdf-uniform-key-derivation.md)),
+  so `--bytes 16` does not yield AES-128.
+- `--key-encoding hex|base64url` (default `hex`, or `IDS_KEY_ENCODING`).
 
-Flags: `--bits 128|192|256` (default 256), `--key-format hex|base64url` (default
-`hex`).
+### `convert`
 
-`--bits` sets the primary-secret entropy floor only, not cipher strength. Opaque
-always derives an AES-256 key via HKDF (per
-[ADR-0027](https://github.com/smonn/ids/blob/main/docs/adr/0027-opaque-hkdf-uniform-key-derivation.md)),
-so `--bits 128` does not yield AES-128.
+Re-express a UUID as an `Id` for a brand (uuid → id). Codec-agnostic — the mapping is a
+view over the shared payload. The reverse direction (id → uuid) is the `uuid` field of
+`inspect`.
 
-## Environment variables
-
-All keyed modes read secrets from environment variables — **not from argv**
-(argv leaks via `ps` and shell history). Missing or malformed key env vars print
-a clear stderr message and exit non-zero.
-
-Each keyed mode reads its own `IDS_<CODEC>_KEY` first and falls back to the shared
-`IDS_KEY` **primary secret** when that variable is unset; the matching `_FORMAT`
-variable follows whichever key variable is used. One `IDS_KEY` can therefore serve
-every keyed subcommand, while a per-codec variable overrides it for that codec.
-
-| Env var                   | Used by                                                                                   | Default format |
-| ------------------------- | ----------------------------------------------------------------------------------------- | -------------- |
-| `IDS_KEY`                 | primary-secret fallback for every keyed mode (used when the mode's specific var is unset) | `hex`          |
-| `IDS_KEY_FORMAT`          | `IDS_KEY` format override                                                                 | —              |
-| `IDS_OPAQUE_KEY`          | `--opaque`                                                                                | `hex`          |
-| `IDS_OPAQUE_KEY_FORMAT`   | `--opaque` (format override)                                                              | —              |
-| `IDS_WRAPPING_KEY`        | `--wrapped`                                                                               | `hex`          |
-| `IDS_WRAPPING_KEY_FORMAT` | `--wrapped` (format override)                                                             | —              |
-| `IDS_SIGNING_KEY`         | `--signed`                                                                                | `hex`          |
-| `IDS_SIGNING_KEY_FORMAT`  | `--signed` (format override)                                                              | —              |
-| `IDS_DIGEST_KEY`          | `--digest`                                                                                | `hex`          |
-| `IDS_DIGEST_KEY_FORMAT`   | `--digest` (format override)                                                              | —              |
-
-Key format defaults to `hex`; override per-invocation with `--key-format` or set
-the matching `_FORMAT` env var for a session default. `--key-format` on the
-command line wins. Key-format env vars do not affect `keygen` — only
-`--key-format` applies there.
-
-## Error behavior
-
-### Mutually exclusive codec-selector flags
-
-Codec-selector flags (`--opaque`, `--reverse`, `--wrapped`, `--signed`, `--digest`) are
-mutually exclusive. Combining any two exits 2 and prints to stderr:
-
-```
-cannot use --signed and --opaque together
+```bash
+$ npx @smonn/ids convert usr --uuid 0190ab12-3456-789a-bcde-f0123456789a
+usr_…
 ```
 
-### Flag errors
+## Keys
 
-| Situation                                                         | stderr message                                                                       | Exit |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---- |
-| Unknown flag                                                      | `unsupported flag: <flag>`                                                           | 2    |
-| Known flag not supported by this subcommand                       | `unsupported flag for <cmd>: <flag>`                                                 | 2    |
-| Same flag passed more than once                                   | `duplicate flag: <flag>`                                                             | 2    |
-| `--digest` with `--count N > 1`                                   | `--count N > 1 is rejected with --digest: same material always produces the same ID` | 2    |
-| `--ns` with empty or whitespace-only value                        | `--ns requires a value`                                                              | 2    |
-| `--ns` with leading or trailing whitespace (e.g. `"  pad  "`)     | `--ns must not have leading or trailing whitespace`                                  | 2    |
-| Codec-selector flag or `--key-format` combined with `--from-uuid` | `<flag> cannot be used with --from-uuid`                                             | 2    |
-| `--digest` with empty stdin material                              | `error: digest material must not be empty`                                           | 1    |
+Keyed commands resolve **one** key. It is a bare encoded blob — there is no format prefix
+or codec tag, and **no per-codec key env vars** (the codec is the command token).
+
+**Value** — first present wins: `--key STRING` › `--key-file PATH` › `IDS_KEY`. Supplying
+both `--key` and `--key-file` is a usage error. Prefer `--key-file`/`IDS_KEY` over `--key`,
+which is visible in `ps` and shell history.
+
+**Encoding** — independent of the value source: `--key-encoding hex|base64url` ›
+`IDS_KEY_ENCODING` › `hex`. So a `base64url` key can be fully env-configured:
+
+```bash
+export IDS_KEY_ENCODING=base64url
+export IDS_KEY=$(npx @smonn/ids keygen --bytes 32)
+npx @smonn/ids signed generate usr
+```
+
+The decoded key must be 16, 24, or 32 bytes; any other length is a usage error (this
+catches truncated or wrong-encoding pastes).
+
+## Exit codes
+
+| code | meaning                                                                                               |
+| ---- | ----------------------------------------------------------------------------------------------------- |
+| `0`  | success (all lines succeeded in a batch)                                                              |
+| `1`  | operational failure (malformed ID, failed verify/decrypt, wrong key); for `match`, "no match"         |
+| `2`  | usage error (unknown/missing/conflicting flag, bad brand, unsupported key length, out-of-range value) |
+
+```
+
+```

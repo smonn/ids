@@ -8,10 +8,19 @@ export type RunOpts = {
   rng?: TimestampOptions["rng"];
   /** Defaults to `process.env`. Injected in tests for key env vars. */
   env?: Readonly<Record<string, string | undefined>>;
-  /** Read all of stdin as a UTF-8 string. Injected in tests; defaults to process.stdin in generate. */
+  /** Read all of stdin as a UTF-8 string. Injected in tests; defaults to process.stdin (batch inspect, digest material). */
   readStdin?: () => Promise<string>;
-  /** Whether stdin is a TTY. Injected in tests; defaults to process.stdin.isTTY in generate. */
-  isTTY?: boolean;
+  /** Read a key file's contents. Injected in tests; defaults to node:fs/promises in key resolution. */
+  readFile?: (path: string) => Promise<string>;
+  /** The package version, surfaced by `ids --version`. Injected by the binary entry point. */
+  version?: string;
 };
 
-export type CommandHandler = (args: ReadonlyArray<string>, opts: RunOpts) => Promise<number>;
+/** Handles one fully-resolved command invocation (a codec verb or a top-level command). */
+export type VerbHandler = (argv: ReadonlyArray<string>, opts: RunOpts) => Promise<number>;
+
+/** A codec's CLI surface: its name and the verbs it owns. Lives here (not in router) to avoid a router↔codec import cycle. */
+export type CodecModule = {
+  readonly codec: string;
+  readonly verbs: Readonly<Record<string, VerbHandler>>;
+};
