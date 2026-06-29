@@ -1,9 +1,9 @@
 import { IdsError } from "../error.js";
 import type { Id, JsonSchema, ParseResult, Prefix, StandardSchemaProps } from "../types.js";
 import { base32CharClass, base32FinalCharClass, payloadBase32Length } from "./invariants.js";
-export { schemaExampleId } from "./invariants.js";
 import { is, safeParse, standardValidate } from "./parse.js";
 import { fromUUID, safeFromUUID, toUUID } from "./uuid.js";
+export { schemaExampleId } from "./invariants.js";
 
 type WireMethods<Brand extends string> = {
   is: (value: unknown) => value is Id<Brand>;
