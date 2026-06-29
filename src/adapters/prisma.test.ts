@@ -5,7 +5,7 @@
  * directly — no live DB connection required.
  *
  * Integration-level type assertions import ResultFieldDefinition and ResultArgs
- * from @prisma/client/runtime/library and verify at compile time that idField()
+ * from @prisma/client/runtime/client and verify at compile time that idField()
  * returns a value whose shape is compatible with Prisma's $extends
  * result-component API. No prisma generate or database connection is needed —
  * the assertions are purely structural, surfaced via expectTypeOf at the vitest
@@ -22,7 +22,7 @@ import type {
   QueryOptions,
   ResultArgs,
   ResultFieldDefinition,
-} from "@prisma/client/runtime/library";
+} from "@prisma/client/runtime/client";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import {
   idField,
