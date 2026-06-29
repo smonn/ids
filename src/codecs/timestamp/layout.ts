@@ -1,6 +1,6 @@
 import type { Id, LayoutOps, Prefix } from "../../types.js";
 import { toWireId } from "../../wire/envelope.js";
-import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
+import { payloadByteLength, schemaExampleId } from "../../wire/invariants.js";
 import {
   readTimestampMsFromBase32Suffix,
   timestampByteLength,
@@ -68,7 +68,6 @@ export function createTimestampLayoutOps<Brand extends string>(
       buildSentinelPayload(ms, 0xff, buffer, randomView);
       return toWireId(prefix, buffer);
     },
-    exampleWireId: (_ms?: number): Id<Brand> =>
-      (prefix + "0".repeat(payloadBase32Length)) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix) as Id<Brand>,
   };
 }

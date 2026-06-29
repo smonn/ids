@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { alphabet } from "./base32.js";
-import { base32CharClass, base32FinalCharClass } from "./invariants.js";
+import { base32CharClass, base32FinalCharClass, schemaExampleId } from "./invariants.js";
 
 describe("invariants", () => {
   it("base32CharClass matches every alphabet char and no char outside alphabet", () => {
@@ -26,5 +26,15 @@ describe("invariants", () => {
     for (const char of notExpected) {
       expect(re.test(char), `expected '${char}' not to match base32FinalCharClass`).toBe(false);
     }
+  });
+
+  it("schemaExampleId returns prefix followed by 26 zeros", () => {
+    expect(schemaExampleId("usr_")).toBe("usr_" + "0".repeat(26));
+  });
+
+  it("schemaExampleId is the single source of the schema-example literal", () => {
+    const result = schemaExampleId("rev_");
+    expect(result).toBe("rev_" + "0".repeat(26));
+    expect(result).toMatch(/^rev_0{26}$/);
   });
 });

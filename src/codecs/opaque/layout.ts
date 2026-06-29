@@ -2,7 +2,7 @@ import type { webcrypto } from "node:crypto";
 import type { Id, LayoutOps, Prefix } from "../../types.js";
 import { decryptPayload, encryptPayload } from "../_kernel/crypto.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
-import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
+import { payloadByteLength, schemaExampleId } from "../../wire/invariants.js";
 import {
   readTimestampMs,
   timestampByteLength,
@@ -38,11 +38,6 @@ async function generateWireId<Brand extends string>(
   return toWireId(prefix, encrypted);
 }
 
-/** Structural placeholder for JSON Schema (encrypt is async). */
-function schemaExample<Brand extends string>(prefix: Prefix<Brand>): string {
-  return prefix + "0".repeat(payloadBase32Length);
-}
-
 /** Layout ops binder for the Opaque Timestamp variant. `extractTimestampFromId` is module-private; the binder exposes `extractTimestamp` for the codec constructor. */
 export function createOpaqueLayoutOps<Brand extends string>(
   prefix: Prefix<Brand>,
@@ -55,6 +50,6 @@ export function createOpaqueLayoutOps<Brand extends string>(
   return {
     generateAt: (ms: number): Promise<Id<Brand>> => generateWireId(prefix, key, rng, ms),
     extractTimestamp: (id: Id<Brand>): Promise<Date> => extractTimestampFromId(prefix, key, id),
-    exampleWireId: (_ms?: number): Id<Brand> => schemaExample(prefix) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix) as Id<Brand>,
   };
 }
