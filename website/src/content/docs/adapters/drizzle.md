@@ -87,8 +87,8 @@ export const comments = pgTable("comments", {
 });
 ```
 
-:::note[PostgreSQL only]
-`nullableIdColumn` is PostgreSQL only. There are no `nullableIdColumnMysql` or `nullableIdColumnSqlite` equivalents in this release. If you need nullable ID columns for MySQL or SQLite, handle the null check manually before calling `idColumnMysql` / `idColumnSqlite`.
+:::note[Dialect variants]
+`nullableIdColumn` is the PostgreSQL variant and accepts a `{ columnType }` override. For MySQL and SQLite use `nullableIdColumnMysql` / `nullableIdColumnSqlite`, which behave identically but are always `text` and take no `columnType` option.
 :::
 
 - **Read path:** `null` and `undefined` driver values are returned as `null`. Non-null values go through `codec.safeParse()` and throw `IdsError("invalid_id")` if the stored value does not parse as a valid `Id<Brand>`.

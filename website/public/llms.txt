@@ -25,7 +25,7 @@ Every codec implements Standard Schema v1 and exports a JSON Schema via `toJsonS
 ## Validation & errors
 
 - [Validation (Standard Schema & JSON Schema)](https://ids.smonn.se/validation/): Every codec implements Standard Schema v1 (`~standard`) and exports a JSON Schema via `toJsonSchema()` — both available on every variant, sync even on keyed codecs.
-- [Error handling](https://ids.smonn.se/errors/): All 11 IdsErrorCode values, both error channels, IdsError, and how to use isIdsError() to handle errors programmatically.
+- [Error handling](https://ids.smonn.se/errors/): All 12 IdsErrorCode values, both error channels, IdsError, and how to use isIdsError() to handle errors programmatically.
 
 ## Adapters
 
@@ -42,7 +42,7 @@ Every codec implements Standard Schema v1 and exports a JSON Schema via `toJsonS
 
 ## Optional
 
-- [CLI](https://ids.smonn.se/cli/): Brand-agnostic inspect, generate, and keygen subcommands — no install required.
+- [CLI](https://ids.smonn.se/cli/): Codec-first generate, inspect, wrap, derive, match, keygen, and convert commands — no install required.
 - [Wire format & porting](https://ids.smonn.se/porting/): Links to SPEC.md (wire-format spec) and spec/vectors.json (conformance oracle) for cross-language porters.
 - [API reference](https://ids.smonn.se/api/readme/): Full TypeDoc-generated API reference for every public entry point.
 - [GitHub repository](https://github.com/smonn/ids): Source code, issues, and changelog.
