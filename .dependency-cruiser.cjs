@@ -87,6 +87,16 @@ module.exports = {
       },
     },
     {
+      name: "wire-uuid-imports-allowlist",
+      severity: "error",
+      comment: "uuid may import only wire/envelope, error, and types",
+      from: { path: "^src/wire/uuid\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/(wire/envelope|error|types)\\.ts$",
+      },
+    },
+    {
       name: "wire-timestamp-bytes-imports-allowlist",
       severity: "error",
       comment: "timestamp-bytes may import only base32 and error",
@@ -175,7 +185,9 @@ module.exports = {
       severity: "error",
       comment:
         "covers all codec paths post-ADR-0018 (layouts/timestamp/opaque moved under src/codecs/)",
-      from: { path: "^src/(wire/base32|codecs/_kernel/bytes|types|codecs/_kernel/brand)\\.ts$" },
+      from: {
+        path: "^src/(wire/base32|codecs/_kernel/bytes|types|codecs/_kernel/brand|codecs/_kernel/registry)\\.ts$",
+      },
       to: { path: "^src/(wire|cli|codecs)" },
     },
     {
@@ -218,6 +230,24 @@ module.exports = {
         path: "^src",
         pathNot: "^src/(codecs/_kernel/bytes|wire/invariants)\\.ts$",
       },
+    },
+    {
+      name: "rng-leaf-restricted",
+      severity: "error",
+      comment:
+        "_kernel/rng is a leaf importable only by codec constructors (codecs/<name>/index.ts)",
+      from: {
+        path: "^src.*\\.ts$",
+        pathNot: "^src/codecs/[^/]+/index\\.ts$|\\.test\\.ts$",
+      },
+      to: { path: "^src/codecs/_kernel/rng\\.ts$" },
+    },
+    {
+      name: "rng-leaf-no-upward",
+      severity: "error",
+      comment: "_kernel/rng leaf may not import any src/ module",
+      from: { path: "^src/codecs/_kernel/rng\\.ts$" },
+      to: { path: "^src" },
     },
     {
       name: "codec-slice-no-cross-codec-imports",
