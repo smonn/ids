@@ -3,7 +3,7 @@ import type { Id, LayoutOps, Prefix } from "../../types.js";
 import { hmacSignTruncated } from "../_kernel/crypto.js";
 import { writeLen32 } from "../_kernel/bytes.js";
 import { toWireId } from "../../wire/envelope.js";
-import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
+import { payloadByteLength, schemaExampleId } from "../../wire/invariants.js";
 
 const encoder = new TextEncoder();
 
@@ -45,7 +45,6 @@ export function createDigestLayoutOps<Brand extends string>(
       const payload = await hmacSignTruncated(hmacKey, message, payloadByteLength);
       return toWireId(prefix, payload);
     },
-    exampleWireId: (_ms?: number): Id<Brand> =>
-      (prefix + "0".repeat(payloadBase32Length)) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix),
   };
 }

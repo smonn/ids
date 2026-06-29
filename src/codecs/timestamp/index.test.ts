@@ -870,8 +870,8 @@ describe("dev-mode duplicate-brand warning", () => {
 });
 
 describe("LayoutOps contract", () => {
-  it("LayoutOps<Brand> exampleWireId is (ms?: number) => Id<Brand>", () => {
-    expectTypeOf<LayoutOps<"usr">["exampleWireId"]>().toEqualTypeOf<(ms?: number) => Id<"usr">>();
+  it("LayoutOps<Brand> exampleWireId is () => Id<Brand>", () => {
+    expectTypeOf<LayoutOps<"usr">["exampleWireId"]>().toEqualTypeOf<() => Id<"usr">>();
   });
 
   it("toJsonSchema() example matches the brand pattern", () => {

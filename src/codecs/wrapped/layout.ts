@@ -8,7 +8,7 @@ import {
 } from "../_kernel/crypto.js";
 import { writeLen32 } from "../_kernel/bytes.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
-import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
+import { payloadByteLength, schemaExampleId } from "../../wire/invariants.js";
 
 const laneByteLength = 8;
 const tagByteLength = 8;
@@ -184,10 +184,6 @@ async function tryUnwrapLookupKey<Brand extends string, Kind extends LayoutWrapp
   return readLane(kind, lane);
 }
 
-function schemaExample<Brand extends string>(prefix: Prefix<Brand>): string {
-  return prefix + "0".repeat(payloadBase32Length);
-}
-
 export function createWrappedLayoutOps<Brand extends string, Kind extends LayoutWrappedKind>(
   prefix: Prefix<Brand>,
   brand: Brand,
@@ -214,6 +210,6 @@ export function createWrappedLayoutOps<Brand extends string, Kind extends Layout
       }
       return null;
     },
-    exampleWireId: (_ms?: number): Id<Brand> => schemaExample(prefix) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix),
   };
 }

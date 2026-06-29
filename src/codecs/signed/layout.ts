@@ -2,7 +2,7 @@ import type { webcrypto } from "node:crypto";
 import type { Id, LayoutOps, Prefix } from "../../types.js";
 import { hmacSignTruncated, timingSafeEqual } from "../_kernel/crypto.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
-import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
+import { payloadByteLength, schemaExampleId } from "../../wire/invariants.js";
 import {
   readTimestampMsFromBase32Suffix,
   timestampByteLength,
@@ -86,7 +86,6 @@ export function createSignedTimestampLayoutOps<Brand extends string>(
       syncBuffer.fill(0xff, randomOffset, payloadByteLength);
       return toWireId(prefix, syncBuffer);
     },
-    exampleWireId: (_ms?: number): Id<Brand> =>
-      (prefix + "0".repeat(payloadBase32Length)) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix),
   };
 }

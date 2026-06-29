@@ -1,9 +1,16 @@
 import type { Id, LayoutOps, Prefix } from "../../types.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
-import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
+import { payloadByteLength, schemaExampleId } from "../../wire/invariants.js";
 import { timestampByteLength, writeTimestamp } from "../../wire/timestamp-bytes.js";
 
 const randomByteLength: number = payloadByteLength - timestampByteLength;
+
+/** Inverts the first `timestampByteLength` bytes of `buffer` in place. */
+function invertTimestampBytes(buffer: Uint8Array): void {
+  for (let i = 0; i < timestampByteLength; i++) {
+    buffer[i] = ~buffer[i]! & 0xff;
+  }
+}
 
 /** Writes inverted timestamp bytes, then fills random portion. */
 function buildReversePayload(
@@ -13,9 +20,7 @@ function buildReversePayload(
   randomView: Uint8Array,
 ): void {
   writeTimestamp(ms, buffer);
-  for (let i = 0; i < timestampByteLength; i++) {
-    buffer[i] = ~buffer[i]! & 0xff;
-  }
+  invertTimestampBytes(buffer);
   rng(randomView);
 }
 
@@ -27,13 +32,13 @@ function buildReverseSentinelPayload(
   randomView: Uint8Array,
 ): void {
   writeTimestamp(ms, buffer);
-  for (let i = 0; i < timestampByteLength; i++) {
-    buffer[i] = ~buffer[i]! & 0xff;
-  }
+  invertTimestampBytes(buffer);
   randomView.fill(fill);
 }
 
-/** Decodes the original timestamp by inverting the first 6 payload bytes. */
+/** Decodes the original timestamp by inverting the first 6 payload bytes.
+ * Stays inline: combines inversion and big-endian accumulation in one pass
+ * so no temporary buffer is needed; factoring further would add allocation. */
 function extractReverseTimestampFromId<Brand extends string>(
   prefix: Prefix<Brand>,
   id: Id<Brand>,
@@ -73,7 +78,6 @@ export function createReverseTimestampLayoutOps<Brand extends string>(
       buildReverseSentinelPayload(ms, 0xff, buffer, randomView);
       return toWireId(prefix, buffer);
     },
-    exampleWireId: (_ms?: number): Id<Brand> =>
-      (prefix + "0".repeat(payloadBase32Length)) as Id<Brand>,
+    exampleWireId: (): Id<Brand> => schemaExampleId(prefix),
   };
 }
