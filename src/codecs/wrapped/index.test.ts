@@ -73,6 +73,12 @@ describe("wrapped", () => {
       const result = await inv.safeUnwrap(id);
       expect(result).toMatchObject({ ok: false, error: "verification_failed" });
     }
+    // boundary extremes: all-zero and all-0xFF payloads must not throw
+    const allZero = toWireId("inv_", new Uint8Array(16));
+    expect(await inv.safeUnwrap(allZero)).toEqual({ ok: false, error: "verification_failed" });
+
+    const allFf = toWireId("inv_", new Uint8Array(16).fill(0xff));
+    expect(await inv.safeUnwrap(allFf)).toEqual({ ok: false, error: "verification_failed" });
   });
 
   it("safeUnwrap rejects tokens wrapped for a different integer kind", async () => {

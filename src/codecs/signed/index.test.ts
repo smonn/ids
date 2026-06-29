@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, afterAll, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, beforeAll, afterAll, vi } from "vitest";
 import * as fc from "fast-check";
 import {
   createSignedTimestampId,
@@ -503,9 +503,8 @@ describe("createSignedTimestampId", () => {
     const fail: _R = { ok: false, error: "verification_failed" };
     expect(ok.ok).toBe(true);
     expect(fail.ok).toBe(false);
-    // SignedTimestampCodec used as a type annotation via expectTypeOf-equivalent
     const codec: SignedTimestampCodec<"sgn"> | undefined = undefined;
-    expect(codec).toBeUndefined();
+    expectTypeOf(codec).toMatchTypeOf<SignedTimestampCodec<"sgn"> | undefined>();
   });
 
   // --- Golden vector ---

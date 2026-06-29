@@ -152,6 +152,16 @@ describe("opaque", () => {
       expect(result).toBeInstanceOf(Date);
       expect(Number.isFinite(result.getTime())).toBe(true);
     }
+    // boundary extremes: all-zero and all-0xFF payloads must not throw
+    const allZero = toWireId("usr_", new Uint8Array(16));
+    const allZeroResult = await usr.extractTimestamp(allZero);
+    expect(allZeroResult).toBeInstanceOf(Date);
+    expect(Number.isFinite(allZeroResult.getTime())).toBe(true);
+
+    const allFf = toWireId("usr_", new Uint8Array(16).fill(0xff));
+    const allFfResult = await usr.extractTimestamp(allFf);
+    expect(allFfResult).toBeInstanceOf(Date);
+    expect(Number.isFinite(allFfResult.getTime())).toBe(true);
   });
 
   it("generate() output matches the canonical wire pattern", async () => {
