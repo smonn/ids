@@ -20,24 +20,14 @@ import {
   writeIdColumn,
   writeIdColumnNullable,
   type IdColumnCodec,
+  type IdGeneratingCodec,
 } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 
-export type { IdColumnCodec };
-
-/**
- * Extension of {@link IdColumnCodec} that also exposes synchronous `generate()`.
- * Required by the `generatedIdColumn` family so that Drizzle's `.$defaultFn` can
- * produce IDs at write time without explicit call-site wiring. Only the **Timestamp
- * codec** and **Reverse Timestamp codec** satisfy this; async-generate codecs
- * (Opaque, Signed, Wrapped, Digest) do not and are a compile-time error.
- */
-export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
-  generate(): Id<Brand>;
-};
+export type { IdColumnCodec, IdGeneratingCodec };
 
 function buildIdColumn<Brand extends string, Col>(
   columnFactory: (config: {

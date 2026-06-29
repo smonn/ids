@@ -12,24 +12,13 @@ import {
   writeIdColumn,
   writeIdColumnNullable,
   type IdColumnCodec,
+  type IdGeneratingCodec,
 } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
-export type { IdColumnCodec } from "./adapter-types.js";
+export type { IdColumnCodec, IdGeneratingCodec } from "./adapter-types.js";
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
-
-/**
- * Extension of {@link IdColumnCodec} that also exposes synchronous `generate()`.
- * Required by {@link insertId} so that the insert-time call site can produce a
- * fresh `Id<Brand>` with a compile-time constraint enforcing codec capability.
- * Only the **Timestamp codec** and **Reverse Timestamp codec** satisfy this;
- * async-generate codecs (Opaque, Signed, Wrapped, Digest) do not and are
- * therefore rejected at the TypeScript level.
- */
-export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
-  generate(): Id<Brand>;
-};
 
 /**
  * Kysely column type mapping for `Id<Brand>`.

@@ -5,23 +5,14 @@ import {
   writeIdColumn,
   writeIdColumnNullable,
   type IdColumnCodec,
+  type IdGeneratingCodec,
 } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /** {@link IdsError} class, {@link isIdsError} type guard, and {@link IdsErrorCode} union — re-exported from `"@smonn/ids"` for convenience. */
 export { IdsError, isIdsError, type IdsErrorCode } from "../error.js";
 
-export type { IdColumnCodec };
-
-/**
- * Extension of {@link IdColumnCodec} that also exposes synchronous `generate()`.
- * Required by {@link idField} so that the MikroORM `onCreate` hook can produce
- * IDs at persist time. Only the **Timestamp codec** and **Reverse Timestamp codec**
- * satisfy this; async-generate codecs (Opaque, Signed, Wrapped, Digest) do not.
- */
-export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
-  generate(): Id<Brand>;
-};
+export type { IdColumnCodec, IdGeneratingCodec };
 
 /**
  * Returns a MikroORM property option object that wires `codec.generate()` into the
