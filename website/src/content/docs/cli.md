@@ -74,7 +74,7 @@ the signal).
 $ npx @smonn/ids timestamp inspect usr_06f80z92d2dbsqqg28t5cy4tqg
 brand:     usr
 codec:     timestamp
-timestamp: 1780012945000 (2026-06-01T00:02:25.000Z)
+timestamp: 1780272145000 (2026-06-01T00:02:25.000Z)
 uuid:      019e807d-2268-9abc-def0-123456789abc
 
 $ npx @smonn/ids wrapped inspect ord_… --key-file ./key.hex --json
