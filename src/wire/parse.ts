@@ -17,6 +17,9 @@ export function safeParse<Brand extends string>(
   if (value.startsWith(prefix) && base32Pattern.test(value.slice(prefix.length))) {
     return { ok: true, id: value as Id<Brand> };
   }
+  if (value.length > prefix.length + payloadBase32Length) {
+    return { ok: false, error: "invalid_base32" };
+  }
   const lowercase = value.toLowerCase();
   if (!lowercase.startsWith(prefix)) return { ok: false, error: "invalid_prefix" };
 

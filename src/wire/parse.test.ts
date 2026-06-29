@@ -59,6 +59,12 @@ describe("safeParse", () => {
     expect(safeParse(PREFIX, oversized)).toEqual({ ok: false, error: "invalid_base32" });
   });
 
+  it("rejects a very long string (well beyond canonical max) with invalid_base32 without normalizing", () => {
+    // Guard fires before toLowerCase(): a 1000-char payload is rejected immediately.
+    const veryLong = `${PREFIX}${"0".repeat(1000)}`;
+    expect(safeParse(PREFIX, veryLong)).toEqual({ ok: false, error: "invalid_base32" });
+  });
+
   it("rejects an undersized payload (25 chars) with invalid_base32", () => {
     const undersized = `${PREFIX}${"0".repeat(25)}`;
     expect(safeParse(PREFIX, undersized)).toEqual({ ok: false, error: "invalid_base32" });
