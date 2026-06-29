@@ -1,4 +1,4 @@
-import type { ModelQueryOptionsCb, ModelQueryOptionsCbArgs } from "@prisma/client/runtime/library";
+import type { ModelQueryOptionsCb, ModelQueryOptionsCbArgs } from "@prisma/client/runtime/client";
 import {
   readIdColumn,
   readIdColumnNullable,
