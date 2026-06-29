@@ -42,6 +42,9 @@ export type OpaqueTimestampOptions = {
   allowDuplicateBrand?: boolean;
 };
 
+type ResolvedOpaqueTimestampOptions = Required<Pick<OpaqueTimestampOptions, "now" | "rng">> &
+  Pick<OpaqueTimestampOptions, "allowDuplicateBrand">;
+
 /**
  * A brand-scoped codec for generating and validating Opaque Timestamp IDs.
  *
@@ -117,6 +120,11 @@ export type OpaqueTimestampCodec<Brand extends string> = {
   safeFromUUID(value: unknown): ParseResult<Brand>;
 };
 
+const defaultOpaqueTimestampOptions: ResolvedOpaqueTimestampOptions = {
+  now: Date.now,
+  rng: defaultRng,
+};
+
 /**
  * Creates an Opaque Timestamp codec for `brand` (three lowercase a–z characters).
  *
@@ -132,14 +140,16 @@ export function createOpaqueTimestampId<Brand extends string>(
   registerBrand(brand, opts.allowDuplicateBrand);
 
   const cryptoKey = getOpaqueKeyCryptoKey(opts.key);
-  const now = opts.now ?? Date.now;
-  const rng = opts.rng ?? defaultRng;
+  const options = {
+    now: opts.now ?? defaultOpaqueTimestampOptions.now,
+    rng: opts.rng ?? defaultOpaqueTimestampOptions.rng,
+  } satisfies ResolvedOpaqueTimestampOptions;
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);
-  const layout = createOpaqueLayoutOps(prefix, cryptoKey, rng);
+  const layout = createOpaqueLayoutOps(prefix, cryptoKey, options.rng);
 
   return {
-    generate: () => layout.generateAt(now()),
+    generate: () => layout.generateAt(options.now()),
     generateAt: (date: Date) => layout.generateAt(date.getTime()),
     is: wire.is,
     parse: wire.parse,
