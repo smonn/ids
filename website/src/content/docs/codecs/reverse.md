@@ -37,9 +37,7 @@ synchronous, exactly like the [Timestamp codec](/codecs/timestamp/).
 | `toJsonSchema()`       | Returns a JSON Schema object for the canonical wire form.                                                                          |
 | `~standard`            | Standard Schema v1 validate entry point.                                                                                           |
 
-`IdsError`, `isIdsError`, and `IdsErrorCode` are also re-exported from
-`@smonn/ids/reverse` for convenience, so you don't need a second import from
-`@smonn/ids` just to handle errors.
+`IdsError`, `isIdsError`, and `IdsErrorCode` are available from `@smonn/ids`.
 
 ## Range bounds are flipped
 

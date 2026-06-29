@@ -154,10 +154,11 @@ exist only for indexed range scans, not as real IDs. See
 ## Error handling
 
 All errors are `IdsError` instances with a stable `code` field. Use `isIdsError`
-(re-exported from `@smonn/ids/signed`) to discriminate them:
+to discriminate them — import it from `@smonn/ids`:
 
 ```ts
-import { createSignedTimestampId, importSigningKey, isIdsError } from "@smonn/ids/signed";
+import { createSignedTimestampId, importSigningKey } from "@smonn/ids/signed";
+import { isIdsError } from "@smonn/ids";
 ```
 
 **Construction errors** — thrown by `createSignedTimestampId`:
