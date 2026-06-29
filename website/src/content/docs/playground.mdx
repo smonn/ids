@@ -13,7 +13,7 @@ or unwrapping it.
 <Playground client:only="preact" />
 
 :::note
-Keyed codecs (Signed, Opaque, Wrapped) generate a random key for you on load.
+Keyed codecs (Signed, Opaque, Wrapped, Digest) generate a random key for you on load.
 Edit the hex key to see how a wrong key changes the outcome — the Signed and
 Wrapped codecs **reject** a wrong key, while the Opaque codec returns a
 plausible-but-wrong timestamp without erroring (it has no authentication tag).
