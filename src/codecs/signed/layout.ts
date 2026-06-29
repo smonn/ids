@@ -1,6 +1,6 @@
 import type { webcrypto } from "node:crypto";
 import type { Id, LayoutOps, Prefix } from "../../types.js";
-import { timingSafeEqual } from "../_kernel/crypto.js";
+import { hmacSignTruncated, timingSafeEqual } from "../_kernel/crypto.js";
 import { payloadBytesFromId, toWireId } from "../../wire/envelope.js";
 import { payloadBase32Length, payloadByteLength } from "../../wire/invariants.js";
 import {
@@ -26,10 +26,7 @@ async function computeTag(
   const message = new Uint8Array(brandBytes.length + signedContent.length);
   message.set(brandBytes, 0);
   message.set(signedContent, brandBytes.length);
-  const signature = new Uint8Array(
-    await crypto.subtle.sign("HMAC", hmacKey, message as Uint8Array<ArrayBuffer>),
-  );
-  return signature.subarray(0, tagByteLength);
+  return hmacSignTruncated(hmacKey, message, tagByteLength);
 }
 
 export function createSignedTimestampLayoutOps<Brand extends string>(
@@ -65,11 +62,14 @@ export function createSignedTimestampLayoutOps<Brand extends string>(
       const payload = payloadBytesFromId(prefix, id);
       const storedTag = payload.subarray(tagOffset, payloadByteLength);
       const signedContent = payload.subarray(0, signedContentByteLength);
+      const message = new Uint8Array(brandBytes.length + signedContentByteLength);
+      message.set(brandBytes, 0);
+      message.set(signedContent, brandBytes.length);
       // Accepted timing leak: early-return on first keyring match reveals the
       // matching key's position (rotation epoch). This is inherent to ordered-ring
       // trial and accepted — see docs/adr/0012-signed-timestamp-construction.md.
       for (const hmacKey of hmacKeys) {
-        const expected = await computeTag(hmacKey, brandBytes, signedContent);
+        const expected = await hmacSignTruncated(hmacKey, message, tagByteLength);
         if (timingSafeEqual(storedTag, expected)) return true;
       }
       return false;
