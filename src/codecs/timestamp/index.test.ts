@@ -869,7 +869,7 @@ describe("dev-mode duplicate-brand warning", () => {
   });
 });
 
-describe("LayoutOps contract", () => {
+describe("JSON schema", () => {
   it("toJsonSchema() example matches the brand pattern", () => {
     const usr = createTimestampId("uzz");
     const schema = usr.toJsonSchema();
