@@ -5,10 +5,10 @@ description: Read/write transforms for integrating Id<Brand> with Prisma's $exte
 
 `@smonn/ids/prisma` provides a read/write transform pair for integrating
 `Id<Brand>` with Prisma's `$extends` extension model. It requires
-`@prisma/client` as an **optional peer dependency**.
+`@prisma/client` **≥ 7.0.0** as an **optional peer dependency**.
 
 ```bash
-pnpm add @prisma/client
+pnpm add @prisma/client@">=7"
 ```
 
 ## Basic usage

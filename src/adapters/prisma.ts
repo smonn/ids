@@ -27,7 +27,7 @@ export type IdGeneratingCodec<Brand extends string> = IdColumnCodec<Brand> & {
  * The per-model object returned by {@link IdTransform.defaultQuery}, suitable for
  * the model-level value inside a Prisma `$extends({ query: { modelName: … } })` block.
  * Structurally identical to `{ [operation: string]: ModelQueryOptionsCb }` from
- * `@prisma/client/runtime/library`.
+ * `@prisma/client/runtime/client`.
  */
 export type IdQueryField = { [operation: string]: ModelQueryOptionsCb };
 
