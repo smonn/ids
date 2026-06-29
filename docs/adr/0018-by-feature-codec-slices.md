@@ -45,21 +45,23 @@ Codec depcruise enforcement is now directory-based (implemented in #325):
 - **Deleted rules**: `codec-constructors-no-base32` and `layouts-no-base32` were removed in earlier slices. Their constraint is structural: `base32.ts` lives under `wire/`, and codec `index.ts` files import from `_kernel/` and `wire/codec-shell` only.
 - **Adapter rules** (`adapters/`) collapse: three per-ORM rules (`drizzle-adapter-no-internals`, `kysely-adapter-no-internals`, `prisma-adapter-no-internals`) are replaced by a single directory-glob rule (`adapters-no-internals`) covering all `src/adapters/` non-hub files — adding a new adapter requires zero depcruise edits, mirroring the codec zero-edit goal.
 
-### Adding a codec variant (zero-edit checklist)
+### Adding a codec variant
+
+The dependency-cruiser rule layer is zero-edit for new codecs — no alternation strings to update. CLI wiring is not zero-edit: it requires 2 sites (a new codec module and a registry entry in `router.ts`).
 
 1. Create `src/codecs/<name>/index.ts` — codec constructor (`validateBrand`, `registerBrand`, wire methods, layout ops composition).
 2. Create `src/codecs/<name>/layout.ts` — layout ops binder (`create*LayoutOps`).
 3. For keyed codecs, create `src/codecs/<name>/key.ts` — key-handle module (`import*Key`, `encode*Key`, `decode*Key`).
 4. Add a subpath export to `package.json#exports` and `tsdown.config.ts` ([ADR-0005](./0005-codec-variant-subpath-exports.md)).
 5. Re-export `{ IdsError, isIdsError, type IdsErrorCode }` from `src/error.ts` in the codec subpath's `index.ts` ([ADR-0011](./0011-coded-ids-error.md)). **Exception:** the Timestamp codec ships from the root entry, which already exports the trio — no re-export needed.
-6. Register the codec variant in the CLI registry (`src/cli/variants.ts`).
+6. Wire the codec into the CLI (2 sites): create `src/cli/codecs/<name>.ts` (the codec subcommand module) and add an import and a `codecModules` entry in `src/cli/router.ts`.
 7. **No `.dependency-cruiser.cjs` edits required** — the directory-based rules cover any `codecs/<name>/` automatically.
 
 ## Module rings
 
 ```text
-cli.ts + cli/                          ← argv, env, stdout; constructs codecs via variant registry
-  ↓ (variants.ts + dispatch.ts + key-io.ts)
+cli.ts + cli/                          ← argv, env, stdout; constructs codecs via router.ts
+  ↓ (router.ts [codecModules registry] + cli/codecs/<name>.ts per codec)
 codecs/<name>/index.ts                 ← validateBrand, registerBrand, inject defaults, key helpers
   ├→ codecs/<name>/layout.ts           ← create*LayoutOps(prefix, …)
   ├→ codecs/<name>/key.ts              ← key-handle module (keyed codecs only)
