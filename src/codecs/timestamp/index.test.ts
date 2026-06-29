@@ -40,7 +40,7 @@ describe("id", () => {
       now: () => 0,
       rng: () => {},
     });
-    expect(usr.generate()).toBe("usr_" + "0".repeat(26)); // adjust to actual
+    expect(usr.generate()).toBe("usr_" + "0".repeat(26)); // all-zero payload (16 zero bytes) → 26 base32 '0' chars
   });
 
   it("non-symmetric known-answer encoding", () => {

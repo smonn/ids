@@ -505,7 +505,7 @@ describe("createSignedTimestampId", () => {
     expect(fail.ok).toBe(false);
     // SignedTimestampCodec used as a type annotation via expectTypeOf-equivalent
     const codec: SignedTimestampCodec<"sgn"> | undefined = undefined;
-    expect(codec).toBeUndefined();
+    void codec; // type annotation above is the assertion; no runtime check needed
   });
 
   // --- Golden vector ---
