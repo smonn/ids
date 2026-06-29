@@ -9,14 +9,14 @@ import {
   writeTimestamp,
 } from "../../wire/timestamp-bytes.js";
 
-const randomByteLength = 5;
+const signedRandomByteLength = 5;
 const tagByteLength = 5;
 type Equals<A, B> = A extends B ? (B extends A ? true : never) : never;
-const _signedByteCheck: Equals<typeof payloadByteLength, 16> = true; // timestampByteLength(6) + randomByteLength(5) + tagByteLength(5)
+const _signedByteCheck: Equals<typeof payloadByteLength, 16> = true; // timestampByteLength(6) + signedRandomByteLength(5) + tagByteLength(5)
 void _signedByteCheck;
 const randomOffset = timestampByteLength; // 6
-const tagOffset = randomOffset + randomByteLength; // 11
-const signedContentByteLength = randomOffset + randomByteLength; // 11 (ts6 ‖ rand5)
+const tagOffset = randomOffset + signedRandomByteLength; // 11
+const signedContentByteLength = tagOffset; // 11 (ts6 ‖ rand5)
 
 async function computeTag(
   hmacKey: webcrypto.CryptoKey,
