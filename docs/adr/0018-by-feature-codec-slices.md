@@ -54,6 +54,9 @@ The dependency-cruiser rule layer is zero-edit for new codecs — no alternation
 3. For keyed codecs, create `src/codecs/<name>/key.ts` — key-handle module (`import*Key`, `encode*Key`, `decode*Key`).
 4. Add a subpath export to `package.json#exports` and `tsdown.config.ts` ([ADR-0005](./0005-codec-variant-subpath-exports.md)).
 5. Re-export `{ IdsError, isIdsError, type IdsErrorCode }` from `src/error.ts` in the codec subpath's `index.ts` ([ADR-0011](./0011-coded-ids-error.md)). **Exception:** the Timestamp codec ships from the root entry, which already exports the trio — no re-export needed.
+
+> **Correction (2026-06-29):** Codec constructors do **not** carry the error trio re-export. The re-exports were removed from all codec subpaths in [#822](https://github.com/smonn/ids/pull/822); `CONTRIBUTING.md` now explicitly prohibits them. Only the ORM adapter subpaths (`@smonn/ids/drizzle`, `@smonn/ids/kysely`, `@smonn/ids/mikro-orm`, `@smonn/ids/prisma`, `@smonn/ids/typeorm`) and the GraphQL adapter (`@smonn/ids/graphql`) carry the re-export — not the codec subpaths.
+
 6. Wire the codec into the CLI (2 sites): create `src/cli/codecs/<name>.ts` (the codec subcommand module) and add an import and a `codecModules` entry in `src/cli/router.ts`.
 7. **No `.dependency-cruiser.cjs` edits required** — the directory-based rules cover any `codecs/<name>/` automatically.
 
@@ -67,7 +70,7 @@ codecs/<name>/index.ts                 ← validateBrand, registerBrand, inject 
   ├→ codecs/<name>/key.ts              ← key-handle module (keyed codecs only)
   └→ wire/codec-shell.ts               ← wireMethods(prefix)
         ↓
-      wire/invariants.ts, wire/envelope.ts, wire/timestamp-bytes.ts, wire/parse.ts
+      wire/invariants.ts, wire/envelope.ts, wire/timestamp-bytes.ts, wire/parse.ts, wire/uuid.ts
         ↓
       wire/base32.ts                   ← leaf (relocated from src/ root)
 
@@ -105,6 +108,7 @@ Codec constructors import **`wire/codec-shell`** only from `wire/`, and **`creat
 | `wire/envelope.ts` | Payload ↔ base32; `toWireId` / `payloadBytesFromId` (trust-the-type) |
 | `wire/timestamp-bytes.ts` | 6-byte big-endian ms read/write; partial base32 suffix decode for timestamp extraction |
 | `wire/codec-shell.ts` | `wireMethods(prefix)` — wire surface shared by all codec variants |
+| `wire/uuid.ts` | UUID-interop seam (ADR-0024) — `toUUID` / `safeFromUUID` / `fromUUID`; reinterprets the 16-byte payload as a raw 128-bit UUID string and back |
 | `adapters/adapter-types.ts` | Shared web-adapter type hub — exports `IdParamFailure` discriminated union, `readIdColumn`, and `IdColumnCodec`; imports from `types.ts` and `error.ts` |
 | `adapters/express.ts` / `fastify.ts` / `hono.ts` / `nestjs.ts` / `graphql.ts` | Web framework adapters |
 | `adapters/drizzle.ts` / `prisma.ts` / `kysely.ts` / `typeorm.ts` | ORM adapters |

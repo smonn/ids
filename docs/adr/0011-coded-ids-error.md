@@ -121,6 +121,9 @@ export function isIdsError(value: unknown): value is IdsError;
 ## Consequences
 
 - **Public exports.** `IdsError`, `IdsErrorCode`, and `isIdsError` join the public surface. Per [ADR-0005](./0005-codec-variant-subpath-exports.md) they are exported from the main entry and re-exported where a subpath throws them; `CONTRIBUTING.md` requires the README API section to grow with them.
+
+> **Correction (2026-06-29):** Codec subpaths do **not** re-export the error trio. The re-exports were added to codec subpaths after this ADR shipped and then removed in [#822](https://github.com/smonn/ids/pull/822); `CONTRIBUTING.md` now explicitly prohibits them. The Timestamp codec ships from the root entry, which already carries the trio. The re-exporting subpaths are the ORM adapters (`@smonn/ids/drizzle`, `@smonn/ids/kysely`, `@smonn/ids/mikro-orm`, `@smonn/ids/prisma`, `@smonn/ids/typeorm`) and the GraphQL adapter (`@smonn/ids/graphql`) — not the codec subpaths.
+
 - **Catching.** Callers write `if (isIdsError(e) && e.code === "verification_failed")`; the union type makes a `switch (e.code)` exhaustive at compile time, paralleling the documented `ParseError` switch.
 - **`cause` chain.** `invalid_id` carries the originating `ParseError` on `cause`, so the structural reason (`not_string` / `invalid_prefix` / `invalid_base32`) remains available without parsing message text.
 - **No success-path change.** `safeParse` / `safeUnwrap` keep returning their existing result unions. Only the throwing paths gain `IdsError`, and only the listed boundary sites change.
