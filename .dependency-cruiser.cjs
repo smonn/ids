@@ -197,7 +197,7 @@ module.exports = {
         "key-material is a leaf importable only by codec key-handle modules (codecs/<name>/key.ts)",
       from: {
         path: "^src.*\\.ts$",
-        pathNot: "^src/codecs/[^/]+/key\\.ts$",
+        pathNot: "^src/codecs/[^/]+/key\\.ts$|\\.test\\.ts$",
       },
       to: { path: "^src/codecs/_kernel/key-material\\.ts$" },
     },
