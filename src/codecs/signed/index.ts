@@ -157,6 +157,11 @@ export type SignedTimestampCodec<Brand extends string> = {
   safeFromUUID(value: unknown): ParseResult<Brand>;
 };
 
+const defaultSignedTimestampOptions: ResolvedSignedTimestampOptions = {
+  now: Date.now,
+  rng: defaultRng,
+};
+
 /**
  * Construct a {@link SignedTimestampCodec} for `brand`.
  *
@@ -174,11 +179,6 @@ export type SignedTimestampCodec<Brand extends string> = {
  * usr.extractTimestamp(id);               // Date — sync, timestamp is plaintext
  * ```
  */
-const defaultSignedTimestampOptions: ResolvedSignedTimestampOptions = {
-  now: Date.now,
-  rng: defaultRng,
-};
-
 export function createSignedTimestampId<Brand extends string>(
   brand: Brand & ValidBrand<Brand>,
   opts: SignedTimestampOptions,
