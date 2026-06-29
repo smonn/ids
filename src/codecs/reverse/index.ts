@@ -24,6 +24,9 @@ export type ReverseTimestampOptions = {
   allowDuplicateBrand?: boolean;
 };
 
+type ResolvedReverseTimestampOptions = Required<Pick<ReverseTimestampOptions, "now" | "rng">> &
+  Pick<ReverseTimestampOptions, "allowDuplicateBrand">;
+
 /**
  * A brand-scoped codec for generating and validating Reverse Timestamp IDs.
  *
@@ -105,6 +108,13 @@ export type ReverseTimestampCodec<Brand extends string> = {
   safeFromUUID(value: unknown): ParseResult<Brand>;
 };
 
+const defaultReverseTimestampOptions: ResolvedReverseTimestampOptions = {
+  now: Date.now,
+  // crypto.randomUUID harvest fast path (~7× faster than crypto.getRandomValues);
+  // see fastTenByteRng. The Timestamp codec uses the identical default.
+  rng: fastTenByteRng,
+};
+
 /**
  * Creates a Reverse Timestamp codec for `brand` (three lowercase a–z characters).
  *
@@ -129,14 +139,17 @@ export function createReverseTimestampId<Brand extends string>(
   validateBrand(brand);
   registerBrand(brand, opts.allowDuplicateBrand);
 
-  const now = opts.now ?? Date.now;
-  const rng = opts.rng ?? fastTenByteRng;
+  const options = {
+    now: opts.now ?? defaultReverseTimestampOptions.now,
+    rng: opts.rng ?? defaultReverseTimestampOptions.rng,
+  } satisfies ResolvedReverseTimestampOptions;
+
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);
-  const layout = createReverseTimestampLayoutOps(prefix, rng);
+  const layout = createReverseTimestampLayoutOps(prefix, options.rng);
 
   return {
-    generate: () => layout.generateAt(now()),
+    generate: () => layout.generateAt(options.now()),
     generateAt: (date: Date) => layout.generateAt(date.getTime()),
     is: wire.is,
     parse: wire.parse,
