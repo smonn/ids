@@ -11,7 +11,7 @@ import type {
   StandardSchemaProps,
   ValidBrand,
 } from "../../types.js";
-import { wireMethods } from "../../wire/codec-shell.js";
+import { schemaExampleId, wireMethods } from "../../wire/codec-shell.js";
 import {
   assertValidKeyring,
   decodeWrappingKey,
@@ -281,7 +281,7 @@ export function createWrappedKeyId<Brand extends string, Kind extends WrappedKin
     is: wire.is,
     parse: wire.parse,
     safeParse: wire.safeParse,
-    toJsonSchema: () => wire.toJsonSchema(brand, layout.exampleWireId()),
+    toJsonSchema: () => wire.toJsonSchema(brand, schemaExampleId(prefix)),
     "~standard": wire["~standard"],
     toUUID: wire.toUUID,
     fromUUID: wire.fromUUID,

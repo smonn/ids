@@ -10,7 +10,7 @@ import type {
   StandardSchemaProps,
   ValidBrand,
 } from "../../types.js";
-import { wireMethods } from "../../wire/codec-shell.js";
+import { schemaExampleId, wireMethods } from "../../wire/codec-shell.js";
 
 /**
  * Configuration options for a codec instance.
@@ -139,7 +139,7 @@ export function createTimestampId<Brand extends string>(
     extractTimestamp: layout.extractTimestamp,
     minIdForTime: (date: Date) => layout.minIdForTime(date.getTime()),
     maxIdForTime: (date: Date) => layout.maxIdForTime(date.getTime()),
-    toJsonSchema: () => wire.toJsonSchema(brand, layout.exampleWireId()),
+    toJsonSchema: () => wire.toJsonSchema(brand, schemaExampleId(prefix)),
     "~standard": wire["~standard"],
     toUUID: wire.toUUID,
     fromUUID: wire.fromUUID,
