@@ -1,13 +1,11 @@
-const codecs = ["timestamp", "reverse", "signed", "opaque", "wrapped", "digest"] as const;
-
-export function usage(): string {
+export function usage(codecNames: readonly string[]): string {
   return [
     "Usage: ids <codec> <verb> [args] [flags]",
     "       ids keygen [--bytes 16|24|32] [--key-encoding hex|base64url]",
     "       ids convert <brand> --uuid <uuid>",
     "       ids --version | --help",
     "",
-    `Codecs: ${codecs.join(", ")}`,
+    `Codecs: ${codecNames.join(", ")}`,
     "  generate (timestamp, reverse, signed, opaque)   mint fresh IDs",
     "  wrap     (wrapped)                               wrap an integer",
     "  derive   (digest)                                derive a stable ID from material",
