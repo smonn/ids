@@ -1,5 +1,63 @@
 # @smonn/ids
 
+## 1.0.0
+
+### Major Changes
+
+- 8b5d20d: **Breaking — CLI redesigned to a codec-first grammar.** Commands are now `ids <codec> <verb> [args] [flags]` (e.g. `ids opaque generate usr`, `ids signed inspect <id> --key …`) instead of selecting the codec with a flag (`generate --opaque`). See [ADR-0032](https://github.com/smonn/ids/blob/main/docs/adr/0032-codec-first-cli-grammar.md) and the [CLI spec](https://github.com/smonn/ids/blob/main/docs/cli-spec.md). Closes #778.
+
+  - **Verbs name their input:** `generate` (timestamp/reverse/signed/opaque), `wrap` (wrapped), `derive` (digest); read verbs `inspect` (all but digest) and `match` (digest, grep-like exit `0`/`1`/`2`).
+  - **Codec-agnostic operations are top-level:** `keygen` (now codec-agnostic — `--bytes 16|24|32`, `--key-encoding`) and `convert <brand> --uuid <uuid>` (UUID → Id; the Id → UUID direction is the `uuid` field of `inspect`).
+  - **Single key env var.** The per-codec `IDS_OPAQUE_KEY` / `IDS_SIGNING_KEY` / `IDS_WRAPPING_KEY` / `IDS_DIGEST_KEY` (and their `_FORMAT` partners) are removed; one `IDS_KEY` backs every keyed codec. Key value resolves as `--key` > `--key-file` > `IDS_KEY` (supplying both `--key` and `--key-file` is a usage error); encoding resolves as `--key-encoding` > `IDS_KEY_ENCODING` > `hex` (renamed from `--key-format`). See [ADR-0033](https://github.com/smonn/ids/blob/main/docs/adr/0033-cli-single-key-env-var.md), which supersedes ADR-0028.
+  - **New behavior:** `generate --at <iso|epoch-ms>` stamps an explicit creation time (UTC); `inspect`/`match` gain `--json` (NDJSON when `inspect` batches IDs over stdin) and `--quiet`; digest material is read from `--material` or stdin; UUID interop is preserved via `convert` + the `inspect` `uuid` field.
+  - **Internal:** the `Policy` / `Descriptor` / `InspectCapability` dispatch engine is deleted in favor of per-codec CLI modules and a thin router.
+
+- 6394fdd: Remove IdsError/isIdsError/IdsErrorCode re-exports from all five codec subpaths; import error types from `@smonn/ids` only.
+- 9f03ba0: Rename CLI `IDS_KEY` → `IDS_OPAQUE_KEY` (and `IDS_KEY_FORMAT` → `IDS_OPAQUE_KEY_FORMAT`) for the Opaque codec; the freed `IDS_KEY` / `IDS_KEY_FORMAT` become a primary-secret fallback for all four keyed subcommands (opaque, wrapped, signed, digest).
+- 9b363d2: **Breaking — Opaque Timestamp codec key derivation.** `importOpaqueKey` no longer imports the operator's bytes directly as the AES key. The bytes are now HKDF **input keying material**, and the codec derives an **AES-256** key from them via HKDF under the domain-separation label `@smonn/ids/opaque/aes` ([ADR-0027](https://github.com/smonn/ids/blob/main/docs/adr/0027-opaque-hkdf-uniform-key-derivation.md)).
+
+  Consequences:
+
+  - **Every existing Opaque ID is invalidated** — the encryption key changes, so previously issued IDs no longer decrypt. There is no wire key-id to trial the old construction against, so this is a hard cutover: regenerate all Opaque IDs.
+  - Opaque encryption is **always AES-256** regardless of key length. 16/24/32-byte keys are still accepted but now set the entropy floor only (a 16-byte key yields AES-256 with a 128-bit entropy floor); AES-128/192 Opaque ciphertexts can no longer be produced.
+  - `importOpaqueKey`'s signature is unchanged.
+
+  This completes the uniform key-derivation model in which no operator secret is ever used directly as a primitive key, so one **primary secret** may safely feed all four keyed codecs (each derives independently under its own HKDF label).
+
+- aca8cf0: Raise the `@prisma/client` peer floor from `>=5.9.1` to `>=7.0.0`. Prisma 7 relocated the internal type entry point the adapter relies on from `@prisma/client/runtime/library` to `@prisma/client/runtime/client`; the `@smonn/ids/prisma` adapter now imports from the new path. Consumers must be on Prisma 7 or later — Prisma 5/6 are no longer supported.
+
+### Minor Changes
+
+- a92f627: Add `nullableIdColumnMysql`, `nullableIdColumnSqlite`, `columnType` option on MySQL/SQLite generated columns; fix Express `idQuery` type cast; normalize NestJS `ParseIdPipe` exception body shape; document Kysely `idPlugin` unbranded-map constraint, `readIdColumn` ORM-boundary divergence, and Fastify-vs-Express storage divergence.
+- ecbcd71: Add optional `columnType` option to `idColumn` (Drizzle) and `idType` (MikroORM) to override the hardcoded `"text"` SQL column type.
+- 4051383: Add `idColumnMysql` and `idColumnSqlite` to the Drizzle adapter for MySQL and SQLite dialect support alongside the existing `idColumn` (PostgreSQL).
+- edde2d4: feat(drizzle): add generatedIdColumn, generatedIdColumnMysql, generatedIdColumnSqlite with client-side .$defaultFn wiring for auto-generated IDs on insert.
+- fcf26d7: Add `IdParamError extends HTTPException` to the Hono adapter so `app.onError` handlers can discriminate `brand_mismatch` from `malformed` via `err.reason`.
+- 52ae685: Add `idQuery` to Hono, Express, and Fastify adapters for validating query-string params with the same failure contract as `idParam`.
+- 234ae2d: Add `invalid_timestamp` IdsError code for invalid dates passed to `generateAt`, `minIdForTime`, and `maxIdForTime` on timestamp-family codecs.
+- 050c296: Add `idPlugin(map)` to the Kysely adapter — a `KyselyPlugin` that automatically runs `fromDriver` on configured columns in query results, eliminating per-call-site `fromDriver` invocations.
+- c8f1bfa: feat(kysely): add `insertId` helper and `IdGeneratingCodec` export for insert-time ID generation
+- 5aaac56: Add `idField` and `IdGeneratingCodec` to `@smonn/ids/mikro-orm` for automatic ID generation via the MikroORM `onCreate` lifecycle hook.
+- 5a595b2: Add standalone `nullableIdField` and `NullableIdTransform` to `@smonn/ids/prisma` for adapter-surface symmetry with Drizzle, Kysely, MikroORM, and TypeORM.
+- e1dd636: Add nullable read helpers for all five ORM adapters (`readIdColumnNullable`, `nullableIdColumn`, `nullableIdTransformer`, `nullableIdType`, `readNullable`/`computeNullableField`) so optional foreign keys and `LEFT JOIN` results no longer throw on `null`.
+- 7b205db: Add `columnType` option to `nullableIdType` (mikro-orm) and `nullableIdColumn` (drizzle PG), and normalize `undefined`→`null` on all four nullable ORM adapter write paths.
+- dd0c7fd: Add `defaultQuery` to the Prisma adapter's `IdTransform` for client-side ID auto-generation on `create`, `createMany`, and `upsert`.
+- df5d1cc: Add `idFieldReadOnly` to `@smonn/ids/prisma` — a read-only sibling of `idField` that accepts any `IdColumnCodec` (no synchronous `generate()` required) and returns the full read/transform surface minus `defaultQuery`.
+- 13dd941: Add `beforeInsertHook` and `IdGeneratingCodec` to `@smonn/ids/typeorm` for auto-generation parity with the Prisma adapter.
+
+### Patch Changes
+
+- 4c2fd73: Reject non-canonical, whitespace-containing, and out-of-alphabet base64url key strings with `invalid_key_encoding`.
+- 8c04c72: Fix CLI flag-parsing bugs: keygen selector flags no longer swallow positionals or accept inline values; `inspect --from-uuid` rejects codec-selector and `--key-format` flags; `--ns` with leading or trailing whitespace is now a usage error.
+- fed2b7a: Validate the digest key before `generate --digest` blocks on stdin, so a missing or invalid key fails immediately (exit 2) instead of after stdin is read.
+- 2e7de02: Fix `generate --digest` UX: print a hint to stderr when stdin is a TTY, and reject empty digest material with exit 1.
+- ef0cb95: Fix `toJsonSchema().example` to be a stable structural placeholder for Timestamp and Reverse Timestamp codecs, matching all other codec families.
+- 599e91c: Fix CLI `--ns` flag to reject whitespace-only values with exit code 2 (usage error).
+- 48f46ad: Cap graphql peerDependency to <18.0.0; add execution-engine inline-literal integration test.
+- d225ba6: `idScalar` `serialize` now validates via `codec.is()` (strict) and throws `GraphQLError` on a non-canonical outbound value instead of silently normalizing it. Error messages for all three hooks (`serialize`, `parseValue`, `parseLiteral`) are coarsened to `invalid <ScalarName>` with no internal parse-error code exposed to clients.
+- c4c302c: Add `"sideEffects": false` to package.json to enable bundler tree-shaking of unused subpath exports.
+- b11cc64: Extract shared `writeIdColumn` and `writeIdColumnNullable` helpers into `adapter-types.ts`; all five ORM adapters (Drizzle, Prisma, Kysely, TypeORM, MikroORM) now delegate their write paths to these helpers. Non-nullable writes throw `IdsError("invalid_id")` if `null` or `undefined` reaches the driver at runtime, closing the silent-propagation gap (#749).
+
 ## 1.0.0-rc.5
 
 ### Patch Changes
