@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 1.1.1
+
+### Patch Changes
+
+- c032aa2: Fix `idField`'s JSDoc in the Prisma adapter to point non-generating callers at `idFieldNonGenerating` instead of the deprecated `idFieldReadOnly` alias.
+
 ## 1.1.0
 
 ### Minor Changes
