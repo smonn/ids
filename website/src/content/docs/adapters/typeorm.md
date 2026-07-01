@@ -32,6 +32,35 @@ class User {
 - **Read path:** values are normalised via `codec.safeParse()`. An unrecognised
   value throws at read time so corrupt data surfaces immediately.
 
+## Auto-generating IDs on insert — `beforeInsertHook`
+
+`beforeInsertHook(fieldName, codec)` returns a function suitable for use inside a TypeORM `@BeforeInsert()` lifecycle hook. It auto-generates an `Id<Brand>` for `fieldName` when the field is absent (`null` or `undefined`) on the entity at insert time; if the field already has a value it is left unchanged.
+
+Pair it with `idTransformer` on the same column: `idTransformer` handles the database read/write path; `beforeInsertHook` handles generation.
+
+```ts
+import { idTransformer, beforeInsertHook } from "@smonn/ids/typeorm";
+import { createTimestampId } from "@smonn/ids";
+import type { Id } from "@smonn/ids";
+import { BeforeInsert, Column, Entity } from "typeorm";
+
+const usr = createTimestampId("usr");
+const fillUserId = beforeInsertHook("id", usr);
+
+@Entity()
+class User {
+  @Column({ type: "text", transformer: idTransformer(usr) })
+  id!: Id<"usr">;
+
+  @BeforeInsert()
+  generateId() {
+    fillUserId(this);
+  }
+}
+```
+
+`beforeInsertHook` requires `IdGeneratingCodec` — a codec that exposes a synchronous `generate()`. Only the **Timestamp codec** and **Reverse Timestamp codec** qualify; Opaque, Signed, Wrapped, and Digest codecs are a compile-time error. For those codecs, generate the ID explicitly at the call site and assign it before persisting.
+
 ## Nullable columns
 
 `nullableIdTransformer(codec)` returns a TypeORM `ValueTransformer` whose `from` returns `null` for `null` / `undefined` database values and whose `to` normalises `null` and `undefined` to `null`. Use it for optional foreign keys.

@@ -111,6 +111,23 @@ try {
 
 `IdsError`, `isIdsError`, and `IdsErrorCode` are re-exported from `@smonn/ids/kysely` — no separate import from `"@smonn/ids"` is needed. For the full list of `IdsErrorCode` values, see the error-code reference.
 
+## Generating IDs at the insert call site — `insertId`
+
+Kysely has no built-in column-level default hook, so ID generation is explicit at the insert call site. The `insertId(codec)` helper generates a fresh `Id<Brand>` and returns it so you can capture the value for use after the insert:
+
+```ts
+import { insertId } from "@smonn/ids/kysely";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+const id = insertId(usr);
+await db.insertInto("users").values({ id, name: "Alice" }).execute();
+// id is the generated Id<"usr">, available for further use
+```
+
+`insertId` requires `IdGeneratingCodec` — a codec that exposes a synchronous `generate()`. Only the **Timestamp codec** and **Reverse Timestamp codec** qualify; Opaque, Signed, Wrapped, and Digest codecs are a compile-time error. There is no runtime default in Kysely — generation is always explicit at the insert call site.
+
 ## Nullable columns
 
 `nullableIdColumn(codec)` returns a `{ toDriver, fromDriver }` pair where `fromDriver` returns `null` for `null` / `undefined` driver values instead of throwing. Use it for optional foreign keys and `LEFT JOIN` results.

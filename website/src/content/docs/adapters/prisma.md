@@ -66,17 +66,17 @@ The schema keeps a plain `String @id` with no `@default(…)`; the extension sup
 
 An explicitly supplied value is always passed through unchanged. `update` and `updateMany` are never intercepted — they never create new rows.
 
-## Read-only path for non-generating codecs — `idFieldReadOnly`
+## Non-generating path for codecs without synchronous `generate()` — `idFieldNonGenerating`
 
-Codecs that do not expose a synchronous `generate()` — the **Opaque Timestamp**, **Signed Timestamp**, **Wrapped key**, and **Digest** codecs — cannot be passed to `idField()`. Use `idFieldReadOnly` for those variants. It accepts any `IdColumnCodec` (only `safeParse` is required) and returns the same read/transform surface as `idField` minus `defaultQuery`:
+Codecs that do not expose a synchronous `generate()` — the **Opaque Timestamp**, **Signed Timestamp**, **Wrapped key**, and **Digest** codecs — cannot be passed to `idField()`. Use `idFieldNonGenerating` for those variants. It accepts any `IdColumnCodec` (only `safeParse` is required) and returns the same read/transform surface as `idField` minus `defaultQuery`:
 
 ```ts
-import { idFieldReadOnly } from "@smonn/ids/prisma";
+import { idFieldNonGenerating } from "@smonn/ids/prisma";
 import { createOpaqueTimestampId, importOpaqueKey } from "@smonn/ids/opaque";
 
 const key = await importOpaqueKey(rawKeyBytes);
 const inv = createOpaqueTimestampId("inv", { key });
-const invoiceIdField = idFieldReadOnly(inv);
+const invoiceIdField = idFieldNonGenerating(inv);
 
 const xprisma = prisma.$extends({
   result: {
@@ -86,13 +86,19 @@ const xprisma = prisma.$extends({
 // xprisma.invoice.findUnique(…).id is typed as Id<"inv"> — no cast required
 ```
 
-`idFieldReadOnly` returns `read`, `readNullable`, `write`, `computeField`, and `computeNullableField` — identical in behaviour to their `idField` counterparts. It does **not** return `defaultQuery`; that method requires `generate()`, which these codecs do not provide. The omission is enforced at the TypeScript type level: the return type is `Omit<IdTransform<Brand>, "defaultQuery">`.
+`idFieldNonGenerating` returns `read`, `readNullable`, `write`, `computeField`, and `computeNullableField` — identical in behaviour to their `idField` counterparts. It does **not** return `defaultQuery`; that method requires `generate()`, which these codecs do not provide. The omission is enforced at the TypeScript type level: the return type is `Omit<IdTransform<Brand>, "defaultQuery">`.
+
+The name reflects the provenance axis: this mapper does not generate IDs; it parses and serialises a caller-supplied value. It is **not** read-only — the return value includes a `write` method.
 
 If you need `defaultQuery` (auto-generating IDs on `create`/`createMany`/`upsert`), use `idField` with a Timestamp or Reverse Timestamp codec instead.
 
+:::note[Deprecated name]
+`idFieldReadOnly` is a `@deprecated` alias of `idFieldNonGenerating` retained until 2.0. Existing code using `idFieldReadOnly` continues to work; migrate to `idFieldNonGenerating` when convenient.
+:::
+
 ## Nullable columns
 
-Both `idField(...)` and `idFieldReadOnly(...)` expose `readNullable` and `computeNullableField` for optional foreign keys. Use `computeNullableField` in a `$extends` result block and `readNullable` for inline reads.
+Both `idField(...)` and `idFieldNonGenerating(...)` expose `readNullable` and `computeNullableField` for optional foreign keys. Use `computeNullableField` in a `$extends` result block and `readNullable` for inline reads.
 
 ### `computeNullableField` in a `$extends` block
 
@@ -131,7 +137,7 @@ const authorId = userIdField.readNullable(rawRow.authorId);
 - `readNullable` returns `null` when the value is `null` or `undefined`; for any other value it delegates to the same `safeParse`-based path as `read` and throws `IdsError("invalid_id")` on failure.
 - `computeNullableField(fieldName)` produces a `$extends` result-component field whose `compute` function returns `Id<Brand> | null`, correctly typed through Prisma's type machinery without a per-call-site cast.
 
-Both helpers are available on both `idField(...)` and `idFieldReadOnly(...)` return values.
+Both helpers are available on both `idField(...)` and `idFieldNonGenerating(...)` return values.
 
 ## Error handling
 
