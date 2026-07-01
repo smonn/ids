@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 1.1.0
+
+### Minor Changes
+
+- 796bb18: Add `idFieldNonGenerating` to `@smonn/ids/prisma` (the canonical non-generating Prisma field mapper) and deprecate `idFieldReadOnly` as an alias retained until 2.0.
+
 ## 1.0.0
 
 ### Major Changes
