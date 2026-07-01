@@ -85,6 +85,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
+    "prepare": "husky",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
@@ -124,8 +125,10 @@
     "fastify": "^5.8.5",
     "graphql": "^17.0.1",
     "hono": "^4.12.27",
+    "husky": "^9.1.7",
     "knip": "6.22.0",
     "kysely": "^0.29.2",
+    "lint-staged": "^17.0.8",
     "mitata": "1.0.34",
     "oxfmt": "0.56.0",
     "oxlint": "1.71.0",
