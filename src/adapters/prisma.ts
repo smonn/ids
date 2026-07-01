@@ -139,7 +139,7 @@ export type NullableIdTransform<Brand extends string> = {
  * automatically and no per-call-site cast is required.
  *
  * For codecs that do not expose a synchronous `generate()` (Opaque Timestamp,
- * Signed Timestamp, Wrapped key, Digest), use {@link idFieldReadOnly} instead —
+ * Signed Timestamp, Wrapped key, Digest), use {@link idFieldNonGenerating} instead —
  * it accepts any {@link IdColumnCodec} and omits `defaultQuery`.
  *
  * @example
