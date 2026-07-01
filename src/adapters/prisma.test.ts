@@ -439,8 +439,11 @@ describe("prisma", () => {
     });
   });
 
-  it("idFieldReadOnly is a deprecated alias of idFieldNonGenerating", () => {
-    expect(idFieldReadOnly).toBe(idFieldNonGenerating);
+  it("idFieldReadOnly is a deprecated wrapper around idFieldNonGenerating", () => {
+    // idFieldReadOnly is a distinct wrapper function that delegates to idFieldNonGenerating.
+    // Behavioral equivalence is verified by describeNonGeneratingBehavior below.
+    expect(typeof idFieldReadOnly).toBe("function");
+    expect(idFieldReadOnly).not.toBe(idFieldNonGenerating);
   });
 
   function describeNonGeneratingBehavior(suiteName: string, factory: typeof idFieldNonGenerating) {

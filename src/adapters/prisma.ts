@@ -335,4 +335,8 @@ export function idFieldNonGenerating<Brand extends string>(
  * @deprecated Renamed to {@link idFieldNonGenerating}. Alias retained until 2.0.
  * Use `idFieldNonGenerating` for new code.
  */
-export const idFieldReadOnly: typeof idFieldNonGenerating = idFieldNonGenerating;
+export function idFieldReadOnly<Brand extends string>(
+  codec: IdColumnCodec<Brand>,
+): Omit<IdTransform<Brand>, "defaultQuery"> {
+  return idFieldNonGenerating(codec);
+}
