@@ -26,6 +26,7 @@ import type {
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import {
   idField,
+  idFieldNonGenerating,
   idFieldReadOnly,
   nullableIdField,
   IdsError,
@@ -438,130 +439,139 @@ describe("prisma", () => {
     });
   });
 
-  describe("idFieldReadOnly", () => {
-    function makeMinimalSpyCodec<Brand extends string>(brand: Brand): IdColumnCodec<Brand> {
-      const fakeId: Id<Brand> = fromAny(`${brand}_00000000000000000000000000`);
-      return {
-        safeParse: fromAny(vi.fn(() => ({ ok: true as const, id: fakeId }))),
-      };
-    }
-
-    it("accepts a safeParse-only codec (no generate required)", () => {
-      const minimalCodec = makeMinimalSpyCodec("spy");
-      const ro = idFieldReadOnly(minimalCodec);
-      expect(ro).toBeDefined();
-    });
-
-    it("return value has no defaultQuery property", () => {
-      const minimalCodec = makeMinimalSpyCodec("spy");
-      const ro = idFieldReadOnly(minimalCodec);
-      expect("defaultQuery" in ro).toBe(false);
-    });
-
-    it("return type excludes defaultQuery at the TypeScript level", () => {
-      const minimalCodec = makeMinimalSpyCodec("spy");
-      const ro = idFieldReadOnly(minimalCodec);
-      expectTypeOf(ro).not.toHaveProperty("defaultQuery");
-    });
-
-    it("read delegates to safeParse", () => {
-      const id = usr.generate();
-      const ro = idFieldReadOnly(usr);
-      expect(ro.read(id)).toBe(id);
-    });
-
-    it("read throws IdsError on invalid value", () => {
-      const ro = idFieldReadOnly(usr);
-      let err: unknown;
-      try {
-        ro.read("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
-    });
-
-    it("readNullable returns null for null", () => {
-      const ro = idFieldReadOnly(usr);
-      expect(ro.readNullable(null)).toBeNull();
-    });
-
-    it("readNullable returns null for undefined", () => {
-      const ro = idFieldReadOnly(usr);
-      expect(ro.readNullable(undefined)).toBeNull();
-    });
-
-    it("readNullable returns Id<Brand> for a valid string", () => {
-      const id = usr.generate();
-      const ro = idFieldReadOnly(usr);
-      expect(ro.readNullable(id)).toBe(id);
-    });
-
-    it("write passes Id<Brand> through unchanged", () => {
-      const id = usr.generate();
-      const ro = idFieldReadOnly(usr);
-      expect(ro.write(id)).toBe(id);
-    });
-
-    it("computeField returns a { needs, compute } object", () => {
-      const ro = idFieldReadOnly(usr);
-      const field = ro.computeField("id");
-      expect(field).toHaveProperty("needs", { id: true });
-      expect(typeof field.compute).toBe("function");
-    });
-
-    it("computeField.compute parses a valid Id<Brand> value", () => {
-      const id = usr.generate();
-      const ro = idFieldReadOnly(usr);
-      const field = ro.computeField("id");
-      expect(field.compute({ id })).toBe(id);
-    });
-
-    it("computeField.compute is typed to return Id<Brand>", () => {
-      const ro = idFieldReadOnly(usr);
-      const field = ro.computeField("id");
-      expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr">>();
-    });
-
-    it("computeField.compute throws IdsError on invalid value", () => {
-      const ro = idFieldReadOnly(usr);
-      const field = ro.computeField("id");
-      let err: unknown;
-      try {
-        field.compute({ id: "not-a-valid-id" });
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
-    });
-
-    it("computeNullableField.compute returns null when field is null", () => {
-      const ro = idFieldReadOnly(usr);
-      const field = ro.computeNullableField("authorId");
-      expect(field.compute({ authorId: null })).toBeNull();
-    });
-
-    it("computeNullableField.compute returns Id<Brand> for a valid field value", () => {
-      const id = usr.generate();
-      const ro = idFieldReadOnly(usr);
-      const field = ro.computeNullableField("authorId");
-      expect(field.compute({ authorId: id })).toBe(id);
-    });
-
-    it("computeNullableField.compute is typed to return Id<Brand> | null", () => {
-      const ro = idFieldReadOnly(usr);
-      const field = ro.computeNullableField("authorId");
-      expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr"> | null>();
-    });
-
-    it("calls only safeParse on the codec — no generate, wrap, or unwrap", () => {
-      const minimalCodec = makeMinimalSpyCodec("spy");
-      idFieldReadOnly(minimalCodec).read("any_value");
-      expect(minimalCodec.safeParse).toHaveBeenCalled();
-    });
+  it("idFieldReadOnly is a deprecated alias of idFieldNonGenerating", () => {
+    expect(idFieldReadOnly).toBe(idFieldNonGenerating);
   });
+
+  function describeNonGeneratingBehavior(suiteName: string, factory: typeof idFieldNonGenerating) {
+    describe(suiteName, () => {
+      function makeMinimalSpyCodec<Brand extends string>(brand: Brand): IdColumnCodec<Brand> {
+        const fakeId: Id<Brand> = fromAny(`${brand}_00000000000000000000000000`);
+        return {
+          safeParse: fromAny(vi.fn(() => ({ ok: true as const, id: fakeId }))),
+        };
+      }
+
+      it("accepts a safeParse-only codec (no generate required)", () => {
+        const minimalCodec = makeMinimalSpyCodec("spy");
+        const ro = factory(minimalCodec);
+        expect(ro).toBeDefined();
+      });
+
+      it("return value has no defaultQuery property", () => {
+        const minimalCodec = makeMinimalSpyCodec("spy");
+        const ro = factory(minimalCodec);
+        expect("defaultQuery" in ro).toBe(false);
+      });
+
+      it("return type excludes defaultQuery at the TypeScript level", () => {
+        const minimalCodec = makeMinimalSpyCodec("spy");
+        const ro = factory(minimalCodec);
+        expectTypeOf(ro).not.toHaveProperty("defaultQuery");
+      });
+
+      it("read delegates to safeParse", () => {
+        const id = usr.generate();
+        const ro = factory(usr);
+        expect(ro.read(id)).toBe(id);
+      });
+
+      it("read throws IdsError on invalid value", () => {
+        const ro = factory(usr);
+        let err: unknown;
+        try {
+          ro.read("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        } catch (e) {
+          err = e;
+        }
+        expect(isIdsError(err)).toBe(true);
+        expect((err as IdsError).code).toBe("invalid_id");
+      });
+
+      it("readNullable returns null for null", () => {
+        const ro = factory(usr);
+        expect(ro.readNullable(null)).toBeNull();
+      });
+
+      it("readNullable returns null for undefined", () => {
+        const ro = factory(usr);
+        expect(ro.readNullable(undefined)).toBeNull();
+      });
+
+      it("readNullable returns Id<Brand> for a valid string", () => {
+        const id = usr.generate();
+        const ro = factory(usr);
+        expect(ro.readNullable(id)).toBe(id);
+      });
+
+      it("write passes Id<Brand> through unchanged", () => {
+        const id = usr.generate();
+        const ro = factory(usr);
+        expect(ro.write(id)).toBe(id);
+      });
+
+      it("computeField returns a { needs, compute } object", () => {
+        const ro = factory(usr);
+        const field = ro.computeField("id");
+        expect(field).toHaveProperty("needs", { id: true });
+        expect(typeof field.compute).toBe("function");
+      });
+
+      it("computeField.compute parses a valid Id<Brand> value", () => {
+        const id = usr.generate();
+        const ro = factory(usr);
+        const field = ro.computeField("id");
+        expect(field.compute({ id })).toBe(id);
+      });
+
+      it("computeField.compute is typed to return Id<Brand>", () => {
+        const ro = factory(usr);
+        const field = ro.computeField("id");
+        expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr">>();
+      });
+
+      it("computeField.compute throws IdsError on invalid value", () => {
+        const ro = factory(usr);
+        const field = ro.computeField("id");
+        let err: unknown;
+        try {
+          field.compute({ id: "not-a-valid-id" });
+        } catch (e) {
+          err = e;
+        }
+        expect(isIdsError(err)).toBe(true);
+        expect((err as IdsError).code).toBe("invalid_id");
+      });
+
+      it("computeNullableField.compute returns null when field is null", () => {
+        const ro = factory(usr);
+        const field = ro.computeNullableField("authorId");
+        expect(field.compute({ authorId: null })).toBeNull();
+      });
+
+      it("computeNullableField.compute returns Id<Brand> for a valid field value", () => {
+        const id = usr.generate();
+        const ro = factory(usr);
+        const field = ro.computeNullableField("authorId");
+        expect(field.compute({ authorId: id })).toBe(id);
+      });
+
+      it("computeNullableField.compute is typed to return Id<Brand> | null", () => {
+        const ro = factory(usr);
+        const field = ro.computeNullableField("authorId");
+        expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr"> | null>();
+      });
+
+      it("calls only safeParse on the codec — no generate, wrap, or unwrap", () => {
+        const minimalCodec = makeMinimalSpyCodec("spy");
+        factory(minimalCodec).read("any_value");
+        expect(minimalCodec.safeParse).toHaveBeenCalled();
+      });
+    });
+  }
+
+  describeNonGeneratingBehavior("idFieldNonGenerating", idFieldNonGenerating);
+  describeNonGeneratingBehavior("idFieldReadOnly (deprecated alias)", idFieldReadOnly);
 
   describe("nullableIdField", () => {
     function makeMinimalSpyCodec<Brand extends string>(brand: Brand): IdColumnCodec<Brand> {

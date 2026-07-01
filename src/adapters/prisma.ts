@@ -271,7 +271,7 @@ export function nullableIdField<Brand extends string>(
 }
 
 /**
- * Read-only sibling of {@link idField} for codec variants that do not expose a
+ * Non-generating sibling of {@link idField} for codec variants that do not expose a
  * synchronous `generate()` — Opaque Timestamp, Signed Timestamp, Wrapped key,
  * and Digest codecs all qualify.
  *
@@ -281,13 +281,17 @@ export function nullableIdField<Brand extends string>(
  * `generate()`, callers who only need the read path are not forced to provide a
  * synchronous generator.
  *
+ * The name reflects the provenance axis — this mapper does not generate IDs; it
+ * parses and serialises a caller-supplied value. It is **not** read-only: the
+ * return value includes a `write` method.
+ *
  * @example
  * ```ts
- * import { idFieldReadOnly } from "@smonn/ids/prisma";
+ * import { idFieldNonGenerating } from "@smonn/ids/prisma";
  * import { createOpaqueTimestampId } from "@smonn/ids/opaque";
  *
  * const inv = createOpaqueTimestampId("inv", { key });
- * const invoiceIdField = idFieldReadOnly(inv);
+ * const invoiceIdField = idFieldNonGenerating(inv);
  *
  * const xprisma = prisma.$extends({
  *   result: {
@@ -297,7 +301,7 @@ export function nullableIdField<Brand extends string>(
  * // xprisma.invoice.findUnique(…).id is typed as Id<"inv"> — no cast required
  * ```
  */
-export function idFieldReadOnly<Brand extends string>(
+export function idFieldNonGenerating<Brand extends string>(
   codec: IdColumnCodec<Brand>,
 ): Omit<IdTransform<Brand>, "defaultQuery"> {
   return {
@@ -326,3 +330,9 @@ export function idFieldReadOnly<Brand extends string>(
     },
   };
 }
+
+/**
+ * @deprecated Renamed to {@link idFieldNonGenerating}. Alias retained until 2.0.
+ * Use `idFieldNonGenerating` for new code.
+ */
+export const idFieldReadOnly: typeof idFieldNonGenerating = idFieldNonGenerating;

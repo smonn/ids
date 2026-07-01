@@ -64,6 +64,31 @@ key codecs all qualify).
 - **Read path:** values are normalised via `codec.safeParse()` rather than the strict `is()`. Data at rest should already be canonical ([ADR-0003](https://github.com/smonn/ids/blob/main/docs/adr/0003-canonical-strict-is.md)), but `safeParse` is a safe boundary for stale non-canonical values. An unrecognised value throws at read time so corrupt data surfaces immediately.
 - **Column type:** `dataType()` returns `"text"` by default; pass `{ columnType: "..." }` as the second argument to `idColumn` to override (e.g. `idColumn(usr, { columnType: "varchar(30)" })`).
 
+## Auto-generating IDs on insert — `generatedIdColumn` family
+
+The `generatedIdColumn`, `generatedIdColumnMysql`, and `generatedIdColumnSqlite` column builders wire `.$defaultFn(() => codec.generate())` so inserts that omit the ID field receive a freshly generated `Id<Brand>` automatically — no per-call-site id needed:
+
+```ts
+import { pgTable } from "drizzle-orm/pg-core";
+import { generatedIdColumn } from "@smonn/ids/drizzle";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+
+export const users = pgTable("users", {
+  id: generatedIdColumn(usr).primaryKey(),
+});
+// id is auto-filled on insert — await db.insert(users).values({ name: "Alice" }) works
+```
+
+For MySQL and SQLite use `generatedIdColumnMysql` and `generatedIdColumnSqlite` respectively — they behave identically but target those dialects' column types.
+
+These builders require `IdGeneratingCodec` — a codec that exposes a synchronous `generate()`. Only the **Timestamp codec** and **Reverse Timestamp codec** qualify; Opaque, Signed, Wrapped, and Digest codecs are a compile-time error.
+
+:::note[No nullable generating variant]
+There is no `generatedNullableIdColumn`. A column that auto-generates its own ID should never be `null` at write time — that is the entire purpose of the generating variant. A nullable column is one the caller explicitly sets to `null`; it cannot simultaneously be auto-generated. Use `nullableIdColumn` for optional foreign keys and `generatedIdColumn` for primary keys that must always be present.
+:::
+
 ## Nullable columns
 
 `nullableIdColumn(codec)` is a PostgreSQL-only variant that normalises `null` and `undefined` driver values to `null` rather than throwing. Use it for optional foreign keys and `LEFT JOIN` results.
