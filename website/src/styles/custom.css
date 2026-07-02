@@ -20,7 +20,10 @@
    it. Mobile keeps the sidebar nav (and its hamburger) untouched. */
 @media (min-width: 50rem) {
   :root:has(.hero) {
-    --sl-content-inline-start: 0;
+    /* Must carry a length unit (0rem, not 0): Starlight's header feeds this var
+       into a calc() alongside other lengths, and a unitless 0 makes that calc
+       invalid — collapsing the header grid and hiding the logo/title on desktop. */
+    --sl-content-inline-start: 0rem;
   }
 
   :root:has(.hero) .sidebar {
