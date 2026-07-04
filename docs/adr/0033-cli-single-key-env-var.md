@@ -6,6 +6,8 @@ Resolve the operator key for any keyed command from **one** key value — `--key
 
 [ADR-0028](./0028-cli-primary-secret-env-var.md) made the CLI's key env vars symmetric — `IDS_OPAQUE_KEY`, `IDS_SIGNING_KEY`, `IDS_WRAPPING_KEY`, `IDS_DIGEST_KEY` (each with a `_FORMAT` partner) — with a bare `IDS_KEY` as a primary-secret fallback. That decision is now shipped (`src/cli/variants.ts`). The codec-first redesign ([ADR-0032](./0032-codec-first-cli-grammar.md)) revisits the whole CLI surface in the same pre-1.0 window, which is the moment to reconsider it.
 
+> **Correction (2026-07-04):** `src/cli/variants.ts` no longer exists. The file was dissolved into the `src/cli/codecs/` directory and `src/cli/router.ts` by the ADR-0032 implementation.
+
 Two facts make the per-codec env vars redundant:
 
 - The **primary-secret** model ([ADR-0027](./0027-opaque-hkdf-uniform-key-derivation.md)) already guarantees that one secret safely backs every keyed codec — each codec derives its primitive key under a distinct HKDF label, so the keys are independent. Per-codec env vars were therefore never a _security_ requirement, only a flexibility convenience.

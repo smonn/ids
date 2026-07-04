@@ -58,6 +58,9 @@ The dependency-cruiser rule layer is zero-edit for new codecs — no alternation
 > **Correction (2026-06-29):** Codec constructors do **not** carry the error trio re-export. The re-exports were removed from all codec subpaths in [#822](https://github.com/smonn/ids/pull/822); `CONTRIBUTING.md` now explicitly prohibits them. Only the ORM adapter subpaths (`@smonn/ids/drizzle`, `@smonn/ids/kysely`, `@smonn/ids/mikro-orm`, `@smonn/ids/prisma`, `@smonn/ids/typeorm`) and the GraphQL adapter (`@smonn/ids/graphql`) carry the re-export — not the codec subpaths.
 
 6. Wire the codec into the CLI (2 sites): create `src/cli/codecs/<name>.ts` (the codec subcommand module) and add an import and a `codecModules` entry in `src/cli/router.ts`.
+
+> **Correction (2026-07-04):** A third CLI wiring site is required: `src/cli/help.ts` contains a hardcoded verb→codec table in the `usage()` function that must be updated for a new codec, or `--help` output will be wrong. The doc surfaces (CONTEXT.md, website, README) also each require a one-line addition for the new codec verb.
+
 7. **No `.dependency-cruiser.cjs` edits required** — the directory-based rules cover any `codecs/<name>/` automatically.
 
 ## Module rings
@@ -88,6 +91,8 @@ adapters/
   types.ts, error.ts                  ← root universal leaves
 ```
 
+> **Correction (2026-07-04):** `mikro-orm.ts` was added as a fifth ORM adapter after this ADR was written; the ring diagram above lists only the original four. The full set is `drizzle.ts`, `prisma.ts`, `kysely.ts`, `typeorm.ts`, `mikro-orm.ts`. The existing [#822](https://github.com/smonn/ids/pull/822) correction blockquote in the step list already names all five.
+
 Codec constructors import **`wire/codec-shell`** only from `wire/`, and **`create*LayoutOps`** binders only from their own `layout.ts`. They do not import `wire/` internals (`base32`, `envelope`, `parse`, `timestamp-bytes`, `invariants`) directly.
 
 ## Responsibilities
@@ -114,6 +119,8 @@ Codec constructors import **`wire/codec-shell`** only from `wire/`, and **`creat
 | `adapters/drizzle.ts` / `prisma.ts` / `kysely.ts` / `typeorm.ts` | ORM adapters |
 | `types.ts` | Root universal types — `Id<Brand>`, `ParseError`, `ParseResult`, etc. |
 | `error.ts` | Root universal error — `IdsError`, `isIdsError`, `IdsErrorCode` |
+
+> **Correction (2026-07-04):** The ORM adapters row above lists only the original four (`drizzle.ts`, `prisma.ts`, `kysely.ts`, `typeorm.ts`); `mikro-orm.ts` was added as a fifth ORM adapter in [#822](https://github.com/smonn/ids/pull/822). The full set of ORM adapters is `drizzle.ts`, `prisma.ts`, `kysely.ts`, `typeorm.ts`, `mikro-orm.ts`.
 
 ## Considered Options
 
