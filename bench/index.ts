@@ -6,6 +6,7 @@ import { createReverseTimestampId } from "../src/codecs/reverse/index.js";
 import { createWrappedKeyId, importWrappingKey } from "../src/codecs/wrapped/index.js";
 import { createSignedTimestampId, importSigningKey } from "../src/codecs/signed/index.js";
 import { createDigestId, importDigestKey } from "../src/codecs/digest/index.js";
+import { writeIdColumn } from "../src/adapters/adapter-types.js";
 import type { Id } from "../src/types.js";
 
 const usr = createTimestampId("usr");
@@ -88,6 +89,7 @@ const cases: Case[] = [
   { name: "extractTimestamp", fn: () => usr.extractTimestamp(canonicalId) },
   { name: "encodeBase32", fn: () => encodeBase32(bytesPayload) },
   { name: "decodeBase32", fn: () => decodeBase32(base32Payload) },
+  { name: "writeIdColumn", fn: () => writeIdColumn(usr, canonicalId) },
   { name: "reverse.generate", fn: () => rev.generate() },
   { name: "reverse.extractTimestamp", fn: () => rev.extractTimestamp(reverseId) },
   { name: "opaque.generate", fn: () => opa.generate(), async: true },
@@ -98,6 +100,7 @@ const cases: Case[] = [
   // signed.* use HMAC-SHA-256 on the hot path; same async-crypto variance handling as opaque.* / wrapped.*
   { name: "signed.generate", fn: () => sgn.generate(), async: true },
   { name: "signed.verify", fn: () => sgn.verify(signedId), async: true },
+  { name: "signed.safeVerify(success)", fn: () => sgn.safeVerify(signedId), async: true },
   // digest.* uses HMAC-SHA-256 async crypto; same async-bench variance handling as opaque.* / wrapped.* / signed.*
   { name: "digest.digest", fn: () => dgst.digest("bench-material"), async: true },
   // Multi-key trial: wrapped.* — 3-key keyring last-match and no-match (measures linear trial cost)
