@@ -90,8 +90,9 @@ export type IdTransform<Brand extends string> = {
    * Creates a `$extends` query-component model slice that auto-generates
    * `Id<Brand>` values for `create`, `createMany`, and `upsert` operations
    * when the field is absent, `undefined`, or `null` in `args.data` (or
-   * `args.create` for upsert). Explicitly supplied values are always passed
-   * through unchanged.
+   * `args.create` for upsert). When the field is absent, `undefined`, or `null`,
+   * a fresh `Id<Brand>` is injected; when present, the value is validated via
+   * `codec.safeParse` and `IdsError("invalid_id")` is thrown if invalid.
    *
    * @param fieldName - The model field to auto-generate (e.g. `"id"`).
    * @returns An {@link IdQueryField} suitable for the model-level value inside
