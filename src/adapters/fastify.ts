@@ -4,6 +4,7 @@ import {
   type IdParamFailure,
   type IdVerifiableCodec,
   resolveIdParamFailure,
+  resolveVerifyFailure,
 } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
@@ -29,8 +30,8 @@ export class IdParamError extends Error {
  * Options for `idParam` and `idQuery`. All fields are optional.
  *
  * **Default validation is structural** — `safeParse` checks prefix and base32 form but does not
- * verify any cryptographic tag. For Signed Timestamp IDs, pass a codec that satisfies
- * `IdVerifiableCodec` and set `verify: true` to also authenticate the HMAC tag.
+ * verify any cryptographic tag. For IDs using a codec that satisfies {@link IdVerifiableCodec}
+ * (the **Signed Timestamp codec** or **Wrapped key codec**), set `verify: true` to also authenticate the tag.
  */
 export type IdParamOptions = {
   /**
@@ -54,14 +55,30 @@ export type IdParamOptions = {
 
 /**
  * Extends {@link IdParamOptions} with opt-in HMAC tag verification.
- * Only accepted when the codec satisfies {@link IdVerifiableCodec} (e.g. a Signed Timestamp codec).
- * When `verify: true`, the adapter calls `codec.safeVerify(raw)` after structural parse succeeds;
+ * Only accepted when the codec satisfies {@link IdVerifiableCodec} (the **Signed Timestamp codec** or **Wrapped key codec**).
+ * When `verify` is truthy, the adapter calls `codec.safeVerify(raw)` after structural parse succeeds;
  * a tag mismatch is routed through the existing `"malformed"` failure path.
  */
 export type IdParamVerifyOptions = IdParamOptions & {
-  /** When `true`, calls `codec.safeVerify(raw)` after structural parse and treats a tag failure as `"malformed"`. */
-  verify?: true;
+  /** When truthy, calls `codec.safeVerify(raw)` after structural parse and treats a tag failure as `"malformed"`. Accepts any boolean so computed flags (`{ verify: cfg.verifyIds }`) compile without casting. */
+  verify?: boolean;
 };
+
+async function emitFailure(
+  failure: IdParamFailure,
+  options: IdParamOptions | undefined,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  if (options?.onError) {
+    await options.onError(failure, request, reply);
+    if (!reply.sent) {
+      throw new IdParamError(failure.reason, failure.status);
+    }
+    return;
+  }
+  throw new IdParamError(failure.reason, failure.status);
+}
 
 /**
  * Fastify `preHandler` hook factory that validates a named route param against a codec via `safeParse`.
@@ -155,31 +172,14 @@ export function idParam<ParamKey extends string, Brand extends string>(
     const raw = request.params[paramName];
     const result = codec.safeParse(raw);
     if (!result.ok) {
-      const failure = resolveIdParamFailure(result.error, options);
-      if (options?.onError) {
-        await options.onError(failure, request, reply);
-        if (!reply.sent) {
-          throw new IdParamError(failure.reason, failure.status);
-        }
-        return;
-      }
-      throw new IdParamError(failure.reason, failure.status);
+      await emitFailure(resolveIdParamFailure(result.error, options), options, request, reply);
+      return;
     }
     if (options?.verify) {
       const verifyResult = await (codec as IdVerifiableCodec<Brand>).safeVerify(raw);
       if (!verifyResult.ok) {
-        const failure: IdParamFailure = {
-          reason: "malformed",
-          status: options.status?.malformed ?? 400,
-        };
-        if (options.onError) {
-          await options.onError(failure, request, reply);
-          if (!reply.sent) {
-            throw new IdParamError(failure.reason, failure.status);
-          }
-          return;
-        }
-        throw new IdParamError(failure.reason, failure.status);
+        await emitFailure(resolveVerifyFailure(options), options, request, reply);
+        return;
       }
     }
     request.params[paramName] = result.id;
@@ -262,31 +262,14 @@ export function idQuery<ParamKey extends string, Brand extends string>(
     const raw = request.query[queryName];
     const result = codec.safeParse(raw);
     if (!result.ok) {
-      const failure = resolveIdParamFailure(result.error, options);
-      if (options?.onError) {
-        await options.onError(failure, request, reply);
-        if (!reply.sent) {
-          throw new IdParamError(failure.reason, failure.status);
-        }
-        return;
-      }
-      throw new IdParamError(failure.reason, failure.status);
+      await emitFailure(resolveIdParamFailure(result.error, options), options, request, reply);
+      return;
     }
     if (options?.verify) {
       const verifyResult = await (codec as IdVerifiableCodec<Brand>).safeVerify(raw);
       if (!verifyResult.ok) {
-        const failure: IdParamFailure = {
-          reason: "malformed",
-          status: options.status?.malformed ?? 400,
-        };
-        if (options.onError) {
-          await options.onError(failure, request, reply);
-          if (!reply.sent) {
-            throw new IdParamError(failure.reason, failure.status);
-          }
-          return;
-        }
-        throw new IdParamError(failure.reason, failure.status);
+        await emitFailure(resolveVerifyFailure(options), options, request, reply);
+        return;
       }
     }
     request.query[queryName] = result.id;

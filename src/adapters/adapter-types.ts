@@ -98,3 +98,15 @@ export function resolveIdParamFailure(
   const status = options?.status?.[reason] ?? defaultStatus;
   return { reason, status };
 }
+
+/**
+ * Maps a `safeVerify` failure to `{ reason: "malformed", status }` for web adapter failure handling.
+ *
+ * - always returns `reason: "malformed"`
+ * - `options.status.malformed` overrides the default `400`
+ */
+export function resolveVerifyFailure(options?: {
+  status?: { malformed?: number };
+}): IdParamFailure {
+  return { reason: "malformed", status: options?.status?.malformed ?? 400 };
+}

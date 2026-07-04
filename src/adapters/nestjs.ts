@@ -5,6 +5,7 @@ import {
   type IdParamFailure,
   type IdVerifiableCodec,
   resolveIdParamFailure,
+  resolveVerifyFailure,
 } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
@@ -18,9 +19,9 @@ export type { IdParamFailure };
  * write a response inline the way Hono/Express hooks can.
  *
  * **Default validation is structural** — `safeParse` checks prefix and base32 form but does not
- * verify any cryptographic tag. For Signed Timestamp IDs, use a codec that satisfies
- * `IdVerifiableCodec` and pass `verify: true` via {@link IdParamVerifyOptions} to also
- * authenticate the HMAC tag.
+ * verify any cryptographic tag. For IDs using a codec that satisfies {@link IdVerifiableCodec}
+ * (the **Signed Timestamp codec** or **Wrapped key codec**), pass `verify: true` via
+ * {@link IdParamVerifyOptions} to also authenticate the tag.
  */
 export type IdParamOptions = {
   /**
@@ -37,14 +38,14 @@ export type IdParamOptions = {
 
 /**
  * Extends {@link IdParamOptions} with opt-in HMAC tag verification.
- * Only accepted when the codec satisfies {@link IdVerifiableCodec} (e.g. a Signed Timestamp codec).
- * When `verify: true`, `ParseIdPipe.transform` returns a `Promise` that awaits
+ * Only accepted when the codec satisfies {@link IdVerifiableCodec} (the **Signed Timestamp codec** or **Wrapped key codec**).
+ * When `verify` is truthy, `ParseIdPipe.transform` returns a `Promise` that awaits
  * `codec.safeVerify(raw)`; a tag mismatch is treated as a `"malformed"` failure.
  * NestJS supports async pipes natively — the resolved `Id<Brand>` reaches the handler.
  */
 export type IdParamVerifyOptions = IdParamOptions & {
-  /** When `true`, awaits `codec.safeVerify(raw)` after structural parse and treats a tag failure as `"malformed"`. */
-  verify?: true;
+  /** When truthy, awaits `codec.safeVerify(raw)` after structural parse and treats a tag failure as `"malformed"`. Accepts any boolean so computed flags (`{ verify: cfg.verifyIds }`) compile without casting. */
+  verify?: boolean;
 };
 
 /**
@@ -116,10 +117,7 @@ export class ParseIdPipe<Brand extends string> implements PipeTransform<
     if (this.options?.verify) {
       return (this.codec as IdVerifiableCodec<Brand>).safeVerify(value).then((verifyResult) => {
         if (!verifyResult.ok) {
-          const failure: IdParamFailure = {
-            reason: "malformed",
-            status: this.options?.status?.malformed ?? 400,
-          };
+          const failure = resolveVerifyFailure(this.options);
           if (this.options?.onError) {
             this.options.onError(failure);
           }
