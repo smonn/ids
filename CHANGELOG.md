@@ -1,5 +1,15 @@
 # @smonn/ids
 
+## 1.2.1
+
+### Patch Changes
+
+- 5d19a42: Redact stray argv tokens in CLI error messages and strip C0/C1/ESC control characters from `redactToken`; refactor `InspectSpec<K>` into a discriminated union eliminating non-null assertions.
+- 1a91e23: Fix Prisma write path: defaultQuery now validates present IDs in create/createMany/upsert; nullableIdField().write now accepts null/undefined and returns null instead of throwing.
+- 8a5a17d: Fix stale `verifyIdArgs` docs (both codecs named), hoist codec-entry computation to factory scope, and add fail-closed unknown-key guard on first resolver invocation.
+- de88cb2: Widen key-file permission mask from `0o044` to `0o077` so write and execute bits on group/others also trigger the advisory warning.
+- cb6e2a4: Fix NestJS `ParseIdPipe` to throw the default exception after a non-throwing `onError` hook returns, preventing fail-open behavior on both the structural-parse and verify branches.
+
 ## 1.2.0
 
 ### Minor Changes
