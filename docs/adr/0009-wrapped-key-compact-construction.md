@@ -62,7 +62,7 @@ Wrong-key and tamper attempts false-accept at roughly **`keyring_size / 2^64`** 
 
 ### Keyring semantics
 
-The **Wrapping keyring** is a non-empty ordered list of **Wrapping key** entries passed at codec construction. The first entry is **current** — used exclusively by `wrap`. `unwrap` tries every entry in order until the recomputed tag matches. Duplicate operator secrets in the list are rejected at construction. Removing an entry revokes IDs wrapped under it. The same lookup key wrapped under different entries yields different public IDs. No key id is embedded in the wire payload.
+The **Wrapping keyring** is a non-empty ordered list of **Wrapping key** entries passed at codec construction. The first entry is **current** — used exclusively by `wrap`. `unwrap` tries every entry in order until the recomputed tag matches. Duplicate operator secrets in the list are rejected at construction. Removing an entry revokes IDs wrapped under it — revocation takes effect by constructing a new codec instance with the reduced `keys` list; in-place mutation of the original array passed at construction has no effect. The same lookup key wrapped under different entries yields different public IDs. No key id is embedded in the wire payload.
 
 ### Accepted security trade-offs
 

@@ -186,7 +186,9 @@ try {
 Pass a non-empty ordered list of wrapping keys. The first is the _current_ key —
 the only one `wrap` uses. `unwrap` trials every entry until the tag matches, so
 IDs wrapped under any listed key stay unwrappable. Removing an entry revokes all
-IDs wrapped under it.
+IDs wrapped under it — revocation takes effect by constructing a new codec
+instance with the reduced `keys` list; in-place mutation of the original array
+has no effect.
 
 ```ts
 const rotated = createWrappedKeyId("inv", { kind: "u32", keys: [newKey, oldKey] });
