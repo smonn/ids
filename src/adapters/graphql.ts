@@ -73,9 +73,9 @@ export function idScalar<Brand extends string>(
  * wrapped resolver runs. A `null`/`undefined` arg is skipped (nullable/absent args pass through).
  * Present args are verified in map order and the first failure short-circuits.
  *
- * Only the **Signed Timestamp codec** satisfies {@link IdVerifiableCodec}; passing any other codec
- * is a compile-time type error. Verification covers top-level args only — IDs nested inside input
- * objects are not reached.
+ * Both the **Signed Timestamp codec** and the **Wrapped key codec** satisfy
+ * {@link IdVerifiableCodec}; passing any other codec is a compile-time type error. Verification
+ * covers top-level args only — IDs nested inside input objects are not reached.
  *
  * **Pair with {@link idScalar}.** The wrapper checks the tag but returns `args` unchanged — it does
  * not substitute the canonical `id` from `safeVerify`. Front each verified arg with an `idScalar`
@@ -83,10 +83,10 @@ export function idScalar<Brand extends string>(
  * aliases) before the resolver runs; on a plain `GraphQLString` arg a non-canonical variant would
  * verify yet reach the resolver un-normalised.
  *
- * **Only listed args are verified, and keys must match the field's argument names exactly.** A
- * codec-map key that matches no argument (a rename or typo) is silently skipped — the same path as
- * an absent nullable arg — so verification becomes a no-op. Runtime cannot tell a typo from a
- * legitimately-absent nullable arg; keep the map keys in sync with the schema.
+ * **Only listed args are verified, and keys must match the field's argument names exactly.** On the
+ * first invocation the wrapper resolves the field's declared argument names from `info` and throws a
+ * `GraphQLError` if any codec-map key does not match a declared argument — fail-closed hardening so
+ * a typo cannot silently disable verification. Subsequent invocations use the cached result.
  *
  * @example
  * ```ts
@@ -106,16 +106,37 @@ export function verifyIdArgs<
   codecs: { [K in keyof TArgs]?: IdVerifiableCodec<string> },
   resolver: GraphQLFieldResolver<TSource, TContext, TArgs>,
 ): GraphQLFieldResolver<TSource, TContext, TArgs> {
+  // Hoist to factory scope — the codec map is fixed at wrap time.
+  const codecEntries = (
+    Object.entries(codecs) as Array<[keyof TArgs & string, IdVerifiableCodec<string> | undefined]>
+  ).filter((e): e is [keyof TArgs & string, IdVerifiableCodec<string>] => e[1] !== undefined);
+
+  let argNamesChecked = false;
+
   return async (source, args, context, info) => {
-    for (const argName of Object.keys(codecs) as (keyof TArgs)[]) {
-      const codec = codecs[argName];
+    if (!argNamesChecked) {
+      const field = info.parentType.getFields()[info.fieldName];
+      if (field !== undefined) {
+        const declaredNames = new Set(field.args.map((a) => a.name));
+        for (const [key] of codecEntries) {
+          if (!declaredNames.has(key)) {
+            throw new GraphQLError(
+              `verifyIdArgs: codec-map key "${key}" is not a declared argument on "${info.fieldName}"`,
+            );
+          }
+        }
+        argNamesChecked = true;
+      }
+    }
+
+    for (const [argName, codec] of codecEntries) {
       const value = args[argName];
-      if (codec === undefined || value == null) {
+      if (value == null) {
         continue;
       }
       const result = await codec.safeVerify(value);
       if (!result.ok) {
-        throw new GraphQLError(`invalid ${String(argName)}`);
+        throw new GraphQLError(`invalid ${argName}`);
       }
     }
     return resolver(source, args, context, info);

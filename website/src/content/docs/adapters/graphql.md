@@ -76,7 +76,7 @@ const resolvers = {
 };
 ```
 
-Pass a map of argument name to a **Signed Timestamp codec** (the only codec that satisfies the required `IdVerifiableCodec` interface — a non-signed codec is a compile-time type error). For each entry, `verifyIdArgs` calls `codec.safeVerify(args[name])`; a forged or tampered tag throws a `GraphQLError` (message `invalid <argName>`) **before** the wrapped resolver runs. A `null`/`undefined` argument is skipped, so the wrapper is safe on optional ID args. One wrapper can cover several ID arguments of different brands:
+Pass a map of argument name to a **Signed Timestamp codec** or a **Wrapped key codec** — the two codecs that satisfy the required `IdVerifiableCodec` interface (any other codec is a compile-time type error). For each entry, `verifyIdArgs` calls `codec.safeVerify(args[name])`; a forged or tampered tag throws a `GraphQLError` (message `invalid <argName>`) **before** the wrapped resolver runs. A `null`/`undefined` argument is skipped, so the wrapper is safe on optional ID args. One wrapper can cover several ID arguments of different brands:
 
 ```ts
 verifyIdArgs({ userId: usr, orgId: org }, (_root, args, ctx) => ctx.link(args.userId, args.orgId));
@@ -85,9 +85,9 @@ verifyIdArgs({ userId: usr, orgId: org }, (_root, args, ctx) => ctx.link(args.us
 Verification covers **top-level arguments only** — an ID nested inside an input-object argument is not reached; verify it in the resolver body with `codec.safeVerify` if you need to. See [ADR-0035](https://github.com/smonn/ids/blob/main/docs/adr/0035-graphql-resolver-verify.md) for why GraphQL verification is a resolver wrapper rather than a `verify: true` option like the HTTP adapters.
 
 :::caution
-Two things to keep in mind so verification isn't silently bypassed.
+Two things to keep in mind so verification works correctly.
 
 **Pair each verified argument with an `idScalar`** built from the same codec. `verifyIdArgs` checks the tag but returns the arguments unchanged — it does not substitute the canonical `id`. `idScalar`'s `parseValue`/`parseLiteral` canonicalises the value (case, Crockford aliases) before the resolver runs; on a plain `GraphQLString` argument a non-canonical variant would verify yet reach the resolver un-normalised.
 
-**Codec-map keys must match the field's argument names exactly.** A key that matches no argument — a rename or typo — is skipped just like an absent nullable argument, so verification becomes a no-op with no error. Keep the map keys in sync with your schema.
+**Codec-map keys must match the field's argument names exactly.** On the first invocation, `verifyIdArgs` resolves the field's declared argument names from GraphQL `info` and throws a `GraphQLError` if any codec-map key does not match — fail-closed hardening so a rename or typo cannot silently disable verification. Keep the map keys in sync with your schema.
 :::
