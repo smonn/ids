@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { isIdsError, type IdsErrorCode } from "../error.js";
 import type { Id } from "../types.js";
 import { type FlagSpec, parseArgs } from "./args.js";
@@ -36,6 +37,11 @@ const usageCodeBuckets: Record<IdsErrorCode, "usage" | "runtime"> = {
   verification_failed: "runtime",
   invalid_id: "runtime",
 };
+
+/** Truncates a stray positional token so it never echoes verbatim in error messages. */
+export function redactToken(token: string): string {
+  return token.length > 20 ? `${token.slice(0, 20)}…` : token;
+}
 
 export function mapThrown(err: unknown): CliError {
   if (isIdsError(err) && usageCodeBuckets[err.code] === "usage") {
@@ -103,7 +109,7 @@ async function runGenerate(
   const brand = positionals[0];
   if (brand === undefined) return fail(opts, usageError("missing brand"));
   if (positionals.length > 1) {
-    return fail(opts, usageError(`unexpected argument: ${positionals[1]!}`));
+    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
   }
 
   const count = parseCount(values);
@@ -228,7 +234,7 @@ export async function runInspect<K>(
   const { values, flags, positionals, error } = parseArgs(argv, specs);
   if (error !== undefined) return fail(opts, usageError(error));
   if (positionals.length > 1) {
-    return fail(opts, usageError(`unexpected argument: ${positionals[1]!}`));
+    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
   }
 
   // Resolve the key and bind recovery BEFORE reading stdin, so a bad key or bad
@@ -346,6 +352,9 @@ async function resolveMaterial(
   let material: string;
   if (flag !== undefined) {
     if (flag === "") return usageError("--material requires a value");
+    opts.stderr(
+      "Warning: --material puts digest input on argv/shell history; pass material on stdin instead.\n",
+    );
     material = flag;
   } else {
     material = await readAllStdin(opts);
@@ -383,7 +392,7 @@ export async function runWrap<K>(
   const brand = positionals[0];
   if (brand === undefined) return fail(opts, usageError("missing brand"));
   if (positionals.length > 1)
-    return fail(opts, usageError(`unexpected argument: ${positionals[1]!}`));
+    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
 
   const kind = parseKind(values);
   if (kind === undefined) return fail(opts, usageError("--kind is required"));
@@ -422,7 +431,7 @@ export async function runDerive<K>(
   const brand = positionals[0];
   if (brand === undefined) return fail(opts, usageError("missing brand"));
   if (positionals.length > 1)
-    return fail(opts, usageError(`unexpected argument: ${positionals[1]!}`));
+    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
 
   // Resolve the key before reading material from stdin, so a missing/invalid key
   // fails fast instead of after consuming (possibly sensitive) piped input (#766).
@@ -469,7 +478,7 @@ export async function runMatch<K>(
   const id = positionals[0];
   if (id === undefined) return fail(opts, usageError("missing id"));
   if (positionals.length > 1)
-    return fail(opts, usageError(`unexpected argument: ${positionals[1]!}`));
+    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
   // A malformed ID is a usage error for match's grep-like contract (exit 2).
   const brand = brandOfId(id);
   if (brand === undefined) return fail(opts, usageError("invalid_id: not a valid ID"));
@@ -490,7 +499,7 @@ export async function runMatch<K>(
     const parsed = codec.safeParse(id);
     if (!parsed.ok) return fail(opts, usageError(`invalid_id: ${parsed.error}`));
     canonical = parsed.id;
-    matched = (await codec.digest(material)) === parsed.id;
+    matched = timingSafeEqual(Buffer.from(await codec.digest(material)), Buffer.from(parsed.id));
   } catch (err) {
     /* v8 ignore next -- defensive: brand/ns/key are pre-validated and digest does not
        throw on a structurally-parsed id, so this guard is unreachable in practice */

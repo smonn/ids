@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { IdsError } from "../error.js";
-import { brandOfId, mapThrown } from "./verbs.js";
+import { brandOfId, mapThrown, redactToken } from "./verbs.js";
 
 describe("mapThrown", () => {
   const usageCodes = [
@@ -45,5 +45,19 @@ describe("brandOfId", () => {
 
   it("returns undefined for a non-id token", () => {
     expect(brandOfId("not-an-id")).toBeUndefined();
+  });
+});
+
+describe("redactToken", () => {
+  it("returns tokens of 20 chars unchanged", () => {
+    expect(redactToken("a".repeat(20))).toBe("a".repeat(20));
+  });
+
+  it("truncates tokens longer than 20 chars with ellipsis", () => {
+    expect(redactToken("a".repeat(21))).toBe("a".repeat(20) + "…");
+  });
+
+  it("returns short tokens unchanged", () => {
+    expect(redactToken("short")).toBe("short");
   });
 });

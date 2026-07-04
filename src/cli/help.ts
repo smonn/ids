@@ -1,3 +1,8 @@
+const KEY_FLAGS_HELP = [
+  "Key flags (keyed verbs): --key-file <path>  (preferred)  --key <value>  IDS_KEY=<value>",
+  "  Prefer --key-file or IDS_KEY over --key to avoid exposing key material on argv/history.",
+].join("\n");
+
 export function usage(codecNames: readonly string[]): string {
   return [
     "Usage: ids <codec> <verb> [args] [flags]",
@@ -12,6 +17,8 @@ export function usage(codecNames: readonly string[]): string {
     "  inspect  (all but digest)                        read an ID",
     "  match    (digest)                                test material against an ID",
     "",
+    KEY_FLAGS_HELP,
+    "",
   ].join("\n");
 }
 
@@ -19,6 +26,7 @@ export function helpForCodec(codec: string, verbs: readonly string[]): string {
   return [
     `Usage: ids ${codec} <verb> [args] [flags]`,
     `Verbs: ${verbs.join(", ")}`,
+    KEY_FLAGS_HELP,
     "Run 'ids --help' for the full command list.",
     "",
   ].join("\n");

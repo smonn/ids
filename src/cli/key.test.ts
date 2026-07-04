@@ -189,4 +189,87 @@ describe("resolveKey", () => {
     );
     expect(isCliError(r)).toBe(false);
   });
+
+  it("is silent on a real 0600 key file (no statFile injection)", async () => {
+    const path = join(tmpdir(), `ids-key-0600-${process.pid}.hex`);
+    await writeFile(path, "deadbeef\n", { encoding: "utf8", mode: 0o600 });
+    const captured: string[] = [];
+    const result = await resolveKey(
+      new Map([["--key-file", path]]),
+      new Set(["--key-file"]),
+      opts({ stderr: (s) => captured.push(s) }),
+      fakeKey,
+    );
+    expect(isCliError(result)).toBe(false);
+    expect(captured.join("")).toBe("");
+  });
+
+  it("emits a stderr advisory when --key is used", async () => {
+    const captured: string[] = [];
+    await resolveKey(
+      new Map([["--key", "deadbeef"]]),
+      new Set(["--key"]),
+      opts({ stderr: (s) => captured.push(s) }),
+      fakeKey,
+    );
+    expect(captured.join("")).toContain("--key-file");
+  });
+
+  it("does not emit a key advisory when key comes from IDS_KEY", async () => {
+    const captured: string[] = [];
+    await resolveKey(
+      new Map(),
+      new Set(),
+      opts({ stderr: (s) => captured.push(s), env: { IDS_KEY: "deadbeef" } }),
+      fakeKey,
+    );
+    expect(captured.join("")).toBe("");
+  });
+
+  it("warns on stderr when --key-file has group-readable bits (0o644)", async () => {
+    const captured: string[] = [];
+    const result = await resolveKey(
+      new Map([["--key-file", "k"]]),
+      new Set(["--key-file"]),
+      opts({
+        stderr: (s) => captured.push(s),
+        readFile: () => Promise.resolve("deadbeef"),
+        statFile: () => Promise.resolve({ mode: 0o100644 }),
+      }),
+      fakeKey,
+    );
+    expect(isCliError(result)).toBe(false);
+    expect(captured.join("")).toContain("chmod 0600");
+  });
+
+  it("is silent when --key-file has 0600 permissions", async () => {
+    const captured: string[] = [];
+    await resolveKey(
+      new Map([["--key-file", "k"]]),
+      new Set(["--key-file"]),
+      opts({
+        stderr: (s) => captured.push(s),
+        readFile: () => Promise.resolve("deadbeef"),
+        statFile: () => Promise.resolve({ mode: 0o100600 }),
+      }),
+      fakeKey,
+    );
+    expect(captured.join("")).toBe("");
+  });
+
+  it("silently skips the permissions check when statFile throws", async () => {
+    const captured: string[] = [];
+    const result = await resolveKey(
+      new Map([["--key-file", "k"]]),
+      new Set(["--key-file"]),
+      opts({
+        stderr: (s) => captured.push(s),
+        readFile: () => Promise.resolve("deadbeef"),
+        statFile: () => Promise.reject(new Error("EPERM")),
+      }),
+      fakeKey,
+    );
+    expect(isCliError(result)).toBe(false);
+    expect(captured.join("")).toBe("");
+  });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { codecModules, run } from "./router.js";
-import { usage } from "./help.js";
+import { helpForCodec, usage } from "./help.js";
 import { makeOpts } from "./test-helpers.js";
 
 describe("usage codec list matches codecModules", () => {
@@ -23,5 +23,31 @@ describe("usage codec list matches codecModules", () => {
     for (const m of codecModules) {
       expect(output).toContain(m.codec);
     }
+  });
+});
+
+describe("help key flags coverage", () => {
+  it("usage() lists --key-file and IDS_KEY", () => {
+    const out = usage(["timestamp"]);
+    expect(out).toContain("--key-file");
+    expect(out).toContain("IDS_KEY");
+  });
+
+  it("usage() mentions --key and warns to prefer safer channels", () => {
+    const out = usage(["timestamp"]);
+    expect(out).toContain("--key");
+    expect(out).toContain("prefer");
+  });
+
+  it("helpForCodec() lists --key-file and IDS_KEY", () => {
+    const out = helpForCodec("signed", ["generate", "inspect"]);
+    expect(out).toContain("--key-file");
+    expect(out).toContain("IDS_KEY");
+  });
+
+  it("helpForCodec() mentions --key and safer channels", () => {
+    const out = helpForCodec("signed", ["generate", "inspect"]);
+    expect(out).toContain("--key");
+    expect(out).toContain("prefer");
   });
 });
