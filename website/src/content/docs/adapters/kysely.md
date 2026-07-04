@@ -30,9 +30,8 @@ const db = new Kysely<Database>({
   // ...dialect...
   plugins: [
     idPlugin({
-      "users.id": usr,
-      "posts.id": usr,
-      "posts.org_id": org,
+      id: usr,
+      org_id: org,
     }),
   ],
 });
@@ -43,12 +42,13 @@ const row = await db.selectFrom("users").selectAll().executeTakeFirstOrThrow();
 
 ### Column map keys
 
-Keys in the map are plain column names (`"id"`) or `"table.column"` qualified names (`"users.id"`):
+Keys in the map must be bare column names (`"id"`, `"user_id"`). Qualified names containing a dot (`"users.id"`) are **not** supported — passing one throws a synchronous `Error` at construction time, naming the offending key:
 
-- A plain name like `"id"` matches any result column with that name, regardless of which table it came from.
-- A qualified name like `"users.id"` also matches by the column-name part (`"id"`), and takes precedence over a plain key for the same column name.
+```
+Error: idPlugin: map keys must be bare column names, but "users.id" contains a dot. Per-table qualified keys are not supported — use a bare column name instead.
+```
 
-Matching is done against column names as they appear in the raw result row — no query-AST alias resolution.
+Matching is done against column names as they appear in the raw result row — no query-AST alias resolution. Per-table disambiguation is not implemented; if two tables share a column name, the same codec applies to that column in every result set.
 
 ### Error handling
 
@@ -58,7 +58,7 @@ Matching is done against column names as they appear in the raw result row — n
 import { idPlugin, isIdsError } from "@smonn/ids/kysely";
 
 const db = new Kysely<Database>({
-  plugins: [idPlugin({ "users.id": usr })],
+  plugins: [idPlugin({ id: usr })],
 });
 
 // throws IdsError("invalid_id") at read time if the stored value is corrupt
