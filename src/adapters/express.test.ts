@@ -236,6 +236,23 @@ describe("idParam", () => {
       expect(next).toHaveBeenCalledOnce();
       expect(vi.mocked(next).mock.calls[0]?.[0]).toBe(customError);
     });
+
+    it("responding hook: adapter does not call next when hook sends a response", () => {
+      const middleware = idParam("id", usr, {
+        onError: (failure, _req, res) => {
+          res.status(failure.status).json({ error: failure.reason });
+        },
+      });
+      const orgId = org.generate();
+      const req = makeReq("id", orgId);
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+
+      middleware(req, fromAny(res), next);
+
+      expect(res.headersSent).toBe(true);
+      expect(next).not.toHaveBeenCalled();
+    });
   });
 
   describe("Opaque Timestamp codec", () => {
@@ -509,6 +526,23 @@ describe("idQuery", () => {
 
     expect(next).toHaveBeenCalledOnce();
     expect(vi.mocked(next).mock.calls[0]?.[0]).toBe(customError);
+  });
+
+  it("responding hook: adapter does not call next when hook sends a response", () => {
+    const middleware = idQuery("userId", usr, {
+      onError: (failure, _req, res) => {
+        res.status(failure.status).json({ error: failure.reason });
+      },
+    });
+    const orgId = org.generate();
+    const req = makeQueryReq("userId", orgId);
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(res.headersSent).toBe(true);
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("array-valued query param (qs repeated or bracket-notation) produces malformed/400", () => {
