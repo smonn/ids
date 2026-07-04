@@ -1,6 +1,10 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import { vi } from "vitest";
-import type { Id, ParseError, ParseResult } from "../types.js";
+import type { Id, ParseError, ParseResult, ValidBrand } from "../types.js";
+import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
+import type { SignedTimestampCodec } from "../codecs/signed/index.js";
+import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
+import type { WrappedKeyCodec } from "../codecs/wrapped/index.js";
 
 type SpyCodec<Brand extends string> = {
   safeParse: (value: unknown) => ParseResult<Brand>;
@@ -78,6 +82,29 @@ export function makeVerifiableSpyCodec<Brand extends string>(
       ),
     ),
   };
+}
+
+/** Real Signed Timestamp codec backed by a freshly imported signing key. Satisfies `IdVerifiableCodec`. */
+export async function makeRealSignedCodec<Brand extends string>(
+  brand: Brand,
+): Promise<SignedTimestampCodec<Brand>> {
+  const key = await importSigningKey(new Uint8Array(32));
+  return createSignedTimestampId<Brand>(brand as unknown as Brand & ValidBrand<Brand>, {
+    keys: [key],
+    allowDuplicateBrand: true,
+  });
+}
+
+/** Real Wrapped key codec (kind: u32) backed by a freshly imported wrapping key. Satisfies `IdVerifiableCodec`. */
+export async function makeRealWrappedCodec<Brand extends string>(
+  brand: Brand,
+): Promise<WrappedKeyCodec<Brand, "u32">> {
+  const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+  return createWrappedKeyId<Brand, "u32">(brand as unknown as Brand & ValidBrand<Brand>, {
+    kind: "u32",
+    keys: [key],
+    allowDuplicateBrand: true,
+  });
 }
 
 /**

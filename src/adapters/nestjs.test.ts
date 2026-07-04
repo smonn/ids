@@ -5,11 +5,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ParseIdPipe } from "./nestjs.js";
 import type { IdParamFailure } from "./nestjs.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
-import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
 import {
   makeFailingSpyCodec,
+  makeRealSignedCodec,
+  makeRealWrappedCodec,
   makeSpyCodec,
   makeVerifiableSpyCodec,
   makeWrappedVerifiableSpyCodec,
@@ -350,8 +350,7 @@ describe("ParseIdPipe verify option", () => {
   });
 
   it("real Signed Timestamp codec: forged-tag ID rejected with verify: true", async () => {
-    const key = await importSigningKey(new Uint8Array(32));
-    const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    const signed = await makeRealSignedCodec("sgn");
     const validId = await signed.generate();
     const forged = validId.slice(0, 5) + (validId[5] === "0" ? "1" : "0") + validId.slice(6);
 
@@ -360,8 +359,7 @@ describe("ParseIdPipe verify option", () => {
   });
 
   it("real Signed Timestamp codec: HMAC-valid ID accepted with verify: true", async () => {
-    const key = await importSigningKey(new Uint8Array(32));
-    const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    const signed = await makeRealSignedCodec("sgn");
     const validId = await signed.generate();
 
     const pipe = new ParseIdPipe(signed, { verify: true });
@@ -370,8 +368,7 @@ describe("ParseIdPipe verify option", () => {
   });
 
   it("real Wrapped key codec: forged-tag ID rejected with verify: true", async () => {
-    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    const inv = await makeRealWrappedCodec("inv");
     const validId = await inv.wrap(7);
     // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
     // structurally valid — the rejection must come from verification, not a parse failure.
@@ -382,8 +379,7 @@ describe("ParseIdPipe verify option", () => {
   });
 
   it("real Wrapped key codec: structurally malformed input rejected via parse channel", async () => {
-    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    const inv = await makeRealWrappedCodec("inv");
     // "u" is not in the Crockford base32 alphabet → invalid_base32 → malformed. The parse
     // failure short-circuits BEFORE the async verify branch, so transform throws synchronously.
     const pipe = new ParseIdPipe(inv, { verify: true });
@@ -393,8 +389,7 @@ describe("ParseIdPipe verify option", () => {
   });
 
   it("real Wrapped key codec: tag-valid ID accepted with verify: true", async () => {
-    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    const inv = await makeRealWrappedCodec("inv");
     const validId = await inv.wrap(7);
 
     const pipe = new ParseIdPipe(inv, { verify: true });
@@ -407,6 +402,13 @@ describe("ParseIdPipe verify option", () => {
     const pipe = new ParseIdPipe(spyCodec, { verify: true });
     await pipe.transform("inv_00000000000000000000000000", METADATA);
     expect(spyCodec.safeVerify).toHaveBeenCalled();
+  });
+
+  it("TypeScript rejects verify: true with non-verifiable codec; fail-closed at runtime (TypeError)", () => {
+    const plain = makeSpyCodec("tst");
+    // @ts-expect-error — plain codec lacks safeVerify; verify: true requires IdVerifiableCodec
+    const pipe = new ParseIdPipe(plain, { verify: true });
+    expect(() => pipe.transform("tst_00000000000000000000000000", METADATA)).toThrow(TypeError);
   });
 
   it("verify: true with onError hook: hook is called and its throw propagates", async () => {
