@@ -67,10 +67,10 @@ export type NullableIdColumnType<Brand extends string> = ColumnType<
  *
  * Returns an object with `fromDriver` / `toDriver` helpers that mirror the read/write
  * contract of the Drizzle adapter — same error message, same strictness (safeParse on
- * read, identity on write).
+ * read and write).
  *
- * **Write path:** passes the `Id<Brand>` directly to the driver — it is already
- * the canonical string form.
+ * **Write path:** validates the value via `codec.safeParse` and throws
+ * `IdsError("invalid_id")` if validation fails.
  *
  * **Read path:** normalises the raw DB string via `codec.safeParse()`. Throws if
  * the value does not parse as a valid `Id<Brand>`.

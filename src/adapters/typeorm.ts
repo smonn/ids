@@ -20,8 +20,8 @@ export type { IdColumnCodec, IdGeneratingCodec };
  * Returns a `ValueTransformer` object suitable for use in a TypeORM `@Column`
  * decorator's `transformer` option.
  *
- * **Write path (`to`):** passes the `Id<Brand>` directly to the database — it is
- * already the canonical string form.
+ * **Write path (`to`):** validates the value via `codec.safeParse` and throws
+ * `IdsError("invalid_id")` if validation fails.
  *
  * **Read path (`from`):** normalises the raw database value via `codec.safeParse()`.
  * Throws `IdsError` with code `"invalid_id"` if the value does not parse as a valid

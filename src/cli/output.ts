@@ -2,7 +2,7 @@ import type { WrappedKind } from "../codecs/wrapped/index.js";
 
 /**
  * What an `inspect` recovered from one ID. `timestamp` covers the timestamp family
- * (with an optional `verified` flag for the signed codec); `wrapped` carries the
+ * (with an optional `verified` flag for the Signed Timestamp codec); `wrapped` carries the
  * recovered lookup key and its kind.
  */
 export type InspectReport =

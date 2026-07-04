@@ -2,11 +2,11 @@
 
 ## Supported Versions
 
-Only the current 1.0 release line receives security fixes.
+Only the current 1.x release line receives security fixes.
 
 | Version | Supported |
 | ------- | --------- |
-| 1.0.x   | ✅        |
+| 1.x     | ✅        |
 | < 1.0   | ❌        |
 
 ## Threat model & key management

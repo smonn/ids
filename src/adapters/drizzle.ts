@@ -76,8 +76,8 @@ function buildNullableIdColumn<Brand extends string, Col>(
 /**
  * Drizzle custom column type that stores an `Id<Brand>` as a canonical SQL string value in PostgreSQL.
  *
- * **Write path:** passes the `Id<Brand>` directly to the driver — it is already
- * the canonical string form.
+ * **Write path:** validates the value via `codec.safeParse` and throws
+ * `IdsError("invalid_id")` if validation fails.
  *
  * **Read path:** normalises the raw DB string via `codec.safeParse()`, not strict
  * `is()`. Data at rest should already be canonical per ADR-0003, but `safeParse`
@@ -116,8 +116,8 @@ export function idColumn<Brand extends string>(
 /**
  * Drizzle custom column type that stores an `Id<Brand>` as a canonical `text` value in MySQL.
  *
- * **Write path:** passes the `Id<Brand>` directly to the driver — it is already
- * the canonical string form.
+ * **Write path:** validates the value via `codec.safeParse` and throws
+ * `IdsError("invalid_id")` if validation fails.
  *
  * **Read path:** normalises the raw DB string via `codec.safeParse()`, not strict
  * `is()`. Throws `IdsError("invalid_id")` if the value from the database does not
@@ -146,8 +146,8 @@ export function idColumnMysql<Brand extends string>(
 /**
  * Drizzle custom column type that stores an `Id<Brand>` as a canonical `text` value in SQLite.
  *
- * **Write path:** passes the `Id<Brand>` directly to the driver — it is already
- * the canonical string form.
+ * **Write path:** validates the value via `codec.safeParse` and throws
+ * `IdsError("invalid_id")` if validation fails.
  *
  * **Read path:** normalises the raw DB string via `codec.safeParse()`, not strict
  * `is()`. Throws `IdsError("invalid_id")` if the value from the database does not
