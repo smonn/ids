@@ -45,7 +45,7 @@ export const wrappedCli: CodecModule = {
               for (const kind of kinds) {
                 const codec = createWrappedKeyId(brand, {
                   kind,
-                  keys: [key!],
+                  keys: [key],
                   ...sharedCodecOpts(o),
                 });
                 const result = await codec.safeUnwrap(id);

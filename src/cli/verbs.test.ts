@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { IdsError } from "../error.js";
+import type { InspectSpec } from "./verbs.js";
 import { brandOfId, mapThrown, redactToken } from "./verbs.js";
 
 describe("mapThrown", () => {
@@ -60,4 +61,24 @@ describe("redactToken", () => {
   it("returns short tokens unchanged", () => {
     expect(redactToken("short")).toBe("short");
   });
+
+  it("strips C0/C1/ESC control characters before truncation", () => {
+    expect(redactToken("\x1b]0;pwned\x07")).toBe("]0;pwned");
+  });
+
+  it("strips control chars then truncates if remainder exceeds 20 chars", () => {
+    expect(redactToken("\x1b" + "a".repeat(21))).toBe("a".repeat(20) + "…");
+  });
+
+  it("strips DEL (U+007F) and C1 range (U+0080–U+009F)", () => {
+    expect(redactToken("\x7fhello\x80world\x9f")).toBe("helloworld");
+  });
 });
+
+// Type-level check: constructing a keyed:true InspectSpec without codecKey is a type error.
+// @ts-expect-error -- codecKey is required when keyed: true
+const _badSpec: InspectSpec<string> = {
+  keyed: true,
+  prepare: () => () =>
+    Promise.resolve({ shape: "timestamp" as const, brand: "x", codec: "x", ms: 0, uuid: "" }),
+};
