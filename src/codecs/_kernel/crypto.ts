@@ -6,8 +6,10 @@ const pkcsPad = 0x10;
 
 // Precondition: both arrays must have equal length. The early-return on length
 // mismatch leaks array length, not secret data — acceptable because all current
-// callers compare fixed-width outputs (5-byte or 8-byte HMAC tags). A future
-// caller comparing variable-length arrays would reintroduce a length oracle.
+// callers compare fixed-width outputs (5-byte HMAC tags, 8-byte HMAC tags,
+// 32-byte key digests, and the CLI digest match — all fixed-width at each call
+// site). A future caller comparing variable-length arrays would reintroduce a
+// length oracle.
 export function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;

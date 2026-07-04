@@ -55,8 +55,8 @@ export function idField<Brand extends string>(
 /**
  * Factory that returns a MikroORM `Type` subclass bound to a codec.
  *
- * **Write path** (`convertToDatabaseValue`): passes the `Id<Brand>` through
- * unchanged — it is already the canonical string form.
+ * **Write path** (`convertToDatabaseValue`): validates the value via
+ * `codec.safeParse` and throws `IdsError("invalid_id")` if validation fails.
  *
  * **Read path** (`convertToJSValue`): normalises the raw DB value via
  * `codec.safeParse()`. Throws `IdsError("invalid_id")` if the stored value
