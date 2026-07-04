@@ -37,7 +37,7 @@ See [ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md) and [ADR-0013](./docs/adr
 
 ### `rng`-determinism caveat
 
-The `rng` option on `createOpaqueTimestampId` (and `createTimestampId`) allows overriding the random-number generator. Overriding with a non-CSPRNG weakens Opaque Timestamp confidentiality and timestamp unpredictability: because the **Opaque Timestamp codec** relies on per-ID randomness in the plaintext (rather than a random IV) to prevent plaintext-equality leakage, a broken or low-entropy RNG allows an observer to correlate ciphertexts produced in the same millisecond.
+The `rng` option on `createOpaqueTimestampId` (and `createTimestampId`) allows overriding the random-number generator. Overriding with a non-CSPRNG weakens Opaque Timestamp confidentiality and timestamp unpredictability: because the **Opaque Timestamp codec** relies on per-ID randomness in the plaintext (rather than a random IV) to prevent plaintext-equality leakage, a broken or low-entropy RNG allows an observer to correlate ciphertexts produced in the same millisecond. `createSignedTimestampId` also accepts an `rng` override; a weak RNG there harms only same-millisecond collision resistance — tag security is unaffected because the HMAC tag covers the random bytes.
 
 See [ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md).
 
@@ -45,7 +45,7 @@ See [ADR-0004](./docs/adr/0004-aes-cbc-strip-trick.md).
 
 **Opaque Timestamp** rotation is **forward-only and caller-tracked**. Because the payload is unauthenticated and the wire carries no key identifier, there is nothing to match a candidate key against; the library cannot trial a ring. Operators hold one codec instance per key epoch and select the matching instance out-of-band. See the **Key epoch** entry in [CONTEXT.md](./CONTEXT.md) and [ADR-0013](./docs/adr/0013-opaque-key-rotation.md) for the full rationale.
 
-The **Signed Timestamp** and **Wrapped key** codecs provide **keyrings** (`keys: [current, ...older]`) for transparent, correctness-grade rotation: verification trials every entry in order until a tag matches. Removing an entry revokes IDs produced under it.
+The **Signed Timestamp** and **Wrapped key** codecs provide **keyrings** (`keys: [current, ...older]`) for transparent, correctness-grade rotation: verification trials every entry in order until a tag matches. Removing an entry revokes IDs produced under it — revocation takes effect by constructing a new codec instance with the reduced `keys` list; in-place mutation of the original array passed at construction has no effect, because both codecs snapshot the keyring at construction time.
 
 See [ADR-0013](./docs/adr/0013-opaque-key-rotation.md), [ADR-0012](./docs/adr/0012-signed-timestamp-construction.md), and [ADR-0009](./docs/adr/0009-wrapped-key-compact-construction.md).
 
