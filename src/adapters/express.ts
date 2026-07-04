@@ -4,8 +4,16 @@ import {
   type IdParamFailure,
   type IdVerifiableCodec,
   resolveIdParamFailure,
+  resolveVerifyFailure,
 } from "./adapter-types.js";
 import type { Id } from "../types.js";
+
+const localDescriptor: PropertyDescriptor = {
+  enumerable: true,
+  writable: true,
+  configurable: true,
+  value: undefined,
+};
 
 export type { IdParamFailure };
 
@@ -29,8 +37,8 @@ export class IdParamError extends Error {
  * Options for `idParam` and `idQuery`. All fields are optional.
  *
  * **Default validation is structural** — `safeParse` checks prefix and base32 form but does not
- * verify any cryptographic tag. For Signed Timestamp IDs, pass a codec that satisfies
- * `IdVerifiableCodec` and set `verify: true` to also authenticate the HMAC tag.
+ * verify any cryptographic tag. For IDs using a codec that satisfies {@link IdVerifiableCodec}
+ * (the **Signed Timestamp codec** or **Wrapped key codec**), set `verify: true` to also authenticate the tag.
  */
 export type IdParamOptions = {
   /**
@@ -51,14 +59,43 @@ export type IdParamOptions = {
 
 /**
  * Extends {@link IdParamOptions} with opt-in HMAC tag verification.
- * Only accepted when the codec satisfies {@link IdVerifiableCodec} (e.g. a Signed Timestamp codec).
- * When `verify: true`, the adapter calls `codec.safeVerify(raw)` after structural parse succeeds;
+ * Only accepted when the codec satisfies {@link IdVerifiableCodec} (the **Signed Timestamp codec** or **Wrapped key codec**).
+ * When `verify` is truthy, the adapter calls `codec.safeVerify(raw)` after structural parse succeeds;
  * a tag mismatch is routed through the existing `"malformed"` failure path.
  */
 export type IdParamVerifyOptions = IdParamOptions & {
-  /** When `true`, calls `codec.safeVerify(raw)` after structural parse and treats a tag failure as `"malformed"`. */
-  verify?: true;
+  /** When truthy, calls `codec.safeVerify(raw)` after structural parse and treats a tag failure as `"malformed"`. Accepts any boolean so computed flags (`{ verify: cfg.verifyIds }`) compile without casting. */
+  verify?: boolean;
 };
+
+function storeLocal(res: Response, key: string, id: unknown): void {
+  localDescriptor.value = id;
+  Object.defineProperty(res.locals, key, localDescriptor);
+}
+
+function emitFailure(
+  failure: IdParamFailure,
+  options: IdParamOptions | undefined,
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (options?.onError) {
+    let nextCalledWithError = false;
+    const hookNext: NextFunction = (err?: unknown): void => {
+      if (err !== undefined) {
+        nextCalledWithError = true;
+        next(err);
+      }
+    };
+    options.onError(failure, req, res, hookNext);
+    if (!nextCalledWithError && !res.headersSent) {
+      next(new IdParamError(failure.reason, failure.status));
+    }
+    return;
+  }
+  next(new IdParamError(failure.reason, failure.status));
+}
 
 /**
  * Express middleware that validates a named route param against a codec via `safeParse`.
@@ -133,22 +170,7 @@ export function idParam<ParamKey extends string, Brand extends string>(
     const raw = req.params[paramName];
     const result = codec.safeParse(raw);
     if (!result.ok) {
-      const failure = resolveIdParamFailure(result.error, options);
-      if (options?.onError) {
-        let nextCalledWithError = false;
-        const hookNext: NextFunction = (err?: unknown): void => {
-          if (err !== undefined) {
-            nextCalledWithError = true;
-            next(err);
-          }
-        };
-        options.onError(failure, req, res, hookNext);
-        if (!nextCalledWithError && !res.headersSent) {
-          next(new IdParamError(failure.reason, failure.status));
-        }
-        return;
-      }
-      next(new IdParamError(failure.reason, failure.status));
+      emitFailure(resolveIdParamFailure(result.error, options), options, req, res, next);
       return;
     }
     if (options?.verify) {
@@ -156,44 +178,16 @@ export function idParam<ParamKey extends string, Brand extends string>(
         .safeVerify(raw)
         .then((verifyResult) => {
           if (!verifyResult.ok) {
-            const failure: IdParamFailure = {
-              reason: "malformed",
-              status: options.status?.malformed ?? 400,
-            };
-            if (options.onError) {
-              let nextCalledWithError = false;
-              const hookNext: NextFunction = (err?: unknown): void => {
-                if (err !== undefined) {
-                  nextCalledWithError = true;
-                  next(err);
-                }
-              };
-              options.onError(failure, req, res, hookNext);
-              if (!nextCalledWithError && !res.headersSent) {
-                next(new IdParamError(failure.reason, failure.status));
-              }
-              return;
-            }
-            next(new IdParamError(failure.reason, failure.status));
+            emitFailure(resolveVerifyFailure(options), options, req, res, next);
             return;
           }
-          Object.defineProperty(res.locals, paramName, {
-            value: result.id,
-            enumerable: true,
-            writable: true,
-            configurable: true,
-          });
+          storeLocal(res, paramName, result.id);
           next();
         })
         .catch((err: unknown) => next(err));
       return;
     }
-    Object.defineProperty(res.locals, paramName, {
-      value: result.id,
-      enumerable: true,
-      writable: true,
-      configurable: true,
-    });
+    storeLocal(res, paramName, result.id);
     next();
   };
 }
@@ -262,22 +256,7 @@ export function idQuery<ParamKey extends string, Brand extends string>(
     const raw: unknown = req.query[queryName];
     const result = codec.safeParse(raw);
     if (!result.ok) {
-      const failure = resolveIdParamFailure(result.error, options);
-      if (options?.onError) {
-        let nextCalledWithError = false;
-        const hookNext: NextFunction = (err?: unknown): void => {
-          if (err !== undefined) {
-            nextCalledWithError = true;
-            next(err);
-          }
-        };
-        options.onError(failure, req, res, hookNext);
-        if (!nextCalledWithError && !res.headersSent) {
-          next(new IdParamError(failure.reason, failure.status));
-        }
-        return;
-      }
-      next(new IdParamError(failure.reason, failure.status));
+      emitFailure(resolveIdParamFailure(result.error, options), options, req, res, next);
       return;
     }
     if (options?.verify) {
@@ -285,44 +264,16 @@ export function idQuery<ParamKey extends string, Brand extends string>(
         .safeVerify(raw)
         .then((verifyResult) => {
           if (!verifyResult.ok) {
-            const failure: IdParamFailure = {
-              reason: "malformed",
-              status: options.status?.malformed ?? 400,
-            };
-            if (options.onError) {
-              let nextCalledWithError = false;
-              const hookNext: NextFunction = (err?: unknown): void => {
-                if (err !== undefined) {
-                  nextCalledWithError = true;
-                  next(err);
-                }
-              };
-              options.onError(failure, req, res, hookNext);
-              if (!nextCalledWithError && !res.headersSent) {
-                next(new IdParamError(failure.reason, failure.status));
-              }
-              return;
-            }
-            next(new IdParamError(failure.reason, failure.status));
+            emitFailure(resolveVerifyFailure(options), options, req, res, next);
             return;
           }
-          Object.defineProperty(res.locals, queryName, {
-            value: result.id,
-            enumerable: true,
-            writable: true,
-            configurable: true,
-          });
+          storeLocal(res, queryName, result.id);
           next();
         })
         .catch((err: unknown) => next(err));
       return;
     }
-    Object.defineProperty(res.locals, queryName, {
-      value: result.id,
-      enumerable: true,
-      writable: true,
-      configurable: true,
-    });
+    storeLocal(res, queryName, result.id);
     next();
   };
 }

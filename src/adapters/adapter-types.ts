@@ -98,3 +98,10 @@ export function resolveIdParamFailure(
   const status = options?.status?.[reason] ?? defaultStatus;
   return { reason, status };
 }
+
+/** Maps a `safeVerify` failure to `{ reason: "malformed", status }` using `options?.status?.malformed ?? 400`. Used by HTTP adapters when `codec.safeVerify` returns `{ ok: false }`. */
+export function resolveVerifyFailure(options?: {
+  status?: { malformed?: number };
+}): IdParamFailure {
+  return { reason: "malformed", status: options?.status?.malformed ?? 400 };
+}
