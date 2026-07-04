@@ -95,7 +95,7 @@ export function idColumn<Brand extends string>(
 } {
   return {
     toDriver(value: Id<Brand>): string {
-      return writeIdColumn(value);
+      return writeIdColumn(codec, value);
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);
@@ -235,7 +235,7 @@ export function nullableIdColumn<Brand extends string>(
 } {
   return {
     toDriver(value: Id<Brand> | null | undefined): string | null {
-      return writeIdColumnNullable(value);
+      return writeIdColumnNullable(codec, value);
     },
     fromDriver(value: string | null): Id<Brand> | null {
       return readIdColumnNullable(codec, value);

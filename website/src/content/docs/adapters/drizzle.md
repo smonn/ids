@@ -60,7 +60,7 @@ any codec variant — any codec that exposes `safeParse` satisfies the required 
 (Timestamp, Opaque Timestamp, Reverse Timestamp, Signed Timestamp, Digest, and Wrapped
 key codecs all qualify).
 
-- **Write path:** `Id<Brand>` is already canonical, so it is passed to the driver unchanged. Passing `null` or `undefined` throws `IdsError("invalid_id")` at runtime — use `nullableIdColumn` for nullable columns.
+- **Write path:** values are validated via `codec.safeParse` before being passed to the driver. A cast-smuggled or otherwise invalid string throws `IdsError("invalid_id")` at write time. Passing `null` or `undefined` also throws — use `nullableIdColumn` for nullable columns.
 - **Read path:** values are normalised via `codec.safeParse()` rather than the strict `is()`. Data at rest should already be canonical ([ADR-0003](https://github.com/smonn/ids/blob/main/docs/adr/0003-canonical-strict-is.md)), but `safeParse` is a safe boundary for stale non-canonical values. An unrecognised value throws at read time so corrupt data surfaces immediately.
 - **Column type:** `dataType()` returns `"text"` by default; pass `{ columnType: "..." }` as the second argument to `idColumn` to override (e.g. `idColumn(usr, { columnType: "varchar(30)" })`).
 
@@ -117,7 +117,7 @@ export const comments = pgTable("comments", {
 :::
 
 - **Read path:** `null` and `undefined` driver values are returned as `null`. Non-null values go through `codec.safeParse()` and throw `IdsError("invalid_id")` if the stored value does not parse as a valid `Id<Brand>`.
-- **Write path:** `toDriver` normalises `null` and `undefined` to `null`; non-null `Id<Brand>` values are passed through as canonical strings.
+- **Write path:** `toDriver` normalises `null` and `undefined` to `null`; non-null values are validated via `codec.safeParse` and an invalid string throws `IdsError("invalid_id")` at write time.
 - **Column type:** `dataType()` returns `"text"` by default; pass `{ columnType: "..." }` as the second argument to `nullableIdColumn` to override (e.g. `nullableIdColumn(usr, { columnType: "char(26)" })`).
 
 ## Error handling

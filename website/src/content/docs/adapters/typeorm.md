@@ -28,7 +28,7 @@ class User {
 
 `idTransformer(codec)` works with any codec variant.
 
-- **Write path:** `to` passes the canonical `Id<Brand>` through unchanged. Passing `null` or `undefined` throws `IdsError("invalid_id")` at runtime — use `nullableIdTransformer` for nullable columns.
+- **Write path:** `to` validates the value via `codec.safeParse` before passing it to the driver. A cast-smuggled or otherwise invalid string throws `IdsError("invalid_id")` at write time. Passing `null` or `undefined` also throws — use `nullableIdTransformer` for nullable columns.
 - **Read path:** values are normalised via `codec.safeParse()`. An unrecognised
   value throws at read time so corrupt data surfaces immediately.
 
@@ -81,7 +81,7 @@ class Post {
 ```
 
 - **Read path (`from`):** returns `null` for `null` / `undefined` database values. Non-null values go through `codec.safeParse()` and throw `IdsError("invalid_id")` if they do not parse as a valid `Id<Brand>`.
-- **Write path (`to`):** `null` and `undefined` are normalised to `null`; `Id<Brand>` values are passed through as canonical strings.
+- **Write path (`to`):** `null` and `undefined` are normalised to `null`; non-null values are validated via `codec.safeParse` and an invalid string throws `IdsError("invalid_id")` at write time.
 
 ## Error handling
 

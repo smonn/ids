@@ -168,7 +168,7 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
       return readIdColumnNullable(codec, value);
     },
     write(value: Id<Brand>): string {
-      return writeIdColumn(value);
+      return writeIdColumn(codec, value);
     },
     computeField(fieldName: string) {
       return {
@@ -258,7 +258,7 @@ export function nullableIdField<Brand extends string>(
       return readIdColumnNullable(codec, value);
     },
     write(value: Id<Brand>): string {
-      return writeIdColumn(value);
+      return writeIdColumn(codec, value);
     },
     computeNullableField(fieldName: string) {
       return {
@@ -312,7 +312,7 @@ export function idFieldNonGenerating<Brand extends string>(
       return readIdColumnNullable(codec, value);
     },
     write(value: Id<Brand>): string {
-      return writeIdColumn(value);
+      return writeIdColumn(codec, value);
     },
     computeField(fieldName: string) {
       return {

@@ -52,19 +52,29 @@ export function readIdColumnNullable<Brand extends string>(
   return readIdColumn(codec, value);
 }
 
-/** Writes `value` as a canonical ID string to the database. Throws `IdsError("invalid_id")` if `value` is `null` or `undefined` — a runtime guard that catches undefined silently propagating to the driver. Shared write helper for ORM adapters. */
-export function writeIdColumn<Brand extends string>(value: Id<Brand>): string {
-  if (value == null) {
-    throw new IdsError("invalid_id", "invalid ID to database: value must not be null or undefined");
+/** Validates `value` via `codec.safeParse` and returns it as a canonical ID string. Throws `IdsError("invalid_id")` on any failure — including null, undefined, or a cast-smuggled arbitrary string — so invalid values are rejected at the write site rather than stored. Shared write helper for ORM adapters. */
+export function writeIdColumn<Brand extends string>(
+  codec: IdCodec<Brand>,
+  value: Id<Brand>,
+): string {
+  const result = codec.safeParse(value);
+  if (!result.ok) {
+    throw new IdsError("invalid_id", `invalid ID to database: ${result.error}`, {
+      cause: result.error,
+    });
   }
-  return value;
+  return result.id;
 }
 
-/** Like {@link writeIdColumn} but normalises `null` and `undefined` to `null`. Use for nullable foreign key columns. */
+/** Like {@link writeIdColumn} but returns `null` for `null` or `undefined`. Delegates to `writeIdColumn(codec, value)` for all other values. Use for nullable foreign key columns. */
 export function writeIdColumnNullable<Brand extends string>(
+  codec: IdCodec<Brand>,
   value: Id<Brand> | null | undefined,
 ): string | null {
-  return value ?? null;
+  if (value == null) {
+    return null;
+  }
+  return writeIdColumn(codec, value);
 }
 
 /**
