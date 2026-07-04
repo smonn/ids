@@ -3,6 +3,7 @@ import {
   readIdColumn,
   readIdColumnNullable,
   writeIdColumn,
+  writeIdColumnNullable,
   type IdColumnCodec,
   type IdGeneratingCodec,
 } from "./adapter-types.js";
@@ -59,9 +60,9 @@ export type IdTransform<Brand extends string> = {
    */
   readNullable(value: unknown): Id<Brand> | null;
   /**
-   * Write transform: passes `Id<Brand>` through as its canonical string form.
-   * `Id<Brand>` is already the canonical string, so this is an identity function
-   * at runtime.
+   * Write transform: validates `value` via `codec.safeParse` and returns the
+   * canonical string form. Throws `IdsError("invalid_id")` if the value is
+   * invalid, belongs to a different brand, or is `null`/`undefined`.
    *
    * Use in a Prisma `$extends` query component or explicit `data` mapping.
    */
@@ -89,8 +90,9 @@ export type IdTransform<Brand extends string> = {
    * Creates a `$extends` query-component model slice that auto-generates
    * `Id<Brand>` values for `create`, `createMany`, and `upsert` operations
    * when the field is absent, `undefined`, or `null` in `args.data` (or
-   * `args.create` for upsert). Explicitly supplied values are always passed
-   * through unchanged.
+   * `args.create` for upsert). When the field is absent, `undefined`, or `null`,
+   * a fresh `Id<Brand>` is injected; when present, the value is validated via
+   * `codec.safeParse` and `IdsError("invalid_id")` is thrown if invalid.
    *
    * @param fieldName - The model field to auto-generate (e.g. `"id"`).
    * @returns An {@link IdQueryField} suitable for the model-level value inside
@@ -125,7 +127,7 @@ export type IdTransform<Brand extends string> = {
  */
 export type NullableIdTransform<Brand extends string> = {
   readNullable(value: unknown): Id<Brand> | null;
-  write(value: Id<Brand>): string;
+  write(value: Id<Brand> | null | undefined): string | null;
   computeNullableField(fieldName: string): NullableIdComputeField<Brand>;
 };
 
@@ -187,7 +189,7 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
         if (data[fieldName] == null) {
           return { ...data, [fieldName]: generate() };
         }
-        return data;
+        return { ...data, [fieldName]: writeIdColumn(codec, data[fieldName] as Id<Brand>) };
       }
 
       type QueryArg = Parameters<ModelQueryOptionsCbArgs["query"]>[0];
@@ -257,8 +259,8 @@ export function nullableIdField<Brand extends string>(
     readNullable(value: unknown): Id<Brand> | null {
       return readIdColumnNullable(codec, value);
     },
-    write(value: Id<Brand>): string {
-      return writeIdColumn(codec, value);
+    write(value: Id<Brand> | null | undefined): string | null {
+      return writeIdColumnNullable(codec, value);
     },
     computeNullableField(fieldName: string) {
       return {

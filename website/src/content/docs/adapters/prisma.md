@@ -60,11 +60,13 @@ The schema keeps a plain `String @id` with no `@default(…)`; the extension sup
 
 `defaultQuery` intercepts **`create`**, **`createMany`**, and **`upsert`**:
 
-- **`create`** — injects a generated `Id<Brand>` into `args.data` when the field is absent, `undefined`, or `null`.
-- **`createMany`** — iterates `args.data` (the array) and injects for each element where the field is absent or `null`.
-- **`upsert`** — injects into `args.create` (the new-row data) when the field is absent or `null`; the `update` side is left unchanged.
+- **`create`** — when the field is absent, `undefined`, or `null` in `args.data`, injects a freshly generated `Id<Brand>`; when the field is present, validates it via `codec.safeParse` and throws `IdsError("invalid_id")` if invalid.
+- **`createMany`** — iterates `args.data` (the array) and applies the same absent-injects / present-validates logic to each element.
+- **`upsert`** — applies the same logic to `args.create` (the new-row data); the `update` side is left unchanged.
 
-An explicitly supplied value is always passed through unchanged. `update` and `updateMany` are never intercepted — they never create new rows.
+:::note[update / updateMany limitation]
+`defaultQuery` only wraps the three generation-context operations (`create`, `createMany`, `upsert`). IDs supplied in `update` and `updateMany` data are **not** validated by `defaultQuery` — they are caller-owned. Validate them explicitly with `idField.write(value)` if needed.
+:::
 
 ## Non-generating path for codecs without synchronous `generate()` — `idFieldNonGenerating`
 
@@ -138,6 +140,26 @@ const authorId = userIdField.readNullable(rawRow.authorId);
 - `computeNullableField(fieldName)` produces a `$extends` result-component field whose `compute` function returns `Id<Brand> | null`, correctly typed through Prisma's type machinery without a per-call-site cast.
 
 Both helpers are available on both `idField(...)` and `idFieldNonGenerating(...)` return values.
+
+### `nullableIdField` — standalone nullable mapper
+
+For nullable FK columns that only need read/write transforms and no `computeField`/`defaultQuery`, use `nullableIdField`:
+
+```ts
+import { nullableIdField } from "@smonn/ids/prisma";
+import { createTimestampId } from "@smonn/ids";
+
+const usr = createTimestampId("usr");
+const authorIdField = nullableIdField(usr);
+
+// Write: null/undefined → null; valid Id<Brand> → canonical string; invalid → throws
+authorIdField.write(null); // → null  (FK clear)
+authorIdField.write(undefined); // → null  (FK clear)
+authorIdField.write(validId); // → canonical string
+authorIdField.write("bad" as Id<"usr">); // throws IdsError("invalid_id")
+```
+
+`nullableIdField(codec)` returns `readNullable`, `write`, and `computeNullableField` — it is equivalent to the nullable surface of `idField`/`idFieldNonGenerating` but without the non-nullable read path or `defaultQuery`. The `write` method accepts `Id<Brand> | null | undefined` and returns `string | null`, matching the nullable FK clear pattern used by the Drizzle, Kysely, MikroORM, and TypeORM adapters.
 
 ## Error handling
 
