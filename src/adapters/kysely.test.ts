@@ -184,13 +184,8 @@ describe("kysely", () => {
       expect(result.numAffectedRows).toBe(1n);
     });
 
-    it("supports table.column qualified names — matches by the column-name part", async () => {
-      const id = usr.generate();
-      const plugin = idPlugin({ "users.id": usr });
-      const result = await plugin.transformResult(
-        fromAny({ queryId: {}, result: { rows: [{ id }] } }),
-      );
-      expect(result.rows[0]!.id).toBe(id);
+    it("throws at construction when a map key contains a dot", () => {
+      expect(() => idPlugin({ "users.id": usr })).toThrowError('"users.id"');
     });
 
     it("transformResult returns the original result reference when no column matches the map", async () => {
@@ -241,16 +236,6 @@ describe("kysely", () => {
       expect(row.col8).toBe("h");
       expect(row.col9).toBe("i");
       expect(row.col10).toBe("j");
-    });
-
-    it("qualified key takes precedence over a plain key for the same column name", async () => {
-      const usrId = usr.generate();
-      // "users.id" (qualified) wins over "id" (plain) for column "id"; usrId parses via usr codec
-      const plugin = idPlugin({ id: org, "users.id": usr });
-      const result = await plugin.transformResult(
-        fromAny({ queryId: {}, result: { rows: [{ id: usrId }] } }),
-      );
-      expect(result.rows[0]!.id).toBe(usrId);
     });
   });
 

@@ -134,9 +134,9 @@ export function insertId<Brand extends string>(codec: IdGeneratingCodec<Brand>):
  * a misspelled or stale key silently matches nothing, and the column is left un-transformed.
  * Callers are responsible for keeping the map in sync with their schema.
  *
- * **Key precedence:** plain keys (`"id"`) are added first; qualified keys (`"table.column"`, e.g.
- * `"users.id"`) are added second and override the plain key when both resolve to the same bare
- * column name. Use qualified keys to disambiguate columns with the same name across tables.
+ * **Keys must be bare column names** (e.g. `"id"`, `"user_id"`). Qualified keys containing a
+ * dot (e.g. `"users.id"`) are **not** supported — passing one throws a synchronous `Error` at
+ * construction time, naming the offending key. Per-table disambiguation is not implemented.
  *
  * `transformResult` calls `readIdColumn(codec, rawValue)` for each matched column, returning
  * a branded `Id<Brand>` on success and throwing `IdsError("invalid_id")` on parse failure.
@@ -152,7 +152,7 @@ export function insertId<Brand extends string>(codec: IdGeneratingCodec<Brand>):
  *
  * const db = new Kysely<Database>({
  *   // ...
- *   plugins: [idPlugin({ "users.id": usr })],
+ *   plugins: [idPlugin({ id: usr })],
  * });
  *
  * // result.id is automatically validated and branded as Id<"usr">
@@ -160,20 +160,15 @@ export function insertId<Brand extends string>(codec: IdGeneratingCodec<Brand>):
  * ```
  */
 export function idPlugin(map: Record<string, IdColumnCodec<string>>): KyselyPlugin {
-  // Build a lookup keyed by the bare column name.
-  // Plain keys ("id") are added first; qualified keys ("users.id") are added second
-  // so they override the plain key when both resolve to the same column name.
-  const lookup = new Map<string, IdColumnCodec<string>>();
-  for (const [key, codec] of Object.entries(map)) {
-    if (!key.includes(".")) {
-      lookup.set(key, codec);
-    }
-  }
-  for (const [key, codec] of Object.entries(map)) {
+  for (const key of Object.keys(map)) {
     if (key.includes(".")) {
-      lookup.set(key.slice(key.lastIndexOf(".") + 1), codec);
+      throw new Error(
+        `idPlugin: map keys must be bare column names, but "${key}" contains a dot. ` +
+          `Per-table qualified keys are not supported — use a bare column name instead.`,
+      );
     }
   }
+  const lookup = new Map<string, IdColumnCodec<string>>(Object.entries(map));
 
   return {
     transformQuery(args: PluginTransformQueryArgs) {
