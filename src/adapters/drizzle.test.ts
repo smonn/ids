@@ -48,6 +48,17 @@ describe("drizzle", () => {
     expect(users.id.mapToDriverValue(id)).toBe(id);
   });
 
+  it("write path rejects a cast-smuggled invalid string", () => {
+    let err: unknown;
+    try {
+      users.id.mapToDriverValue("not_an_id" as Id<"usr">);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+  });
+
   it("read-back returns Id<Brand>", () => {
     const id = usr.generate();
     expect(users.id.mapFromDriverValue(fromAny(id))).toBe(id);
@@ -221,6 +232,18 @@ describe("drizzle", () => {
       expect(tbl.id.mapToDriverValue(id)).toBe(id);
     });
 
+    it("write path rejects a cast-smuggled invalid string", () => {
+      const tbl = pgTable("gen_users_write_reject", { id: generatedIdColumn(usr) });
+      let err: unknown;
+      try {
+        tbl.id.mapToDriverValue("not_an_id" as Id<"usr">);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
     it("getSQLType defaults to 'text'", () => {
       const tbl = pgTable("gen_users_text", { id: generatedIdColumn(usr) });
       expect(tbl.id.getSQLType()).toBe("text");
@@ -272,6 +295,17 @@ describe("drizzle", () => {
     it("write path passes Id<Brand> through unchanged", () => {
       const id = usr.generate();
       expect(posts.authorId.mapToDriverValue(id)).toBe(id);
+    });
+
+    it("write path rejects a cast-smuggled invalid string", () => {
+      let err: unknown;
+      try {
+        posts.authorId.mapToDriverValue("not_an_id" as Id<"usr">);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
     });
 
     it("getSQLType defaults to 'text' with no options (backward compat)", () => {
@@ -328,6 +362,17 @@ describe("drizzle — MySQL", () => {
   it("write path stores the canonical string", () => {
     const id = usr.generate();
     expect(users.id.mapToDriverValue(id)).toBe(id);
+  });
+
+  it("write path rejects a cast-smuggled invalid string", () => {
+    let err: unknown;
+    try {
+      users.id.mapToDriverValue("not_an_id" as Id<"usr">);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
   });
 
   it("read-back returns Id<Brand>", () => {
@@ -404,6 +449,18 @@ describe("drizzle — MySQL", () => {
       expect(tbl.id.mapToDriverValue(id)).toBe(id);
     });
 
+    it("write path rejects a cast-smuggled invalid string", () => {
+      const tbl = mysqlTable("gen_users_write_reject", { id: generatedIdColumnMysql(usr) });
+      let err: unknown;
+      try {
+        tbl.id.mapToDriverValue("not_an_id" as Id<"usr">);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
     it("getSQLType defaults to 'text'", () => {
       const tbl = mysqlTable("gen_users_text", { id: generatedIdColumnMysql(usr) });
       expect(tbl.id.getSQLType()).toBe("text");
@@ -457,6 +514,17 @@ describe("drizzle — MySQL", () => {
       expect(posts.authorId.mapToDriverValue(id)).toBe(id);
     });
 
+    it("write path rejects a cast-smuggled invalid string", () => {
+      let err: unknown;
+      try {
+        posts.authorId.mapToDriverValue("not_an_id" as Id<"usr">);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
     it("getSQLType is 'text'", () => {
       expect(posts.authorId.getSQLType()).toBe("text");
     });
@@ -480,6 +548,17 @@ describe("drizzle — SQLite", () => {
   it("write path stores the canonical string", () => {
     const id = usr.generate();
     expect(users.id.mapToDriverValue(id)).toBe(id);
+  });
+
+  it("write path rejects a cast-smuggled invalid string", () => {
+    let err: unknown;
+    try {
+      users.id.mapToDriverValue("not_an_id" as Id<"usr">);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
   });
 
   it("read-back returns Id<Brand>", () => {
@@ -556,6 +635,18 @@ describe("drizzle — SQLite", () => {
       expect(tbl.id.mapToDriverValue(id)).toBe(id);
     });
 
+    it("write path rejects a cast-smuggled invalid string", () => {
+      const tbl = sqliteTable("gen_users_write_reject", { id: generatedIdColumnSqlite(usr) });
+      let err: unknown;
+      try {
+        tbl.id.mapToDriverValue("not_an_id" as Id<"usr">);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
     it("getSQLType defaults to 'text'", () => {
       const tbl = sqliteTable("gen_users_text", { id: generatedIdColumnSqlite(usr) });
       expect(tbl.id.getSQLType()).toBe("text");
@@ -607,6 +698,17 @@ describe("drizzle — SQLite", () => {
     it("write path passes Id<Brand> through unchanged", () => {
       const id = usr.generate();
       expect(posts.authorId.mapToDriverValue(id)).toBe(id);
+    });
+
+    it("write path rejects a cast-smuggled invalid string", () => {
+      let err: unknown;
+      try {
+        posts.authorId.mapToDriverValue("not_an_id" as Id<"usr">);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
     });
 
     it("getSQLType is 'text'", () => {
