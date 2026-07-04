@@ -24,10 +24,9 @@ concurrency:
   group: bench-${{ github.ref }}
   cancel-in-progress: true
 
-# No workflow-level permissions; the bench job below grants exactly what it needs
-# (pull-requests: write to post the comment, actions: write for the self-cancel guard).
-# Every other workflow sets a top-level block — making this explicit means a future job
-# added without its own permissions: inherits nothing instead of the repo default.
+# No workflow-level permissions: the bench job below declares its own grants, so a
+# future job added without a permissions: block inherits nothing instead of the repo
+# default. Every other workflow sets a top-level block.
 permissions: {}
 
 jobs:

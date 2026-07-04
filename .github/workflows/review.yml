@@ -179,17 +179,14 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
-      # A SECOND, strictly READ-ONLY App token handed to the producer step below. The
-      # write token above is used only by the deterministic gh/git steps (resolve SHA,
-      # label edits, dedup DELETE, status writes, and the poster). claude-code-action
-      # wires its `github_token` into the agent's git/gh auth, and the producer processes
-      # attacker-influenceable text (PR discussion + review comments) — a prompt-injection
-      # surface. Handing it a read-only token makes the producer mutation-free at the
-      # TOKEN level, not just by the `allowedTools` convention. Kept as a SEPARATE mint
-      # from the write token above — the write/read-only split is the security boundary;
-      # do not merge them. (Uses the raw action, like the write mint above, because
-      # review.yml mints BEFORE any checkout — the local ./.github/actions/app-token
-      # composite would require the repo on disk first.)
+      # A SECOND, strictly READ-ONLY App token for the producer step below — the
+      # write/read-only split (see .github/workflows/README.md "App token & the read/write
+      # security split"). The write token above stays on the deterministic gh/git steps
+      # (resolve SHA, label edits, dedup DELETE, status writes, the poster); the producer,
+      # which processes attacker-influenceable PR/review text, gets this read-only one.
+      # Kept as a SEPARATE mint — do not merge them. Uses the raw action, like the write
+      # mint above, because review.yml mints BEFORE any checkout and the local
+      # ./.github/actions/app-token composite would require the repo on disk first.
       - name: Generate read-only GitHub App token (for the producer)
         if: steps.scope.outputs.review == 'true'
         id: app-token-ro
