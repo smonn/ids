@@ -58,4 +58,28 @@ codes to clients.
 
 ## Signature verification
 
-`idScalar` does not support a `verify` option. GraphQL scalar coercers (`parseValue`, `parseLiteral`) must be synchronous, and HMAC tag verification is asynchronous. If signature verification is required for IDs received over GraphQL, call `codec.safeVerify` explicitly in the resolver body after the scalar has parsed the value.
+`idScalar` itself does not verify HMAC tags. GraphQL scalar coercers (`parseValue`, `parseLiteral`) must be synchronous, and Signed Timestamp tag verification is asynchronous — so the check cannot live inside the scalar. Instead, `@smonn/ids/graphql` exports `verifyIdArgs`, a resolver wrapper that authenticates named ID arguments one layer out, before the resolver body runs.
+
+```ts
+import { idScalar, verifyIdArgs } from "@smonn/ids/graphql";
+import { createSignedTimestampId } from "@smonn/ids";
+
+const usr = createSignedTimestampId("usr", { keys: [signingKey] });
+const UserId = idScalar(usr, { name: "UserId" });
+
+const resolvers = {
+  Query: {
+    // `args.id` is a structurally-valid Id<"usr"> (checked by the scalar) *and*
+    // has an authenticated tag (checked by verifyIdArgs) before this runs.
+    user: verifyIdArgs({ id: usr }, (_root, args, ctx) => ctx.loadUser(args.id)),
+  },
+};
+```
+
+Pass a map of argument name to a **Signed Timestamp codec** (the only codec that satisfies the required `IdVerifiableCodec` interface — a non-signed codec is a compile-time type error). For each entry, `verifyIdArgs` calls `codec.safeVerify(args[name])`; a forged or tampered tag throws a `GraphQLError` (message `invalid <argName>`) **before** the wrapped resolver runs. A `null`/`undefined` argument is skipped, so the wrapper is safe on optional ID args. One wrapper can cover several ID arguments of different brands:
+
+```ts
+verifyIdArgs({ userId: usr, orgId: org }, (_root, args, ctx) => ctx.link(args.userId, args.orgId));
+```
+
+Verification covers **top-level arguments only** — an ID nested inside an input-object argument is not reached; verify it in the resolver body with `codec.safeVerify` if you need to. See [ADR-0035](https://github.com/smonn/ids/blob/main/docs/adr/0035-graphql-resolver-verify.md) for why GraphQL verification is a resolver wrapper rather than a `verify: true` option like the HTTP adapters.

@@ -1,6 +1,6 @@
 import { GraphQLError, GraphQLScalarType, Kind } from "graphql";
-import type { ValueNode } from "graphql";
-import type { IdCodec } from "./adapter-types.js";
+import type { GraphQLFieldResolver, ValueNode } from "graphql";
+import type { IdCodec, IdVerifiableCodec } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 /** Extension of {@link IdCodec} that also requires `is()` — used by `idScalar` so `serialize` can validate strictly on the trusted outbound path. All concrete codec variants satisfy this. */
@@ -60,4 +60,53 @@ export function idScalar<Brand extends string>(
       return parse(ast.value);
     },
   });
+}
+
+/**
+ * Wraps a GraphQL field resolver so the named ID arguments are authenticated before the resolver
+ * body runs.
+ *
+ * GraphQL scalar coercers (`parseValue`/`parseLiteral`) are synchronous and cannot await the HMAC
+ * check, so `idScalar` cannot verify a Signed Timestamp tag itself. `verifyIdArgs` performs that
+ * async verification one layer out, at the resolver. For each `argName → codec` entry it calls
+ * `codec.safeVerify(args[argName])`; a forged or tampered tag throws `GraphQLError` **before** the
+ * wrapped resolver runs. A `null`/`undefined` arg is skipped (nullable/absent args pass through).
+ * Present args are verified in map order and the first failure short-circuits.
+ *
+ * Only the **Signed Timestamp codec** satisfies {@link IdVerifiableCodec}; passing any other codec
+ * is a compile-time type error. Verification covers top-level args only — IDs nested inside input
+ * objects are not reached.
+ *
+ * @example
+ * ```ts
+ * import { verifyIdArgs } from "@smonn/ids/graphql";
+ *
+ * const resolve = verifyIdArgs({ userId: usr }, (_root, args, ctx) => {
+ *   // args.userId is an authenticated Id<"usr">
+ *   return ctx.loadUser(args.userId);
+ * });
+ * ```
+ */
+export function verifyIdArgs<
+  TSource,
+  TContext,
+  TArgs extends Record<string, unknown> = Record<string, unknown>,
+>(
+  codecs: { [K in keyof TArgs]?: IdVerifiableCodec<string> },
+  resolver: GraphQLFieldResolver<TSource, TContext, TArgs>,
+): GraphQLFieldResolver<TSource, TContext, TArgs> {
+  return async (source, args, context, info) => {
+    for (const argName of Object.keys(codecs) as (keyof TArgs)[]) {
+      const codec = codecs[argName];
+      const value = args[argName];
+      if (codec === undefined || value === null || value === undefined) {
+        continue;
+      }
+      const result = await codec.safeVerify(value);
+      if (!result.ok) {
+        throw new GraphQLError(`invalid ${String(argName)}`);
+      }
+    }
+    return resolver(source, args, context, info);
+  };
 }
