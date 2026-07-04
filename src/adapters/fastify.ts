@@ -47,8 +47,10 @@ export type IdParamOptions = {
  * **Default (no options):** throws `IdParamError` carrying `statusCode` and `reason` so the app's
  * existing `setErrorHandler` controls rendering. The adapter does not write a response body itself.
  *
- * **`options.onError`:** when provided, the hook calls `onError` and does not throw; the consumer
- * fully owns the response via `reply`.
+ * **`options.onError`:** when provided, the adapter awaits the hook on validation failure. If the
+ * hook sends a response (`reply.sent` is `true` after it resolves), the adapter takes no further
+ * action. Otherwise, the adapter falls back to throwing `IdParamError`, so the route handler
+ * never runs with an invalid ID.
  *
  * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
  *
@@ -141,8 +143,10 @@ export function idParam<ParamKey extends string, Brand extends string>(
  * app's existing `setErrorHandler` controls rendering. The adapter does not write a response
  * body itself.
  *
- * **`options.onError`:** when provided, the hook calls `onError` and does not throw; the
- * consumer fully owns the response via `reply`.
+ * **`options.onError`:** when provided, the adapter awaits the hook on validation failure. If the
+ * hook sends a response (`reply.sent` is `true` after it resolves), the adapter takes no further
+ * action. Otherwise, the adapter falls back to throwing `IdParamError`, so the route handler
+ * never runs with an invalid ID.
  *
  * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
  *

@@ -45,8 +45,11 @@ export type IdParamOptions = {
  * so the app's existing error-handling middleware controls rendering. The adapter does not write
  * a response body itself.
  *
- * **`options.onError`:** when provided, the hook owns the response entirely — the adapter does
- * not call `next(err)`.
+ * **`options.onError`:** when provided, the adapter calls the hook on validation failure. If
+ * the hook sends a response (`res.headersSent` is `true` after it returns), the adapter takes
+ * no further action. Otherwise — including if the hook calls `next()` instead of `next(err)` —
+ * the adapter falls back to `next(new IdParamError(...))`, so the route handler never runs with
+ * an invalid ID.
  *
  * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
  *
@@ -132,8 +135,11 @@ export function idParam<ParamKey extends string, Brand extends string>(
  * `reason`, so the app's existing error-handling middleware controls rendering. The adapter
  * does not write a response body itself.
  *
- * **`options.onError`:** when provided, the hook owns the response entirely — the adapter does
- * not call `next(err)`.
+ * **`options.onError`:** when provided, the adapter calls the hook on validation failure. If
+ * the hook sends a response (`res.headersSent` is `true` after it returns), the adapter takes
+ * no further action. Otherwise — including if the hook calls `next()` instead of `next(err)` —
+ * the adapter falls back to `next(new IdParamError(...))`, so the route handler never runs with
+ * an invalid ID.
  *
  * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
  *
