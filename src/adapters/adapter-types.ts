@@ -11,7 +11,7 @@ export type IdCodec<Brand extends string> = {
   safeParse(value: unknown): ParseResult<Brand>;
 };
 
-/** Extends {@link IdCodec} with an async `safeVerify` — satisfied by the **Signed Timestamp codec**. HTTP adapters accept `verify: true` only when the codec satisfies this interface (structural type check at the call site). The `safeVerify` method structurally parses `input` first, then verifies the HMAC tag; it returns `{ ok: false }` on either failure without throwing. */
+/** Extends {@link IdCodec} with an async `safeVerify` — satisfied by the **Signed Timestamp codec** (native `safeVerify`) and the **Wrapped key codec** (a `safeVerify` alias over `safeUnwrap`; see ADR-0036). HTTP adapters accept `verify: true` only when the codec satisfies this interface (structural type check at the call site). The `safeVerify` method structurally parses `input` first, then verifies the tag; it returns `{ ok: false }` on either failure without throwing. */
 export type IdVerifiableCodec<Brand extends string> = IdCodec<Brand> & {
   safeVerify(input: unknown): Promise<{ ok: true; id: Id<Brand> } | { ok: false; error: unknown }>;
 };

@@ -9,7 +9,12 @@ import { createReverseTimestampId } from "../codecs/reverse/index.js";
 import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
-import { makeFailingSpyCodec, makeSpyCodec, makeVerifiableSpyCodec } from "./test-helpers.js";
+import {
+  makeFailingSpyCodec,
+  makeSpyCodec,
+  makeVerifiableSpyCodec,
+  makeWrappedVerifiableSpyCodec,
+} from "./test-helpers.js";
 
 type MockRequest = {
   params: Record<string, unknown>;
@@ -851,6 +856,114 @@ describe("verify option", () => {
       await app.ready();
       const res = await app.inject({ method: "GET", url: `/items/${validId}` });
       expect(res.statusCode).toBe(200);
+      await app.close();
+    });
+  });
+
+  describe("verify: true (real Wrapped key codec)", () => {
+    it("idParam: structurally valid forged-tag ID is rejected → 400", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const validId = await inv.wrap(7);
+      // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
+      // structurally valid — the rejection must come from verification, not a parse failure.
+      const forged = validId.slice(0, 4) + (validId[4] === "0" ? "1" : "0") + validId.slice(5);
+
+      const app = Fastify();
+      app.setErrorHandler((err, _req, reply) => {
+        void reply
+          .status((err as unknown as IdParamError).statusCode ?? 500)
+          .send({ error: (err as unknown as IdParamError).reason });
+      });
+      app.get("/items/:id", { preHandler: idParam("id", inv, { verify: true }) }, (_req, reply) => {
+        void reply.send({ ok: true });
+      });
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: `/items/${forged}` });
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toEqual({ error: "malformed" });
+      await app.close();
+    });
+
+    it("idParam: structurally malformed input is rejected via the parse channel → 400", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const app = Fastify();
+      app.setErrorHandler((err, _req, reply) => {
+        void reply
+          .status((err as unknown as IdParamError).statusCode ?? 500)
+          .send({ error: (err as unknown as IdParamError).reason });
+      });
+      // "u" is not in the Crockford base32 alphabet → invalid_base32 → malformed, before verify
+      app.get("/items/:id", { preHandler: idParam("id", inv, { verify: true }) }, (_req, reply) => {
+        void reply.send({ ok: true });
+      });
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: "/items/inv_uuuuuuuuuuuuuuuuuuuuuuuuuu" });
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toEqual({ error: "malformed" });
+      await app.close();
+    });
+
+    it("idParam: tag-valid ID is accepted with verify: true", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const validId = await inv.wrap(7);
+
+      const app = Fastify();
+      app.get("/items/:id", { preHandler: idParam("id", inv, { verify: true }) }, (_req, reply) => {
+        void reply.send({ ok: true });
+      });
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: `/items/${validId}` });
+      expect(res.statusCode).toBe(200);
+      await app.close();
+    });
+
+    it("idQuery: tag-valid ID is accepted with verify: true", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const validId = await inv.wrap(7);
+
+      const app = Fastify();
+      app.get("/items", { preHandler: idQuery("id", inv, { verify: true }) }, (_req, reply) => {
+        void reply.send({ ok: true });
+      });
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: `/items?id=${validId}` });
+      expect(res.statusCode).toBe(200);
+      await app.close();
+    });
+
+    it("idParam: verify: true calls safeVerify on the Wrapped codec (spy)", async () => {
+      const spyCodec = makeWrappedVerifiableSpyCodec("inv", "ok");
+      const app = Fastify();
+      app.get(
+        "/items/:id",
+        { preHandler: idParam("id", spyCodec, { verify: true }) },
+        (_req, reply) => {
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      await app.inject({ method: "GET", url: "/items/inv_00000000000000000000000000" });
+      expect(spyCodec.safeVerify).toHaveBeenCalled();
       await app.close();
     });
   });

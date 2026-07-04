@@ -150,6 +150,26 @@ const { id, lookupKey } = result; // Id<"inv">, number
 `safeUnwrap(input)` accepts untrusted input and returns `{ ok: false, error }`
 instead.
 
+### `safeVerify` — verify without recovering the lookup key
+
+`safeVerify(input)` is a verify-only alias of `safeUnwrap`: it structurally
+parses, verifies the tag, and returns `{ ok: true, id }` on success — dropping
+the recovered `lookupKey` — or `{ ok: false, error }` on failure. Reach for it
+when you only need to gate on authenticity and don't want to surface the internal
+lookup key; use `safeUnwrap` when you need the lane.
+
+```ts
+const result = await invoices.safeVerify(req.params.invoiceId);
+if (!result.ok) return 400; // malformed or tampered/wrong-key ID
+const { id } = result; // Id<"inv"> — no lookupKey
+```
+
+This method is what lets the Wrapped key codec satisfy the HTTP adapters'
+`IdVerifiableCodec` contract, so `idParam`/`idQuery` (and the NestJS
+`ParseIdPipe`) accept it under `verify: true` exactly like the Signed Timestamp
+codec. See the [Hono](/adapters/hono/), [Express](/adapters/express/),
+[Fastify](/adapters/fastify/), and [NestJS](/adapters/nestjs/) adapter pages.
+
 ## Error handling
 
 All throwing paths surface `IdsError` — a single class with a stable `code`

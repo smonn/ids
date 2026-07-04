@@ -4,7 +4,12 @@ import { idParam, idQuery, IdParamError } from "./hono.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { makeSpyCodec, makeVerifiableSpyCodec } from "./test-helpers.js";
+import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
+import {
+  makeSpyCodec,
+  makeVerifiableSpyCodec,
+  makeWrappedVerifiableSpyCodec,
+} from "./test-helpers.js";
 
 describe("IdParamError", () => {
   it("err.name is 'IdParamError'", () => {
@@ -467,6 +472,93 @@ describe("verify option", () => {
     });
   });
 
+  describe("idParam with verify: true (Wrapped key codec)", () => {
+    it("forged-tag ID (structurally valid, safeVerify fails) → 400", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const validId = await inv.wrap(7);
+      // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
+      // structurally valid — the rejection must come from verification, not a parse failure.
+      const forged = (validId.slice(0, 4) +
+        (validId[4] === "0" ? "1" : "0") +
+        validId.slice(5)) as typeof validId;
+
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", inv, { verify: true }), (c) =>
+        c.json({ id: c.get("id") }),
+      );
+      const res = await app.request(`/items/${forged}`);
+      expect(res.status).toBe(400);
+    });
+
+    it("structurally valid, tag-valid ID is accepted with verify: true", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const validId = await inv.wrap(7);
+
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", inv, { verify: true }), (c) =>
+        c.json({ id: c.get("id") }),
+      );
+      const res = await app.request(`/items/${validId}`);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { id: string };
+      expect(body.id).toBe(validId);
+    });
+
+    it("without verify, a forged-tag Wrapped ID is accepted (structural check only)", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const validId = await inv.wrap(7);
+      // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
+      // structurally valid — the rejection must come from verification, not a parse failure.
+      const forged = (validId.slice(0, 4) +
+        (validId[4] === "0" ? "1" : "0") +
+        validId.slice(5)) as typeof validId;
+
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", inv), (c) => c.json({ id: c.get("id") }));
+      const res = await app.request(`/items/${forged}`);
+      expect(res.status).toBe(200);
+    });
+
+    it("verify: true calls safeVerify on the Wrapped codec (spy)", async () => {
+      const spyCodec = makeWrappedVerifiableSpyCodec("inv", "ok");
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", spyCodec, { verify: true }), (c) => c.text("ok"));
+      await app.request("/items/inv_00000000000000000000000000");
+      expect(spyCodec.safeVerify).toHaveBeenCalled();
+    });
+
+    it("structurally malformed input is rejected via the parse channel → 400", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      // "u" is not in the Crockford base32 alphabet → invalid_base32 → malformed, before verify
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", inv, { verify: true }), (c) =>
+        c.json({ id: c.get("id") }),
+      );
+      const res = await app.request("/items/inv_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe("idQuery with verify: true", () => {
     it("forged-tag ID (spy codec) is rejected with verify: true → 400", async () => {
       const spyCodec = makeVerifiableSpyCodec("spy", "fail");
@@ -499,6 +591,43 @@ describe("verify option", () => {
       expect(res.status).toBe(400);
       const body = (await res.json()) as { error: string };
       expect(body.error).toBe("malformed");
+    });
+  });
+
+  describe("idQuery with verify: true (Wrapped key codec)", () => {
+    it("forged-tag Wrapped ID is rejected with verify: true → 400", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const validId = await inv.wrap(7);
+      // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
+      // structurally valid — the rejection must come from verification, not a parse failure.
+      const forged = (validId.slice(0, 4) +
+        (validId[4] === "0" ? "1" : "0") +
+        validId.slice(5)) as typeof validId;
+
+      const app = new Hono();
+      app.get("/items", idQuery("id", inv, { verify: true }), (c) => c.text("ok"));
+      const res = await app.request(`/items?id=${forged}`);
+      expect(res.status).toBe(400);
+    });
+
+    it("valid Wrapped ID accepted with verify: true", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const validId = await inv.wrap(7);
+
+      const app = new Hono();
+      app.get("/items", idQuery("id", inv, { verify: true }), (c) => c.text("ok"));
+      const res = await app.request(`/items?id=${validId}`);
+      expect(res.status).toBe(200);
     });
   });
 });

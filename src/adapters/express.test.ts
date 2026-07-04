@@ -8,7 +8,13 @@ import { IdParamError, idParam, idQuery } from "./express.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { makeFailingSpyCodec, makeSpyCodec, makeVerifiableSpyCodec } from "./test-helpers.js";
+import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
+import {
+  makeFailingSpyCodec,
+  makeSpyCodec,
+  makeVerifiableSpyCodec,
+  makeWrappedVerifiableSpyCodec,
+} from "./test-helpers.js";
 
 function makeReq(paramName: string, value: string | undefined): Request {
   return fromAny({ params: { [paramName]: value } });
@@ -780,6 +786,100 @@ describe("verify option", () => {
       middleware(req, fromAny(res), next);
       await new Promise((r) => setTimeout(r, 50));
       expect(next).toHaveBeenCalledWith();
+    });
+  });
+
+  describe("verify: true (real Wrapped key codec)", () => {
+    it("idParam: structurally valid forged-tag ID is rejected with reason=malformed", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const validId = await inv.wrap(7);
+      // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
+      // structurally valid — the rejection must come from verification, not a parse failure.
+      const forged = validId.slice(0, 4) + (validId[4] === "0" ? "1" : "0") + validId.slice(5);
+
+      const middleware = idParam("id", inv, { verify: true });
+      const req = makeReq("id", forged);
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(next).toHaveBeenCalledOnce();
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect(err.reason).toBe("malformed");
+    });
+
+    it("idParam: structurally malformed input is rejected via the parse channel", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      // "u" is not in the Crockford base32 alphabet → invalid_base32 → malformed, before verify
+      const middleware = idParam("id", inv, { verify: true });
+      const req = makeReq("id", "inv_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(next).toHaveBeenCalledOnce();
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect(err.reason).toBe("malformed");
+    });
+
+    it("idParam: valid tag ID is accepted and canonical id stored in res.locals", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const validId = await inv.wrap(7);
+
+      const middleware = idParam("id", inv, { verify: true });
+      const req = makeReq("id", validId);
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(next).toHaveBeenCalledWith();
+      expect(res.locals.id).toBe(validId);
+    });
+
+    it("idQuery: valid tag ID is accepted with verify: true", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      const validId = await inv.wrap(7);
+
+      const middleware = idQuery("id", inv, { verify: true });
+      const req = makeQueryReq("id", validId);
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(next).toHaveBeenCalledWith();
+    });
+
+    it("idParam: verify: true calls safeVerify on the Wrapped codec (spy)", async () => {
+      const spyCodec = makeWrappedVerifiableSpyCodec("inv", "ok");
+      const middleware = idParam("id", spyCodec, { verify: true });
+      const req = makeReq("id", "inv_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(spyCodec.safeVerify).toHaveBeenCalled();
     });
   });
 

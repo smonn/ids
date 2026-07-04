@@ -46,6 +46,9 @@ export type WrappedKind = "u32" | "i32" | "u64" | "i64";
 
 type LookupKeyForKind<K extends WrappedKind> = K extends "u32" | "i32" ? number : bigint;
 
+/** Error vocabulary shared by {@link UnwrapResult} and {@link SafeVerifyResult}'s failure branches. */
+export type UnwrapError = ParseError | "verification_failed";
+
 /**
  * Result returned by {@link WrappedKeyCodec.safeUnwrap}.
  *
@@ -57,7 +60,19 @@ type LookupKeyForKind<K extends WrappedKind> = K extends "u32" | "i32" ? number 
  */
 export type UnwrapResult<Brand extends string, Kind extends WrappedKind> =
   | { ok: true; id: Id<Brand>; lookupKey: LookupKeyForKind<Kind> }
-  | { ok: false; error: ParseError | "verification_failed" };
+  | { ok: false; error: UnwrapError };
+
+/**
+ * Result returned by {@link WrappedKeyCodec.safeVerify}.
+ *
+ * A verify-only view of {@link UnwrapResult}: the success branch carries only the
+ * canonical `id`, dropping the recovered `lookupKey`. The failure branch is
+ * identical to {@link UnwrapResult}'s. This shape lets the Wrapped key codec
+ * satisfy the HTTP adapters' `IdVerifiableCodec` structural interface. See ADR-0036.
+ */
+export type SafeVerifyResult<Brand extends string> =
+  | { ok: true; id: Id<Brand> }
+  | { ok: false; error: UnwrapError };
 
 /**
  * Codec returned by {@link createWrappedKeyId}.
@@ -66,7 +81,7 @@ export type UnwrapResult<Brand extends string, Kind extends WrappedKind> =
  * recovers it on unwrap. The codec is deterministic under fixed key material:
  * the same lookup key always yields the same public ID (**equality leakage**).
  *
- * - `wrap` / `unwrap` / `safeUnwrap` are async (WebCrypto).
+ * - `wrap` / `unwrap` / `safeUnwrap` / `safeVerify` are async (WebCrypto).
  * - `is`, `parse`, `safeParse`, and `toJsonSchema` are synchronous and require
  *   no key material — they validate prefix and base32 shape only.
  * - The `Kind` type parameter drives value types at the TypeScript boundary:
@@ -109,6 +124,19 @@ export type WrappedKeyCodec<Brand extends string, Kind extends WrappedKind> = {
    * all surface as `"verification_failed"`.
    */
   safeUnwrap(input: unknown): Promise<UnwrapResult<Brand, Kind>>;
+  /**
+   * Verify-only alias of {@link safeUnwrap} for untrusted input.
+   *
+   * Structurally parses `input`, then verifies the payload — returning
+   * `{ ok: true, id }` on success (dropping the recovered `lookupKey`) or
+   * `{ ok: false, error }` on any failure, without throwing. Deliberately
+   * redundant with {@link safeUnwrap} (a wrapped ID cannot be verified without
+   * unwrapping it): use {@link safeUnwrap} when the lookup key is needed, and
+   * `safeVerify` to gate on authenticity alone. This is the method that lets the
+   * codec satisfy the HTTP adapters' `IdVerifiableCodec` interface under
+   * `verify: true`. See ADR-0036.
+   */
+  safeVerify(input: unknown): Promise<SafeVerifyResult<Brand>>;
   /** Strict type guard: `true` only for already-canonical `Id<Brand>` strings. */
   is(value: unknown): value is Id<Brand>;
   /** Normalise to canonical form, or throw on parse failure. */
@@ -259,6 +287,14 @@ export function createWrappedKeyId<Brand extends string, Kind extends WrappedKin
   const wire = wireMethods(prefix);
   const layout = createWrappedLayoutOps(prefix, brand, opts.kind, layoutKeys);
 
+  const safeUnwrap = async (input: unknown): Promise<UnwrapResult<Brand, Kind>> => {
+    const parsed = wire.safeParse(input);
+    if (!parsed.ok) return parsed;
+    const lookupKey = await layout.tryUnwrap(parsed.id);
+    if (lookupKey === null) return { ok: false, error: "verification_failed" };
+    return { ok: true, id: parsed.id, lookupKey };
+  };
+
   return {
     wrap: async (lookupKey) => {
       assertLookupKey(opts.kind, lookupKey);
@@ -271,12 +307,12 @@ export function createWrappedKeyId<Brand extends string, Kind extends WrappedKin
       }
       return lookupKey;
     },
-    safeUnwrap: async (input) => {
-      const parsed = wire.safeParse(input);
-      if (!parsed.ok) return parsed;
-      const lookupKey = await layout.tryUnwrap(parsed.id);
-      if (lookupKey === null) return { ok: false, error: "verification_failed" };
-      return { ok: true, id: parsed.id, lookupKey };
+    safeUnwrap,
+    // Verify-only alias: delegates to safeUnwrap and drops the recovered lookupKey
+    // so the codec satisfies IdVerifiableCodec. Single source of truth — see ADR-0036.
+    safeVerify: async (input) => {
+      const result = await safeUnwrap(input);
+      return result.ok ? { ok: true, id: result.id } : result;
     },
     is: wire.is,
     parse: wire.parse,
