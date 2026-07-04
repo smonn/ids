@@ -24,6 +24,11 @@ concurrency:
   group: bench-${{ github.ref }}
   cancel-in-progress: true
 
+# No workflow-level permissions: the bench job below declares its own grants, so a
+# future job added without a permissions: block inherits nothing instead of the repo
+# default. Every other workflow sets a top-level block.
+permissions: {}
+
 jobs:
   bench:
     # Same-repo guard: fork PRs skip the bench. This job is write-scoped and runs

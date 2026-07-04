@@ -179,6 +179,25 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
+      # A SECOND, strictly READ-ONLY App token for the producer step below — the
+      # write/read-only split (see .github/workflows/README.md "App token & the read/write
+      # security split"). The write token above stays on the deterministic gh/git steps
+      # (resolve SHA, label edits, dedup DELETE, status writes, the poster); the producer,
+      # which processes attacker-influenceable PR/review text, gets this read-only one.
+      # Kept as a SEPARATE mint — do not merge them. Uses the raw action, like the write
+      # mint above, because review.yml mints BEFORE any checkout and the local
+      # ./.github/actions/app-token composite would require the repo on disk first.
+      - name: Generate read-only GitHub App token (for the producer)
+        if: steps.scope.outputs.review == 'true'
+        id: app-token-ro
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
+
       - name: Resolve PR head SHA
         if: steps.scope.outputs.review == 'true'
         id: sha
@@ -243,7 +262,14 @@ jobs:
         with:
           ref: refs/pull/${{ env.PR_NUMBER }}/head
           fetch-depth: 0
+          # The write token authenticates this one-off fetch of the PR head, but
+          # persist-credentials: false keeps it OUT of .git/config so nothing lingers for
+          # the read-only producer to inherit — defense-in-depth (review never pushes) and
+          # consistent with the sibling agent workflows. `origin/main` is fetched
+          # unauthenticated below (public repo); the helper provisioning uses its own
+          # tokenized URL, so neither relies on persisted credentials.
           token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - name: Fetch main as the review diff base
         if: steps.scope.outputs.review == 'true' && steps.gate.outputs.skip != 'true'
@@ -344,12 +370,9 @@ jobs:
       - name: Produce the review (write findings to .review/, post nothing)
         if: steps.scope.outputs.review == 'true' && steps.gate.outputs.skip != 'true'
         uses: anthropics/claude-code-action@a92e7c70a4da9793dc164451d829089dc057a464 # v1.0.159
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ steps.app-token.outputs.token }}
+          github_token: ${{ steps.app-token-ro.outputs.token }}
           # The PR was opened by the App, so the pull_request actor is a bot.
           allowed_bots: "smonn[bot]"
           prompt: |
@@ -484,7 +507,9 @@ jobs:
           # files and the repo's standards docs, Task so the skill can spawn its two
           # parallel sub-agents, and Write to author the .review/ files. NO Bash, NO git,
           # NO gh — every input is precomputed and the deterministic `post` step below
-          # owns all GitHub writes. No Edit and no commit/push.
+          # owns all GitHub writes. No Edit and no commit/push. It also holds only the
+          # READ-ONLY app-token-ro (github_token above), so even a token-level mutation is
+          # impossible — not just excluded by allowedTools.
           claude_args: |
             --max-turns 60
             --model claude-sonnet-4-6
