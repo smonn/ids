@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "vectors": [
     {
       "name": "timestamp_extract_running_example",
@@ -254,6 +254,14 @@
       "operation": "canonicalize",
       "input": "usr_000000000000000000000000000",
       "expected": { "ok": false, "layer": "base32" }
+    },
+    {
+      "name": "canonicalize_alias_i_l_to_one",
+      "description": "Crockford visual aliases i/I/l/L resolve to 1 before validation; scattered at payload positions 1, 9, 17, 25 so partial alias coverage (e.g. timestamp region only) fails",
+      "category": "wire",
+      "operation": "canonicalize",
+      "input": "usr_i0000000I0000000l0000000L0",
+      "expected": { "ok": true, "id": "usr_10000000100000001000000010" }
     }
   ]
 }
