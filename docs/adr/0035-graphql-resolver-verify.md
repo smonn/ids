@@ -19,7 +19,7 @@ The returned async resolver, for each `(argName, codec)` in the map: skips the a
 
 - **`idScalar` is untouched.** The sync scalar keeps doing structural parse and brand discrimination on the inbound path (`parseValue`/`parseLiteral`); the wrapper adds the async HMAC check one layer out. Verification is purely additive.
 - **The codec map is constrained to `IdVerifiableCodec` at compile time.** Passing a non-signed codec (no `safeVerify`) is a type error at the call site — the same static guarantee #917 gives via its overloads, expressed here as a constraint on the map's value type.
-- **Failure is a framework-native `GraphQLError`**, per [ADR-0020](./0020-adapter-error-types.md). The message is coarse (`invalid <argName>`) and leaks no internal parse-error code, consistent with `idScalar`'s coarsening posture ([ADR-0003](./0003-canonical-strict-is.md) correction). The arg name is already public in the schema, so surfacing it discloses nothing.
+- **Failure is a framework-native `GraphQLError`**, per [ADR-0020](./0020-adapter-error-types.md). The message is coarse (`invalid <argName>`) and leaks no internal parse-error code, matching `idScalar`'s own coarse `invalid <name>` messages (the GraphQL adapter's documented error model). The arg name is already public in the schema, so surfacing it discloses nothing.
 - **Scope is top-level args only.** A signed ID nested inside an input-object arg is not reached by the flat `args[key]` lookup; this matches the single flat value the HTTP adapters verify. Nested-path support is a documented non-goal for now.
 
 ## Rationale

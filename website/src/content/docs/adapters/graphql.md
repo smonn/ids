@@ -83,3 +83,11 @@ verifyIdArgs({ userId: usr, orgId: org }, (_root, args, ctx) => ctx.link(args.us
 ```
 
 Verification covers **top-level arguments only** — an ID nested inside an input-object argument is not reached; verify it in the resolver body with `codec.safeVerify` if you need to. See [ADR-0035](https://github.com/smonn/ids/blob/main/docs/adr/0035-graphql-resolver-verify.md) for why GraphQL verification is a resolver wrapper rather than a `verify: true` option like the HTTP adapters.
+
+:::caution
+Two things to keep in mind so verification isn't silently bypassed.
+
+**Pair each verified argument with an `idScalar`** built from the same codec. `verifyIdArgs` checks the tag but returns the arguments unchanged — it does not substitute the canonical `id`. `idScalar`'s `parseValue`/`parseLiteral` canonicalises the value (case, Crockford aliases) before the resolver runs; on a plain `GraphQLString` argument a non-canonical variant would verify yet reach the resolver un-normalised.
+
+**Codec-map keys must match the field's argument names exactly.** A key that matches no argument — a rename or typo — is skipped just like an absent nullable argument, so verification becomes a no-op with no error. Keep the map keys in sync with your schema.
+:::

@@ -401,6 +401,42 @@ describe("verifyIdArgs", () => {
     expect(resolver).not.toHaveBeenCalled();
   });
 
+  it("rejects a wrong-brand signed ID (structural prefix mismatch)", async () => {
+    const key = await importSigningKey(new Uint8Array(32).fill(0x11));
+    const usr = createSignedTimestampId("usr", { keys: [key], allowDuplicateBrand: true });
+    const org = createSignedTimestampId("org", { keys: [key], allowDuplicateBrand: true });
+    const resolver = vi.fn(() => "ran");
+    // Verifier expects "usr" but receives a genuinely-signed "org" ID.
+    const wrapped = verifyIdArgs({ id: usr }, resolver);
+
+    const orgId = await org.generate();
+    await expect(wrapped(null, { id: orgId }, {}, fromAny({}))).rejects.toThrow(
+      expect.objectContaining({ message: "invalid id" }),
+    );
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
+  it("rejects an ID signed under a different key (missing/invalid key)", async () => {
+    const signingKey = await importSigningKey(new Uint8Array(32).fill(0x22));
+    const otherKey = await importSigningKey(new Uint8Array(32).fill(0x33));
+    const signer = createSignedTimestampId("sgn", {
+      keys: [signingKey],
+      allowDuplicateBrand: true,
+    });
+    const verifier = createSignedTimestampId("sgn", {
+      keys: [otherKey],
+      allowDuplicateBrand: true,
+    });
+    const resolver = vi.fn(() => "ran");
+    const wrapped = verifyIdArgs({ id: verifier }, resolver);
+
+    const id = await signer.generate();
+    await expect(wrapped(null, { id }, {}, fromAny({}))).rejects.toThrow(
+      expect.objectContaining({ message: "invalid id" }),
+    );
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
   it("rejects a non-verifiable codec (no safeVerify) at compile time", () => {
     const plain = createTimestampId("pln", { allowDuplicateBrand: true });
     // A plain Timestamp codec satisfies IdCodec but not IdVerifiableCodec.

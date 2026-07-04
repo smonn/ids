@@ -77,6 +77,17 @@ export function idScalar<Brand extends string>(
  * is a compile-time type error. Verification covers top-level args only — IDs nested inside input
  * objects are not reached.
  *
+ * **Pair with {@link idScalar}.** The wrapper checks the tag but returns `args` unchanged — it does
+ * not substitute the canonical `id` from `safeVerify`. Front each verified arg with an `idScalar`
+ * built from the same codec so `parseValue`/`parseLiteral` canonicalises the value (case, Crockford
+ * aliases) before the resolver runs; on a plain `GraphQLString` arg a non-canonical variant would
+ * verify yet reach the resolver un-normalised.
+ *
+ * **Only listed args are verified, and keys must match the field's argument names exactly.** A
+ * codec-map key that matches no argument (a rename or typo) is silently skipped — the same path as
+ * an absent nullable arg — so verification becomes a no-op. Runtime cannot tell a typo from a
+ * legitimately-absent nullable arg; keep the map keys in sync with the schema.
+ *
  * @example
  * ```ts
  * import { verifyIdArgs } from "@smonn/ids/graphql";
@@ -99,7 +110,7 @@ export function verifyIdArgs<
     for (const argName of Object.keys(codecs) as (keyof TArgs)[]) {
       const codec = codecs[argName];
       const value = args[argName];
-      if (codec === undefined || value === null || value === undefined) {
+      if (codec === undefined || value == null) {
         continue;
       }
       const result = await codec.safeVerify(value);
