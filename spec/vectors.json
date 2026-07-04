@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "vectors": [
     {
       "name": "timestamp_extract_running_example",
@@ -230,6 +230,30 @@
       "operation": "canonicalize",
       "input": 42,
       "expected": { "ok": false, "layer": "not_a_string" }
+    },
+    {
+      "name": "canonicalize_reject_unicode_kelvin",
+      "description": "U+212A KELVIN SIGN is not ASCII; SPEC case folding is ASCII-only, so it is not folded to 'k' and the payload is rejected at the base32 layer (guards against String.prototype.toLowerCase() Unicode aliasing)",
+      "category": "wire",
+      "operation": "canonicalize",
+      "input": "usr_\u212akkkkkkkkkkkkkkkkkkkkkkkk0",
+      "expected": { "ok": false, "layer": "base32" }
+    },
+    {
+      "name": "canonicalize_reject_overlong_wrong_prefix",
+      "description": "overlong input (31 chars) whose leading slice is not the codec prefix is rejected at the prefix layer, not base32 — first-failing-layer rule applies even when the input also trips the length guard",
+      "category": "wire",
+      "operation": "canonicalize",
+      "input": "org_000000000000000000000000000",
+      "expected": { "ok": false, "layer": "prefix" }
+    },
+    {
+      "name": "canonicalize_reject_overlong_right_prefix",
+      "description": "overlong input (31 chars) whose leading slice IS the codec prefix still reports base32 — the prefix passed, so the oversized payload is the first failure",
+      "category": "wire",
+      "operation": "canonicalize",
+      "input": "usr_000000000000000000000000000",
+      "expected": { "ok": false, "layer": "base32" }
     }
   ]
 }
