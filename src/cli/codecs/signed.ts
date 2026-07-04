@@ -30,7 +30,7 @@ export const signedCli: CodecModule = {
           prepare: (o, key) => async (id) => {
             const brand = brandOfId(id);
             if (brand === undefined) return runtimeError("invalid_id: not a valid ID");
-            const codec = createSignedTimestampId(brand, { keys: [key!], ...sharedCodecOpts(o) });
+            const codec = createSignedTimestampId(brand, { keys: [key], ...sharedCodecOpts(o) });
             const verified = await codec.safeVerify(id);
             if (!verified.ok) {
               return verified.error === "verification_failed"

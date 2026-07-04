@@ -38,9 +38,12 @@ const usageCodeBuckets: Record<IdsErrorCode, "usage" | "runtime"> = {
   invalid_id: "runtime",
 };
 
-/** Truncates a stray positional token so it never echoes verbatim in error messages. */
+/** Truncates a stray positional token so it never echoes verbatim in error messages.
+ *  Strips C0 (U+0000–U+001F), DEL (U+007F), and C1 (U+0080–U+009F) before truncating. */
 export function redactToken(token: string): string {
-  return token.length > 20 ? `${token.slice(0, 20)}…` : token;
+  // oxlint-disable-next-line no-control-regex -- intentional: strip C0/DEL/C1 before echoing
+  const stripped = token.replace(/[\u0000-\u001f\u007f\u0080-\u009f]/g, "");
+  return stripped.length > 20 ? `${stripped.slice(0, 20)}…` : stripped;
 }
 
 export function mapThrown(err: unknown): CliError {
@@ -197,17 +200,27 @@ type Recover = (id: string) => Promise<InspectReport | CliError>;
  * Per-codec inspect configuration. `prepare` runs once with the resolved key (if any)
  * and returns either the per-ID recovery function or a setup-time {@link CliError}
  * (e.g. a bad `--kind`) — so an invocation-level error is reported once, not per line.
+ *
+ * Discriminated on `keyed`: the `true` arm requires `codecKey` and types `key` as `K`;
+ * the `false` arm forbids `codecKey` and types `key` as `undefined`.
  */
-export type InspectSpec<K> = {
-  readonly keyed: boolean;
-  readonly codecKey?: CodecKey<K>;
-  readonly extraFlags?: readonly FlagSpec[];
-  readonly prepare: (
-    opts: RunOpts,
-    key: K | undefined,
-    values: Map<string, string>,
-  ) => Recover | CliError;
-};
+export type InspectSpec<K> =
+  | {
+      readonly keyed: true;
+      readonly codecKey: CodecKey<K>;
+      readonly extraFlags?: readonly FlagSpec[];
+      readonly prepare: (opts: RunOpts, key: K, values: Map<string, string>) => Recover | CliError;
+    }
+  | {
+      readonly keyed: false;
+      readonly codecKey?: never;
+      readonly extraFlags?: readonly FlagSpec[];
+      readonly prepare: (
+        opts: RunOpts,
+        key: undefined,
+        values: Map<string, string>,
+      ) => Recover | CliError;
+    };
 
 /**
  * Shared `inspect` runner: one ID positional, or many via stdin (best-effort,
@@ -239,13 +252,14 @@ export async function runInspect<K>(
 
   // Resolve the key and bind recovery BEFORE reading stdin, so a bad key or bad
   // setup flag fails fast rather than after consuming piped input (#766).
-  let key: K | undefined;
+  let recover: Recover | CliError;
   if (spec.keyed) {
-    const resolved = await resolveKey(values, flags, opts, spec.codecKey!);
+    const resolved = await resolveKey(values, flags, opts, spec.codecKey);
     if (isCliError(resolved)) return fail(opts, resolved);
-    key = resolved;
+    recover = spec.prepare(opts, resolved, values);
+  } else {
+    recover = spec.prepare(opts, undefined, values);
   }
-  const recover = spec.prepare(opts, key, values);
   if (isCliError(recover)) return fail(opts, recover);
 
   const single = positionals.length === 1;
@@ -278,7 +292,7 @@ export async function runInspect<K>(
     if (isCliError(report)) {
       if (single) return fail(opts, report);
       anyFail = true;
-      opts.stderr(`${input}: ${report.message}\n`);
+      opts.stderr(`${redactToken(input)}: ${report.message}\n`);
       continue;
     }
     if (!quiet) opts.stdout(json ? formatInspectJson(report) : formatInspectHuman(report));

@@ -2,7 +2,7 @@ import { createTimestampId } from "../../codecs/timestamp/index.js";
 import { type FlagSpec, parseArgs } from "../args.js";
 import { usageError } from "../errors.js";
 import type { RunOpts } from "../types.js";
-import { fail, mapThrown } from "../verbs.js";
+import { fail, mapThrown, redactToken } from "../verbs.js";
 
 /**
  * Re-express a UUID as an `Id` for a brand (uuid → id). Codec-agnostic — the Raw UUID
@@ -17,7 +17,7 @@ export async function runConvert(argv: ReadonlyArray<string>, opts: RunOpts): Pr
   const brand = positionals[0];
   if (brand === undefined) return fail(opts, usageError("missing brand"));
   if (positionals.length > 1)
-    return fail(opts, usageError(`unexpected argument: ${positionals[1]!}`));
+    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
 
   const uuid = values.get("--uuid");
   if (uuid === undefined || uuid === "") return fail(opts, usageError("--uuid is required"));

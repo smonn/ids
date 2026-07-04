@@ -418,6 +418,16 @@ describe("ids convert", () => {
     const { opts } = capture(["convert", "usr", "--uuid", "not-a-uuid"]);
     expect(await run(opts)).toBe(2);
   });
+
+  it("redacts a stray positional in the error message", async () => {
+    const long = "x".repeat(25);
+    const { opts, err } = capture(["convert", "usr", "--uuid", "ignored", long]);
+    expect(await run(opts)).toBe(2);
+    const errText = err.join("");
+    expect(errText).toContain("unexpected argument:");
+    expect(errText).not.toContain(long);
+    expect(errText).toContain("x".repeat(20) + "…");
+  });
 });
 
 describe("router", () => {
@@ -439,10 +449,30 @@ describe("router", () => {
     expect(err.join("")).toContain("unknown command");
   });
 
+  it("unknown command redacts a long token in the error message", async () => {
+    const long = "y".repeat(25);
+    const { opts, err } = capture([long]);
+    expect(await run(opts)).toBe(2);
+    const errText = err.join("");
+    expect(errText).toContain("unknown command:");
+    expect(errText).not.toContain(long);
+    expect(errText).toContain("y".repeat(20) + "…");
+  });
+
   it("unknown verb for a codec exits 2", async () => {
     const { opts, err } = capture(["timestamp", "frobnicate"]);
     expect(await run(opts)).toBe(2);
     expect(err.join("")).toContain("unknown verb");
+  });
+
+  it("unknown verb redacts a long token in the error message", async () => {
+    const long = "z".repeat(25);
+    const { opts, err } = capture(["timestamp", long]);
+    expect(await run(opts)).toBe(2);
+    const errText = err.join("");
+    expect(errText).toContain("unknown verb");
+    expect(errText).not.toContain(long);
+    expect(errText).toContain("z".repeat(20) + "…");
   });
 
   it("batch inspect over stdin is best-effort with stdout = successes only", async () => {
@@ -468,6 +498,17 @@ describe("router", () => {
     });
     expect(await run(batch.opts)).toBe(0);
     expect(batch.out.join("").match(/brand:/g)).toHaveLength(2);
+  });
+
+  it("batch inspect strips control characters from failing-input token in stderr", async () => {
+    const batch = capture(["timestamp", "inspect"], {
+      readStdin: () => Promise.resolve("\x1b]0;pwned\x07not-an-id\n"),
+    });
+    expect(await run(batch.opts)).toBe(1);
+    const errText = batch.err.join("");
+    expect(errText).not.toContain("\x1b");
+    expect(errText).toContain("]0;pwned");
+    expect(errText).toContain("invalid_id");
   });
 
   it("codec and top-level --help print help with exit 0", async () => {

@@ -9,6 +9,7 @@ import { runKeygen } from "./commands/keygen.js";
 import { formatCliError } from "./format.js";
 import { helpForCodec, helpForCommand, usage } from "./help.js";
 import type { CodecModule, RunOpts, VerbHandler } from "./types.js";
+import { redactToken } from "./verbs.js";
 
 export const codecModules: readonly CodecModule[] = [
   timestampCli,
@@ -59,7 +60,7 @@ export async function run(opts: RunOpts): Promise<number> {
 
     const mod = codecModules.find((m) => m.codec === first);
     if (mod === undefined) {
-      opts.stderr(`unknown command: ${first}\n`);
+      opts.stderr(`unknown command: ${redactToken(first)}\n`);
       opts.stderr(usage(codecNames));
       return 2;
     }
@@ -77,7 +78,7 @@ export async function run(opts: RunOpts): Promise<number> {
 
     const handler = mod.verbs[verbName];
     if (handler === undefined) {
-      opts.stderr(`unknown verb for ${mod.codec}: ${verbName}\n`);
+      opts.stderr(`unknown verb for ${mod.codec}: ${redactToken(verbName)}\n`);
       opts.stderr(helpForCodec(mod.codec, Object.keys(mod.verbs)));
       return 2;
     }
