@@ -51,6 +51,17 @@ describe("prisma", () => {
     expect(transform.write(id)).toBe(id);
   });
 
+  it("write throws IdsError(invalid_id) for a cast-smuggled invalid string", () => {
+    let err: unknown;
+    try {
+      transform.write("not-a-valid-id" as Id<"usr">);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+  });
+
   it("read-back returns Id<Brand>", () => {
     const id = usr.generate();
     expect(transform.read(id)).toBe(id);
@@ -437,6 +448,51 @@ describe("prisma", () => {
       expectTypeOf(transform).toMatchTypeOf<IdTransform<"usr">>();
       expectTypeOf(transform.defaultQuery).toBeFunction();
     });
+
+    it("throws IdsError(invalid_id) when a cast-smuggled invalid string is supplied in create data", async () => {
+      const field = transform.defaultQuery("id");
+      const cbArgs = makeQueryArgs("create", { data: { id: "not-a-valid-id", name: "Alice" } });
+      let err: unknown;
+      try {
+        await field.create!(cbArgs);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("throws IdsError(invalid_id) when a cast-smuggled invalid string is supplied in createMany data", async () => {
+      const field = transform.defaultQuery("id");
+      const cbArgs = makeQueryArgs("createMany", {
+        data: [{ id: "not-a-valid-id", name: "Alice" }],
+      });
+      let err: unknown;
+      try {
+        await field.createMany!(cbArgs);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("throws IdsError(invalid_id) when a cast-smuggled invalid string is supplied in upsert create data", async () => {
+      const field = transform.defaultQuery("id");
+      const cbArgs = makeQueryArgs("upsert", {
+        where: { email: "alice@example.com" },
+        create: { id: "not-a-valid-id", name: "Alice" },
+        update: { name: "Alice" },
+      });
+      let err: unknown;
+      try {
+        await field.upsert!(cbArgs);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
   });
 
   it("idFieldReadOnly is a deprecated wrapper around idFieldNonGenerating", () => {
@@ -633,6 +689,34 @@ describe("prisma", () => {
       const result = nullableIdField(usr);
       const id = usr.generate();
       expect(result.write(id)).toBe(id);
+    });
+
+    it("write returns null for null", () => {
+      const result = nullableIdField(usr);
+      expect(result.write(null)).toBeNull();
+    });
+
+    it("write returns null for undefined", () => {
+      const result = nullableIdField(usr);
+      expect(result.write(undefined)).toBeNull();
+    });
+
+    it("write validates and returns the canonical string for a valid id", () => {
+      const result = nullableIdField(usr);
+      const id = usr.generate();
+      expect(result.write(id)).toBe(id);
+    });
+
+    it("write throws IdsError(invalid_id) for a cast-smuggled invalid string", () => {
+      const result = nullableIdField(usr);
+      let err: unknown;
+      try {
+        result.write("not-a-valid-id" as Id<"usr">);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
     });
 
     it("computeNullableField returns a { needs, compute } object", () => {
