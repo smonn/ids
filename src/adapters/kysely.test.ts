@@ -39,6 +39,17 @@ describe("kysely", () => {
     expectTypeOf(usrCol.toDriver(id)).toEqualTypeOf<string>();
   });
 
+  it("write path rejects a cast-smuggled invalid string", () => {
+    let err: unknown;
+    try {
+      usrCol.toDriver("not_an_id" as Id<"usr">);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+  });
+
   it("read-back returns Id<Brand>", () => {
     const id = usr.generate();
     expect(usrCol.fromDriver(fromAny(id))).toBe(id);
@@ -308,6 +319,17 @@ describe("kysely", () => {
     it("write path passes Id<Brand> through as string", () => {
       const id = usr.generate();
       expect(nullableUsrCol.toDriver(id)).toBe(id);
+    });
+
+    it("write path rejects a cast-smuggled invalid string", () => {
+      let err: unknown;
+      try {
+        nullableUsrCol.toDriver("not_an_id" as Id<"usr">);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
     });
 
     it("NullableIdColumnType is assignable to Kysely ColumnType", () => {

@@ -26,6 +26,17 @@ describe("typeorm", () => {
     expect(transformer.to(id)).toBe(id);
   });
 
+  it("write path rejects a cast-smuggled invalid string", () => {
+    let err: unknown;
+    try {
+      transformer.to("not_an_id" as Id<"usr">);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
+  });
+
   it("read-back returns Id<Brand>", () => {
     const id = usr.generate();
     expect(transformer.from(id)).toBe(id);
@@ -206,6 +217,17 @@ describe("typeorm", () => {
     it("write path passes Id<Brand> through as string", () => {
       const id = usr.generate();
       expect(nullableTransformer.to(id)).toBe(id);
+    });
+
+    it("write path rejects a cast-smuggled invalid string", () => {
+      let err: unknown;
+      try {
+        nullableTransformer.to("not_an_id" as Id<"usr">);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
     });
   });
 });

@@ -25,9 +25,20 @@ describe("mikro-orm", () => {
     expect(instance).toBeInstanceOf(Type);
   });
 
-  it("write path stores the canonical string (identity pass-through)", () => {
+  it("write path stores the canonical string", () => {
     const id = usr.generate();
     expect(instance.convertToDatabaseValue(id, undefined as never)).toBe(id);
+  });
+
+  it("write path rejects a cast-smuggled invalid string", () => {
+    let err: unknown;
+    try {
+      instance.convertToDatabaseValue("not_an_id" as Id<"usr">, undefined as never);
+    } catch (e) {
+      err = e;
+    }
+    expect(isIdsError(err)).toBe(true);
+    expect((err as IdsError).code).toBe("invalid_id");
   });
 
   it("read-back returns Id<Brand>", () => {
@@ -215,6 +226,17 @@ describe("mikro-orm", () => {
     it("write path passes Id<Brand> through as string", () => {
       const id = usr.generate();
       expect(nullableInstance.convertToDatabaseValue(id, undefined as never)).toBe(id);
+    });
+
+    it("write path rejects a cast-smuggled invalid string", () => {
+      let err: unknown;
+      try {
+        nullableInstance.convertToDatabaseValue("not_an_id" as Id<"usr">, undefined as never);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
     });
 
     it("getColumnType returns text", () => {
