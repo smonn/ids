@@ -395,14 +395,38 @@ jobs:
 
           # NORMAL path. Require the producer's PR body and a non-empty local branch.
           test -f .impl/pr-body.md || { echo "::error::no escalation, but .impl/pr-body.md is missing — nothing to open a PR from"; exit 1; }
-          title=$(jq -r '.pr_title // empty' .impl/manifest.json)
-          [ -n "$title" ] || { echo "::error::manifest.json has no pr_title"; exit 1; }
           # The branch must carry commits ahead of origin/main; an empty branch means
-          # the producer implemented nothing.
+          # the producer implemented nothing. Checked before the title is derived
+          # because the title fallback below reads from these commits.
           if [ "$(git rev-list --count "origin/main..$branch" 2>/dev/null || echo 0)" -eq 0 ]; then
             echo "::error::branch $branch has no commits ahead of origin/main — the producer committed nothing."
             exit 1
           fi
+          # PR title. It becomes the squash-merge subject on main and is gated by the
+          # required pr-title check, so it MUST be a Conventional Commits subject
+          # (keep this pattern in sync with .github/workflows/pr-title.yml). Prefer the
+          # producer's manifest pr_title, but only when it conforms: the agent
+          # intermittently omits the scalar or supplies a non-conventional string, and
+          # neither must sink an otherwise-complete run (branch pushed, tests green) nor
+          # open a PR the title check can never pass. Fall back to the oldest branch
+          # commit subject that is itself Conventional Commits — the prompt requires
+          # conventional commit messages, so such a commit reliably exists.
+          conv='^(feat|fix|docs|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?!?: .+'
+          title=$(jq -r '.pr_title // empty' .impl/manifest.json)
+          if [ -z "$title" ] || ! printf '%s\n' "$title" | grep -qE "$conv"; then
+            [ -n "$title" ] && echo "::warning::manifest pr_title \"$title\" is not Conventional Commits; deriving the title from commit history."
+            # Branch commit subjects, oldest→newest (--reverse) so the producer's
+            # primary change wins. Prefer a user-facing change commit (feat/fix/perf/
+            # refactor) so the PR isn't titled after incidental chore/test/scaffolding
+            # work; fall back to any conforming subject. git runs to completion here,
+            # so no SIGPIPE; the later grep -m1 over the captured text closes its pipe
+            # early, so `|| true` masks the resulting failure while keeping the match.
+            subjects=$(git log --reverse --format='%s' "origin/main..$branch")
+            title=$(printf '%s\n' "$subjects" | grep -m1 -E '^(feat|fix|perf|refactor)(\([a-z0-9._/-]+\))?!?: .+' || true)
+            [ -n "$title" ] || title=$(printf '%s\n' "$subjects" | grep -m1 -E "$conv" || true)
+            echo "::warning::manifest.json had no usable pr_title; using commit subject: ${title:-<none>}"
+          fi
+          [ -n "$title" ] || { echo "::error::no Conventional Commits pr_title in manifest and no conforming commit subject to fall back to"; exit 1; }
 
           # WORKFLOW-FILE GUARD: the token deliberately lacks the `workflows` permission
           # (least-privilege — a prompt-injected agent must not rewrite CI), so GitHub
