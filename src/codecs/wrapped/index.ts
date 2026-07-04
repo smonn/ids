@@ -78,7 +78,7 @@ export type SafeVerifyResult<Brand extends string> =
  * recovers it on unwrap. The codec is deterministic under fixed key material:
  * the same lookup key always yields the same public ID (**equality leakage**).
  *
- * - `wrap` / `unwrap` / `safeUnwrap` are async (WebCrypto).
+ * - `wrap` / `unwrap` / `safeUnwrap` / `safeVerify` are async (WebCrypto).
  * - `is`, `parse`, `safeParse`, and `toJsonSchema` are synchronous and require
  *   no key material — they validate prefix and base32 shape only.
  * - The `Kind` type parameter drives value types at the TypeScript boundary:
@@ -284,6 +284,14 @@ export function createWrappedKeyId<Brand extends string, Kind extends WrappedKin
   const wire = wireMethods(prefix);
   const layout = createWrappedLayoutOps(prefix, brand, opts.kind, layoutKeys);
 
+  const safeUnwrap = async (input: unknown): Promise<UnwrapResult<Brand, Kind>> => {
+    const parsed = wire.safeParse(input);
+    if (!parsed.ok) return parsed;
+    const lookupKey = await layout.tryUnwrap(parsed.id);
+    if (lookupKey === null) return { ok: false, error: "verification_failed" };
+    return { ok: true, id: parsed.id, lookupKey };
+  };
+
   return {
     wrap: async (lookupKey) => {
       assertLookupKey(opts.kind, lookupKey);
@@ -296,19 +304,12 @@ export function createWrappedKeyId<Brand extends string, Kind extends WrappedKin
       }
       return lookupKey;
     },
-    safeUnwrap: async (input) => {
-      const parsed = wire.safeParse(input);
-      if (!parsed.ok) return parsed;
-      const lookupKey = await layout.tryUnwrap(parsed.id);
-      if (lookupKey === null) return { ok: false, error: "verification_failed" };
-      return { ok: true, id: parsed.id, lookupKey };
-    },
+    safeUnwrap,
+    // Verify-only alias: delegates to safeUnwrap and drops the recovered lookupKey
+    // so the codec satisfies IdVerifiableCodec. Single source of truth — see ADR-0036.
     safeVerify: async (input) => {
-      const parsed = wire.safeParse(input);
-      if (!parsed.ok) return parsed;
-      const lookupKey = await layout.tryUnwrap(parsed.id);
-      if (lookupKey === null) return { ok: false, error: "verification_failed" };
-      return { ok: true, id: parsed.id };
+      const result = await safeUnwrap(input);
+      return result.ok ? { ok: true, id: result.id } : result;
     },
     is: wire.is,
     parse: wire.parse,

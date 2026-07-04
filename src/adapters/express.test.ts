@@ -798,10 +798,32 @@ describe("verify option", () => {
         allowDuplicateBrand: true,
       });
       const validId = await inv.wrap(7);
-      const forged = validId.slice(0, -1) + (validId.endsWith("0") ? "1" : "0");
+      // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
+      // structurally valid — the rejection must come from verification, not a parse failure.
+      const forged = validId.slice(0, 4) + (validId[4] === "0" ? "1" : "0") + validId.slice(5);
 
       const middleware = idParam("id", inv, { verify: true });
       const req = makeReq("id", forged);
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(next).toHaveBeenCalledOnce();
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect(err.reason).toBe("malformed");
+    });
+
+    it("idParam: structurally malformed input is rejected via the parse channel", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      // "u" is not in the Crockford base32 alphabet → invalid_base32 → malformed, before verify
+      const middleware = idParam("id", inv, { verify: true });
+      const req = makeReq("id", "inv_uuuuuuuuuuuuuuuuuuuuuuuuuu");
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);

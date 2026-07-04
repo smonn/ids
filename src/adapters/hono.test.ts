@@ -481,7 +481,11 @@ describe("verify option", () => {
         allowDuplicateBrand: true,
       });
       const validId = await inv.wrap(7);
-      const forged = (validId.slice(0, -1) + (validId.endsWith("0") ? "1" : "0")) as typeof validId;
+      // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
+      // structurally valid — the rejection must come from verification, not a parse failure.
+      const forged = (validId.slice(0, 4) +
+        (validId[4] === "0" ? "1" : "0") +
+        validId.slice(5)) as typeof validId;
 
       const app = new Hono();
       app.get("/items/:id", idParam("id", inv, { verify: true }), (c) =>
@@ -518,7 +522,11 @@ describe("verify option", () => {
         allowDuplicateBrand: true,
       });
       const validId = await inv.wrap(7);
-      const forged = (validId.slice(0, -1) + (validId.endsWith("0") ? "1" : "0")) as typeof validId;
+      // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
+      // structurally valid — the rejection must come from verification, not a parse failure.
+      const forged = (validId.slice(0, 4) +
+        (validId[4] === "0" ? "1" : "0") +
+        validId.slice(5)) as typeof validId;
 
       const app = new Hono();
       app.get("/items/:id", idParam("id", inv), (c) => c.json({ id: c.get("id") }));
@@ -532,6 +540,22 @@ describe("verify option", () => {
       app.get("/items/:id", idParam("id", spyCodec, { verify: true }), (c) => c.text("ok"));
       await app.request("/items/inv_00000000000000000000000000");
       expect(spyCodec.safeVerify).toHaveBeenCalled();
+    });
+
+    it("structurally malformed input is rejected via the parse channel → 400", async () => {
+      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+      const inv = createWrappedKeyId("inv", {
+        kind: "u32",
+        keys: [key],
+        allowDuplicateBrand: true,
+      });
+      // "u" is not in the Crockford base32 alphabet → invalid_base32 → malformed, before verify
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", inv, { verify: true }), (c) =>
+        c.json({ id: c.get("id") }),
+      );
+      const res = await app.request("/items/inv_uuuuuuuuuuuuuuuuuuuuuuuuuu");
+      expect(res.status).toBe(400);
     });
   });
 
@@ -579,7 +603,11 @@ describe("verify option", () => {
         allowDuplicateBrand: true,
       });
       const validId = await inv.wrap(7);
-      const forged = (validId.slice(0, -1) + (validId.endsWith("0") ? "1" : "0")) as typeof validId;
+      // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
+      // structurally valid — the rejection must come from verification, not a parse failure.
+      const forged = (validId.slice(0, 4) +
+        (validId[4] === "0" ? "1" : "0") +
+        validId.slice(5)) as typeof validId;
 
       const app = new Hono();
       app.get("/items", idQuery("id", inv, { verify: true }), (c) => c.text("ok"));

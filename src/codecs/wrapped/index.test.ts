@@ -221,8 +221,12 @@ describe("wrapped", () => {
       ok: false,
       error: "verification_failed",
     });
-    // tampered payload
-    const tampered = (id.slice(0, -1) + (id.endsWith("0") ? "1" : "0")) as typeof id;
+    // tampered payload — flip a NON-final payload char (index 4, first char after the
+    // "inv_" prefix) between two always-valid base32 chars, so the id stays structurally
+    // valid and the failure is genuinely verification, not a parse failure.
+    const tampered = (id.slice(0, 4) + (id[4] === "0" ? "1" : "0") + id.slice(5)) as typeof id;
+    // guard: the tamper must remain structurally parseable, else this test is vacuous
+    expect(inv.safeParse(tampered).ok).toBe(true);
     await expect(inv.safeVerify(tampered)).resolves.toEqual({
       ok: false,
       error: "verification_failed",

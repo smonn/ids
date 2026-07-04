@@ -373,10 +373,23 @@ describe("ParseIdPipe verify option", () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
     const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
     const validId = await inv.wrap(7);
-    const forged = validId.slice(0, -1) + (validId.endsWith("0") ? "1" : "0");
+    // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
+    // structurally valid — the rejection must come from verification, not a parse failure.
+    const forged = validId.slice(0, 4) + (validId[4] === "0" ? "1" : "0") + validId.slice(5);
 
     const pipe = new ParseIdPipe(inv, { verify: true });
     await expect(pipe.transform(forged, METADATA)).rejects.toThrow(BadRequestException);
+  });
+
+  it("real Wrapped key codec: structurally malformed input rejected via parse channel", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    // "u" is not in the Crockford base32 alphabet → invalid_base32 → malformed. The parse
+    // failure short-circuits BEFORE the async verify branch, so transform throws synchronously.
+    const pipe = new ParseIdPipe(inv, { verify: true });
+    expect(() => pipe.transform("inv_uuuuuuuuuuuuuuuuuuuuuuuuuu", METADATA)).toThrow(
+      BadRequestException,
+    );
   });
 
   it("real Wrapped key codec: tag-valid ID accepted with verify: true", async () => {
