@@ -177,13 +177,23 @@ export function idParam<ParamKey extends string, Brand extends string>(
             next(new IdParamError(failure.reason, failure.status));
             return;
           }
-          (res.locals as Record<string, unknown>)[paramName] = result.id;
+          Object.defineProperty(res.locals, paramName, {
+            value: result.id,
+            enumerable: true,
+            writable: true,
+            configurable: true,
+          });
           next();
         })
         .catch((err: unknown) => next(err));
       return;
     }
-    (res.locals as Record<string, unknown>)[paramName] = result.id;
+    Object.defineProperty(res.locals, paramName, {
+      value: result.id,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
     next();
   };
 }
@@ -296,13 +306,23 @@ export function idQuery<ParamKey extends string, Brand extends string>(
             next(new IdParamError(failure.reason, failure.status));
             return;
           }
-          (res.locals as Record<string, unknown>)[queryName] = result.id;
+          Object.defineProperty(res.locals, queryName, {
+            value: result.id,
+            enumerable: true,
+            writable: true,
+            configurable: true,
+          });
           next();
         })
         .catch((err: unknown) => next(err));
       return;
     }
-    (res.locals as Record<string, unknown>)[queryName] = result.id;
+    Object.defineProperty(res.locals, queryName, {
+      value: result.id,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
     next();
   };
 }
