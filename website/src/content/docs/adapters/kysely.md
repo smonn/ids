@@ -90,7 +90,7 @@ const id = usrCol.fromDriver(row.id as unknown as string);
 
 `idColumn(codec)` works with any codec variant.
 
-- **Write path:** `toDriver` passes the already-canonical `Id<Brand>` unchanged. Passing `null` or `undefined` throws `IdsError("invalid_id")` at runtime — use `nullableIdColumn` for nullable columns.
+- **Write path:** `toDriver` validates the value via `codec.safeParse` before passing it to the driver. A cast-smuggled or otherwise invalid string throws `IdsError("invalid_id")` at write time. Passing `null` or `undefined` also throws — use `nullableIdColumn` for nullable columns.
 - **Read path:** `fromDriver` normalises the raw DB string via `codec.safeParse()`. An unrecognised value throws at read time so corrupt data surfaces immediately.
 
 ### Error handling
@@ -156,7 +156,7 @@ const authorId = authorCol.fromDriver(row.author_id as unknown as string | null)
 ```
 
 - **Read path:** `fromDriver` returns `null` for `null` / `undefined` driver values. Non-null values are normalised via `codec.safeParse()` and throw `IdsError("invalid_id")` if they do not parse as a valid `Id<Brand>`.
-- **Write path:** `toDriver` normalises `null` and `undefined` to `null`; `Id<Brand>` values are passed through as canonical strings.
+- **Write path:** `toDriver` normalises `null` and `undefined` to `null`; non-null values are validated via `codec.safeParse` and an invalid string throws `IdsError("invalid_id")` at write time.
 
 ### `idPlugin` and nullable columns
 

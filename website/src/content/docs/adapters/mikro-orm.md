@@ -31,7 +31,7 @@ class User {
 `safeParse` satisfies the required interface (Timestamp, Opaque Timestamp,
 Reverse Timestamp, Signed Timestamp, Digest, and Wrapped key codecs all qualify).
 
-- **Write path:** `convertToDatabaseValue` passes the canonical `Id<Brand>` to the driver unchanged. Passing `null` or `undefined` throws `IdsError("invalid_id")` at runtime — use `nullableIdType` for nullable columns.
+- **Write path:** `convertToDatabaseValue` validates the value via `codec.safeParse` before passing it to the driver. A cast-smuggled or otherwise invalid string throws `IdsError("invalid_id")` at write time. Passing `null` or `undefined` also throws — use `nullableIdType` for nullable columns.
 - **Read path:** `convertToJSValue` normalises the raw DB value via
   `codec.safeParse()`. An unrecognised value throws at read time so corrupt
   data surfaces immediately.
@@ -94,7 +94,7 @@ class Comment {
 ```
 
 - **Read path:** `convertToJSValue` returns `null` for `null` / `undefined` database values. Non-null values go through `codec.safeParse()` and throw `IdsError("invalid_id")` if they do not parse as a valid `Id<Brand>`.
-- **Write path:** `convertToDatabaseValue` normalises `null` and `undefined` to `null`; non-null `Id<Brand>` values are passed through as canonical strings.
+- **Write path:** `convertToDatabaseValue` normalises `null` and `undefined` to `null`; non-null values are validated via `codec.safeParse` and an invalid string throws `IdsError("invalid_id")` at write time.
 - **Column type:** `getColumnType` returns `"text"` by default; pass `{ columnType: "..." }` as the second argument to `nullableIdType` to override (e.g. `nullableIdType(usr, { columnType: "char(26)" })`).
 
 ## Error handling
