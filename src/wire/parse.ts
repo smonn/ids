@@ -9,6 +9,20 @@ const base32Pattern = new RegExp(
   `^[${alphabet}]{${payloadBase32Length - 1}}${base32FinalCharClass}$`,
 );
 
+const asciiUpperPattern = /[A-Z]/g;
+const asciiLowerReplacer = (match: string): string => String.fromCharCode(match.charCodeAt(0) + 32);
+
+/**
+ * Fold ASCII `A`–`Z` to `a`–`z`, and nothing else. Unlike
+ * `String.prototype.toLowerCase()`, this applies no Unicode case folding, so a
+ * non-ASCII code unit such as U+212A KELVIN SIGN is left intact — and therefore
+ * rejected by base32 validation — rather than aliasing to `k`. SPEC
+ * canonicalization step 1: case folding is ASCII-only.
+ */
+function asciiLowerFold(value: string): string {
+  return value.replace(asciiUpperPattern, asciiLowerReplacer);
+}
+
 export function safeParse<Brand extends string>(
   prefix: Prefix<Brand>,
   value: unknown,
@@ -18,12 +32,19 @@ export function safeParse<Brand extends string>(
     return { ok: true, id: value as Id<Brand> };
   }
   if (value.length > prefix.length + payloadBase32Length) {
-    return { ok: false, error: "invalid_base32" };
+    // Overlong: fail fast in O(1). Classify by the fixed-size prefix slice only —
+    // never fold or regex-test the oversized payload — so the reported layer still
+    // obeys SPEC's first-failing-layer rule: a wrong prefix is a prefix-layer
+    // rejection even when the input is also too long, while a correct prefix
+    // leaves the oversized payload as the first (base32-layer) failure.
+    return asciiLowerFold(value.slice(0, prefix.length)) === prefix
+      ? { ok: false, error: "invalid_base32" }
+      : { ok: false, error: "invalid_prefix" };
   }
-  const lowercase = value.toLowerCase();
-  if (!lowercase.startsWith(prefix)) return { ok: false, error: "invalid_prefix" };
+  const folded = asciiLowerFold(value);
+  if (!folded.startsWith(prefix)) return { ok: false, error: "invalid_prefix" };
 
-  const sliced = lowercase.slice(prefix.length);
+  const sliced = folded.slice(prefix.length);
   const base32 = aliasTestPattern.test(sliced)
     ? sliced.replaceAll(replacePattern, replacer)
     : sliced;
