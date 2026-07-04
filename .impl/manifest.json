@@ -1,6 +1,0 @@
-{
-  "issue_number": 932,
-  "branch": "agent/issue-932",
-  "escalate": false,
-  "pr_title": "fix(cli): widen key-file permission mask to 0o077 and pin boundary tests"
-}
