@@ -48,7 +48,7 @@ A distinct **Signing key** handle, imported via `importSigningKey(bytes)` from r
 
 - The first entry is **current** — the only one `generate` / `generateAt` sign with.
 - `verify` / `safeVerify` recompute the tag under each entry in order until one matches; an ID signed under any listed key still verifies.
-- Removing an entry revokes IDs signed under it. Duplicate raw secrets are rejected at construction. No key id is on the wire — trial is correctness-grade (tag match), not plausibility guessing.
+- Removing an entry revokes IDs signed under it — revocation takes effect by constructing a new codec instance with the reduced `keys` list; in-place mutation of the original array passed at construction has no effect. Duplicate raw secrets are rejected at construction. No key id is on the wire — trial is correctness-grade (tag match), not plausibility guessing.
 
 This gives signed share links a rotation story out of the box, and is the authenticated home that [issue #103](https://github.com/smonn/ids/issues/103) defers transparent try-all-keys verification to.
 

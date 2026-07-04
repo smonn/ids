@@ -135,7 +135,9 @@ const decoded = decodeSigningKey(encoded, "base64url"); // Uint8Array
 Pass a non-empty ordered list of signing keys. The first entry is the _current_
 key — the only one `generate` / `generateAt` sign with. `verify` / `safeVerify`
 trial every entry in order until the tag matches, so IDs signed under any listed
-key remain verifiable. Removing an entry revokes all IDs signed under it.
+key remain verifiable. Removing an entry revokes all IDs signed under it —
+revocation takes effect by constructing a new codec instance with the
+reduced `keys` list; in-place mutation of the original array has no effect.
 
 ```ts
 const oldKey = await importSigningKey(rawOldSecret);
