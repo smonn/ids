@@ -149,6 +149,24 @@ const cases = [
     fixture: "test/fixtures/depcruise/codecs/filename-violation/helpers.ts",
     rule: "codec-slice-filename-convention",
   },
+  // codec upward-edge allowlist (Gap 1)
+  {
+    fixture: "test/fixtures/depcruise/codecs/upward-violation/index.ts",
+    rule: "codec-constructors-imports-allowlist",
+  },
+  {
+    fixture: "test/fixtures/depcruise/codecs/key-upward-violation/key.ts",
+    rule: "codec-key-imports-allowlist",
+  },
+  // broader no-shell narrowing (Gap 3)
+  {
+    fixture: "test/fixtures/depcruise/wire/no-shell-router.ts",
+    rule: "wire-no-shell",
+  },
+  {
+    fixture: "test/fixtures/depcruise/codecs/no-shell-layout-router/layout.ts",
+    rule: "layouts-no-shell",
+  },
 ];
 
 describe("depcruise ring rules — negative fixtures", () => {
