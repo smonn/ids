@@ -6,11 +6,11 @@ import { IdParamError, idParam, idQuery } from "./fastify.js";
 import type { IdParamFailure } from "./fastify.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createReverseTimestampId } from "../codecs/reverse/index.js";
-import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
 import {
   makeFailingSpyCodec,
+  makeRealSignedCodec,
+  makeRealWrappedCodec,
   makeSpyCodec,
   makeVerifiableSpyCodec,
   makeWrappedVerifiableSpyCodec,
@@ -310,12 +310,7 @@ describe("idParam", () => {
 
   describe("Wrapped key codec", () => {
     it("works with the Wrapped key codec's structural safeParse", async () => {
-      const key = await importWrappingKey(new Uint8Array(32));
-      const ord = createWrappedKeyId("ord", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const ord = await makeRealWrappedCodec("ord");
       const handler = idParam("id", ord);
 
       const validId = await ord.wrap(42);
@@ -327,12 +322,7 @@ describe("idParam", () => {
     });
 
     it("wrong brand with Wrapped key codec throws IdParamError with statusCode=404", async () => {
-      const key = await importWrappingKey(new Uint8Array(32));
-      const ord = createWrappedKeyId("ord", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const ord = await makeRealWrappedCodec("ord");
       const usrCodec = createTimestampId("usr", { allowDuplicateBrand: true });
       const handler = idParam("id", ord);
 
@@ -345,12 +335,7 @@ describe("idParam", () => {
     });
 
     it("malformed payload with Wrapped key codec throws IdParamError with statusCode=400", async () => {
-      const key = await importWrappingKey(new Uint8Array(32));
-      const ord = createWrappedKeyId("ord", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const ord = await makeRealWrappedCodec("ord");
       const handler = idParam("id", ord);
 
       const req = makeReq("id", "ord_uuuuuuuuuuuuuuuuuuuuuuuuuu");
@@ -812,12 +797,25 @@ describe("verify option", () => {
       expect(spyCodec.safeVerify).not.toHaveBeenCalled();
       await app.close();
     });
+
+    it("TypeScript rejects verify: true with non-verifiable codec; fail-closed at runtime (not 2xx)", async () => {
+      const plain = makeSpyCodec("tst");
+      // @ts-expect-error — plain codec lacks safeVerify; verify: true requires IdVerifiableCodec
+      const preHandler = idParam("id", plain, { verify: true });
+      const app = Fastify();
+      app.get("/items/:id", { preHandler }, (_req, reply) => {
+        void reply.send({ ok: true });
+      });
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: "/items/tst_00000000000000000000000000" });
+      expect(res.statusCode).not.toBe(200);
+      await app.close();
+    });
   });
 
   describe("idParam with verify: true (real Signed Timestamp codec)", () => {
     it("structurally valid forged-tag ID is rejected with verify: true → 400", async () => {
-      const key = await importSigningKey(new Uint8Array(32));
-      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const signed = await makeRealSignedCodec("sgn");
       const validId = await signed.generate();
       const forged = validId.slice(0, 5) + (validId[5] === "0" ? "1" : "0") + validId.slice(6);
 
@@ -841,8 +839,7 @@ describe("verify option", () => {
     });
 
     it("HMAC-valid ID is accepted with verify: true", async () => {
-      const key = await importSigningKey(new Uint8Array(32));
-      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const signed = await makeRealSignedCodec("sgn");
       const validId = await signed.generate();
 
       const app = Fastify();
@@ -862,12 +859,7 @@ describe("verify option", () => {
 
   describe("verify: true (real Wrapped key codec)", () => {
     it("idParam: structurally valid forged-tag ID is rejected → 400", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const validId = await inv.wrap(7);
       // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
       // structurally valid — the rejection must come from verification, not a parse failure.
@@ -890,12 +882,7 @@ describe("verify option", () => {
     });
 
     it("idParam: structurally malformed input is rejected via the parse channel → 400", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const app = Fastify();
       app.setErrorHandler((err, _req, reply) => {
         void reply
@@ -914,12 +901,7 @@ describe("verify option", () => {
     });
 
     it("idParam: tag-valid ID is accepted with verify: true", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const validId = await inv.wrap(7);
 
       const app = Fastify();
@@ -933,12 +915,7 @@ describe("verify option", () => {
     });
 
     it("idQuery: tag-valid ID is accepted with verify: true", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const validId = await inv.wrap(7);
 
       const app = Fastify();

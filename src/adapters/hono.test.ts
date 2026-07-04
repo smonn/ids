@@ -2,10 +2,10 @@ import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { idParam, idQuery, IdParamError } from "./hono.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
-import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
 import {
+  makeRealSignedCodec,
+  makeRealWrappedCodec,
   makeSpyCodec,
   makeVerifiableSpyCodec,
   makeWrappedVerifiableSpyCodec,
@@ -399,8 +399,7 @@ describe("verify option", () => {
 
   describe("idParam with verify: true", () => {
     it("forged-tag ID (structurally valid, safeVerify fails) → 400 via app.onError", async () => {
-      const key = await importSigningKey(new Uint8Array(32));
-      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const signed = await makeRealSignedCodec("sgn");
       const forgedId = await signed.generate();
       // Tamper the ID by flipping a character in the payload (keep prefix valid, break tag)
       const forged = forgedId.slice(0, 5) + (forgedId[5] === "0" ? "1" : "0") + forgedId.slice(6);
@@ -414,8 +413,7 @@ describe("verify option", () => {
     });
 
     it("structurally valid, HMAC-valid ID is accepted with verify: true", async () => {
-      const key = await importSigningKey(new Uint8Array(32));
-      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const signed = await makeRealSignedCodec("sgn");
       const validId = await signed.generate();
 
       const app = new Hono();
@@ -427,8 +425,7 @@ describe("verify option", () => {
     });
 
     it("without verify option, structurally valid forged-tag ID is accepted", async () => {
-      const key = await importSigningKey(new Uint8Array(32));
-      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const signed = await makeRealSignedCodec("sgn");
       const validId = await signed.generate();
       const forged = validId.slice(0, 5) + (validId[5] === "0" ? "1" : "0") + validId.slice(6);
       // Only structurally valid check; forged tag accepted without verify
@@ -470,16 +467,21 @@ describe("verify option", () => {
       await app.request("/items/spy_00000000000000000000000000");
       expect(spyCodec.safeVerify).not.toHaveBeenCalled();
     });
+
+    it("TypeScript rejects verify: true with non-verifiable codec; fail-closed at runtime (not 2xx)", async () => {
+      const plain = makeSpyCodec("tst");
+      // @ts-expect-error — plain codec lacks safeVerify; verify: true requires IdVerifiableCodec
+      const handler = idParam("id", plain, { verify: true });
+      const app = new Hono();
+      app.get("/items/:id", handler, (c) => c.json({ ok: true }));
+      const res = await app.request("/items/tst_00000000000000000000000000");
+      expect(res.status).not.toBe(200);
+    });
   });
 
   describe("idParam with verify: true (Wrapped key codec)", () => {
     it("forged-tag ID (structurally valid, safeVerify fails) → 400", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const validId = await inv.wrap(7);
       // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
       // structurally valid — the rejection must come from verification, not a parse failure.
@@ -496,12 +498,7 @@ describe("verify option", () => {
     });
 
     it("structurally valid, tag-valid ID is accepted with verify: true", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const validId = await inv.wrap(7);
 
       const app = new Hono();
@@ -515,12 +512,7 @@ describe("verify option", () => {
     });
 
     it("without verify, a forged-tag Wrapped ID is accepted (structural check only)", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const validId = await inv.wrap(7);
       // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
       // structurally valid — the rejection must come from verification, not a parse failure.
@@ -543,12 +535,7 @@ describe("verify option", () => {
     });
 
     it("structurally malformed input is rejected via the parse channel → 400", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       // "u" is not in the Crockford base32 alphabet → invalid_base32 → malformed, before verify
       const app = new Hono();
       app.get("/items/:id", idParam("id", inv, { verify: true }), (c) =>
@@ -596,12 +583,7 @@ describe("verify option", () => {
 
   describe("idQuery with verify: true (Wrapped key codec)", () => {
     it("forged-tag Wrapped ID is rejected with verify: true → 400", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const validId = await inv.wrap(7);
       // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
       // structurally valid — the rejection must come from verification, not a parse failure.
@@ -616,12 +598,7 @@ describe("verify option", () => {
     });
 
     it("valid Wrapped ID accepted with verify: true", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const validId = await inv.wrap(7);
 
       const app = new Hono();

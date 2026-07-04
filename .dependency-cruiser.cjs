@@ -46,7 +46,7 @@ module.exports = {
         "adapters may import only types, error surface, and adapter-types from @smonn/ids internals; adapter-types is the hub (types, error only); adding a new adapter requires zero depcruise edits",
       from: {
         path: "^src/adapters/[^/]+\\.ts$",
-        pathNot: "^src/adapters/adapter-types\\.ts$|\\.test\\.ts$",
+        pathNot: "^src/adapters/adapter-types\\.ts$|^src/adapters/test-helpers\\.ts$|\\.test\\.ts$",
       },
       to: {
         path: "^src",

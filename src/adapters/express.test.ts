@@ -6,11 +6,11 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { IdParamError, idParam, idQuery } from "./express.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
-import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
 import {
   makeFailingSpyCodec,
+  makeRealSignedCodec,
+  makeRealWrappedCodec,
   makeSpyCodec,
   makeVerifiableSpyCodec,
   makeWrappedVerifiableSpyCodec,
@@ -723,9 +723,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      // wait for the promise chain to resolve
-      await new Promise((r) => setTimeout(r, 20));
-      expect(next).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledOnce());
       const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
       expect(err.reason).toBe("malformed");
@@ -739,9 +737,18 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(next).toHaveBeenCalledWith();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledWith());
       expect(res.locals.id).toBeDefined();
+    });
+
+    it("TypeScript rejects verify: true with non-verifiable codec; fail-closed at runtime (TypeError)", () => {
+      const plain = makeSpyCodec("tst");
+      // @ts-expect-error — plain codec lacks safeVerify; verify: true requires IdVerifiableCodec
+      const middleware = idParam("id", plain, { verify: true });
+      const req = makeReq("id", "tst_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      expect(() => middleware(req, fromAny(res), next)).toThrow(TypeError);
     });
 
     it("without verify, safeVerify is never called", () => {
@@ -757,8 +764,7 @@ describe("verify option", () => {
 
   describe("idParam with verify: true (real Signed Timestamp codec)", () => {
     it("structurally valid forged-tag ID is rejected with verify: true", async () => {
-      const key = await importSigningKey(new Uint8Array(32));
-      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const signed = await makeRealSignedCodec("sgn");
       const validId = await signed.generate();
       const forged = validId.slice(0, 5) + (validId[5] === "0" ? "1" : "0") + validId.slice(6);
 
@@ -767,16 +773,14 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 50));
-      expect(next).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledOnce());
       const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
       expect(err.reason).toBe("malformed");
     });
 
     it("structurally valid, HMAC-valid ID is accepted with verify: true", async () => {
-      const key = await importSigningKey(new Uint8Array(32));
-      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const signed = await makeRealSignedCodec("sgn");
       const validId = await signed.generate();
 
       const middleware = idParam("id", signed, { verify: true });
@@ -784,19 +788,13 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 50));
-      expect(next).toHaveBeenCalledWith();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledWith());
     });
   });
 
   describe("verify: true (real Wrapped key codec)", () => {
     it("idParam: structurally valid forged-tag ID is rejected with reason=malformed", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const validId = await inv.wrap(7);
       // Tamper a non-final payload char (index 4, right after "inv_") so the id stays
       // structurally valid — the rejection must come from verification, not a parse failure.
@@ -807,40 +805,28 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 50));
-      expect(next).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledOnce());
       const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
       expect(err.reason).toBe("malformed");
     });
 
     it("idParam: structurally malformed input is rejected via the parse channel", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       // "u" is not in the Crockford base32 alphabet → invalid_base32 → malformed, before verify
       const middleware = idParam("id", inv, { verify: true });
       const req = makeReq("id", "inv_uuuuuuuuuuuuuuuuuuuuuuuuuu");
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 50));
-      expect(next).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledOnce());
       const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
       expect(err.reason).toBe("malformed");
     });
 
     it("idParam: valid tag ID is accepted and canonical id stored in res.locals", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const validId = await inv.wrap(7);
 
       const middleware = idParam("id", inv, { verify: true });
@@ -848,18 +834,12 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 50));
-      expect(next).toHaveBeenCalledWith();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledWith());
       expect(res.locals.id).toBe(validId);
     });
 
     it("idQuery: valid tag ID is accepted with verify: true", async () => {
-      const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
-      const inv = createWrappedKeyId("inv", {
-        kind: "u32",
-        keys: [key],
-        allowDuplicateBrand: true,
-      });
+      const inv = await makeRealWrappedCodec("inv");
       const validId = await inv.wrap(7);
 
       const middleware = idQuery("id", inv, { verify: true });
@@ -867,8 +847,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 50));
-      expect(next).toHaveBeenCalledWith();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledWith());
     });
 
     it("idParam: verify: true calls safeVerify on the Wrapped codec (spy)", async () => {
@@ -878,8 +857,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(spyCodec.safeVerify).toHaveBeenCalled();
+      await vi.waitFor(() => expect(spyCodec.safeVerify).toHaveBeenCalled());
     });
   });
 
@@ -891,8 +869,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(next).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledOnce());
       const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
       expect(err.reason).toBe("malformed");
@@ -905,8 +882,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(next).toHaveBeenCalledWith();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledWith());
     });
 
     it("verify: true with onError hook routes forged tag through onError", async () => {
@@ -921,8 +897,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(res.headersSent).toBe(true);
+      await vi.waitFor(() => expect(res.headersSent).toBe(true));
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -935,8 +910,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(next).toHaveBeenCalledWith(fakeError);
+      await vi.waitFor(() => expect(next).toHaveBeenCalledWith(fakeError));
     });
 
     it("idQuery: safeVerify rejection propagates to next as the error", async () => {
@@ -948,8 +922,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(next).toHaveBeenCalledWith(fakeError);
+      await vi.waitFor(() => expect(next).toHaveBeenCalledWith(fakeError));
     });
 
     it("idParam verify: true with onError that sends response — return is reached", async () => {
@@ -964,8 +937,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(res.headersSent).toBe(true);
+      await vi.waitFor(() => expect(res.headersSent).toBe(true));
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -981,8 +953,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(next).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledOnce());
       const err = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
       expect((err as IdParamError).reason).toBe("malformed");
@@ -1001,8 +972,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(next).toHaveBeenCalledWith(customError);
+      await vi.waitFor(() => expect(next).toHaveBeenCalledWith(customError));
     });
 
     it("idParam verify: true with onError that calls hookNext() no-arg — falls back to IdParamError", async () => {
@@ -1017,7 +987,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
+      await vi.waitFor(() => expect(next).toHaveBeenCalled());
       const err = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
       expect((err as IdParamError).reason).toBe("malformed");
@@ -1035,8 +1005,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(next).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(next).toHaveBeenCalledOnce());
       const err = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
       expect((err as IdParamError).reason).toBe("malformed");
@@ -1055,8 +1024,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
-      expect(next).toHaveBeenCalledWith(customError);
+      await vi.waitFor(() => expect(next).toHaveBeenCalledWith(customError));
     });
 
     it("idQuery verify: true with onError that calls hookNext() no-arg — falls back to IdParamError", async () => {
@@ -1071,7 +1039,7 @@ describe("verify option", () => {
       const res = makeRes();
       const next: NextFunction = fromAny(vi.fn());
       middleware(req, fromAny(res), next);
-      await new Promise((r) => setTimeout(r, 20));
+      await vi.waitFor(() => expect(next).toHaveBeenCalled());
       const err = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
       expect((err as IdParamError).reason).toBe("malformed");
