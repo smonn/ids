@@ -17,7 +17,7 @@ module.exports = {
       from: { path: "^test/fixtures/depcruise/adapters/adapter-types\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/types\\.ts$",
+        pathNot: "^src/(types|error)\\.ts$",
       },
     },
     {
@@ -32,7 +32,7 @@ module.exports = {
       severity: "error",
       from: { path: "^test/fixtures/depcruise/wire" },
       to: {
-        path: "^src/codecs/[^/]+/index\\.ts$|^src/adapters/[^/]+\\.ts$|^src/cli/index\\.ts$",
+        path: "^src/codecs/[^/]+/index\\.ts$|^src/adapters/[^/]+\\.ts$|^src/cli/",
       },
     },
     {
@@ -97,11 +97,11 @@ module.exports = {
     {
       name: "wire-timestamp-bytes-imports-allowlist",
       severity: "error",
-      comment: "timestamp-bytes may import only base32",
+      comment: "timestamp-bytes may import only base32 and error",
       from: { path: "^test/fixtures/depcruise/wire/timestamp-bytes\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/wire/base32\\.ts$",
+        pathNot: "^src/(wire/base32|error)\\.ts$",
       },
     },
     {
@@ -123,6 +123,28 @@ module.exports = {
       to: { path: "^src/wire", pathNot: "^src/wire/codec-shell" },
     },
     {
+      name: "codec-constructors-imports-allowlist",
+      severity: "error",
+      comment:
+        "codec constructors may only import wire/codec-shell, their own layout and key, _kernel modules, types, and error",
+      from: { path: "^test/fixtures/depcruise/codecs/[^/]+/index\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot:
+          "^src/wire/codec-shell|^src/codecs/[^/]+/(layout|key)\\.ts$|^src/codecs/_kernel/|^src/(types|error)\\.ts$",
+      },
+    },
+    {
+      name: "codec-key-imports-allowlist",
+      severity: "error",
+      comment: "codec key modules may only import from _kernel and types/error",
+      from: { path: "^test/fixtures/depcruise/codecs/[^/]+/key\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/codecs/_kernel/|^src/(types|error)\\.ts$",
+      },
+    },
+    {
       name: "codec-constructors-layouts-only",
       severity: "error",
       comment: "only codec constructors may import layouts",
@@ -137,7 +159,7 @@ module.exports = {
       severity: "error",
       from: { path: "^test/fixtures/depcruise/codecs/[^/]+/layout\\.ts$" },
       to: {
-        path: "^src/codecs/[^/]+/index\\.ts$|^src/cli/index\\.ts$",
+        path: "^src/codecs/[^/]+/index\\.ts$|^src/cli/",
       },
     },
     {
@@ -151,11 +173,12 @@ module.exports = {
       name: "layouts-wire-imports-allowlist",
       severity: "error",
       comment:
-        "layouts may import wire/envelope, wire/invariants, wire/timestamp-bytes, and types only",
+        "layouts may import wire/envelope, wire/invariants, wire/timestamp-bytes, types, codecs/_kernel/bytes, and codecs/_kernel/crypto only",
       from: { path: "^test/fixtures/depcruise/codecs/[^/]+/layout\\.ts$" },
       to: {
         path: "^src",
-        pathNot: "^src/(wire/(envelope|invariants|timestamp-bytes)|types)\\.ts$",
+        pathNot:
+          "^src/(wire/(envelope|invariants|timestamp-bytes)|types)\\.ts$|^src/codecs/_kernel/(bytes|crypto)\\.ts$",
       },
     },
     {

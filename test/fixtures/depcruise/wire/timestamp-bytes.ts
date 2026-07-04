@@ -1,1 +1,1 @@
-import "../../../../src/error.js";
+import "../../../../src/wire/invariants.js";

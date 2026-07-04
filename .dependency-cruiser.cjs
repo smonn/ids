@@ -36,7 +36,7 @@ module.exports = {
       severity: "error",
       from: { path: "^src/wire" },
       to: {
-        path: "^src/codecs/[^/]+/index\\.ts$|^src/adapters/[^/]+\\.ts$|^src/cli/index\\.ts$",
+        path: "^src/codecs/[^/]+/index\\.ts$|^src/adapters/[^/]+\\.ts$|^src/cli/",
       },
     },
     {
@@ -123,6 +123,28 @@ module.exports = {
       to: { path: "^src/wire", pathNot: "^src/wire/codec-shell" },
     },
     {
+      name: "codec-constructors-imports-allowlist",
+      severity: "error",
+      comment:
+        "codec constructors may only import wire/codec-shell, their own layout and key, _kernel modules, types, and error",
+      from: { path: "^src/codecs/[^/]+/index\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot:
+          "^src/wire/codec-shell|^src/codecs/[^/]+/(layout|key)\\.ts$|^src/codecs/_kernel/|^src/(types|error)\\.ts$",
+      },
+    },
+    {
+      name: "codec-key-imports-allowlist",
+      severity: "error",
+      comment: "codec key modules may only import from _kernel and types/error",
+      from: { path: "^src/codecs/[^/]+/key\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/codecs/_kernel/|^src/(types|error)\\.ts$",
+      },
+    },
+    {
       name: "codec-constructors-layouts-only",
       severity: "error",
       comment: "only codec constructors may import layouts",
@@ -137,7 +159,7 @@ module.exports = {
       severity: "error",
       from: { path: "^src/codecs/[^/]+/layout\\.ts$" },
       to: {
-        path: "^src/codecs/[^/]+/index\\.ts$|^src/cli/index\\.ts$",
+        path: "^src/codecs/[^/]+/index\\.ts$|^src/cli/",
       },
     },
     {
