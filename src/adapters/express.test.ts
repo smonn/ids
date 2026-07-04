@@ -20,6 +20,7 @@ function makeQueryReq(queryName: string, value: string | undefined): Request {
 type MockRes = {
   locals: Record<string, unknown>;
   statusCode: number;
+  headersSent: boolean;
   body: string;
   status: (code: number) => MockRes;
   send: (body: string) => void;
@@ -30,15 +31,18 @@ function makeRes(): MockRes {
   const res: MockRes = {
     locals: {},
     statusCode: 200,
+    headersSent: false,
     body: "",
     status(code: number) {
       res.statusCode = code;
       return res;
     },
     send(b: string) {
+      res.headersSent = true;
       res.body = b;
     },
     json(b: unknown) {
+      res.headersSent = true;
       res.body = JSON.stringify(b);
     },
   };
@@ -172,6 +176,65 @@ describe("idParam", () => {
       expect(err).toBeInstanceOf(IdParamError);
       expect(err.reason).toBe("brand_mismatch");
       expect(err.status).toBe(400);
+    });
+
+    it("onError log-only: hook does nothing, adapter calls next(IdParamError)", () => {
+      const middleware = idParam("id", usr, {
+        onError: () => {
+          // log-only, does nothing
+        },
+      });
+      const orgId = org.generate();
+      const req = makeReq("id", orgId);
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+
+      middleware(req, fromAny(res), next);
+
+      expect(next).toHaveBeenCalledOnce();
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect(err.reason).toBe("brand_mismatch");
+      expect(err.status).toBe(404);
+      expect(res.locals["id"]).toBeUndefined();
+    });
+
+    it("onError next()-without-error: hook calls next() (not next(err)), adapter calls next(IdParamError)", () => {
+      const middleware = idParam("id", usr, {
+        onError: (_failure, _req, _res, hookNext) => {
+          hookNext();
+        },
+      });
+      const orgId = org.generate();
+      const req = makeReq("id", orgId);
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+
+      middleware(req, fromAny(res), next);
+
+      expect(next).toHaveBeenCalledOnce();
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect(err.reason).toBe("brand_mismatch");
+      expect(err.status).toBe(404);
+    });
+
+    it("onError hook calls next(customErr): custom error is forwarded, adapter does not add another next(err)", () => {
+      const customError = new Error("custom");
+      const middleware = idParam("id", usr, {
+        onError: (_failure, _req, _res, hookNext) => {
+          hookNext(customError);
+        },
+      });
+      const orgId = org.generate();
+      const req = makeReq("id", orgId);
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+
+      middleware(req, fromAny(res), next);
+
+      expect(next).toHaveBeenCalledOnce();
+      expect(vi.mocked(next).mock.calls[0]?.[0]).toBe(customError);
     });
   });
 
@@ -387,6 +450,65 @@ describe("idQuery", () => {
     expect(err).toBeInstanceOf(IdParamError);
     expect(err.reason).toBe("brand_mismatch");
     expect(err.status).toBe(400);
+  });
+
+  it("onError log-only: hook does nothing, adapter calls next(IdParamError)", () => {
+    const middleware = idQuery("userId", usr, {
+      onError: () => {
+        // log-only, does nothing
+      },
+    });
+    const orgId = org.generate();
+    const req = makeQueryReq("userId", orgId);
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).toHaveBeenCalledOnce();
+    const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+    expect(err).toBeInstanceOf(IdParamError);
+    expect(err.reason).toBe("brand_mismatch");
+    expect(err.status).toBe(404);
+    expect(res.locals["userId"]).toBeUndefined();
+  });
+
+  it("onError next()-without-error: hook calls next() (not next(err)), adapter calls next(IdParamError)", () => {
+    const middleware = idQuery("userId", usr, {
+      onError: (_failure, _req, _res, hookNext) => {
+        hookNext();
+      },
+    });
+    const orgId = org.generate();
+    const req = makeQueryReq("userId", orgId);
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).toHaveBeenCalledOnce();
+    const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+    expect(err).toBeInstanceOf(IdParamError);
+    expect(err.reason).toBe("brand_mismatch");
+    expect(err.status).toBe(404);
+  });
+
+  it("onError hook calls next(customErr): custom error is forwarded, adapter does not add another next(err)", () => {
+    const customError = new Error("custom");
+    const middleware = idQuery("userId", usr, {
+      onError: (_failure, _req, _res, hookNext) => {
+        hookNext(customError);
+      },
+    });
+    const orgId = org.generate();
+    const req = makeQueryReq("userId", orgId);
+    const res = makeRes();
+    const next: NextFunction = fromAny(vi.fn());
+
+    middleware(req, fromAny(res), next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(vi.mocked(next).mock.calls[0]?.[0]).toBe(customError);
   });
 
   it("array-valued query param (qs repeated or bracket-notation) produces malformed/400", () => {

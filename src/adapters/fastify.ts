@@ -23,8 +23,11 @@ export class IdParamError extends Error {
 /** Options for `idParam` and `idQuery`. All fields are optional. */
 export type IdParamOptions = {
   /**
-   * Called instead of throwing when provided. The hook owns the response entirely —
-   * the adapter does not throw.
+   * Called when ID validation fails. If the hook sends a response (i.e. `reply.sent` is
+   * `true` after the hook resolves), the adapter takes no further action. If the hook
+   * returns without sending a response, the adapter falls back to its default error
+   * behavior — throwing `IdParamError` — so the route handler never runs with an
+   * invalid or missing ID.
    */
   onError?: (
     failure: IdParamFailure,
@@ -115,6 +118,9 @@ export function idParam<ParamKey extends string, Brand extends string>(
       const failure = resolveIdParamFailure(result.error, options);
       if (options?.onError) {
         await options.onError(failure, request, reply);
+        if (!reply.sent) {
+          throw new IdParamError(failure.reason, failure.status);
+        }
         return;
       }
       throw new IdParamError(failure.reason, failure.status);
@@ -184,6 +190,9 @@ export function idQuery<ParamKey extends string, Brand extends string>(
       const failure = resolveIdParamFailure(result.error, options);
       if (options?.onError) {
         await options.onError(failure, request, reply);
+        if (!reply.sent) {
+          throw new IdParamError(failure.reason, failure.status);
+        }
         return;
       }
       throw new IdParamError(failure.reason, failure.status);
