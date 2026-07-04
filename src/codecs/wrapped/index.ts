@@ -46,6 +46,9 @@ export type WrappedKind = "u32" | "i32" | "u64" | "i64";
 
 type LookupKeyForKind<K extends WrappedKind> = K extends "u32" | "i32" ? number : bigint;
 
+/** Error vocabulary shared by {@link UnwrapResult} and {@link SafeVerifyResult}'s failure branches. */
+export type UnwrapError = ParseError | "verification_failed";
+
 /**
  * Result returned by {@link WrappedKeyCodec.safeUnwrap}.
  *
@@ -57,7 +60,7 @@ type LookupKeyForKind<K extends WrappedKind> = K extends "u32" | "i32" ? number 
  */
 export type UnwrapResult<Brand extends string, Kind extends WrappedKind> =
   | { ok: true; id: Id<Brand>; lookupKey: LookupKeyForKind<Kind> }
-  | { ok: false; error: ParseError | "verification_failed" };
+  | { ok: false; error: UnwrapError };
 
 /**
  * Result returned by {@link WrappedKeyCodec.safeVerify}.
@@ -69,7 +72,7 @@ export type UnwrapResult<Brand extends string, Kind extends WrappedKind> =
  */
 export type SafeVerifyResult<Brand extends string> =
   | { ok: true; id: Id<Brand> }
-  | { ok: false; error: ParseError | "verification_failed" };
+  | { ok: false; error: UnwrapError };
 
 /**
  * Codec returned by {@link createWrappedKeyId}.
