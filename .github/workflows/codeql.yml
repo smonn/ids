@@ -1,0 +1,71 @@
+name: CodeQL
+
+# Advanced CodeQL setup — replaces the repo's default (dynamic) CodeQL setup so
+# we can apply a `paths-ignore` filter. The default setup does not support path
+# filtering, which meant test fixtures (e.g. the in-memory express() apps in
+# `*.test.ts`) were scanned as if they were production route handlers. That
+# produced false-positive `js/missing-rate-limiting` alerts on integration-test
+# routes that have no business being rate-limited.
+#
+# IMPORTANT: default setup and advanced setup are mutually exclusive. Before
+# merging this workflow a maintainer must disable CodeQL default setup under
+# Settings → Code security → Code scanning → CodeQL analysis → default setup,
+# otherwise GitHub rejects the advanced uploads ("analyses from advanced
+# configurations cannot be processed when the default setup is enabled").
+#
+# Actions are SHA-pinned with a version comment to match the repo convention
+# (enforced by scorecard.yml); the codeql-action SHA matches the one already
+# used in scorecard.yml (v4.36.2).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, mirroring scorecard.yml, so the analysis tracks new queries even
+    # when the repo is quiet.
+    - cron: "20 7 * * 2"
+
+permissions: {}
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to upload results to the code-scanning dashboard.
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, actions]
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        with:
+          languages: ${{ matrix.language }}
+          # Test files are not production surfaces. Excluding them keeps
+          # security queries (e.g. js/missing-rate-limiting) from firing on
+          # test-only express()/fastify apps and other fixtures. Alerts are
+          # filtered by their location, so a finding anchored in a *.test.ts /
+          # test-helpers file is dropped.
+          config: |
+            paths-ignore:
+              - '**/*.test.ts'
+              - 'src/adapters/test-helpers.ts'
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        with:
+          category: "/language:${{ matrix.language }}"
