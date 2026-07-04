@@ -172,7 +172,7 @@ which is visible in `ps` and shell history. Using `--key` emits a one-line advis
 stderr; `IDS_KEY` is silent.
 
 **Key-file permissions** — when `--key-file` is used the CLI checks the file's permission
-bits after reading it. If the file is group- or other-readable (mode bits `0o044` set), it
+bits after reading it. If the file is accessible to group/others (mode bits `0o077` set), it
 emits a one-line warning on stderr recommending `chmod 0600 '<path>'`. The check skips
 silently where `stat` is unavailable or mode bits are meaningless (e.g. Windows).
 
