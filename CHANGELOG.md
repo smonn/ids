@@ -1,5 +1,20 @@
 # @smonn/ids
 
+## 1.2.0
+
+### Minor Changes
+
+- 9b87263: Add opt-in signature verification to HTTP adapters (`idParam`, `idQuery`, `ParseIdPipe`). Pass `verify: true` with a Signed Timestamp codec to authenticate the HMAC tag after structural parsing — tag failure is treated as a `"malformed"` failure. The option is only accepted when the codec satisfies the new `IdVerifiableCodec` structural interface (enforced via TypeScript function overloads). Default behaviour (no `verify`) is byte-for-byte unchanged.
+- d1d9106: `writeIdColumn` and `writeIdColumnNullable` now validate the value via `codec.safeParse` at the write site and throw `IdsError("invalid_id")` on failure. Previously, a cast-smuggled arbitrary string would be stored unvalidated and cause `IdsError` on every subsequent read. Both helpers now accept `codec` as their first parameter; all five ORM adapters (Drizzle, Kysely, Prisma, TypeORM, MikroORM) are updated accordingly.
+- 867f5c1: Extend HTTP adapter `verify: true` to the Wrapped key codec. The Wrapped key codec now exposes `safeVerify` — a verify-only alias of `safeUnwrap` that drops the recovered `lookupKey` from the success shape (`{ ok: true; id }`) — so it satisfies the `IdVerifiableCodec` structural interface. `idParam`, `idQuery`, and the NestJS `ParseIdPipe` now accept a Wrapped key codec under `verify: true` exactly like the Signed Timestamp codec: a wrong-key, tampered, or revoked-key ID is rejected as a `"malformed"` failure through the existing channel. The adapter and `IdVerifiableCodec` are unchanged; default behaviour (no `verify`) is byte-for-byte unchanged. See ADR-0036.
+
+### Patch Changes
+
+- 2fb965f: Wire parse: case folding is now ASCII-only, matching SPEC canonicalization step 1. Previously `safeParse` used `String.prototype.toLowerCase()`, whose Unicode folding mapped U+212A KELVIN SIGN to `k` and let a Kelvin-containing string alias to a valid ID through the lenient path; that alias class is now rejected (at the base32 layer) as spec compliance. `is()` was already correct and is unchanged. Also fixes rejection-layer classification for overlong input: an oversized value whose prefix is wrong now reports the prefix layer (first-failing-layer rule) instead of always reporting base32; an oversized value with a correct prefix still reports base32. The O(1) length fail-fast is preserved — only the fixed-size prefix slice is inspected when it trips.
+- d6ce6bc: Harden CLI secret hygiene: stderr advisories for --key and --material argv usage, key-file permission warning on group/other-readable files, stray-positional errors truncated to 20 chars, and digest match comparison upgraded to timingSafeEqual.
+- 6bb015e: Fix Fastify and Express idParam/idQuery onError fall-through: log-only hooks no longer allow the route handler to run with an invalid ID.
+- 978fee9: `idPlugin` now throws at construction when any codec-map key contains a dot, preventing silent wrong-codec application from qualified key collapse.
+
 ## 1.1.1
 
 ### Patch Changes
