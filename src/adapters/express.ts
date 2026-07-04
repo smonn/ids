@@ -8,13 +8,6 @@ import {
 } from "./adapter-types.js";
 import type { Id } from "../types.js";
 
-const localDescriptor: PropertyDescriptor = {
-  enumerable: true,
-  writable: true,
-  configurable: true,
-  value: undefined,
-};
-
 export type { IdParamFailure };
 
 /**
@@ -69,8 +62,12 @@ export type IdParamVerifyOptions = IdParamOptions & {
 };
 
 function storeLocal(res: Response, key: string, id: unknown): void {
-  localDescriptor.value = id;
-  Object.defineProperty(res.locals, key, localDescriptor);
+  Object.defineProperty(res.locals, key, {
+    enumerable: true,
+    writable: true,
+    configurable: true,
+    value: id,
+  });
 }
 
 function emitFailure(
