@@ -53,7 +53,7 @@ const internals = new WeakMap<SigningKey, SigningKeyInternals>();
 export async function importSigningKey(bytes: Uint8Array): Promise<SigningKey> {
   assertValidKeyMaterialByteLength(bytes.length, "signing");
   const [hmacKey, digestBuffer] = await Promise.all([
-    deriveKey(bytes, hmacInfo, { name: "HMAC", hash: "SHA-256", length: 256 }, ["sign", "verify"]),
+    deriveKey(bytes, hmacInfo, { name: "HMAC", hash: "SHA-256", length: 256 }, ["sign"]),
     crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>),
   ]);
   const key = Object.freeze({}) as SigningKey;

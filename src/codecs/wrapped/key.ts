@@ -62,7 +62,7 @@ export async function importWrappingKey(bytes: Uint8Array): Promise<WrappingKey>
   assertValidKeyMaterialByteLength(bytes.length, "wrapping");
   const [aesKey, hmacKey, digestBuffer] = await Promise.all([
     deriveKey(bytes, aesInfo, { name: "AES-CBC", length: 256 }, ["encrypt", "decrypt"]),
-    deriveKey(bytes, hmacInfo, { name: "HMAC", hash: "SHA-256", length: 256 }, ["sign", "verify"]),
+    deriveKey(bytes, hmacInfo, { name: "HMAC", hash: "SHA-256", length: 256 }, ["sign"]),
     crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>),
   ]);
   const key = Object.freeze({}) as WrappingKey;
