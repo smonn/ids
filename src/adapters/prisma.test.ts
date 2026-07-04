@@ -477,6 +477,65 @@ describe("prisma", () => {
       expect((err as IdsError).code).toBe("invalid_id");
     });
 
+    it("injects a generated ID when the field is absent from args.data (createMany single-object)", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("createMany", { data: { name: "Alice" } });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.createMany!(cbArgs);
+      const data = capturedArgs!.data as Record<string, unknown>;
+      expect(typeof data.id).toBe("string");
+      expect(usr.is(data.id as string)).toBe(true);
+    });
+
+    it("throws IdsError(invalid_id) for a cast-smuggled invalid ID in createMany single-object data", async () => {
+      const field = transform.defaultQuery("id");
+      const cbArgs = makeQueryArgs("createMany", { data: { id: "not-a-valid-id", name: "Alice" } });
+      let err: unknown;
+      try {
+        await field.createMany!(cbArgs);
+      } catch (e) {
+        err = e;
+      }
+      expect(isIdsError(err)).toBe(true);
+      expect((err as IdsError).code).toBe("invalid_id");
+    });
+
+    it("passes a valid present ID through unchanged in createMany single-object data", async () => {
+      const suppliedId = usr.generate();
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("createMany", { data: { id: suppliedId, name: "Alice" } });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.createMany!(cbArgs);
+      const data = capturedArgs!.data as Record<string, unknown>;
+      expect(data.id).toBe(suppliedId);
+    });
+
+    it("passes a valid present ID through unchanged in upsert create data", async () => {
+      const suppliedId = usr.generate();
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("upsert", {
+        where: { email: "alice@example.com" },
+        create: { id: suppliedId, name: "Alice" },
+        update: { name: "Alice" },
+      });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.upsert!(cbArgs);
+      const create = capturedArgs!.create as Record<string, unknown>;
+      expect(create.id).toBe(suppliedId);
+    });
+
     it("throws IdsError(invalid_id) when a cast-smuggled invalid string is supplied in upsert create data", async () => {
       const field = transform.defaultQuery("id");
       const cbArgs = makeQueryArgs("upsert", {

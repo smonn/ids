@@ -185,7 +185,7 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
       };
     },
     defaultQuery(fieldName: string): IdQueryField {
-      function injectIfAbsent(data: Record<string, unknown>): Record<string, unknown> {
+      function injectOrValidate(data: Record<string, unknown>): Record<string, unknown> {
         if (data[fieldName] == null) {
           return { ...data, [fieldName]: generate() };
         }
@@ -198,21 +198,35 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
         async create({ args, query }) {
           const data = args.data as Record<string, unknown> | null | undefined;
           const nextArgs =
-            data != null ? ({ ...args, data: injectIfAbsent(data) } as unknown as QueryArg) : args;
+            data != null
+              ? ({ ...args, data: injectOrValidate(data) } as unknown as QueryArg)
+              : args;
           return query(nextArgs);
         },
         async createMany({ args, query }) {
-          const data = args.data as Array<Record<string, unknown>> | null | undefined;
-          const nextArgs = Array.isArray(data)
-            ? ({ ...args, data: data.map((item) => injectIfAbsent(item)) } as unknown as QueryArg)
-            : args;
+          const data = args.data as
+            | Array<Record<string, unknown>>
+            | Record<string, unknown>
+            | null
+            | undefined;
+          let nextArgs: QueryArg;
+          if (Array.isArray(data)) {
+            nextArgs = {
+              ...args,
+              data: data.map((item) => injectOrValidate(item)),
+            } as unknown as QueryArg;
+          } else if (data != null) {
+            nextArgs = { ...args, data: injectOrValidate(data) } as unknown as QueryArg;
+          } else {
+            nextArgs = args;
+          }
           return query(nextArgs);
         },
         async upsert({ args, query }) {
           const createData = args.create as Record<string, unknown> | null | undefined;
           const nextArgs =
             createData != null
-              ? ({ ...args, create: injectIfAbsent(createData) } as unknown as QueryArg)
+              ? ({ ...args, create: injectOrValidate(createData) } as unknown as QueryArg)
               : args;
           return query(nextArgs);
         },
