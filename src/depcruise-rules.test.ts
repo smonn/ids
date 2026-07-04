@@ -70,7 +70,7 @@ const cases = [
   // codec constructors
   {
     fixture: "test/fixtures/depcruise/codecs/timestamp-violation/index.ts",
-    rule: "codec-constructors-wire-codec-shell-only",
+    rule: "codec-constructors-imports-allowlist",
   },
   {
     fixture: "test/fixtures/depcruise/non-codec.ts",
