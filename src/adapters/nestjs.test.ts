@@ -129,16 +129,16 @@ describe("ParseIdPipe", () => {
       expect(received[0]).toEqual({ reason: "brand_mismatch", status: 404 });
     });
 
-    it("onError supplied: default NotFoundException is NOT thrown when onError does not throw", () => {
+    it("onError supplied: fallback NotFoundException is thrown after non-throwing hook runs", () => {
       let called = false;
       const pipe = new ParseIdPipe(usr, {
-        // Cast: intentionally non-throwing to verify the default block is guarded by else
+        // Cast: intentionally non-throwing to test the runtime fallback — hook runs, then default exception is thrown
         onError: ((_failure: IdParamFailure) => {
           called = true;
         }) as (failure: IdParamFailure) => never,
       });
       const orgId = org.generate();
-      expect(() => pipe.transform(orgId, METADATA)).not.toThrow(NotFoundException);
+      expect(() => pipe.transform(orgId, METADATA)).toThrow(NotFoundException);
       expect(called).toBe(true);
     });
   });
@@ -419,6 +419,21 @@ describe("ParseIdPipe verify option", () => {
       "custom: malformed",
     );
     expect(onError).toHaveBeenCalledOnce();
+  });
+
+  it("verify: true with non-throwing onError hook: fallback BadRequestException is thrown after hook runs", async () => {
+    const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+    let called = false;
+    const pipe = new ParseIdPipe(spyCodec, {
+      verify: true,
+      onError: ((_failure: IdParamFailure) => {
+        called = true;
+      }) as (failure: IdParamFailure) => never,
+    });
+    await expect(pipe.transform("spy_00000000000000000000000000", METADATA)).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(called).toBe(true);
   });
 
   it("verify: true with non-400 malformed status → HttpException with that status", async () => {
