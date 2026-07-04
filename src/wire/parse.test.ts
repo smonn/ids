@@ -54,15 +54,43 @@ describe("safeParse", () => {
     expect(safeParse(PREFIX, allAliases)).toEqual({ ok: true, id: CANONICAL_ID });
   });
 
+  it("rejects a non-ASCII payload char (U+212A KELVIN SIGN) with invalid_base32", () => {
+    // toLowerCase() folds U+212A → 'k', which would let this alias to a valid id;
+    // SPEC canonicalization is ASCII-only, so it must be rejected at the base32 layer.
+    const kelvin = `${PREFIX}K${"k".repeat(24)}0`;
+    expect(safeParse(PREFIX, kelvin)).toEqual({ ok: false, error: "invalid_base32" });
+  });
+
   it("rejects an oversized payload (27 chars) with invalid_base32", () => {
     const oversized = `${PREFIX}${"0".repeat(27)}`;
     expect(safeParse(PREFIX, oversized)).toEqual({ ok: false, error: "invalid_base32" });
   });
 
   it("rejects a very long string (well beyond canonical max) with invalid_base32 without normalizing", () => {
-    // Guard fires before toLowerCase(): a 1000-char payload is rejected immediately.
+    // Length guard fires first: a 1000-char payload is rejected in O(1) without
+    // folding or regex-testing the payload — only the fixed prefix slice is
+    // inspected, and here the prefix is correct so the layer is base32.
     const veryLong = `${PREFIX}${"0".repeat(1000)}`;
     expect(safeParse(PREFIX, veryLong)).toEqual({ ok: false, error: "invalid_base32" });
+  });
+
+  it("rejects an overlong input with a WRONG prefix at the prefix layer", () => {
+    // Overlong trips the O(1) length guard, but the prefix failed first: SPEC's
+    // first-failing-layer rule requires a prefix-layer rejection, not base32.
+    const overlongWrongPrefix = `org_${"0".repeat(27)}`;
+    expect(safeParse(PREFIX, overlongWrongPrefix)).toEqual({
+      ok: false,
+      error: "invalid_prefix",
+    });
+  });
+
+  it("rejects an overlong input with a CORRECT prefix at the base32 layer", () => {
+    // Prefix passed; the oversized payload is the first failure → base32 layer.
+    const overlongRightPrefix = `${PREFIX}${"0".repeat(27)}`;
+    expect(safeParse(PREFIX, overlongRightPrefix)).toEqual({
+      ok: false,
+      error: "invalid_base32",
+    });
   });
 
   it("rejects an undersized payload (25 chars) with invalid_base32", () => {
