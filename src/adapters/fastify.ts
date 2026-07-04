@@ -23,8 +23,11 @@ export class IdParamError extends Error {
 /** Options for `idParam` and `idQuery`. All fields are optional. */
 export type IdParamOptions = {
   /**
-   * Called instead of throwing when provided. The hook owns the response entirely —
-   * the adapter does not throw.
+   * Called when ID validation fails. If the hook sends a response (i.e. `reply.sent` is
+   * `true` after the hook resolves), the adapter takes no further action. If the hook
+   * returns without sending a response, the adapter falls back to its default error
+   * behavior — throwing `IdParamError` — so the route handler never runs with an
+   * invalid or missing ID.
    */
   onError?: (
     failure: IdParamFailure,
@@ -44,8 +47,10 @@ export type IdParamOptions = {
  * **Default (no options):** throws `IdParamError` carrying `statusCode` and `reason` so the app's
  * existing `setErrorHandler` controls rendering. The adapter does not write a response body itself.
  *
- * **`options.onError`:** when provided, the hook calls `onError` and does not throw; the consumer
- * fully owns the response via `reply`.
+ * **`options.onError`:** when provided, the adapter awaits the hook on validation failure. If the
+ * hook sends a response (`reply.sent` is `true` after it resolves), the adapter takes no further
+ * action. Otherwise, the adapter falls back to throwing `IdParamError`, so the route handler
+ * never runs with an invalid ID.
  *
  * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
  *
@@ -115,6 +120,9 @@ export function idParam<ParamKey extends string, Brand extends string>(
       const failure = resolveIdParamFailure(result.error, options);
       if (options?.onError) {
         await options.onError(failure, request, reply);
+        if (!reply.sent) {
+          throw new IdParamError(failure.reason, failure.status);
+        }
         return;
       }
       throw new IdParamError(failure.reason, failure.status);
@@ -135,8 +143,10 @@ export function idParam<ParamKey extends string, Brand extends string>(
  * app's existing `setErrorHandler` controls rendering. The adapter does not write a response
  * body itself.
  *
- * **`options.onError`:** when provided, the hook calls `onError` and does not throw; the
- * consumer fully owns the response via `reply`.
+ * **`options.onError`:** when provided, the adapter awaits the hook on validation failure. If the
+ * hook sends a response (`reply.sent` is `true` after it resolves), the adapter takes no further
+ * action. Otherwise, the adapter falls back to throwing `IdParamError`, so the route handler
+ * never runs with an invalid ID.
  *
  * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
  *
@@ -184,6 +194,9 @@ export function idQuery<ParamKey extends string, Brand extends string>(
       const failure = resolveIdParamFailure(result.error, options);
       if (options?.onError) {
         await options.onError(failure, request, reply);
+        if (!reply.sent) {
+          throw new IdParamError(failure.reason, failure.status);
+        }
         return;
       }
       throw new IdParamError(failure.reason, failure.status);

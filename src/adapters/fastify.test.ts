@@ -35,7 +35,19 @@ function asQueryReq<T extends FastifyRequest = FastifyRequest>(req: MockQueryReq
 }
 
 function asReply(): FastifyReply {
-  return fromAny({});
+  const mock = {
+    sent: false,
+    statusCode: 200,
+    status(code: number) {
+      mock.statusCode = code;
+      return mock;
+    },
+    send(_body?: unknown) {
+      mock.sent = true;
+      return mock;
+    },
+  };
+  return fromAny(mock);
 }
 
 async function catchError(fn: () => Promise<void>): Promise<unknown> {
@@ -116,7 +128,7 @@ describe("idParam", () => {
       expect((err as IdParamError).statusCode).toBe(400);
     });
 
-    it("onError override: consumer fully owns the response for brand mismatch", async () => {
+    it("onError log-only: hook is called with brand_mismatch failure, then IdParamError is thrown", async () => {
       const captured: IdParamFailure[] = [];
       const handler = idParam("id", usr, {
         onError: (failure) => {
@@ -125,14 +137,17 @@ describe("idParam", () => {
       });
       const req = makeReq("id", org.generate());
 
-      await handler(asReq(req), asReply());
+      const err = await catchError(() => handler(asReq(req), asReply()));
 
       expect(captured).toHaveLength(1);
       expect(captured[0]?.reason).toBe("brand_mismatch");
       expect(captured[0]?.status).toBe(404);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("brand_mismatch");
+      expect((err as IdParamError).statusCode).toBe(404);
     });
 
-    it("onError override: consumer fully owns the response for malformed ID", async () => {
+    it("onError log-only: hook is called with malformed failure, then IdParamError is thrown", async () => {
       const captured: IdParamFailure[] = [];
       const handler = idParam("id", usr, {
         onError: (failure) => {
@@ -141,22 +156,40 @@ describe("idParam", () => {
       });
       const req = makeReq("id", "usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
 
-      await handler(asReq(req), asReply());
+      const err = await catchError(() => handler(asReq(req), asReply()));
 
       expect(captured).toHaveLength(1);
       expect(captured[0]?.reason).toBe("malformed");
       expect(captured[0]?.status).toBe(400);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("malformed");
+      expect((err as IdParamError).statusCode).toBe(400);
     });
 
-    it("onError override: adapter does not throw when onError is provided", async () => {
+    it("onError log-only: throws IdParamError after hook returns without sending a reply", async () => {
       const onError = vi.fn();
       const handler = idParam("id", usr, { onError });
       const req = makeReq("id", org.generate());
 
       const err = await catchError(() => handler(asReq(req), asReply()));
 
-      expect(err).toBeUndefined();
       expect(onError).toHaveBeenCalledOnce();
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("brand_mismatch");
+      expect((err as IdParamError).statusCode).toBe(404);
+    });
+
+    it("onError responding hook: adapter does not throw when hook sends a reply", async () => {
+      const handler = idParam("id", usr, {
+        onError: (failure, _request, reply) => {
+          reply.status(failure.status).send({ error: failure.reason });
+        },
+      });
+      const req = makeReq("id", org.generate());
+
+      const err = await catchError(() => handler(asReq(req), asReply()));
+
+      expect(err).toBeUndefined();
     });
 
     it("status remap: brand_mismatch remapped to 400 in thrown IdParamError", async () => {
@@ -170,7 +203,7 @@ describe("idParam", () => {
       expect((err as IdParamError).statusCode).toBe(400);
     });
 
-    it("status remap: remapped status is passed to onError failure object", async () => {
+    it("status remap: remapped status is passed to onError failure object and propagated in fallback IdParamError", async () => {
       const captured: IdParamFailure[] = [];
       const handler = idParam("id", usr, {
         status: { malformed: 422 },
@@ -180,9 +213,11 @@ describe("idParam", () => {
       });
       const req = makeReq("id", "usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
 
-      await handler(asReq(req), asReply());
+      const err = await catchError(() => handler(asReq(req), asReply()));
 
       expect(captured[0]?.status).toBe(422);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).statusCode).toBe(422);
     });
   });
 
@@ -401,7 +436,7 @@ describe("idQuery", () => {
     expect((err as IdParamError).statusCode).toBe(400);
   });
 
-  it("onError override: consumer fully owns the response for brand mismatch", async () => {
+  it("onError log-only: hook is called with brand_mismatch failure, then IdParamError is thrown", async () => {
     const captured: IdParamFailure[] = [];
     const handler = idQuery("userId", usr, {
       onError: (failure) => {
@@ -410,14 +445,17 @@ describe("idQuery", () => {
     });
     const req = makeQueryReq("userId", org.generate());
 
-    await handler(asQueryReq(req), asReply());
+    const err = await catchError(() => handler(asQueryReq(req), asReply()));
 
     expect(captured).toHaveLength(1);
     expect(captured[0]?.reason).toBe("brand_mismatch");
     expect(captured[0]?.status).toBe(404);
+    expect(err).toBeInstanceOf(IdParamError);
+    expect((err as IdParamError).reason).toBe("brand_mismatch");
+    expect((err as IdParamError).statusCode).toBe(404);
   });
 
-  it("onError override: consumer fully owns the response for malformed ID", async () => {
+  it("onError log-only: hook is called with malformed failure, then IdParamError is thrown", async () => {
     const captured: IdParamFailure[] = [];
     const handler = idQuery("userId", usr, {
       onError: (failure) => {
@@ -426,11 +464,27 @@ describe("idQuery", () => {
     });
     const req = makeQueryReq("userId", "usr_uuuuuuuuuuuuuuuuuuuuuuuuuu");
 
-    await handler(asQueryReq(req), asReply());
+    const err = await catchError(() => handler(asQueryReq(req), asReply()));
 
     expect(captured).toHaveLength(1);
     expect(captured[0]?.reason).toBe("malformed");
     expect(captured[0]?.status).toBe(400);
+    expect(err).toBeInstanceOf(IdParamError);
+    expect((err as IdParamError).reason).toBe("malformed");
+    expect((err as IdParamError).statusCode).toBe(400);
+  });
+
+  it("onError responding hook: adapter does not throw when hook sends a reply", async () => {
+    const handler = idQuery("userId", usr, {
+      onError: (failure, _request, reply) => {
+        reply.status(failure.status).send({ error: failure.reason });
+      },
+    });
+    const req = makeQueryReq("userId", org.generate());
+
+    const err = await catchError(() => handler(asQueryReq(req), asReply()));
+
+    expect(err).toBeUndefined();
   });
 
   it("status remap: brand_mismatch remapped to 400 in thrown IdParamError", async () => {
@@ -573,6 +627,118 @@ describe("idParam / idQuery — real fastify() app (integration)", () => {
     const res = await app.inject({ method: "GET", url: "/test/anything" });
     expect(res.statusCode).toBe(400);
     expect((res.json() as { error: string }).error).toBe("malformed");
+    await app.close();
+  });
+
+  it("idParam onError log-only hook: adapter falls back to default 4xx; handler does not run", async () => {
+    const app = Fastify({ logger: false });
+    let handlerRan = false;
+    app.get(
+      "/protected/:id",
+      {
+        preHandler: idParam("id", usr, {
+          onError: () => {
+            // log-only — intentionally does not call reply.send
+          },
+        }),
+      },
+      (_request, reply) => {
+        handlerRan = true;
+        reply.send({ ok: true });
+      },
+    );
+    app.setErrorHandler((err, _request, reply) => {
+      const e: IdParamError = fromAny(err);
+      reply.status(e.statusCode ?? 500).send({ error: e.reason });
+    });
+    await app.ready();
+    const orgId = org.generate();
+    const res = await app.inject({ method: "GET", url: `/protected/${orgId}` });
+    expect(res.statusCode).toBe(404);
+    expect((res.json() as { error: string }).error).toBe("brand_mismatch");
+    expect(handlerRan).toBe(false);
+    await app.close();
+  });
+
+  it("idQuery onError log-only hook: adapter falls back to default 4xx; handler does not run", async () => {
+    const app = Fastify({ logger: false });
+    let handlerRan = false;
+    app.get(
+      "/search2",
+      {
+        preHandler: idQuery("userId", usr, {
+          onError: () => {
+            // log-only — intentionally does not call reply.send
+          },
+        }),
+      },
+      (_request, reply) => {
+        handlerRan = true;
+        reply.send({ ok: true });
+      },
+    );
+    app.setErrorHandler((err, _request, reply) => {
+      const e: IdParamError = fromAny(err);
+      reply.status(e.statusCode ?? 500).send({ error: e.reason });
+    });
+    await app.ready();
+    const orgId = org.generate();
+    const res = await app.inject({ method: "GET", url: `/search2?userId=${orgId}` });
+    expect(res.statusCode).toBe(404);
+    expect((res.json() as { error: string }).error).toBe("brand_mismatch");
+    expect(handlerRan).toBe(false);
+    await app.close();
+  });
+
+  it("idParam onError responding hook: hook response is used; handler does not run", async () => {
+    const app = Fastify({ logger: false });
+    let handlerRan = false;
+    app.get(
+      "/guarded/:id",
+      {
+        preHandler: idParam("id", usr, {
+          onError: (failure, _request, reply) => {
+            reply.status(failure.status).send({ custom: failure.reason });
+          },
+        }),
+      },
+      (_request, reply) => {
+        handlerRan = true;
+        reply.send({ ok: true });
+      },
+    );
+    await app.ready();
+    const orgId = org.generate();
+    const res = await app.inject({ method: "GET", url: `/guarded/${orgId}` });
+    expect(res.statusCode).toBe(404);
+    expect((res.json() as { custom: string }).custom).toBe("brand_mismatch");
+    expect(handlerRan).toBe(false);
+    await app.close();
+  });
+
+  it("idQuery onError responding hook: hook response is used; handler does not run", async () => {
+    const app = Fastify({ logger: false });
+    let handlerRan = false;
+    app.get(
+      "/guarded2",
+      {
+        preHandler: idQuery("userId", usr, {
+          onError: (failure, _request, reply) => {
+            reply.status(failure.status).send({ custom: failure.reason });
+          },
+        }),
+      },
+      (_request, reply) => {
+        handlerRan = true;
+        reply.send({ ok: true });
+      },
+    );
+    await app.ready();
+    const orgId = org.generate();
+    const res = await app.inject({ method: "GET", url: `/guarded2?userId=${orgId}` });
+    expect(res.statusCode).toBe(404);
+    expect((res.json() as { custom: string }).custom).toBe("brand_mismatch");
+    expect(handlerRan).toBe(false);
     await app.close();
   });
 });

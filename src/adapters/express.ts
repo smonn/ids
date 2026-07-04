@@ -23,8 +23,12 @@ export class IdParamError extends Error {
 /** Options for `idParam` and `idQuery`. All fields are optional. */
 export type IdParamOptions = {
   /**
-   * Called instead of forwarding to `next(err)` when provided. The hook owns the response
-   * entirely — the adapter does not call `next(err)` itself.
+   * Called when ID validation fails. If the hook sends a response (i.e. `res.headersSent`
+   * is `true` after the hook returns), the adapter takes no further action. If the hook
+   * returns without sending a response — including if it calls `next()` instead of
+   * `next(err)` — the adapter falls back to its default error behavior and calls
+   * `next(new IdParamError(...))`, ensuring the route handler never runs with an
+   * invalid or missing ID.
    */
   onError?: (failure: IdParamFailure, req: Request, res: Response, next: NextFunction) => void;
   /**
@@ -41,8 +45,11 @@ export type IdParamOptions = {
  * so the app's existing error-handling middleware controls rendering. The adapter does not write
  * a response body itself.
  *
- * **`options.onError`:** when provided, the hook owns the response entirely — the adapter does
- * not call `next(err)`.
+ * **`options.onError`:** when provided, the adapter calls the hook on validation failure. If
+ * the hook sends a response (`res.headersSent` is `true` after it returns), the adapter takes
+ * no further action. Otherwise — including if the hook calls `next()` instead of `next(err)` —
+ * the adapter falls back to `next(new IdParamError(...))`, so the route handler never runs with
+ * an invalid ID.
  *
  * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
  *
@@ -96,7 +103,17 @@ export function idParam<ParamKey extends string, Brand extends string>(
     if (!result.ok) {
       const failure = resolveIdParamFailure(result.error, options);
       if (options?.onError) {
-        options.onError(failure, req, res, next);
+        let nextCalledWithError = false;
+        const hookNext: NextFunction = (err?: unknown): void => {
+          if (err !== undefined) {
+            nextCalledWithError = true;
+            next(err);
+          }
+        };
+        options.onError(failure, req, res, hookNext);
+        if (!nextCalledWithError && !res.headersSent) {
+          next(new IdParamError(failure.reason, failure.status));
+        }
         return;
       }
       next(new IdParamError(failure.reason, failure.status));
@@ -118,8 +135,11 @@ export function idParam<ParamKey extends string, Brand extends string>(
  * `reason`, so the app's existing error-handling middleware controls rendering. The adapter
  * does not write a response body itself.
  *
- * **`options.onError`:** when provided, the hook owns the response entirely — the adapter does
- * not call `next(err)`.
+ * **`options.onError`:** when provided, the adapter calls the hook on validation failure. If
+ * the hook sends a response (`res.headersSent` is `true` after it returns), the adapter takes
+ * no further action. Otherwise — including if the hook calls `next()` instead of `next(err)` —
+ * the adapter falls back to `next(new IdParamError(...))`, so the route handler never runs with
+ * an invalid ID.
  *
  * **`options.status`:** remaps the default HTTP status for a reason without a full handler.
  *
@@ -160,7 +180,17 @@ export function idQuery<ParamKey extends string, Brand extends string>(
     if (!result.ok) {
       const failure = resolveIdParamFailure(result.error, options);
       if (options?.onError) {
-        options.onError(failure, req, res, next);
+        let nextCalledWithError = false;
+        const hookNext: NextFunction = (err?: unknown): void => {
+          if (err !== undefined) {
+            nextCalledWithError = true;
+            next(err);
+          }
+        };
+        options.onError(failure, req, res, hookNext);
+        if (!nextCalledWithError && !res.headersSent) {
+          next(new IdParamError(failure.reason, failure.status));
+        }
         return;
       }
       next(new IdParamError(failure.reason, failure.status));

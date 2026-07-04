@@ -47,8 +47,11 @@ app.get(
 - **Default error channel:** on failure the adapter calls `next(err)` with an
   `IdParamError` carrying `status` and `reason` — it does **not** write a body
   itself.
-- **`options.onError`:** when provided, the hook owns the response; the adapter
-  does not call `next(err)`.
+- **`options.onError`:** when provided, the hook is called on validation failure.
+  If the hook sends a response (`res.headersSent`), the adapter takes no further
+  action. If the hook does not respond — including if it calls `next()` instead of
+  `next(err)` — the adapter calls `next(new IdParamError(...))`, so the route
+  handler never runs with an invalid ID.
 - **`options.status`:** remaps the default HTTP status for a failure reason.
 
 ## `idQuery` — query-string params

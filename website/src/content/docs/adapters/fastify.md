@@ -46,8 +46,10 @@ TypeScript infer, or use `preHandler` slot assignment directly.
 - **Default error channel:** on failure the adapter throws `IdParamError`
   carrying `statusCode` and `reason` — Fastify's `setErrorHandler` controls
   rendering.
-- **`options.onError`:** when provided, the hook owns the response; the adapter
-  does not throw.
+- **`options.onError`:** when provided, the adapter awaits the hook on validation
+  failure. If the hook sends a response (`reply.sent`), the adapter takes no
+  further action. If the hook does not respond, the adapter throws `IdParamError`,
+  so the route handler never runs with an invalid ID.
 - **`options.status`:** remaps the default HTTP status for a failure reason.
 
 ## `idQuery` — query-string params
