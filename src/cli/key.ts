@@ -66,9 +66,9 @@ async function resolveKeyString(
     } catch {
       // silently skip on platforms where stat is unavailable or fails
     }
-    if ((mode & 0o044) !== 0) {
+    if ((mode & 0o077) !== 0) {
       opts.stderr(
-        `Warning: key file '${path}' is group- or other-readable; run: chmod 0600 '${path}'\n`,
+        `Warning: key file '${path}' is accessible to group/others; run: chmod 0600 '${path}'\n`,
       );
     }
     return trimmed;
