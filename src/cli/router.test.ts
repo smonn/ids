@@ -500,6 +500,17 @@ describe("router", () => {
     expect(batch.out.join("").match(/brand:/g)).toHaveLength(2);
   });
 
+  it("batch inspect strips control characters from failing-input token in stderr", async () => {
+    const batch = capture(["timestamp", "inspect"], {
+      readStdin: () => Promise.resolve("\x1b]0;pwned\x07not-an-id\n"),
+    });
+    expect(await run(batch.opts)).toBe(1);
+    const errText = batch.err.join("");
+    expect(errText).not.toContain("\x1b");
+    expect(errText).toContain("]0;pwned");
+    expect(errText).toContain("invalid_id");
+  });
+
   it("codec and top-level --help print help with exit 0", async () => {
     const codecHelp = capture(["wrapped", "--help"]);
     expect(await run(codecHelp.opts)).toBe(0);

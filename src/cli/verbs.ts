@@ -292,7 +292,7 @@ export async function runInspect<K>(
     if (isCliError(report)) {
       if (single) return fail(opts, report);
       anyFail = true;
-      opts.stderr(`${input}: ${report.message}\n`);
+      opts.stderr(`${redactToken(input)}: ${report.message}\n`);
       continue;
     }
     if (!quiet) opts.stdout(json ? formatInspectJson(report) : formatInspectHuman(report));
