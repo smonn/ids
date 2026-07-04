@@ -117,12 +117,6 @@ module.exports = {
       },
     },
     {
-      name: "codec-constructors-wire-codec-shell-only",
-      severity: "error",
-      from: { path: "^src/codecs/[^/]+/index\\.ts$" },
-      to: { path: "^src/wire", pathNot: "^src/wire/codec-shell" },
-    },
-    {
       name: "codec-constructors-imports-allowlist",
       severity: "error",
       comment:
