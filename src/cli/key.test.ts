@@ -244,7 +244,7 @@ describe("resolveKey", () => {
 
   it("warns on stderr when --key-file has group-read bit only (0o640)", async () => {
     const captured: string[] = [];
-    await resolveKey(
+    const result = await resolveKey(
       new Map([["--key-file", "k"]]),
       new Set(["--key-file"]),
       opts({
@@ -254,12 +254,13 @@ describe("resolveKey", () => {
       }),
       fakeKey,
     );
+    expect(isCliError(result)).toBe(false);
     expect(captured.join("")).toContain("chmod 0600");
   });
 
   it("warns on stderr when --key-file has other-read bit only (0o604)", async () => {
     const captured: string[] = [];
-    await resolveKey(
+    const result = await resolveKey(
       new Map([["--key-file", "k"]]),
       new Set(["--key-file"]),
       opts({
@@ -269,12 +270,13 @@ describe("resolveKey", () => {
       }),
       fakeKey,
     );
+    expect(isCliError(result)).toBe(false);
     expect(captured.join("")).toContain("chmod 0600");
   });
 
   it("warns on stderr when --key-file has group-write bit only (0o620)", async () => {
     const captured: string[] = [];
-    await resolveKey(
+    const result = await resolveKey(
       new Map([["--key-file", "k"]]),
       new Set(["--key-file"]),
       opts({
@@ -284,12 +286,13 @@ describe("resolveKey", () => {
       }),
       fakeKey,
     );
+    expect(isCliError(result)).toBe(false);
     expect(captured.join("")).toContain("chmod 0600");
   });
 
   it("warns on stderr when --key-file has other-write bit only (0o602)", async () => {
     const captured: string[] = [];
-    await resolveKey(
+    const result = await resolveKey(
       new Map([["--key-file", "k"]]),
       new Set(["--key-file"]),
       opts({
@@ -299,6 +302,7 @@ describe("resolveKey", () => {
       }),
       fakeKey,
     );
+    expect(isCliError(result)).toBe(false);
     expect(captured.join("")).toContain("chmod 0600");
   });
 
