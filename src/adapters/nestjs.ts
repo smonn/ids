@@ -100,7 +100,7 @@ export class ParseIdPipe<Brand extends string> implements PipeTransform<
     if (!result.ok) {
       const failure = resolveIdParamFailure(result.error, this.options);
       if (this.options?.onError) {
-        return this.options.onError(failure);
+        this.options.onError(failure);
       }
       if (failure.reason === "brand_mismatch" && failure.status === 404) {
         throw new NotFoundException();
@@ -121,7 +121,7 @@ export class ParseIdPipe<Brand extends string> implements PipeTransform<
             status: this.options?.status?.malformed ?? 400,
           };
           if (this.options?.onError) {
-            return this.options.onError(failure);
+            this.options.onError(failure);
           }
           if (failure.status === 400) {
             throw new BadRequestException();
