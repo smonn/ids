@@ -197,6 +197,57 @@ describe("wrapped", () => {
     await expect(ring.unwrap(id)).rejects.toMatchObject({ code: "verification_failed" });
   });
 
+  it("safeVerify returns ok with the canonical id and no lookup key for a valid id", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key] });
+    const id = await inv.wrap(99);
+    const upper = id.toUpperCase() as typeof id;
+    const result = await inv.safeVerify(upper);
+    expect(result).toEqual({ ok: true, id });
+  });
+
+  it("safeVerify reports verification failure without throwing", async () => {
+    const keyA = await importWrappingKey(new Uint8Array(32).fill(0xaa));
+    const keyB = await importWrappingKey(new Uint8Array(32).fill(0xbb));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [keyA] });
+    const id = await inv.wrap(1);
+    const other = createWrappedKeyId("inv", {
+      kind: "u32",
+      keys: [keyB],
+      allowDuplicateBrand: true,
+    });
+    // wrong keyring
+    await expect(other.safeVerify(id)).resolves.toEqual({
+      ok: false,
+      error: "verification_failed",
+    });
+    // tampered payload
+    const tampered = (id.slice(0, -1) + (id.endsWith("0") ? "1" : "0")) as typeof id;
+    await expect(inv.safeVerify(tampered)).resolves.toEqual({
+      ok: false,
+      error: "verification_failed",
+    });
+  });
+
+  it("safeVerify reports structural parse failure without verifying", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0xaa));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    await expect(inv.safeVerify("bad")).resolves.toEqual({
+      ok: false,
+      error: "invalid_prefix",
+    });
+  });
+
+  it("safeVerify success shape omits lookupKey (satisfies IdVerifiableCodec)", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key] });
+    const result = await inv.safeVerify(await inv.wrap(5));
+    if (result.ok) {
+      // Exact-type assertion: a `lookupKey` field would fail toEqualTypeOf — safeVerify drops it.
+      expectTypeOf(result).toEqualTypeOf<{ ok: true; id: Id<"inv"> }>();
+    }
+  });
+
   it("rejects duplicate wrapping keys in the keyring at construction", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
     let err: unknown;

@@ -88,7 +88,7 @@ const pipe = new ParseIdPipe(usr, {
 
 ## Signature verification
 
-Pass `verify: true` together with a **Signed Timestamp codec** to authenticate the HMAC tag. When `verify: true` is set, `transform()` returns `Promise<Id<Brand>>` instead of `Id<Brand>` — NestJS awaits this automatically. TypeScript enforces the codec requirement via constructor overloads — `{ verify: true }` is a type error when paired with a non-verifiable codec.
+Pass `verify: true` together with a **Signed Timestamp codec** or a **Wrapped key codec** to authenticate the tag. When `verify: true` is set, `transform()` returns `Promise<Id<Brand>>` instead of `Id<Brand>` — NestJS awaits this automatically. TypeScript enforces the codec requirement via constructor overloads — `{ verify: true }` is a type error when paired with a non-verifiable codec (Timestamp, Opaque, Reverse Timestamp, Digest).
 
 ```ts
 import { ParseIdPipe } from "@smonn/ids/nestjs";
@@ -111,6 +111,8 @@ When `verify: true` is set:
 
 1. The pipe first runs `codec.safeParse` — a parse failure follows the normal exception path.
 2. If parsing succeeds, `codec.safeVerify(value)` is awaited. A tag failure is treated as `reason: "malformed"` (throws `BadRequestException` by default, overrideable via `options.status.malformed`).
+
+For the **Signed Timestamp codec**, `safeVerify` checks the HMAC tag. For the **Wrapped key codec**, `safeVerify` is a verify-only alias of `safeUnwrap` (it drops the recovered lookup key); a wrong-key, tampered, or revoked-key ID surfaces as the same `"malformed"` failure.
 
 Without `verify: true`, `transform()` is synchronous — the default behaviour is unchanged.
 

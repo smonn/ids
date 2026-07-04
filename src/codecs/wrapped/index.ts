@@ -60,6 +60,18 @@ export type UnwrapResult<Brand extends string, Kind extends WrappedKind> =
   | { ok: false; error: ParseError | "verification_failed" };
 
 /**
+ * Result returned by {@link WrappedKeyCodec.safeVerify}.
+ *
+ * A verify-only view of {@link UnwrapResult}: the success branch carries only the
+ * canonical `id`, dropping the recovered `lookupKey`. The failure branch is
+ * identical to {@link UnwrapResult}'s. This shape lets the Wrapped key codec
+ * satisfy the HTTP adapters' `IdVerifiableCodec` structural interface. See ADR-0036.
+ */
+export type SafeVerifyResult<Brand extends string> =
+  | { ok: true; id: Id<Brand> }
+  | { ok: false; error: ParseError | "verification_failed" };
+
+/**
  * Codec returned by {@link createWrappedKeyId}.
  *
  * Wraps a caller-owned integer **lookup key** into a public {@link Id} and
@@ -109,6 +121,19 @@ export type WrappedKeyCodec<Brand extends string, Kind extends WrappedKind> = {
    * all surface as `"verification_failed"`.
    */
   safeUnwrap(input: unknown): Promise<UnwrapResult<Brand, Kind>>;
+  /**
+   * Verify-only alias of {@link safeUnwrap} for untrusted input.
+   *
+   * Structurally parses `input`, then verifies the payload — returning
+   * `{ ok: true, id }` on success (dropping the recovered `lookupKey`) or
+   * `{ ok: false, error }` on any failure, without throwing. Deliberately
+   * redundant with {@link safeUnwrap} (a wrapped ID cannot be verified without
+   * unwrapping it): use {@link safeUnwrap} when the lookup key is needed, and
+   * `safeVerify` to gate on authenticity alone. This is the method that lets the
+   * codec satisfy the HTTP adapters' `IdVerifiableCodec` interface under
+   * `verify: true`. See ADR-0036.
+   */
+  safeVerify(input: unknown): Promise<SafeVerifyResult<Brand>>;
   /** Strict type guard: `true` only for already-canonical `Id<Brand>` strings. */
   is(value: unknown): value is Id<Brand>;
   /** Normalise to canonical form, or throw on parse failure. */
@@ -277,6 +302,13 @@ export function createWrappedKeyId<Brand extends string, Kind extends WrappedKin
       const lookupKey = await layout.tryUnwrap(parsed.id);
       if (lookupKey === null) return { ok: false, error: "verification_failed" };
       return { ok: true, id: parsed.id, lookupKey };
+    },
+    safeVerify: async (input) => {
+      const parsed = wire.safeParse(input);
+      if (!parsed.ok) return parsed;
+      const lookupKey = await layout.tryUnwrap(parsed.id);
+      if (lookupKey === null) return { ok: false, error: "verification_failed" };
+      return { ok: true, id: parsed.id };
     },
     is: wire.is,
     parse: wire.parse,

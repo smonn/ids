@@ -7,7 +7,13 @@ import type { IdParamFailure } from "./nestjs.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { makeFailingSpyCodec, makeSpyCodec, makeVerifiableSpyCodec } from "./test-helpers.js";
+import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
+import {
+  makeFailingSpyCodec,
+  makeSpyCodec,
+  makeVerifiableSpyCodec,
+  makeWrappedVerifiableSpyCodec,
+} from "./test-helpers.js";
 
 const METADATA: ArgumentMetadata = { type: "param", metatype: String, data: "id" };
 const QUERY_METADATA: ArgumentMetadata = { type: "query", metatype: String, data: "id" };
@@ -361,6 +367,33 @@ describe("ParseIdPipe verify option", () => {
     const pipe = new ParseIdPipe(signed, { verify: true });
     const result = await pipe.transform(validId, METADATA);
     expect(result).toBeDefined();
+  });
+
+  it("real Wrapped key codec: forged-tag ID rejected with verify: true", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    const validId = await inv.wrap(7);
+    const forged = validId.slice(0, -1) + (validId.endsWith("0") ? "1" : "0");
+
+    const pipe = new ParseIdPipe(inv, { verify: true });
+    await expect(pipe.transform(forged, METADATA)).rejects.toThrow(BadRequestException);
+  });
+
+  it("real Wrapped key codec: tag-valid ID accepted with verify: true", async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    const validId = await inv.wrap(7);
+
+    const pipe = new ParseIdPipe(inv, { verify: true });
+    const result = await pipe.transform(validId, METADATA);
+    expect(result).toBe(validId);
+  });
+
+  it("Wrapped key codec: verify: true calls safeVerify (spy)", async () => {
+    const spyCodec = makeWrappedVerifiableSpyCodec("inv", "ok");
+    const pipe = new ParseIdPipe(spyCodec, { verify: true });
+    await pipe.transform("inv_00000000000000000000000000", METADATA);
+    expect(spyCodec.safeVerify).toHaveBeenCalled();
   });
 
   it("verify: true with onError hook: hook is called and its throw propagates", async () => {

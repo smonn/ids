@@ -107,7 +107,7 @@ The 400 vs 404 defaults match the [Hono adapter](/adapters/hono/):
 
 ## Signature verification
 
-Pass `verify: true` together with a **Signed Timestamp codec** to authenticate the HMAC tag after structural parsing succeeds. TypeScript enforces this at the call site via function overloads — `{ verify: true }` is a type error when paired with a non-verifiable codec.
+Pass `verify: true` together with a **Signed Timestamp codec** or a **Wrapped key codec** to authenticate the tag after structural parsing succeeds. TypeScript enforces this at the call site via function overloads — `{ verify: true }` is a type error when paired with a non-verifiable codec (Timestamp, Opaque, Reverse Timestamp, Digest).
 
 ```ts
 import { idParam } from "@smonn/ids/express";
@@ -125,5 +125,7 @@ When `verify: true` is set:
 
 1. The adapter first runs `codec.safeParse` — a parse failure follows the normal error channel (brand mismatch → 404, malformed → 400).
 2. If parsing succeeds, `codec.safeVerify(raw)` is called asynchronously. A tag failure is treated as `reason: "malformed"` and routed through the same error channel (status 400 by default, overrideable via `options.status.malformed`).
+
+For the **Signed Timestamp codec**, `safeVerify` checks the HMAC tag. For the **Wrapped key codec**, `safeVerify` is a verify-only alias of `safeUnwrap` (it drops the recovered lookup key); a wrong-key, tampered, or revoked-key ID surfaces as the same `"malformed"` failure.
 
 Without `verify: true`, the adapter calls only `safeParse` — the default behaviour is byte-for-byte unchanged and no async work is added.
