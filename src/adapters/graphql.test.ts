@@ -8,10 +8,12 @@ import {
   graphql,
 } from "graphql";
 import type { IntValueNode, StringValueNode } from "graphql";
+import { fromAny } from "@total-typescript/shoehorn";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { idScalar } from "./graphql.js";
-import { makeFailingSpyCodec, makeSpyCodec } from "./test-helpers.js";
+import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
+import { idScalar, verifyIdArgs } from "./graphql.js";
+import { makeFailingSpyCodec, makeSpyCodec, makeVerifiableSpyCodec } from "./test-helpers.js";
 
 function makeStringNode(value: string): StringValueNode {
   return { kind: Kind.STRING, value };
@@ -337,5 +339,157 @@ describe("idScalar — graphql() execution engine (integration)", () => {
       expect(resolvedId).toBe(id);
       expect(execUsr.is(resolvedId)).toBe(true);
     });
+  });
+});
+
+describe("verifyIdArgs", () => {
+  it("passes a valid signed ID arg through to the wrapped resolver unchanged", async () => {
+    const usr = makeVerifiableSpyCodec("usr", "ok");
+    const id = usr.generate();
+    const resolver = vi.fn((_root: unknown, args: { id: unknown }) => `got ${String(args.id)}`);
+    const wrapped = verifyIdArgs({ id: usr }, resolver);
+
+    const result = await wrapped(null, { id }, {}, fromAny({}));
+
+    expect(result).toBe(`got ${id}`);
+    expect(resolver).toHaveBeenCalledWith(null, { id }, {}, expect.anything());
+  });
+
+  it("rejects a forged tag with GraphQLError before the wrapped resolver runs", async () => {
+    const usr = makeVerifiableSpyCodec("usr", "fail");
+    const resolver = vi.fn(() => "should not run");
+    const wrapped = verifyIdArgs({ id: usr }, resolver);
+
+    await expect(wrapped(null, { id: "usr_forged" }, {}, fromAny({}))).rejects.toThrow(
+      GraphQLError,
+    );
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
+  it("skips verification when the arg is null or undefined and still runs the resolver", async () => {
+    const usr = makeVerifiableSpyCodec("usr", "fail");
+    const resolver = vi.fn(() => "ran");
+    const wrapped = verifyIdArgs<unknown, unknown, { id?: unknown }>({ id: usr }, resolver);
+
+    await expect(wrapped(null, { id: null }, {}, fromAny({}))).resolves.toBe("ran");
+    await expect(wrapped(null, {}, {}, fromAny({}))).resolves.toBe("ran");
+    expect(usr.safeVerify).not.toHaveBeenCalled();
+  });
+
+  it("verifies every present arg in a multi-arg map and runs the resolver when all pass", async () => {
+    const usr = makeVerifiableSpyCodec("usr", "ok");
+    const org = makeVerifiableSpyCodec("org", "ok");
+    const userId = usr.generate();
+    const orgId = org.generate();
+    const resolver = vi.fn(() => "linked");
+    const wrapped = verifyIdArgs({ userId: usr, orgId: org }, resolver);
+
+    await expect(wrapped(null, { userId, orgId }, {}, fromAny({}))).resolves.toBe("linked");
+    expect(usr.safeVerify).toHaveBeenCalledWith(userId);
+    expect(org.safeVerify).toHaveBeenCalledWith(orgId);
+  });
+
+  it("names the failing arg in the GraphQLError message", async () => {
+    const usr = makeVerifiableSpyCodec("usr", "ok");
+    const org = makeVerifiableSpyCodec("org", "fail");
+    const resolver = vi.fn(() => "linked");
+    const wrapped = verifyIdArgs({ userId: usr, orgId: org }, resolver);
+
+    await expect(
+      wrapped(null, { userId: usr.generate(), orgId: "org_forged" }, {}, fromAny({})),
+    ).rejects.toThrow(expect.objectContaining({ message: "invalid orgId" }));
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
+  it("rejects a wrong-brand signed ID (structural prefix mismatch)", async () => {
+    const key = await importSigningKey(new Uint8Array(32).fill(0x11));
+    const usr = createSignedTimestampId("usr", { keys: [key], allowDuplicateBrand: true });
+    const org = createSignedTimestampId("org", { keys: [key], allowDuplicateBrand: true });
+    const resolver = vi.fn(() => "ran");
+    // Verifier expects "usr" but receives a genuinely-signed "org" ID.
+    const wrapped = verifyIdArgs({ id: usr }, resolver);
+
+    const orgId = await org.generate();
+    await expect(wrapped(null, { id: orgId }, {}, fromAny({}))).rejects.toThrow(
+      expect.objectContaining({ message: "invalid id" }),
+    );
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
+  it("rejects an ID signed under a different key (missing/invalid key)", async () => {
+    const signingKey = await importSigningKey(new Uint8Array(32).fill(0x22));
+    const otherKey = await importSigningKey(new Uint8Array(32).fill(0x33));
+    const signer = createSignedTimestampId("sgn", {
+      keys: [signingKey],
+      allowDuplicateBrand: true,
+    });
+    const verifier = createSignedTimestampId("sgn", {
+      keys: [otherKey],
+      allowDuplicateBrand: true,
+    });
+    const resolver = vi.fn(() => "ran");
+    const wrapped = verifyIdArgs({ id: verifier }, resolver);
+
+    const id = await signer.generate();
+    await expect(wrapped(null, { id }, {}, fromAny({}))).rejects.toThrow(
+      expect.objectContaining({ message: "invalid id" }),
+    );
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-verifiable codec (no safeVerify) at compile time", () => {
+    const plain = createTimestampId("pln", { allowDuplicateBrand: true });
+    // A plain Timestamp codec satisfies IdCodec but not IdVerifiableCodec.
+    // @ts-expect-error — codec map values must expose safeVerify (IdVerifiableCodec).
+    verifyIdArgs({ id: plain }, () => "unreachable");
+    expect(true).toBe(true);
+  });
+});
+
+describe("verifyIdArgs — graphql() execution engine (integration)", () => {
+  // Flip a base32 char firmly inside the tag region so the ID still parses structurally
+  // (canonical final char untouched) but its HMAC no longer matches.
+  function forgeTag(id: string): string {
+    const idx = id.length - 2;
+    const c = id[idx]!;
+    return id.slice(0, idx) + (c === "0" ? "1" : "0") + id.slice(idx + 1);
+  }
+
+  it("resolves a genuinely signed ID and rejects a forged one before the resolver runs", async () => {
+    const key = await importSigningKey(new Uint8Array(32).fill(0x42));
+    const sgn = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    const SignedId = idScalar(sgn, { name: "SignedId" });
+
+    let resolverRuns = 0;
+    const schema = new GraphQLSchema({
+      query: new GraphQLObjectType({
+        name: "Query",
+        fields: {
+          resource: {
+            type: GraphQLString,
+            args: { id: { type: new GraphQLNonNull(SignedId) } },
+            resolve: verifyIdArgs({ id: sgn }, (_root, args: { id: unknown }) => {
+              resolverRuns += 1;
+              return `ok ${String(args.id)}`;
+            }),
+          },
+        },
+      }),
+    });
+
+    const id = await sgn.generate();
+    const good = await graphql({ schema, source: `{ resource(id: "${id}") }` });
+    expect(good.errors).toBeUndefined();
+    expect(good.data?.["resource"]).toBe(`ok ${id}`);
+    expect(resolverRuns).toBe(1);
+
+    const forged = forgeTag(id);
+    const bad = await graphql({ schema, source: `{ resource(id: "${forged}") }` });
+    expect(bad.errors).toBeDefined();
+    expect(bad.errors![0]).toBeInstanceOf(GraphQLError);
+    expect(bad.errors![0]?.message).toBe("invalid id");
+    // Forgery is structurally valid, so it clears the scalar and is caught by the wrapper —
+    // the resolver body still never runs.
+    expect(resolverRuns).toBe(1);
   });
 });

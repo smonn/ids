@@ -63,7 +63,7 @@ Framework and ORM adapters ship as optional subpath exports (each requires its o
 
 - **HTTP params:** [Hono](https://ids.smonn.se/adapters/hono/), [Express](https://ids.smonn.se/adapters/express/), [Fastify](https://ids.smonn.se/adapters/fastify/) — `idParam`, `idQuery` middleware; [NestJS](https://ids.smonn.se/adapters/nestjs/) — `ParseIdPipe`
 - **ORM columns:** [Drizzle](https://ids.smonn.se/adapters/drizzle/) — `idColumn`, `idColumnMysql`, `idColumnSqlite`, `nullableIdColumn`, `nullableIdColumnMysql`, `nullableIdColumnSqlite`, `generatedIdColumn`, `generatedIdColumnMysql`, `generatedIdColumnSqlite`, [Kysely](https://ids.smonn.se/adapters/kysely/) — `idPlugin` / `idColumn`, `nullableIdColumn`, `insertId`, [MikroORM](https://ids.smonn.se/adapters/mikro-orm/) — `idType`, `nullableIdType`, `idField`, [Prisma](https://ids.smonn.se/adapters/prisma/) — `idField`, `nullableIdField`, `idFieldNonGenerating`, `idFieldReadOnly` (deprecated — use `idFieldNonGenerating`), [TypeORM](https://ids.smonn.se/adapters/typeorm/) — `idTransformer`, `nullableIdTransformer`, `beforeInsertHook`
-- **GraphQL:** [GraphQL](https://ids.smonn.se/adapters/graphql/) — `idScalar` custom scalar
+- **GraphQL:** [GraphQL](https://ids.smonn.se/adapters/graphql/) — `idScalar` custom scalar; `verifyIdArgs` resolver wrapper for signature verification
 - **CLI:** `ids <codec> <verb>` — codec-first; per-codec verbs `generate`, `inspect`, `wrap`, `derive`, `match`; top-level `keygen`, `convert` — `npx @smonn/ids --help` ([docs](https://ids.smonn.se/cli/))
 
 Every codec also implements [Standard Schema v1](https://standardschema.dev/), so it slots into Zod, Valibot, ArkType, tRPC, and any validator-aware library.
