@@ -760,7 +760,7 @@ describe("verify option", () => {
       const app = Fastify();
       app.setErrorHandler((err, _req, reply) => {
         capturedError = err;
-        void reply.status(400).send({ error: (err as IdParamError).reason });
+        void reply.status(400).send({ error: (err as unknown as IdParamError).reason });
       });
       app.get(
         "/items/:id",
@@ -819,8 +819,8 @@ describe("verify option", () => {
       const app = Fastify();
       app.setErrorHandler((err, _req, reply) => {
         void reply
-          .status((err as IdParamError).statusCode ?? 500)
-          .send({ error: (err as IdParamError).reason });
+          .status((err as unknown as IdParamError).statusCode ?? 500)
+          .send({ error: (err as unknown as IdParamError).reason });
       });
       app.get(
         "/items/:id",
@@ -862,7 +862,7 @@ describe("verify option", () => {
       const app = Fastify();
       app.setErrorHandler((err, _req, reply) => {
         capturedError = err;
-        void reply.status(400).send({ error: (err as IdParamError).reason });
+        void reply.status(400).send({ error: (err as unknown as IdParamError).reason });
       });
       app.get(
         "/items",
@@ -965,7 +965,7 @@ describe("verify option", () => {
       const app = Fastify();
       app.setErrorHandler((err, _req, reply) => {
         capturedError = err;
-        void reply.status(400).send({ error: (err as IdParamError).reason });
+        void reply.status(400).send({ error: (err as unknown as IdParamError).reason });
       });
       app.get(
         "/items/:id",
@@ -995,7 +995,7 @@ describe("verify option", () => {
       const app = Fastify();
       app.setErrorHandler((err, _req, reply) => {
         capturedError = err;
-        void reply.status(400).send({ error: (err as IdParamError).reason });
+        void reply.status(400).send({ error: (err as unknown as IdParamError).reason });
       });
       app.get(
         "/items",
