@@ -10,6 +10,7 @@ const base32Pattern = new RegExp(
 );
 
 const asciiUpperPattern = /[A-Z]/g;
+const asciiUpperTestPattern = /[A-Z]/;
 const asciiLowerReplacer = (match: string): string => String.fromCharCode(match.charCodeAt(0) + 32);
 
 /**
@@ -18,9 +19,15 @@ const asciiLowerReplacer = (match: string): string => String.fromCharCode(match.
  * non-ASCII code unit such as U+212A KELVIN SIGN is left intact — and therefore
  * rejected by base32 validation — rather than aliasing to `k`. SPEC
  * canonicalization step 1: case folding is ASCII-only.
+ *
+ * The `test` guard keeps the common already-lowercase input allocation-free
+ * (the same short-circuit the alias resolution below uses): only strings that
+ * actually contain an uppercase ASCII letter pay for the rewrite.
  */
 function asciiLowerFold(value: string): string {
-  return value.replace(asciiUpperPattern, asciiLowerReplacer);
+  return asciiUpperTestPattern.test(value)
+    ? value.replace(asciiUpperPattern, asciiLowerReplacer)
+    : value;
 }
 
 export function safeParse<Brand extends string>(
