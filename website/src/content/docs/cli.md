@@ -168,7 +168,13 @@ or codec tag, and **no per-codec key env vars** (the codec is the command token)
 
 **Value** — first present wins: `--key STRING` › `--key-file PATH` › `IDS_KEY`. Supplying
 both `--key` and `--key-file` is a usage error. Prefer `--key-file`/`IDS_KEY` over `--key`,
-which is visible in `ps` and shell history.
+which is visible in `ps` and shell history. Using `--key` emits a one-line advisory on
+stderr; `IDS_KEY` is silent.
+
+**Key-file permissions** — when `--key-file` is used the CLI checks the file's permission
+bits after reading it. If the file is group- or other-readable (mode bits `0o044` set), it
+emits a one-line warning on stderr recommending `chmod 0600 '<path>'`. The check skips
+silently where `stat` is unavailable or mode bits are meaningless (e.g. Windows).
 
 **Encoding** — independent of the value source: `--key-encoding hex|base64url` ›
 `IDS_KEY_ENCODING` › `hex`. So a `base64url` key can be fully env-configured:
@@ -181,6 +187,15 @@ npx @smonn/ids signed generate usr
 
 The decoded key must be 16, 24, or 32 bytes; any other length is a usage error (this
 catches truncated or wrong-encoding pastes).
+
+**Digest material** — `derive` and `match` accept their input material via `--material
+<value>` or stdin. Using `--material` emits a one-line advisory on stderr because the value
+(often PII such as an email address) would appear in `ps` and shell history; piping via
+stdin keeps it off argv. Machine output (stdout/JSON) is unaffected by the advisory.
+
+**Stray positional errors** — if an unrecognised positional token is passed (for example a
+mistyped bare key), the CLI truncates it to 20 characters followed by `…` in the error
+message so the full token does not appear in stderr or CI logs.
 
 ## Exit codes
 

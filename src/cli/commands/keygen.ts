@@ -3,7 +3,7 @@ import { type FlagSpec, parseArgs } from "../args.js";
 import { type CliError, isCliError, usageError } from "../errors.js";
 import { resolveKeyEncoding } from "../key.js";
 import type { RunOpts } from "../types.js";
-import { fail } from "../verbs.js";
+import { fail, redactToken } from "../verbs.js";
 
 function parseBytes(values: Map<string, string>): 16 | 24 | 32 | CliError {
   const raw = values.get("--bytes");
@@ -28,7 +28,7 @@ export async function runKeygen(argv: ReadonlyArray<string>, opts: RunOpts): Pro
   const { values, positionals, error } = parseArgs(argv, specs);
   if (error !== undefined) return fail(opts, usageError(error));
   if (positionals.length > 0)
-    return fail(opts, usageError(`unexpected argument: ${positionals[0]!}`));
+    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[0]!)}`));
 
   const bytes = parseBytes(values);
   if (isCliError(bytes)) return fail(opts, bytes);

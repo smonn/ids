@@ -12,6 +12,8 @@ export type RunOpts = {
   readStdin?: () => Promise<string>;
   /** Read a key file's contents. Injected in tests; defaults to node:fs/promises in key resolution. */
   readFile?: (path: string) => Promise<string>;
+  /** Stat a key file for its mode bits. Injected in tests; defaults to node:fs/promises in key resolution. */
+  statFile?: (path: string) => Promise<{ mode: number }>;
   /** The package version, surfaced by `ids --version`. Injected by the binary entry point. */
   version?: string;
 };

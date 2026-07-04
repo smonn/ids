@@ -24,6 +24,14 @@ describe("generate edge cases", () => {
   it("extra positional → 2", async () => {
     expect(await exit(["timestamp", "generate", "usr", "extra"])).toBe(2);
   });
+
+  it("extra positional longer than 20 chars is truncated in the error message", async () => {
+    const longToken = "a".repeat(30);
+    const { opts, err } = capture(["timestamp", "generate", "usr", longToken]);
+    await run(opts);
+    expect(err.join("")).toContain("…");
+    expect(err.join("")).not.toContain(longToken);
+  });
   it("invalid --count → 2", async () => {
     expect(await exit(["timestamp", "generate", "usr", "--count", "abc"])).toBe(2);
   });
@@ -117,6 +125,32 @@ describe("wrap edge cases", () => {
   });
 });
 
+describe("--material advisory", () => {
+  it("emits a stderr advisory when --material flag is used", async () => {
+    const { opts, err } = capture([
+      "digest",
+      "derive",
+      "psd",
+      "--ns",
+      "b",
+      "--material",
+      "hello",
+      "--key",
+      keyHex,
+    ]);
+    await run(opts);
+    expect(err.join("")).toContain("stdin");
+  });
+
+  it("does not emit a material advisory when material comes from stdin", async () => {
+    const { opts, err } = capture(["digest", "derive", "psd", "--ns", "b", "--key", keyHex], {
+      readStdin: () => Promise.resolve("hello"),
+    });
+    await run(opts);
+    expect(err.join("")).not.toContain("stdin");
+  });
+});
+
 describe("derive edge cases", () => {
   it("missing --ns → 2", async () => {
     expect(await exit(["digest", "derive", "psd", "--material", "x", "--key", keyHex])).toBe(2);
@@ -130,6 +164,34 @@ describe("derive edge cases", () => {
     expect(
       await exit(["digest", "derive", "psd", "x", "--ns", "b", "--material", "y", "--key", keyHex]),
     ).toBe(2);
+  });
+});
+
+describe("digest match constant-time comparison", () => {
+  it("returns exit 0 when material matches the id", async () => {
+    const d = capture(["digest", "derive", "psd", "--ns", "b", "--material", "x", "--key", keyHex]);
+    await run(d.opts);
+    const id = d.out.join("").trim();
+    const m = capture(["digest", "match", id, "--ns", "b", "--material", "x", "--key", keyHex]);
+    expect(await run(m.opts)).toBe(0);
+  });
+
+  it("returns exit 1 when material does not match the id", async () => {
+    const d = capture(["digest", "derive", "psd", "--ns", "b", "--material", "x", "--key", keyHex]);
+    await run(d.opts);
+    const id = d.out.join("").trim();
+    const m = capture([
+      "digest",
+      "match",
+      id,
+      "--ns",
+      "b",
+      "--material",
+      "different",
+      "--key",
+      keyHex,
+    ]);
+    expect(await run(m.opts)).toBe(1);
   });
 });
 

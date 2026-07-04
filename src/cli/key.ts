@@ -1,4 +1,4 @@
-import { readFile as fsReadFile } from "node:fs/promises";
+import { readFile as fsReadFile, stat as fsStat } from "node:fs/promises";
 import { type CliError, isCliError, usageError } from "./errors.js";
 import { formatCliError } from "./format.js";
 import type { RunOpts } from "./types.js";
@@ -41,6 +41,9 @@ async function resolveKeyString(
   if (hasKey) {
     const v = values.get("--key");
     if (v === undefined || v === "") return usageError("--key requires a value");
+    opts.stderr(
+      "Warning: --key puts secret material on argv/shell history; prefer --key-file or IDS_KEY.\n",
+    );
     return v;
   }
 
@@ -56,6 +59,18 @@ async function resolveKeyString(
     }
     const trimmed = content.trim();
     if (trimmed === "") return usageError(`--key-file is empty: ${path}`);
+    let mode = 0;
+    try {
+      const st = opts.statFile !== undefined ? await opts.statFile(path) : await fsStat(path);
+      mode = st.mode;
+    } catch {
+      // silently skip on platforms where stat is unavailable or fails
+    }
+    if ((mode & 0o044) !== 0) {
+      opts.stderr(
+        `Warning: key file '${path}' is group- or other-readable; run: chmod 0600 '${path}'\n`,
+      );
+    }
     return trimmed;
   }
 
