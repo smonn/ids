@@ -100,7 +100,7 @@ export function idType<Brand extends string>(
   const columnType = options?.columnType ?? "text";
   return class extends Type<Id<Brand>, string> {
     override convertToDatabaseValue(value: Id<Brand>): string {
-      return writeIdColumn(value);
+      return writeIdColumn(codec, value);
     }
     override convertToJSValue(value: string): Id<Brand> {
       return readIdColumn(codec, value);
@@ -152,7 +152,7 @@ export function nullableIdType<Brand extends string>(
   const columnType = options?.columnType ?? "text";
   return class extends Type<Id<Brand> | null, string | null> {
     override convertToDatabaseValue(value: Id<Brand> | null | undefined): string | null {
-      return writeIdColumnNullable(value);
+      return writeIdColumnNullable(codec, value);
     }
     override convertToJSValue(value: string | null): Id<Brand> | null {
       return readIdColumnNullable(codec, value);

@@ -43,7 +43,7 @@ function buildIdColumn<Brand extends string, Col>(
       return columnType;
     },
     toDriver(value: Id<Brand>): string {
-      return writeIdColumn(value);
+      return writeIdColumn(codec, value);
     },
     fromDriver(value: string): Id<Brand> {
       return readIdColumn(codec, value);
@@ -65,7 +65,7 @@ function buildNullableIdColumn<Brand extends string, Col>(
       return columnType;
     },
     toDriver(value: Id<Brand> | null | undefined): string | null {
-      return writeIdColumnNullable(value);
+      return writeIdColumnNullable(codec, value);
     },
     fromDriver(value: string | null): Id<Brand> | null {
       return readIdColumnNullable(codec, value);

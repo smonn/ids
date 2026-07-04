@@ -119,17 +119,29 @@ describe("writeIdColumn", () => {
 
   it("passes a valid Id<Brand> through unchanged", () => {
     const id = usr.generate();
-    expect(writeIdColumn(id)).toBe(id);
+    expect(writeIdColumn(usr, id)).toBe(id);
+  });
+
+  it("throws IdsError(invalid_id) for a cast-smuggled invalid string", () => {
+    expect.assertions(2);
+    try {
+      writeIdColumn(usr, "not_an_id" as Id<"usr">);
+    } catch (err) {
+      if (isIdsError(err)) {
+        expect(err.code).toBe("invalid_id");
+        expect(err.cause).toBeDefined();
+      }
+    }
   });
 
   it("throws IdsError(invalid_id) when called with null at runtime", () => {
     expect.assertions(2);
     try {
-      writeIdColumn(null as unknown as Id<"usr">);
+      writeIdColumn(usr, null as unknown as Id<"usr">);
     } catch (err) {
       if (isIdsError(err)) {
         expect(err.code).toBe("invalid_id");
-        expect(err.cause).toBeUndefined();
+        expect(err.cause).toBeDefined();
       }
     }
   });
@@ -137,11 +149,11 @@ describe("writeIdColumn", () => {
   it("throws IdsError(invalid_id) when called with undefined at runtime", () => {
     expect.assertions(2);
     try {
-      writeIdColumn(undefined as unknown as Id<"usr">);
+      writeIdColumn(usr, undefined as unknown as Id<"usr">);
     } catch (err) {
       if (isIdsError(err)) {
         expect(err.code).toBe("invalid_id");
-        expect(err.cause).toBeUndefined();
+        expect(err.cause).toBeDefined();
       }
     }
   });
@@ -152,14 +164,26 @@ describe("writeIdColumnNullable", () => {
 
   it("passes a valid Id<Brand> through unchanged", () => {
     const id = usr.generate();
-    expect(writeIdColumnNullable(id)).toBe(id);
+    expect(writeIdColumnNullable(usr, id)).toBe(id);
   });
 
   it("returns null for null input", () => {
-    expect(writeIdColumnNullable(null)).toBeNull();
+    expect(writeIdColumnNullable(usr, null)).toBeNull();
   });
 
   it("returns null for undefined input", () => {
-    expect(writeIdColumnNullable(undefined)).toBeNull();
+    expect(writeIdColumnNullable(usr, undefined)).toBeNull();
+  });
+
+  it("throws IdsError(invalid_id) for a cast-smuggled invalid string", () => {
+    expect.assertions(2);
+    try {
+      writeIdColumnNullable(usr, "not_an_id" as Id<"usr">);
+    } catch (err) {
+      if (isIdsError(err)) {
+        expect(err.code).toBe("invalid_id");
+        expect(err.cause).toBeDefined();
+      }
+    }
   });
 });

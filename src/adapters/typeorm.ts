@@ -49,7 +49,7 @@ export type { IdColumnCodec, IdGeneratingCodec };
 export function idTransformer<Brand extends string>(codec: IdColumnCodec<Brand>): ValueTransformer {
   return {
     to(value: Id<Brand>): string {
-      return writeIdColumn(value);
+      return writeIdColumn(codec, value);
     },
     from(value: unknown): Id<Brand> {
       return readIdColumn(codec, value);
@@ -143,7 +143,7 @@ export function nullableIdTransformer<Brand extends string>(
 ): ValueTransformer {
   return {
     to(value: Id<Brand> | null | undefined): string | null {
-      return writeIdColumnNullable(value);
+      return writeIdColumnNullable(codec, value);
     },
     from(value: unknown): Id<Brand> | null {
       return readIdColumnNullable(codec, value);
