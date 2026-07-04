@@ -1,5 +1,10 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
+import {
+  type IdCodec,
+  type IdParamFailure,
+  type IdVerifiableCodec,
+  resolveIdParamFailure,
+} from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 export type { IdParamFailure };
@@ -20,7 +25,13 @@ export class IdParamError extends Error {
   }
 }
 
-/** Options for `idParam` and `idQuery`. All fields are optional. */
+/**
+ * Options for `idParam` and `idQuery`. All fields are optional.
+ *
+ * **Default validation is structural** — `safeParse` checks prefix and base32 form but does not
+ * verify any cryptographic tag. For Signed Timestamp IDs, pass a codec that satisfies
+ * `IdVerifiableCodec` and set `verify: true` to also authenticate the HMAC tag.
+ */
 export type IdParamOptions = {
   /**
    * Called when ID validation fails. If the hook sends a response (i.e. `reply.sent` is
@@ -39,6 +50,17 @@ export type IdParamOptions = {
    * e.g. `{ brand_mismatch: 400 }` treats both failure kinds as 400.
    */
   status?: { brand_mismatch?: number; malformed?: number };
+};
+
+/**
+ * Extends {@link IdParamOptions} with opt-in HMAC tag verification.
+ * Only accepted when the codec satisfies {@link IdVerifiableCodec} (e.g. a Signed Timestamp codec).
+ * When `verify: true`, the adapter calls `codec.safeVerify(raw)` after structural parse succeeds;
+ * a tag mismatch is routed through the existing `"malformed"` failure path.
+ */
+export type IdParamVerifyOptions = IdParamOptions & {
+  /** When `true`, calls `codec.safeVerify(raw)` after structural parse and treats a tag failure as `"malformed"`. */
+  verify?: true;
 };
 
 /**
@@ -107,8 +129,24 @@ export type IdParamOptions = {
  */
 export function idParam<ParamKey extends string, Brand extends string>(
   paramName: ParamKey,
+  codec: IdVerifiableCodec<Brand>,
+  options?: IdParamVerifyOptions,
+): (
+  request: FastifyRequest<{ Params: Record<string, Id<Brand>> }>,
+  reply: FastifyReply,
+) => Promise<void>;
+export function idParam<ParamKey extends string, Brand extends string>(
+  paramName: ParamKey,
   codec: IdCodec<Brand>,
   options?: IdParamOptions,
+): (
+  request: FastifyRequest<{ Params: Record<string, Id<Brand>> }>,
+  reply: FastifyReply,
+) => Promise<void>;
+export function idParam<ParamKey extends string, Brand extends string>(
+  paramName: ParamKey,
+  codec: IdCodec<Brand>,
+  options?: IdParamVerifyOptions,
 ): (
   request: FastifyRequest<{ Params: Record<string, Id<Brand>> }>,
   reply: FastifyReply,
@@ -126,6 +164,23 @@ export function idParam<ParamKey extends string, Brand extends string>(
         return;
       }
       throw new IdParamError(failure.reason, failure.status);
+    }
+    if (options?.verify) {
+      const verifyResult = await (codec as IdVerifiableCodec<Brand>).safeVerify(raw);
+      if (!verifyResult.ok) {
+        const failure: IdParamFailure = {
+          reason: "malformed",
+          status: options.status?.malformed ?? 400,
+        };
+        if (options.onError) {
+          await options.onError(failure, request, reply);
+          if (!reply.sent) {
+            throw new IdParamError(failure.reason, failure.status);
+          }
+          return;
+        }
+        throw new IdParamError(failure.reason, failure.status);
+      }
     }
     request.params[paramName] = result.id;
   };
@@ -181,8 +236,24 @@ export function idParam<ParamKey extends string, Brand extends string>(
  */
 export function idQuery<ParamKey extends string, Brand extends string>(
   queryName: ParamKey,
+  codec: IdVerifiableCodec<Brand>,
+  options?: IdParamVerifyOptions,
+): (
+  request: FastifyRequest<{ Querystring: Record<string, Id<Brand>> }>,
+  reply: FastifyReply,
+) => Promise<void>;
+export function idQuery<ParamKey extends string, Brand extends string>(
+  queryName: ParamKey,
   codec: IdCodec<Brand>,
   options?: IdParamOptions,
+): (
+  request: FastifyRequest<{ Querystring: Record<string, Id<Brand>> }>,
+  reply: FastifyReply,
+) => Promise<void>;
+export function idQuery<ParamKey extends string, Brand extends string>(
+  queryName: ParamKey,
+  codec: IdCodec<Brand>,
+  options?: IdParamVerifyOptions,
 ): (
   request: FastifyRequest<{ Querystring: Record<string, Id<Brand>> }>,
   reply: FastifyReply,
@@ -200,6 +271,23 @@ export function idQuery<ParamKey extends string, Brand extends string>(
         return;
       }
       throw new IdParamError(failure.reason, failure.status);
+    }
+    if (options?.verify) {
+      const verifyResult = await (codec as IdVerifiableCodec<Brand>).safeVerify(raw);
+      if (!verifyResult.ok) {
+        const failure: IdParamFailure = {
+          reason: "malformed",
+          status: options.status?.malformed ?? 400,
+        };
+        if (options.onError) {
+          await options.onError(failure, request, reply);
+          if (!reply.sent) {
+            throw new IdParamError(failure.reason, failure.status);
+          }
+          return;
+        }
+        throw new IdParamError(failure.reason, failure.status);
+      }
     }
     request.query[queryName] = result.id;
   };

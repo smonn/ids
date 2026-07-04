@@ -163,3 +163,7 @@ const authorId = authorCol.fromDriver(row.author_id as unknown as string | null)
 `idPlugin` does **not** automatically handle nullable columns. When a column in the plugin's map contains a `null` value (for example from a `LEFT JOIN`), the plugin calls the non-nullable `fromDriver` path, which throws `IdsError("invalid_id")`.
 
 If a mapped column can be `null`, use `nullableIdColumn` manually on the query result instead of relying on `idPlugin` for that column — or exclude it from the plugin map entirely and handle it at the call site.
+
+:::note[Structural-only reads and writes]
+The read and write paths call `codec.safeParse` only — HMAC tag verification (`safeVerify`) is not performed. If you store Signed Timestamp IDs and need to verify their tags, call `codec.safeVerify` explicitly at the service layer after reading.
+:::

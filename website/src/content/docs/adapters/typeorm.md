@@ -114,3 +114,7 @@ TypeORM cannot brand a generated entity field type at the schema level. Annotate
 the entity field explicitly: `id!: Id<"usr">`. This is a TypeORM type-system
 constraint, not a library limitation.
 :::
+
+:::note[Structural-only reads and writes]
+The read and write paths call `codec.safeParse` only — HMAC tag verification (`safeVerify`) is not performed. If you store Signed Timestamp IDs and need to verify their tags, call `codec.safeVerify` explicitly at the service layer after reading.
+:::

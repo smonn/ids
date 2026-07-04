@@ -6,9 +6,10 @@ import { IdParamError, idParam, idQuery } from "./fastify.js";
 import type { IdParamFailure } from "./fastify.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
 import { createReverseTimestampId } from "../codecs/reverse/index.js";
+import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
-import { makeFailingSpyCodec, makeSpyCodec } from "./test-helpers.js";
+import { makeFailingSpyCodec, makeSpyCodec, makeVerifiableSpyCodec } from "./test-helpers.js";
 
 type MockRequest = {
   params: Record<string, unknown>;
@@ -740,5 +741,285 @@ describe("idParam / idQuery — real fastify() app (integration)", () => {
     expect((res.json() as { custom: string }).custom).toBe("brand_mismatch");
     expect(handlerRan).toBe(false);
     await app.close();
+  });
+});
+
+describe("verify option", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  describe("idParam with verify: true (spy codec)", () => {
+    it("forged-tag (safeVerify returns fail) → IdParamError with reason=malformed", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      let capturedError: unknown;
+      const app = Fastify();
+      app.setErrorHandler((err, _req, reply) => {
+        capturedError = err;
+        void reply.status(400).send({ error: (err as unknown as IdParamError).reason });
+      });
+      app.get(
+        "/items/:id",
+        { preHandler: idParam("id", spyCodec, { verify: true }) },
+        (_req, reply) => {
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: "/items/spy_00000000000000000000000000" });
+      expect(res.statusCode).toBe(400);
+      expect(capturedError).toBeInstanceOf(IdParamError);
+      expect((capturedError as IdParamError).reason).toBe("malformed");
+      await app.close();
+    });
+
+    it("valid tag (safeVerify returns ok) → handler runs", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+      let handlerRan = false;
+      const app = Fastify();
+      app.get(
+        "/items/:id",
+        { preHandler: idParam("id", spyCodec, { verify: true }) },
+        (_req, reply) => {
+          handlerRan = true;
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: "/items/spy_00000000000000000000000000" });
+      expect(res.statusCode).toBe(200);
+      expect(handlerRan).toBe(true);
+      await app.close();
+    });
+
+    it("without verify, safeVerify is never called", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+      const app = Fastify();
+      app.get("/items/:id", { preHandler: idParam("id", spyCodec) }, (_req, reply) => {
+        void reply.send({ ok: true });
+      });
+      await app.ready();
+      await app.inject({ method: "GET", url: "/items/spy_00000000000000000000000000" });
+      expect(spyCodec.safeVerify).not.toHaveBeenCalled();
+      await app.close();
+    });
+  });
+
+  describe("idParam with verify: true (real Signed Timestamp codec)", () => {
+    it("structurally valid forged-tag ID is rejected with verify: true → 400", async () => {
+      const key = await importSigningKey(new Uint8Array(32));
+      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const validId = await signed.generate();
+      const forged = validId.slice(0, 5) + (validId[5] === "0" ? "1" : "0") + validId.slice(6);
+
+      const app = Fastify();
+      app.setErrorHandler((err, _req, reply) => {
+        void reply
+          .status((err as unknown as IdParamError).statusCode ?? 500)
+          .send({ error: (err as unknown as IdParamError).reason });
+      });
+      app.get(
+        "/items/:id",
+        { preHandler: idParam("id", signed, { verify: true }) },
+        (_req, reply) => {
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: `/items/${forged}` });
+      expect(res.statusCode).toBe(400);
+      await app.close();
+    });
+
+    it("HMAC-valid ID is accepted with verify: true", async () => {
+      const key = await importSigningKey(new Uint8Array(32));
+      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const validId = await signed.generate();
+
+      const app = Fastify();
+      app.get(
+        "/items/:id",
+        { preHandler: idParam("id", signed, { verify: true }) },
+        (_req, reply) => {
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: `/items/${validId}` });
+      expect(res.statusCode).toBe(200);
+      await app.close();
+    });
+  });
+
+  describe("idQuery with verify: true (spy codec)", () => {
+    it("forged-tag (safeVerify returns fail) → IdParamError with reason=malformed", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      let capturedError: unknown;
+      const app = Fastify();
+      app.setErrorHandler((err, _req, reply) => {
+        capturedError = err;
+        void reply.status(400).send({ error: (err as unknown as IdParamError).reason });
+      });
+      app.get(
+        "/items",
+        { preHandler: idQuery("id", spyCodec, { verify: true }) },
+        (_req, reply) => {
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      const res = await app.inject({
+        method: "GET",
+        url: "/items?id=spy_00000000000000000000000000",
+      });
+      expect(res.statusCode).toBe(400);
+      expect(capturedError).toBeInstanceOf(IdParamError);
+      expect((capturedError as IdParamError).reason).toBe("malformed");
+      await app.close();
+    });
+
+    it("valid tag (safeVerify returns ok) → handler runs", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+      let handlerRan = false;
+      const app = Fastify();
+      app.get(
+        "/items",
+        { preHandler: idQuery("id", spyCodec, { verify: true }) },
+        (_req, reply) => {
+          handlerRan = true;
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      const res = await app.inject({
+        method: "GET",
+        url: "/items?id=spy_00000000000000000000000000",
+      });
+      expect(res.statusCode).toBe(200);
+      expect(handlerRan).toBe(true);
+      await app.close();
+    });
+
+    it("idParam verify: true with onError that sends reply — adapter does not throw", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      let handlerRan = false;
+      const app = Fastify();
+      app.get(
+        "/items/:id",
+        {
+          preHandler: idParam("id", spyCodec, {
+            verify: true,
+            onError: (failure, _req, reply) => {
+              void reply.status(failure.status).send({ error: failure.reason });
+            },
+          }),
+        },
+        (_req, reply) => {
+          handlerRan = true;
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: "/items/spy_00000000000000000000000000" });
+      expect(res.statusCode).toBe(400);
+      expect(handlerRan).toBe(false);
+      await app.close();
+    });
+
+    it("idQuery verify: true with onError that sends reply — adapter does not throw", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      let handlerRan = false;
+      const app = Fastify();
+      app.get(
+        "/items",
+        {
+          preHandler: idQuery("id", spyCodec, {
+            verify: true,
+            onError: (failure, _req, reply) => {
+              void reply.status(failure.status).send({ error: failure.reason });
+            },
+          }),
+        },
+        (_req, reply) => {
+          handlerRan = true;
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      const res = await app.inject({
+        method: "GET",
+        url: "/items?id=spy_00000000000000000000000000",
+      });
+      expect(res.statusCode).toBe(400);
+      expect(handlerRan).toBe(false);
+      await app.close();
+    });
+
+    it("idParam verify: true with onError that does NOT send reply — IdParamError is still thrown", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      let capturedError: unknown;
+      const app = Fastify();
+      app.setErrorHandler((err, _req, reply) => {
+        capturedError = err;
+        void reply.status(400).send({ error: (err as unknown as IdParamError).reason });
+      });
+      app.get(
+        "/items/:id",
+        {
+          preHandler: idParam("id", spyCodec, {
+            verify: true,
+            onError: () => {
+              /* log-only: no reply sent */
+            },
+          }),
+        },
+        (_req, reply) => {
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: "/items/spy_00000000000000000000000000" });
+      expect(res.statusCode).toBe(400);
+      expect(capturedError).toBeInstanceOf(IdParamError);
+      expect((capturedError as IdParamError).reason).toBe("malformed");
+      await app.close();
+    });
+
+    it("idQuery verify: true with onError that does NOT send reply — IdParamError is still thrown", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      let capturedError: unknown;
+      const app = Fastify();
+      app.setErrorHandler((err, _req, reply) => {
+        capturedError = err;
+        void reply.status(400).send({ error: (err as unknown as IdParamError).reason });
+      });
+      app.get(
+        "/items",
+        {
+          preHandler: idQuery("id", spyCodec, {
+            verify: true,
+            onError: () => {
+              /* log-only: no reply sent */
+            },
+          }),
+        },
+        (_req, reply) => {
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      const res = await app.inject({
+        method: "GET",
+        url: "/items?id=spy_00000000000000000000000000",
+      });
+      expect(res.statusCode).toBe(400);
+      expect(capturedError).toBeInstanceOf(IdParamError);
+      expect((capturedError as IdParamError).reason).toBe("malformed");
+      await app.close();
+    });
   });
 });

@@ -2,8 +2,9 @@ import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { idParam, idQuery, IdParamError } from "./hono.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
+import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { makeSpyCodec } from "./test-helpers.js";
+import { makeSpyCodec, makeVerifiableSpyCodec } from "./test-helpers.js";
 
 describe("IdParamError", () => {
   it("err.name is 'IdParamError'", () => {
@@ -378,6 +379,126 @@ describe("idQuery", () => {
       expect(spyCodec.extractTimestamp).not.toHaveBeenCalled();
       expect(spyCodec.wrap).not.toHaveBeenCalled();
       expect(spyCodec.unwrap).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("verify option", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  describe("idParam with verify: true", () => {
+    it("forged-tag ID (structurally valid, safeVerify fails) → 400 via app.onError", async () => {
+      const key = await importSigningKey(new Uint8Array(32));
+      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const forgedId = await signed.generate();
+      // Tamper the ID by flipping a character in the payload (keep prefix valid, break tag)
+      const forged = forgedId.slice(0, 5) + (forgedId[5] === "0" ? "1" : "0") + forgedId.slice(6);
+
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", signed, { verify: true }), (c) =>
+        c.json({ id: c.get("id") }),
+      );
+      const res = await app.request(`/items/${forged}`);
+      expect(res.status).toBe(400);
+    });
+
+    it("structurally valid, HMAC-valid ID is accepted with verify: true", async () => {
+      const key = await importSigningKey(new Uint8Array(32));
+      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const validId = await signed.generate();
+
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", signed, { verify: true }), (c) =>
+        c.json({ id: c.get("id") }),
+      );
+      const res = await app.request(`/items/${validId}`);
+      expect(res.status).toBe(200);
+    });
+
+    it("without verify option, structurally valid forged-tag ID is accepted", async () => {
+      const key = await importSigningKey(new Uint8Array(32));
+      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const validId = await signed.generate();
+      const forged = validId.slice(0, 5) + (validId[5] === "0" ? "1" : "0") + validId.slice(6);
+      // Only structurally valid check; forged tag accepted without verify
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", signed), (c) => c.json({ id: c.get("id") }));
+      const res = await app.request(`/items/${forged}`);
+      expect(res.status).toBe(200);
+    });
+
+    it("verify: true with onError override routes forged tag through onError", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const app = new Hono();
+      app.get(
+        "/items/:id",
+        idParam("id", spyCodec, {
+          verify: true,
+          onError: (failure, c) => c.json({ error: failure.reason }, failure.status as 400),
+        }),
+        (c) => c.text("ok"),
+      );
+      const res = await app.request("/items/spy_00000000000000000000000000");
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe("malformed");
+    });
+
+    it("verify: true calls safeVerify on the codec (spy)", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", spyCodec, { verify: true }), (c) => c.text("ok"));
+      await app.request("/items/spy_00000000000000000000000000");
+      expect(spyCodec.safeVerify).toHaveBeenCalled();
+    });
+
+    it("without verify, safeVerify is never called (spy)", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+      const app = new Hono();
+      app.get("/items/:id", idParam("id", spyCodec), (c) => c.text("ok"));
+      await app.request("/items/spy_00000000000000000000000000");
+      expect(spyCodec.safeVerify).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("idQuery with verify: true", () => {
+    it("forged-tag ID (spy codec) is rejected with verify: true → 400", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const app = new Hono();
+      app.get("/items", idQuery("id", spyCodec, { verify: true }), (c) => c.text("ok"));
+      const res = await app.request("/items?id=spy_00000000000000000000000000");
+      expect(res.status).toBe(400);
+    });
+
+    it("valid ID (spy codec) accepted with verify: true", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+      const app = new Hono();
+      app.get("/items", idQuery("id", spyCodec, { verify: true }), (c) => c.text("ok"));
+      const res = await app.request("/items?id=spy_00000000000000000000000000");
+      expect(res.status).toBe(200);
+    });
+
+    it("verify: true with onError override routes forged query tag through onError", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const app = new Hono();
+      app.get(
+        "/items",
+        idQuery("id", spyCodec, {
+          verify: true,
+          onError: (failure, c) => c.json({ error: failure.reason }, failure.status as 400),
+        }),
+        (c) => c.text("ok"),
+      );
+      const res = await app.request("/items?id=spy_00000000000000000000000000");
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe("malformed");
     });
   });
 });

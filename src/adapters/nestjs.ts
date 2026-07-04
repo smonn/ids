@@ -1,6 +1,11 @@
 import { BadRequestException, HttpException, Injectable, NotFoundException } from "@nestjs/common";
 import type { ArgumentMetadata, PipeTransform } from "@nestjs/common";
-import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
+import {
+  type IdCodec,
+  type IdParamFailure,
+  type IdVerifiableCodec,
+  resolveIdParamFailure,
+} from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 export type { IdParamFailure };
@@ -11,6 +16,11 @@ export type { IdParamFailure };
  * **`onError` constraint:** NestJS `transform()` receives only `value` and `ArgumentMetadata`
  * — there is no HTTP context object. The `onError` hook must throw (or re-throw); it cannot
  * write a response inline the way Hono/Express hooks can.
+ *
+ * **Default validation is structural** — `safeParse` checks prefix and base32 form but does not
+ * verify any cryptographic tag. For Signed Timestamp IDs, use a codec that satisfies
+ * `IdVerifiableCodec` and pass `verify: true` via {@link IdParamVerifyOptions} to also
+ * authenticate the HMAC tag.
  */
 export type IdParamOptions = {
   /**
@@ -23,6 +33,18 @@ export type IdParamOptions = {
    * e.g. `{ brand_mismatch: 400 }` treats both failure kinds as 400.
    */
   status?: { brand_mismatch?: number; malformed?: number };
+};
+
+/**
+ * Extends {@link IdParamOptions} with opt-in HMAC tag verification.
+ * Only accepted when the codec satisfies {@link IdVerifiableCodec} (e.g. a Signed Timestamp codec).
+ * When `verify: true`, `ParseIdPipe.transform` returns a `Promise` that awaits
+ * `codec.safeVerify(raw)`; a tag mismatch is treated as a `"malformed"` failure.
+ * NestJS supports async pipes natively — the resolved `Id<Brand>` reaches the handler.
+ */
+export type IdParamVerifyOptions = IdParamOptions & {
+  /** When `true`, awaits `codec.safeVerify(raw)` after structural parse and treats a tag failure as `"malformed"`. */
+  verify?: true;
 };
 
 /**
@@ -59,16 +81,21 @@ export type IdParamOptions = {
  * }
  * ```
  */
-export class ParseIdPipe<Brand extends string> implements PipeTransform<unknown, Id<Brand>> {
+export class ParseIdPipe<Brand extends string> implements PipeTransform<
+  unknown,
+  Id<Brand> | Promise<Id<Brand>>
+> {
   private readonly codec: IdCodec<Brand>;
-  private readonly options: IdParamOptions | undefined;
+  private readonly options: IdParamVerifyOptions | undefined;
 
-  constructor(codec: IdCodec<Brand>, options?: IdParamOptions) {
+  constructor(codec: IdVerifiableCodec<Brand>, options?: IdParamVerifyOptions);
+  constructor(codec: IdCodec<Brand>, options?: IdParamOptions);
+  constructor(codec: IdCodec<Brand>, options?: IdParamVerifyOptions) {
     this.codec = codec;
     this.options = options;
   }
 
-  transform(value: unknown, _metadata: ArgumentMetadata): Id<Brand> {
+  transform(value: unknown, _metadata: ArgumentMetadata): Id<Brand> | Promise<Id<Brand>> {
     const result = this.codec.safeParse(value);
     if (!result.ok) {
       const failure = resolveIdParamFailure(result.error, this.options);
@@ -85,6 +112,27 @@ export class ParseIdPipe<Brand extends string> implements PipeTransform<unknown,
         { statusCode: failure.status, message: failure.reason },
         failure.status,
       );
+    }
+    if (this.options?.verify) {
+      return (this.codec as IdVerifiableCodec<Brand>).safeVerify(value).then((verifyResult) => {
+        if (!verifyResult.ok) {
+          const failure: IdParamFailure = {
+            reason: "malformed",
+            status: this.options?.status?.malformed ?? 400,
+          };
+          if (this.options?.onError) {
+            return this.options.onError(failure);
+          }
+          if (failure.status === 400) {
+            throw new BadRequestException();
+          }
+          throw new HttpException(
+            { statusCode: failure.status, message: failure.reason },
+            failure.status,
+          );
+        }
+        return result.id;
+      });
     }
     return result.id;
   }

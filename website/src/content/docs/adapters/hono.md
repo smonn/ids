@@ -138,6 +138,29 @@ type IdParamFailure =
 `IdParamFailure` is re-exported from `@smonn/ids/hono` — no separate import from
 `"@smonn/ids"` is needed.
 
+## Signature verification
+
+Pass `verify: true` together with a **Signed Timestamp codec** to authenticate the HMAC tag after structural parsing succeeds. TypeScript enforces this at the call site via function overloads — `{ verify: true }` is a type error when paired with a non-verifiable codec (Timestamp, Opaque, Reverse Timestamp, Wrapped Key).
+
+```ts
+import { idParam } from "@smonn/ids/hono";
+import { createSignedTimestampId, importSigningKey } from "@smonn/ids";
+
+const key = await importSigningKey(new Uint8Array(32));
+const usr = createSignedTimestampId("usr", { keys: [key] });
+
+app.get("/users/:id", idParam("id", usr, { verify: true }), (c) => {
+  const id = c.get("id"); // Id<"usr">, structurally parsed AND HMAC-verified
+});
+```
+
+When `verify: true` is set:
+
+1. The adapter first runs `codec.safeParse` — a parse failure follows the normal error channel (brand mismatch → 404, malformed → 400).
+2. If parsing succeeds, `codec.safeVerify(raw)` is awaited. A tag failure is treated as `reason: "malformed"` and routed through the same error channel (status 400 by default, overrideable via `options.status.malformed`).
+
+Without `verify: true`, the adapter calls only `safeParse` — the default behaviour is byte-for-byte unchanged and no async work is added.
+
 ## 400 vs 404 defaults
 
 - **Brand mismatch** (`invalid_prefix`) → `reason: "brand_mismatch"`, status

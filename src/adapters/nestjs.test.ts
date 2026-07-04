@@ -5,8 +5,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ParseIdPipe } from "./nestjs.js";
 import type { IdParamFailure } from "./nestjs.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
+import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { makeFailingSpyCodec, makeSpyCodec } from "./test-helpers.js";
+import { makeFailingSpyCodec, makeSpyCodec, makeVerifiableSpyCodec } from "./test-helpers.js";
 
 const METADATA: ArgumentMetadata = { type: "param", metatype: String, data: "id" };
 const QUERY_METADATA: ArgumentMetadata = { type: "query", metatype: String, data: "id" };
@@ -305,5 +306,80 @@ describe("ParseIdPipe — NestJS testing module (integration)", () => {
     expect(() => resolvedPipe.transform("any_value", METADATA)).toThrow(NotFoundException);
 
     await moduleRef.close();
+  });
+});
+
+describe("ParseIdPipe verify option", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  const METADATA: ArgumentMetadata = { type: "param", metatype: String, data: "id" };
+
+  it("forged-tag (safeVerify returns fail) → BadRequestException (async)", async () => {
+    const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+    const pipe = new ParseIdPipe(spyCodec, { verify: true });
+    await expect(pipe.transform("spy_00000000000000000000000000", METADATA)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it("valid tag (safeVerify returns ok) → canonical Id<Brand> resolved (async)", async () => {
+    const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+    const pipe = new ParseIdPipe(spyCodec, { verify: true });
+    const result = await pipe.transform("spy_00000000000000000000000000", METADATA);
+    expect(result).toBeDefined();
+  });
+
+  it("without verify, transform is sync and safeVerify is never called", () => {
+    const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+    const pipe = new ParseIdPipe(spyCodec);
+    const result = pipe.transform("spy_00000000000000000000000000", METADATA);
+    expect(result).not.toBeInstanceOf(Promise);
+    expect(spyCodec.safeVerify).not.toHaveBeenCalled();
+  });
+
+  it("real Signed Timestamp codec: forged-tag ID rejected with verify: true", async () => {
+    const key = await importSigningKey(new Uint8Array(32));
+    const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    const validId = await signed.generate();
+    const forged = validId.slice(0, 5) + (validId[5] === "0" ? "1" : "0") + validId.slice(6);
+
+    const pipe = new ParseIdPipe(signed, { verify: true });
+    await expect(pipe.transform(forged, METADATA)).rejects.toThrow(BadRequestException);
+  });
+
+  it("real Signed Timestamp codec: HMAC-valid ID accepted with verify: true", async () => {
+    const key = await importSigningKey(new Uint8Array(32));
+    const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    const validId = await signed.generate();
+
+    const pipe = new ParseIdPipe(signed, { verify: true });
+    const result = await pipe.transform(validId, METADATA);
+    expect(result).toBeDefined();
+  });
+
+  it("verify: true with onError hook: hook is called and its throw propagates", async () => {
+    const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+    const onError = vi.fn((failure: unknown) => {
+      throw new BadRequestException(`custom: ${(failure as { reason: string }).reason}`);
+    });
+    const pipe = new ParseIdPipe(spyCodec, { verify: true, onError: onError as never });
+    await expect(pipe.transform("spy_00000000000000000000000000", METADATA)).rejects.toThrow(
+      "custom: malformed",
+    );
+    expect(onError).toHaveBeenCalledOnce();
+  });
+
+  it("verify: true with non-400 malformed status → HttpException with that status", async () => {
+    const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+    const pipe = new ParseIdPipe(spyCodec, { verify: true, status: { malformed: 422 } });
+    await expect(pipe.transform("spy_00000000000000000000000000", METADATA)).rejects.toThrow(
+      HttpException,
+    );
   });
 });
