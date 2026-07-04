@@ -141,3 +141,7 @@ try {
 `IdsError`, `isIdsError`, and `IdsErrorCode` are re-exported from `@smonn/ids/drizzle` — no
 separate import from `"@smonn/ids"` is needed. For the full list of `IdsErrorCode` values, see
 the error-code reference.
+
+:::note[Structural-only reads and writes]
+The read and write paths call `codec.safeParse` only — HMAC tag verification (`safeVerify`) is not performed. If you store Signed Timestamp IDs and need to verify their tags, call `codec.safeVerify` explicitly at the service layer after reading.
+:::

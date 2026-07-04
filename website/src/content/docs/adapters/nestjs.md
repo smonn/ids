@@ -86,6 +86,34 @@ const pipe = new ParseIdPipe(usr, {
 });
 ```
 
+## Signature verification
+
+Pass `verify: true` together with a **Signed Timestamp codec** to authenticate the HMAC tag. When `verify: true` is set, `transform()` returns `Promise<Id<Brand>>` instead of `Id<Brand>` — NestJS awaits this automatically. TypeScript enforces the codec requirement via constructor overloads — `{ verify: true }` is a type error when paired with a non-verifiable codec.
+
+```ts
+import { ParseIdPipe } from "@smonn/ids/nestjs";
+import { type Id, createSignedTimestampId, importSigningKey } from "@smonn/ids";
+import { Controller, Get, Param } from "@nestjs/common";
+
+const key = await importSigningKey(new Uint8Array(32));
+const usr = createSignedTimestampId("usr", { keys: [key] });
+
+@Controller("users")
+class UsersController {
+  @Get(":id")
+  findOne(@Param("id", new ParseIdPipe(usr, { verify: true })) id: Id<"usr">) {
+    return { id }; // Id<"usr">, structurally parsed AND HMAC-verified
+  }
+}
+```
+
+When `verify: true` is set:
+
+1. The pipe first runs `codec.safeParse` — a parse failure follows the normal exception path.
+2. If parsing succeeds, `codec.safeVerify(value)` is awaited. A tag failure is treated as `reason: "malformed"` (throws `BadRequestException` by default, overrideable via `options.status.malformed`).
+
+Without `verify: true`, `transform()` is synchronous — the default behaviour is unchanged.
+
 ## 400 vs 404 defaults
 
 - **Brand mismatch** (`invalid_prefix`) → `reason: "brand_mismatch"`, status **404**. A `usr_`

@@ -104,3 +104,26 @@ type IdParamFailure =
 The 400 vs 404 defaults match the [Hono adapter](/adapters/hono/):
 `reason: "brand_mismatch"` → 404, `reason: "malformed"` → 400. The canonical
 `Id<Brand>` is stored in `res.locals` under the param name.
+
+## Signature verification
+
+Pass `verify: true` together with a **Signed Timestamp codec** to authenticate the HMAC tag after structural parsing succeeds. TypeScript enforces this at the call site via function overloads — `{ verify: true }` is a type error when paired with a non-verifiable codec.
+
+```ts
+import { idParam } from "@smonn/ids/express";
+import { createSignedTimestampId, importSigningKey } from "@smonn/ids";
+
+const key = await importSigningKey(new Uint8Array(32));
+const usr = createSignedTimestampId("usr", { keys: [key] });
+
+app.get("/users/:id", idParam("id", usr, { verify: true }), (req, res) => {
+  const id = res.locals.id; // Id<"usr">, structurally parsed AND HMAC-verified
+});
+```
+
+When `verify: true` is set:
+
+1. The adapter first runs `codec.safeParse` — a parse failure follows the normal error channel (brand mismatch → 404, malformed → 400).
+2. If parsing succeeds, `codec.safeVerify(raw)` is called asynchronously. A tag failure is treated as `reason: "malformed"` and routed through the same error channel (status 400 by default, overrideable via `options.status.malformed`).
+
+Without `verify: true`, the adapter calls only `safeParse` — the default behaviour is byte-for-byte unchanged and no async work is added.

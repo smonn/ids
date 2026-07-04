@@ -55,3 +55,7 @@ Unlike the web adapters, `idScalar` throws `GraphQLError` directly — not
 where scalar coercers signal failure via `GraphQLError`. Error messages use a
 coarse shape (`invalid <ScalarName>`) that does not expose internal parse-error
 codes to clients.
+
+## Signature verification
+
+`idScalar` does not support a `verify` option. GraphQL scalar coercers (`parseValue`, `parseLiteral`) must be synchronous, and HMAC tag verification is asynchronous. If signature verification is required for IDs received over GraphQL, call `codec.safeVerify` explicitly in the resolver body after the scalar has parsed the value.

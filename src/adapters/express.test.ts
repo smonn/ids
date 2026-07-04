@@ -6,8 +6,9 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { IdParamError, idParam, idQuery } from "./express.js";
 import { createOpaqueTimestampId, importOpaqueKey } from "../codecs/opaque/index.js";
+import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import { createTimestampId } from "../codecs/timestamp/index.js";
-import { makeFailingSpyCodec, makeSpyCodec } from "./test-helpers.js";
+import { makeFailingSpyCodec, makeSpyCodec, makeVerifiableSpyCodec } from "./test-helpers.js";
 
 function makeReq(paramName: string, value: string | undefined): Request {
   return fromAny({ params: { [paramName]: value } });
@@ -696,5 +697,284 @@ describe("idParam / idQuery — real express() app (integration)", () => {
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("malformed");
+  });
+});
+
+describe("verify option", () => {
+  let warnSilencer: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    warnSilencer = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    warnSilencer.mockRestore();
+  });
+
+  describe("idParam with verify: true (spy codec)", () => {
+    it("forged-tag (safeVerify returns fail) → next(IdParamError) with reason=malformed", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const middleware = idParam("id", spyCodec, { verify: true });
+      const req = makeReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      // wait for the promise chain to resolve
+      await new Promise((r) => setTimeout(r, 20));
+      expect(next).toHaveBeenCalledOnce();
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect(err.reason).toBe("malformed");
+      expect(err.status).toBe(400);
+    });
+
+    it("valid tag (safeVerify returns ok) → id stored in res.locals", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+      const middleware = idParam("id", spyCodec, { verify: true });
+      const req = makeReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(next).toHaveBeenCalledWith();
+      expect(res.locals.id).toBeDefined();
+    });
+
+    it("without verify, safeVerify is never called", () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const middleware = idParam("id", spyCodec);
+      const req = makeReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      expect(spyCodec.safeVerify).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("idParam with verify: true (real Signed Timestamp codec)", () => {
+    it("structurally valid forged-tag ID is rejected with verify: true", async () => {
+      const key = await importSigningKey(new Uint8Array(32));
+      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const validId = await signed.generate();
+      const forged = validId.slice(0, 5) + (validId[5] === "0" ? "1" : "0") + validId.slice(6);
+
+      const middleware = idParam("id", signed, { verify: true });
+      const req = makeReq("id", forged);
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(next).toHaveBeenCalledOnce();
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect(err.reason).toBe("malformed");
+    });
+
+    it("structurally valid, HMAC-valid ID is accepted with verify: true", async () => {
+      const key = await importSigningKey(new Uint8Array(32));
+      const signed = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+      const validId = await signed.generate();
+
+      const middleware = idParam("id", signed, { verify: true });
+      const req = makeReq("id", validId);
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(next).toHaveBeenCalledWith();
+    });
+  });
+
+  describe("idQuery with verify: true (spy codec)", () => {
+    it("forged-tag (safeVerify returns fail) → next(IdParamError) with reason=malformed", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const middleware = idQuery("id", spyCodec, { verify: true });
+      const req = makeQueryReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(next).toHaveBeenCalledOnce();
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect(err.reason).toBe("malformed");
+    });
+
+    it("valid tag (safeVerify returns ok) → id stored in res.locals", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+      const middleware = idQuery("id", spyCodec, { verify: true });
+      const req = makeQueryReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(next).toHaveBeenCalledWith();
+    });
+
+    it("verify: true with onError hook routes forged tag through onError", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const middleware = idQuery("id", spyCodec, {
+        verify: true,
+        onError: (failure, _req, res) => {
+          res.status(failure.status).json({ error: failure.reason });
+        },
+      });
+      const req = makeQueryReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(res.headersSent).toBe(true);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("idParam: safeVerify rejection propagates to next as the error", async () => {
+      const fakeError = new Error("safeVerify threw");
+      const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+      spyCodec.safeVerify = vi.fn(() => Promise.reject(fakeError)) as typeof spyCodec.safeVerify;
+      const middleware = idParam("id", spyCodec, { verify: true });
+      const req = makeReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(next).toHaveBeenCalledWith(fakeError);
+    });
+
+    it("idQuery: safeVerify rejection propagates to next as the error", async () => {
+      const fakeError = new Error("safeVerify threw");
+      const spyCodec = makeVerifiableSpyCodec("spy", "ok");
+      spyCodec.safeVerify = vi.fn(() => Promise.reject(fakeError)) as typeof spyCodec.safeVerify;
+      const middleware = idQuery("id", spyCodec, { verify: true });
+      const req = makeQueryReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(next).toHaveBeenCalledWith(fakeError);
+    });
+
+    it("idParam verify: true with onError that sends response — return is reached", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const middleware = idParam("id", spyCodec, {
+        verify: true,
+        onError: (failure, _req, res) => {
+          res.status(failure.status).json({ error: failure.reason });
+        },
+      });
+      const req = makeReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(res.headersSent).toBe(true);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("idParam verify: true with onError that does nothing — fallback next(IdParamError) is called", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const middleware = idParam("id", spyCodec, {
+        verify: true,
+        onError: () => {
+          /* no-op: neither sends nor calls next */
+        },
+      });
+      const req = makeReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(next).toHaveBeenCalledOnce();
+      const err = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("malformed");
+    });
+
+    it("idParam verify: true with onError that calls hookNext(error) — error is forwarded", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const customError = new Error("custom forwarded");
+      const middleware = idParam("id", spyCodec, {
+        verify: true,
+        onError: (_failure, _req, _res, hookNext) => {
+          hookNext(customError);
+        },
+      });
+      const req = makeReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(next).toHaveBeenCalledWith(customError);
+    });
+
+    it("idParam verify: true with onError that calls hookNext() no-arg — falls back to IdParamError", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const middleware = idParam("id", spyCodec, {
+        verify: true,
+        onError: (_failure, _req, _res, hookNext) => {
+          hookNext(); // called without an error argument
+        },
+      });
+      const req = makeReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      const err = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("malformed");
+    });
+
+    it("idQuery verify: true with onError that does nothing — fallback next(IdParamError) is called", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const middleware = idQuery("id", spyCodec, {
+        verify: true,
+        onError: () => {
+          /* no-op: neither sends nor calls next */
+        },
+      });
+      const req = makeQueryReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(next).toHaveBeenCalledOnce();
+      const err = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("malformed");
+    });
+
+    it("idQuery verify: true with onError that calls hookNext(error) — error is forwarded", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const customError = new Error("custom forwarded");
+      const middleware = idQuery("id", spyCodec, {
+        verify: true,
+        onError: (_failure, _req, _res, hookNext) => {
+          hookNext(customError);
+        },
+      });
+      const req = makeQueryReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(next).toHaveBeenCalledWith(customError);
+    });
+
+    it("idQuery verify: true with onError that calls hookNext() no-arg — falls back to IdParamError", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const middleware = idQuery("id", spyCodec, {
+        verify: true,
+        onError: (_failure, _req, _res, hookNext) => {
+          hookNext(); // called without an error argument
+        },
+      });
+      const req = makeQueryReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await new Promise((r) => setTimeout(r, 20));
+      const err = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect((err as IdParamError).reason).toBe("malformed");
+    });
   });
 });

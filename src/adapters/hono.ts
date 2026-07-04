@@ -1,7 +1,12 @@
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Context, MiddlewareHandler } from "hono";
-import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
+import {
+  type IdCodec,
+  type IdParamFailure,
+  type IdVerifiableCodec,
+  resolveIdParamFailure,
+} from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 export type { IdParamFailure };
@@ -20,7 +25,13 @@ export class IdParamError extends HTTPException {
   }
 }
 
-/** Options for `idParam` and `idQuery`. All fields are optional. */
+/**
+ * Options for `idParam` and `idQuery`. All fields are optional.
+ *
+ * **Default validation is structural** — `safeParse` checks prefix and base32 form but does not
+ * verify any cryptographic tag. For Signed Timestamp IDs, pass a codec that satisfies
+ * `IdVerifiableCodec` and set `verify: true` to also authenticate the HMAC tag.
+ */
 export type IdParamOptions = {
   /**
    * Called instead of throwing when provided. The hook owns the response entirely —
@@ -32,6 +43,17 @@ export type IdParamOptions = {
    * e.g. `{ brand_mismatch: 400 }` treats both failure kinds as 400.
    */
   status?: { brand_mismatch?: ContentfulStatusCode; malformed?: ContentfulStatusCode };
+};
+
+/**
+ * Extends {@link IdParamOptions} with opt-in HMAC tag verification.
+ * Only accepted when the codec satisfies {@link IdVerifiableCodec} (e.g. a Signed Timestamp codec).
+ * When `verify: true`, the adapter calls `codec.safeVerify(raw)` after structural parse succeeds;
+ * a tag mismatch is routed through the existing `"malformed"` failure path.
+ */
+export type IdParamVerifyOptions = IdParamOptions & {
+  /** When `true`, calls `codec.safeVerify(raw)` after structural parse and treats a tag failure as `"malformed"`. */
+  verify?: true;
 };
 
 /**
@@ -83,8 +105,18 @@ export type IdParamOptions = {
  */
 export function idParam<ParamKey extends string, Brand extends string>(
   paramName: ParamKey,
+  codec: IdVerifiableCodec<Brand>,
+  options?: IdParamVerifyOptions,
+): MiddlewareHandler<{ Variables: Record<ParamKey, Id<Brand>> }>;
+export function idParam<ParamKey extends string, Brand extends string>(
+  paramName: ParamKey,
   codec: IdCodec<Brand>,
   options?: IdParamOptions,
+): MiddlewareHandler<{ Variables: Record<ParamKey, Id<Brand>> }>;
+export function idParam<ParamKey extends string, Brand extends string>(
+  paramName: ParamKey,
+  codec: IdCodec<Brand>,
+  options?: IdParamVerifyOptions,
 ): MiddlewareHandler<{ Variables: Record<ParamKey, Id<Brand>> }> {
   return async (c, next) => {
     const raw = c.req.param(paramName);
@@ -95,6 +127,19 @@ export function idParam<ParamKey extends string, Brand extends string>(
         return options.onError(failure, c);
       }
       throw new IdParamError(failure.reason, failure.status as ContentfulStatusCode);
+    }
+    if (options?.verify) {
+      const verifyResult = await (codec as IdVerifiableCodec<Brand>).safeVerify(raw);
+      if (!verifyResult.ok) {
+        const failure: IdParamFailure = {
+          reason: "malformed",
+          status: options.status?.malformed ?? 400,
+        };
+        if (options.onError) {
+          return options.onError(failure, c);
+        }
+        throw new IdParamError(failure.reason, failure.status as ContentfulStatusCode);
+      }
     }
     c.set(paramName, result.id);
     return next();
@@ -151,8 +196,18 @@ export function idParam<ParamKey extends string, Brand extends string>(
  */
 export function idQuery<ParamKey extends string, Brand extends string>(
   queryName: ParamKey,
+  codec: IdVerifiableCodec<Brand>,
+  options?: IdParamVerifyOptions,
+): MiddlewareHandler<{ Variables: Record<ParamKey, Id<Brand>> }>;
+export function idQuery<ParamKey extends string, Brand extends string>(
+  queryName: ParamKey,
   codec: IdCodec<Brand>,
   options?: IdParamOptions,
+): MiddlewareHandler<{ Variables: Record<ParamKey, Id<Brand>> }>;
+export function idQuery<ParamKey extends string, Brand extends string>(
+  queryName: ParamKey,
+  codec: IdCodec<Brand>,
+  options?: IdParamVerifyOptions,
 ): MiddlewareHandler<{ Variables: Record<ParamKey, Id<Brand>> }> {
   return async (c, next) => {
     const raw = c.req.query(queryName);
@@ -163,6 +218,19 @@ export function idQuery<ParamKey extends string, Brand extends string>(
         return options.onError(failure, c);
       }
       throw new IdParamError(failure.reason, failure.status as ContentfulStatusCode);
+    }
+    if (options?.verify) {
+      const verifyResult = await (codec as IdVerifiableCodec<Brand>).safeVerify(raw);
+      if (!verifyResult.ok) {
+        const failure: IdParamFailure = {
+          reason: "malformed",
+          status: options.status?.malformed ?? 400,
+        };
+        if (options.onError) {
+          return options.onError(failure, c);
+        }
+        throw new IdParamError(failure.reason, failure.status as ContentfulStatusCode);
+      }
     }
     c.set(queryName, result.id);
     return next();

@@ -1,5 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
-import { type IdCodec, type IdParamFailure, resolveIdParamFailure } from "./adapter-types.js";
+import {
+  type IdCodec,
+  type IdParamFailure,
+  type IdVerifiableCodec,
+  resolveIdParamFailure,
+} from "./adapter-types.js";
 import type { Id } from "../types.js";
 
 export type { IdParamFailure };
@@ -20,7 +25,13 @@ export class IdParamError extends Error {
   }
 }
 
-/** Options for `idParam` and `idQuery`. All fields are optional. */
+/**
+ * Options for `idParam` and `idQuery`. All fields are optional.
+ *
+ * **Default validation is structural** — `safeParse` checks prefix and base32 form but does not
+ * verify any cryptographic tag. For Signed Timestamp IDs, pass a codec that satisfies
+ * `IdVerifiableCodec` and set `verify: true` to also authenticate the HMAC tag.
+ */
 export type IdParamOptions = {
   /**
    * Called when ID validation fails. If the hook sends a response (i.e. `res.headersSent`
@@ -36,6 +47,17 @@ export type IdParamOptions = {
    * e.g. `{ brand_mismatch: 400 }` treats both failure kinds as 400.
    */
   status?: { brand_mismatch?: number; malformed?: number };
+};
+
+/**
+ * Extends {@link IdParamOptions} with opt-in HMAC tag verification.
+ * Only accepted when the codec satisfies {@link IdVerifiableCodec} (e.g. a Signed Timestamp codec).
+ * When `verify: true`, the adapter calls `codec.safeVerify(raw)` after structural parse succeeds;
+ * a tag mismatch is routed through the existing `"malformed"` failure path.
+ */
+export type IdParamVerifyOptions = IdParamOptions & {
+  /** When `true`, calls `codec.safeVerify(raw)` after structural parse and treats a tag failure as `"malformed"`. */
+  verify?: true;
 };
 
 /**
@@ -94,8 +116,18 @@ export type IdParamOptions = {
  */
 export function idParam<ParamKey extends string, Brand extends string>(
   paramName: ParamKey,
+  codec: IdVerifiableCodec<Brand>,
+  options?: IdParamVerifyOptions,
+): (req: Request, res: Response<unknown, Record<ParamKey, Id<Brand>>>, next: NextFunction) => void;
+export function idParam<ParamKey extends string, Brand extends string>(
+  paramName: ParamKey,
   codec: IdCodec<Brand>,
   options?: IdParamOptions,
+): (req: Request, res: Response<unknown, Record<ParamKey, Id<Brand>>>, next: NextFunction) => void;
+export function idParam<ParamKey extends string, Brand extends string>(
+  paramName: ParamKey,
+  codec: IdCodec<Brand>,
+  options?: IdParamVerifyOptions,
 ): (req: Request, res: Response<unknown, Record<ParamKey, Id<Brand>>>, next: NextFunction) => void {
   return (req, res, next): void => {
     const raw = req.params[paramName];
@@ -117,6 +149,38 @@ export function idParam<ParamKey extends string, Brand extends string>(
         return;
       }
       next(new IdParamError(failure.reason, failure.status));
+      return;
+    }
+    if (options?.verify) {
+      (codec as IdVerifiableCodec<Brand>)
+        .safeVerify(raw)
+        .then((verifyResult) => {
+          if (!verifyResult.ok) {
+            const failure: IdParamFailure = {
+              reason: "malformed",
+              status: options.status?.malformed ?? 400,
+            };
+            if (options.onError) {
+              let nextCalledWithError = false;
+              const hookNext: NextFunction = (err?: unknown): void => {
+                if (err !== undefined) {
+                  nextCalledWithError = true;
+                  next(err);
+                }
+              };
+              options.onError(failure, req, res, hookNext);
+              if (!nextCalledWithError && !res.headersSent) {
+                next(new IdParamError(failure.reason, failure.status));
+              }
+              return;
+            }
+            next(new IdParamError(failure.reason, failure.status));
+            return;
+          }
+          (res.locals as Record<string, unknown>)[paramName] = result.id;
+          next();
+        })
+        .catch((err: unknown) => next(err));
       return;
     }
     (res.locals as Record<string, unknown>)[paramName] = result.id;
@@ -171,8 +235,18 @@ export function idParam<ParamKey extends string, Brand extends string>(
  */
 export function idQuery<ParamKey extends string, Brand extends string>(
   queryName: ParamKey,
+  codec: IdVerifiableCodec<Brand>,
+  options?: IdParamVerifyOptions,
+): (req: Request, res: Response<unknown, Record<ParamKey, Id<Brand>>>, next: NextFunction) => void;
+export function idQuery<ParamKey extends string, Brand extends string>(
+  queryName: ParamKey,
   codec: IdCodec<Brand>,
   options?: IdParamOptions,
+): (req: Request, res: Response<unknown, Record<ParamKey, Id<Brand>>>, next: NextFunction) => void;
+export function idQuery<ParamKey extends string, Brand extends string>(
+  queryName: ParamKey,
+  codec: IdCodec<Brand>,
+  options?: IdParamVerifyOptions,
 ): (req: Request, res: Response<unknown, Record<ParamKey, Id<Brand>>>, next: NextFunction) => void {
   return (req, res, next): void => {
     const raw: unknown = req.query[queryName];
@@ -194,6 +268,38 @@ export function idQuery<ParamKey extends string, Brand extends string>(
         return;
       }
       next(new IdParamError(failure.reason, failure.status));
+      return;
+    }
+    if (options?.verify) {
+      (codec as IdVerifiableCodec<Brand>)
+        .safeVerify(raw)
+        .then((verifyResult) => {
+          if (!verifyResult.ok) {
+            const failure: IdParamFailure = {
+              reason: "malformed",
+              status: options.status?.malformed ?? 400,
+            };
+            if (options.onError) {
+              let nextCalledWithError = false;
+              const hookNext: NextFunction = (err?: unknown): void => {
+                if (err !== undefined) {
+                  nextCalledWithError = true;
+                  next(err);
+                }
+              };
+              options.onError(failure, req, res, hookNext);
+              if (!nextCalledWithError && !res.headersSent) {
+                next(new IdParamError(failure.reason, failure.status));
+              }
+              return;
+            }
+            next(new IdParamError(failure.reason, failure.status));
+            return;
+          }
+          (res.locals as Record<string, unknown>)[queryName] = result.id;
+          next();
+        })
+        .catch((err: unknown) => next(err));
       return;
     }
     (res.locals as Record<string, unknown>)[queryName] = result.id;

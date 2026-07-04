@@ -11,6 +11,12 @@ type SpyCodec<Brand extends string> = {
   generate: () => Id<Brand>;
 };
 
+type VerifiableSpyCodec<Brand extends string> = SpyCodec<Brand> & {
+  safeVerify: (
+    input: unknown,
+  ) => Promise<{ ok: true; id: Id<Brand> } | { ok: false; error: unknown }>;
+};
+
 export function makeSpyCodec<Brand extends string>(brand: Brand): SpyCodec<Brand> {
   const fakeId: Id<Brand> = fromAny(`${brand}_00000000000000000000000000`);
   return {
@@ -35,5 +41,28 @@ export function makeFailingSpyCodec<Brand extends string>(
     wrap: fromAny(vi.fn()),
     unwrap: fromAny(vi.fn()),
     generate: fromAny(vi.fn(() => fakeId)),
+  };
+}
+
+/** Spy codec that satisfies `IdVerifiableCodec`. `verifyResult` controls whether `safeVerify` succeeds or returns `"verification_failed"`. */
+export function makeVerifiableSpyCodec<Brand extends string>(
+  brand: Brand,
+  verifyResult: "ok" | "fail" = "ok",
+): VerifiableSpyCodec<Brand> {
+  const fakeId: Id<Brand> = fromAny(`${brand}_00000000000000000000000000`);
+  return {
+    safeParse: fromAny(vi.fn(() => ({ ok: true as const, id: fakeId }))),
+    is: fromAny(vi.fn(() => true)),
+    extractTimestamp: fromAny(vi.fn()),
+    wrap: fromAny(vi.fn()),
+    unwrap: fromAny(vi.fn()),
+    generate: fromAny(vi.fn(() => fakeId)),
+    safeVerify: fromAny(
+      vi.fn(() =>
+        verifyResult === "ok"
+          ? Promise.resolve({ ok: true as const, id: fakeId })
+          : Promise.resolve({ ok: false as const, error: "verification_failed" as const }),
+      ),
+    ),
   };
 }
