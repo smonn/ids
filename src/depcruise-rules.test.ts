@@ -289,3 +289,29 @@ describe("depcruise config — sync assertions", () => {
     }
   });
 });
+
+describe("depcruise config — module coverage meta-test", () => {
+  // Files deliberately exempt from the from.path coverage check.
+  // Every entry must carry an inline comment explaining why it is exempt.
+  const COVERAGE_EXEMPT: ReadonlySet<string> = new Set<string>();
+
+  it("every production src/ module is matched by at least one rule's from.path pattern", () => {
+    const fromPatterns = mainConfig.forbidden
+      .filter((r) => typeof r.from.path === "string")
+      .map((r) => new RegExp(r.from.path as string));
+
+    const srcDir = join(projectRoot, "src");
+    const productionFiles = walkDir(srcDir)
+      .map((p) => p.slice(projectRoot.length))
+      .filter((rel) => !rel.endsWith(".test.ts"));
+
+    const uncovered = productionFiles.filter(
+      (rel) => !COVERAGE_EXEMPT.has(rel) && !fromPatterns.some((re) => re.test(rel)),
+    );
+
+    expect(
+      uncovered,
+      `The following src/ modules are not covered by any rule's from.path pattern:\n${uncovered.map((f) => `  ${f}`).join("\n")}`,
+    ).toHaveLength(0);
+  });
+});
