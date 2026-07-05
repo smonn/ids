@@ -88,6 +88,7 @@
     "prepare": "husky",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
+    "source-hygiene-lint": "node .github/scripts/source-hygiene-lint.mjs",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "typecheck": "tsc --noEmit",
