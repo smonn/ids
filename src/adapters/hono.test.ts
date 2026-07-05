@@ -475,7 +475,19 @@ describe("verify option", () => {
       const app = new Hono();
       app.get("/items/:id", handler, (c) => c.json({ ok: true }));
       const res = await app.request("/items/tst_00000000000000000000000000");
-      expect(res.status).not.toBe(200);
+      expect(res.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it("verify: true with status.malformed override → configured status via app.onError", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const app = new Hono();
+      app.get(
+        "/items/:id",
+        idParam("id", spyCodec, { verify: true, status: { malformed: 422 } }),
+        (c) => c.text("ok"),
+      );
+      const res = await app.request("/items/spy_00000000000000000000000000");
+      expect(res.status).toBe(422);
     });
   });
 
@@ -578,6 +590,16 @@ describe("verify option", () => {
       expect(res.status).toBe(400);
       const body = (await res.json()) as { error: string };
       expect(body.error).toBe("malformed");
+    });
+
+    it("TypeScript rejects verify: true with non-verifiable codec for idQuery; fail-closed at runtime (not 2xx)", async () => {
+      const plain = makeSpyCodec("tst");
+      // @ts-expect-error — plain codec lacks safeVerify; verify: true requires IdVerifiableCodec
+      const handler = idQuery("id", plain, { verify: true });
+      const app = new Hono();
+      app.get("/items", handler, (c) => c.json({ ok: true }));
+      const res = await app.request("/items?id=tst_00000000000000000000000000");
+      expect(res.status).toBeGreaterThanOrEqual(400);
     });
   });
 

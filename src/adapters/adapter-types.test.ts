@@ -5,6 +5,7 @@ import {
   readIdColumn,
   readIdColumnNullable,
   resolveIdParamFailure,
+  resolveVerifyFailure,
   writeIdColumn,
   writeIdColumnNullable,
 } from "./adapter-types.js";
@@ -111,6 +112,18 @@ describe("resolveIdParamFailure", () => {
   it("options.status.malformed does not affect brand_mismatch status", () => {
     const result = resolveIdParamFailure("invalid_prefix", { status: { malformed: 422 } });
     expect(result).toEqual({ reason: "brand_mismatch", status: 404 });
+  });
+});
+
+describe("resolveVerifyFailure", () => {
+  it("returns reason:malformed with default status 400", () => {
+    const result = resolveVerifyFailure();
+    expect(result).toEqual({ reason: "malformed", status: 400 });
+  });
+
+  it("options.status.malformed overrides the 400 default", () => {
+    const result = resolveVerifyFailure({ status: { malformed: 422 } });
+    expect(result).toEqual({ reason: "malformed", status: 422 });
   });
 });
 
