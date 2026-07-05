@@ -1,5 +1,13 @@
 # @smonn/ids
 
+## 1.2.3
+
+### Patch Changes
+
+- 24ad8d2: Fix remaining CLI echo sites that emitted raw user input to stderr: redact `--at` invalid-date values, truncate `--key-encoding`/`IDS_KEY_ENCODING` enum flags, strip `--key-file` path in group-permission warning, and truncate `--bytes` in keygen.
+- 8f62714: Fix `sanitize.ts` to use Unicode escape sequences (file was binary due to raw code points); extend `STRIP_RE` with U+2028/U+2029; add unit tests and a repo-wide source-hygiene lint guard.
+- 9e0517b: Add `createManyAndReturn` handler to Prisma `defaultQuery`; document nested-relation-write limitation.
+
 ## 1.2.2
 
 ### Patch Changes
