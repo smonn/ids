@@ -88,9 +88,37 @@ export function lintFiles(files) {
   return files.flatMap(({ name, content }) => checkContent(content, name));
 }
 
+/**
+ * Recurrence guard: the "unexpected argument" CLI idiom must be produced only
+ * through `rejectExtraPositionals` in `src/cli/args.ts`. Any other production
+ * file in `src/cli/**` that contains the literal string is flagged.
+ *
+ * Test files (*.test.ts) are exempt — they legitimately assert on the error message.
+ *
+ * @param {{ name: string; content: string }[]} files
+ * @returns {string[]} Violations.
+ */
+export function checkCliIdiomLeaks(files) {
+  const violations = [];
+  for (const { name, content } of files) {
+    if (!name.startsWith("src/cli/")) continue;
+    if (name === "src/cli/args.ts") continue;
+    if (name.endsWith(".test.ts")) continue;
+    const lines = content.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes("unexpected argument")) {
+        violations.push(
+          `${name}:${i + 1}: "unexpected argument" must go through rejectExtraPositionals in src/cli/args.ts`,
+        );
+      }
+    }
+  }
+  return violations;
+}
+
 function main() {
   const files = loadTrackedFiles();
-  const errors = lintFiles(files);
+  const errors = [...lintFiles(files), ...checkCliIdiomLeaks(files)];
   if (errors.length > 0) {
     for (const e of errors) process.stderr.write("\u2717 " + e + "\n");
     process.stderr.write(

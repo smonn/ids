@@ -1,8 +1,7 @@
 import { createTimestampId } from "../../codecs/timestamp/index.js";
-import { type FlagSpec, parseArgs } from "../args.js";
+import { type FlagSpec, parseArgs, rejectExtraPositionals } from "../args.js";
 import { usageError } from "../errors.js";
 import type { RunOpts } from "../types.js";
-import { redactToken } from "../sanitize.js";
 import { fail, mapThrown } from "../verbs.js";
 
 /**
@@ -17,8 +16,8 @@ export async function runConvert(argv: ReadonlyArray<string>, opts: RunOpts): Pr
 
   const brand = positionals[0];
   if (brand === undefined) return fail(opts, usageError("missing brand"));
-  if (positionals.length > 1)
-    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
+  const overflow = rejectExtraPositionals(opts, positionals, 1);
+  if (overflow !== undefined) return overflow;
 
   const uuid = values.get("--uuid");
   if (uuid === undefined || uuid === "") return fail(opts, usageError("--uuid is required"));

@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { isIdsError, type IdsErrorCode } from "../error.js";
 import type { Id } from "../types.js";
-import { type FlagSpec, parseArgs } from "./args.js";
+import { type FlagSpec, parseArgs, rejectExtraPositionals } from "./args.js";
 import { type CliError, exitCodeFor, isCliError, runtimeError, usageError } from "./errors.js";
 import { parseCount, parseKind, parseNs, type WrappedKindValue } from "./flags.js";
 import { formatCliError } from "./format.js";
@@ -104,9 +104,8 @@ async function runGenerate(
 
   const brand = positionals[0];
   if (brand === undefined) return fail(opts, usageError("missing brand"));
-  if (positionals.length > 1) {
-    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
-  }
+  const overflow1 = rejectExtraPositionals(opts, positionals, 1);
+  if (overflow1 !== undefined) return overflow1;
 
   const count = parseCount(values);
   if (isCliError(count)) return fail(opts, count);
@@ -239,9 +238,8 @@ export async function runInspect<K>(
 
   const { values, flags, positionals, error } = parseArgs(argv, specs);
   if (error !== undefined) return fail(opts, usageError(error));
-  if (positionals.length > 1) {
-    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
-  }
+  const overflow2 = rejectExtraPositionals(opts, positionals, 1);
+  if (overflow2 !== undefined) return overflow2;
 
   // Resolve the key and bind recovery BEFORE reading stdin, so a bad key or bad
   // setup flag fails fast rather than after consuming piped input (#766).
@@ -400,8 +398,8 @@ export async function runWrap<K>(
 
   const brand = positionals[0];
   if (brand === undefined) return fail(opts, usageError("missing brand"));
-  if (positionals.length > 1)
-    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
+  const overflow3 = rejectExtraPositionals(opts, positionals, 1);
+  if (overflow3 !== undefined) return overflow3;
 
   const kind = parseKind(values);
   if (kind === undefined) return fail(opts, usageError("--kind is required"));
@@ -439,8 +437,8 @@ export async function runDerive<K>(
 
   const brand = positionals[0];
   if (brand === undefined) return fail(opts, usageError("missing brand"));
-  if (positionals.length > 1)
-    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
+  const overflow4 = rejectExtraPositionals(opts, positionals, 1);
+  if (overflow4 !== undefined) return overflow4;
 
   // Resolve the key before reading material from stdin, so a missing/invalid key
   // fails fast instead of after consuming (possibly sensitive) piped input (#766).
@@ -486,8 +484,8 @@ export async function runMatch<K>(
 
   const id = positionals[0];
   if (id === undefined) return fail(opts, usageError("missing id"));
-  if (positionals.length > 1)
-    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[1]!)}`));
+  const overflow5 = rejectExtraPositionals(opts, positionals, 1);
+  if (overflow5 !== undefined) return overflow5;
   // A malformed ID is a usage error for match's grep-like contract (exit 2).
   const brand = brandOfId(id);
   if (brand === undefined) return fail(opts, usageError("invalid_id: not a valid ID"));

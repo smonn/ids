@@ -1,4 +1,6 @@
+import { exitCodeFor, usageError } from "./errors.js";
 import { redactToken } from "./sanitize.js";
+import type { RunOpts } from "./types.js";
 
 /**
  * Declarative flag parsing for a single CLI node (one codec verb or top-level command).
@@ -96,4 +98,20 @@ export function parseArgs(argv: ReadonlyArray<string>, specs: ReadonlyArray<Flag
   }
 
   return { values, flags, positionals, error };
+}
+
+/**
+ * Guards against extra positional arguments.
+ * Returns the exit code and writes to stderr when `positionals.length > maxAllowed`;
+ * returns `undefined` when within bounds.
+ */
+export function rejectExtraPositionals(
+  opts: RunOpts,
+  positionals: string[],
+  maxAllowed: number,
+): number | undefined {
+  if (positionals.length <= maxAllowed) return undefined;
+  const err = usageError(`unexpected argument: ${redactToken(positionals[maxAllowed]!)}`);
+  opts.stderr(err.message + "\n");
+  return exitCodeFor(err);
 }

@@ -1,5 +1,5 @@
 import { encodeOpaqueKey } from "../../codecs/opaque/index.js";
-import { type FlagSpec, parseArgs } from "../args.js";
+import { type FlagSpec, parseArgs, rejectExtraPositionals } from "../args.js";
 import { type CliError, isCliError, usageError } from "../errors.js";
 import { resolveKeyEncoding } from "../key.js";
 import type { RunOpts } from "../types.js";
@@ -30,8 +30,8 @@ export async function runKeygen(argv: ReadonlyArray<string>, opts: RunOpts): Pro
   ];
   const { values, positionals, error } = parseArgs(argv, specs);
   if (error !== undefined) return fail(opts, usageError(error));
-  if (positionals.length > 0)
-    return fail(opts, usageError(`unexpected argument: ${redactToken(positionals[0]!)}`));
+  const overflow = rejectExtraPositionals(opts, positionals, 0);
+  if (overflow !== undefined) return overflow;
 
   const bytes = parseBytes(values);
   if (isCliError(bytes)) return fail(opts, bytes);
