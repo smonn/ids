@@ -9,6 +9,7 @@
  * parse-middle.ts and parse-allowlist.ts in the fixture tree).
  */
 const mainConfig = require("./.dependency-cruiser.cjs");
+const FROM_OVERRIDES = require("./.dependency-cruiser-from-overrides.cjs");
 
 /** Replace every `^src` occurrence with the fixture root prefix. */
 function remapSrc(str) {
@@ -21,25 +22,6 @@ function remapFrom(from) {
   if (from.pathNot != null) result.pathNot = remapSrc(from.pathNot);
   return result;
 }
-
-/**
- * Per-rule `from` overrides for rules whose fixture files are named
- * differently from the source files they mirror.
- */
-const FROM_OVERRIDES = {
-  "wire-parse-imports-allowlist": {
-    path: "^test/fixtures/depcruise/wire/parse-allowlist\\.ts$",
-  },
-  "wire-middle-no-siblings": {
-    path: "^test/fixtures/depcruise/wire/(parse-middle|envelope)\\.ts$",
-  },
-  "wire-uuid-imports-allowlist": {
-    path: "^test/fixtures/depcruise/wire/uuid-allowlist\\.ts$",
-  },
-  "cli-no-internals": {
-    path: "^(test/fixtures/depcruise/cli\\.ts|test/fixtures/depcruise/cli/)",
-  },
-};
 
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {

@@ -1,6 +1,19 @@
+import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+
+const _require = createRequire(import.meta.url);
+const mainConfig = _require("../.dependency-cruiser.cjs") as {
+  forbidden: Array<{ name: string; from: Record<string, unknown> }>;
+};
+const fixturesConfig = _require("../.dependency-cruiser-fixtures.cjs") as {
+  forbidden: Array<{ name: string }>;
+};
+const fromOverrides = _require("../.dependency-cruiser-from-overrides.cjs") as Record<
+  string,
+  unknown
+>;
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const depcruiseBin = fileURLToPath(new URL("../node_modules/.bin/depcruise", import.meta.url));
@@ -56,10 +69,6 @@ const cases = [
   },
   // layouts layer
   {
-    fixture: "test/fixtures/depcruise/codecs/no-shell-layout/layout.ts",
-    rule: "layouts-no-shell",
-  },
-  {
     fixture: "test/fixtures/depcruise/codecs/sibling-layout/layout.ts",
     rule: "layouts-no-sibling-layouts",
   },
@@ -84,6 +93,10 @@ const cases = [
   {
     fixture: "test/fixtures/depcruise/adapters/drizzle.ts",
     rule: "adapters-no-internals",
+  },
+  {
+    fixture: "test/fixtures/depcruise/adapters/test-helpers.ts",
+    rule: "adapters-test-helpers-imports-allowlist",
   },
   // CLI
   {
@@ -149,7 +162,7 @@ const cases = [
     fixture: "test/fixtures/depcruise/codecs/filename-violation/helpers.ts",
     rule: "codec-slice-filename-convention",
   },
-  // codec upward-edge allowlist (Gap 1)
+  // codec upward-edge allowlist (adapter target)
   {
     fixture: "test/fixtures/depcruise/codecs/upward-violation/index.ts",
     rule: "codec-constructors-imports-allowlist",
@@ -158,14 +171,19 @@ const cases = [
     fixture: "test/fixtures/depcruise/codecs/key-upward-violation/key.ts",
     rule: "codec-key-imports-allowlist",
   },
+  // codec upward-edge allowlist (cli target)
+  {
+    fixture: "test/fixtures/depcruise/codecs/codec-index-cli-violation/index.ts",
+    rule: "codec-constructors-imports-allowlist",
+  },
+  {
+    fixture: "test/fixtures/depcruise/codecs/codec-key-cli-violation/key.ts",
+    rule: "codec-key-imports-allowlist",
+  },
   // broader no-shell narrowing (Gap 3)
   {
     fixture: "test/fixtures/depcruise/wire/no-shell-router.ts",
     rule: "wire-no-shell",
-  },
-  {
-    fixture: "test/fixtures/depcruise/codecs/no-shell-layout-router/layout.ts",
-    rule: "layouts-no-shell",
   },
 ];
 
@@ -181,5 +199,32 @@ describe("depcruise ring rules — zero-edit proof", () => {
   it("a conventional codec slice (index.ts + layout.ts) trips no rule", () => {
     const { status, output } = runDepcruise("test/fixtures/depcruise/codecs/sample");
     expect(status, `zero-edit proof: expected exit 0 but got:\n${output}`).toBe(0);
+  });
+});
+
+describe("depcruise config — sync assertions", () => {
+  const mainRuleNames = new Set(mainConfig.forbidden.map((r) => r.name));
+  const pathScopedRuleNames = mainConfig.forbidden
+    .filter((r) => r.from.path != null || r.from.pathNot != null)
+    .map((r) => r.name);
+  const fixtureRuleNames = new Set(fixturesConfig.forbidden.map((r) => r.name));
+  const caseRuleNames = new Set(cases.map((c) => c.rule));
+
+  it("derived-config rule names equal main-config path-scoped rule names", () => {
+    expect(fixtureRuleNames).toEqual(new Set(pathScopedRuleNames));
+  });
+
+  it("every FROM_OVERRIDES key is a known main-config rule name", () => {
+    for (const key of Object.keys(fromOverrides)) {
+      expect(mainRuleNames.has(key), `FROM_OVERRIDES key "${key}" is not a main-config rule`).toBe(
+        true,
+      );
+    }
+  });
+
+  it("every path-scoped main-config rule name appears in cases", () => {
+    for (const name of pathScopedRuleNames) {
+      expect(caseRuleNames.has(name), `main-config rule "${name}" has no test case`).toBe(true);
+    }
   });
 });
