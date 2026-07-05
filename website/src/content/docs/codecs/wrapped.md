@@ -189,7 +189,7 @@ import { isIdsError } from "@smonn/ids";
 | `invalid_lookup_key`      | `wrap` — key out of range or wrong JS type                                                           |
 | `verification_failed`     | `unwrap` throws; also returned as `result.error` by `safeUnwrap`                                     |
 | `invalid_id`              | `parse` — string is not a valid ID for the brand                                                     |
-| `invalid_key_length`      | `encodeWrappingKey`, `importWrappingKey` — raw bytes not 16, 24, or 32                               |
+| `invalid_key_length`      | `encodeWrappingKey`, `decodeWrappingKey`, `importWrappingKey` — raw bytes not 16, 24, or 32          |
 | `invalid_key_format`      | `encodeWrappingKey`, `decodeWrappingKey` — format not `"hex"` or `"base64url"`                       |
 | `invalid_key_encoding`    | `decodeWrappingKey` — string malformed for its format; `err.cause` holds the original decode `Error` |
 
