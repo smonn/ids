@@ -211,7 +211,3 @@ warnings) are stripped but not truncated, so the full path remains readable.
 | `0`  | success (all lines succeeded in a batch)                                                              |
 | `1`  | operational failure (malformed ID, failed verify/decrypt, wrong key); for `match`, "no match"         |
 | `2`  | usage error (unknown/missing/conflicting flag, bad brand, unsupported key length, out-of-range value) |
-
-```
-
-```
