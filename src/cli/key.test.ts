@@ -384,3 +384,62 @@ describe("resolveKey", () => {
     expect(captured.join("")).toBe("");
   });
 });
+
+describe("hostile-bytes redaction", () => {
+  it("strips control chars from --key-encoding flag value before echoing (key.ts:24)", () => {
+    const r = resolveKeyEncoding(new Map([["--key-encoding", "pem\x1b]0;x\x07"]]), opts());
+    expect(isCliError(r) && r.message).toContain("--key-encoding");
+    expect(isCliError(r) && r.message).not.toContain("\x1b");
+    expect(isCliError(r) && r.message).not.toContain("\x07");
+  });
+
+  it("strips control chars from IDS_KEY_ENCODING env value before echoing (key.ts:30)", () => {
+    const r = resolveKeyEncoding(new Map(), opts({ env: { IDS_KEY_ENCODING: "pem\x1b]0;x\x07" } }));
+    expect(isCliError(r) && r.message).toContain("IDS_KEY_ENCODING");
+    expect(isCliError(r) && r.message).not.toContain("\x1b");
+    expect(isCliError(r) && r.message).not.toContain("\x07");
+  });
+
+  it("strips control chars from --key-file path in read-failure error (key.ts:59)", async () => {
+    const r = await resolveKey(
+      new Map([["--key-file", "path\x1b]0;x\x07"]]),
+      new Set(["--key-file"]),
+      opts({ readFile: () => Promise.reject(new Error("ENOENT")) }),
+      fakeKey,
+    );
+    expect(isCliError(r) && r.message).toContain("cannot read --key-file");
+    expect(isCliError(r) && r.message).not.toContain("\x1b");
+    expect(isCliError(r) && r.message).not.toContain("\x07");
+  });
+
+  it("strips control chars from --key-file path in empty-file error (key.ts:62)", async () => {
+    const r = await resolveKey(
+      new Map([["--key-file", "path\x1b]0;x\x07"]]),
+      new Set(["--key-file"]),
+      opts({ readFile: () => Promise.resolve("   ") }),
+      fakeKey,
+    );
+    expect(isCliError(r) && r.message).toContain("is empty");
+    expect(isCliError(r) && r.message).not.toContain("\x1b");
+    expect(isCliError(r) && r.message).not.toContain("\x07");
+  });
+
+  it("strips control chars from --key-file path in group-permission warning (key.ts:71-73)", async () => {
+    const captured: string[] = [];
+    const result = await resolveKey(
+      new Map([["--key-file", "path\x1b]0;x\x07"]]),
+      new Set(["--key-file"]),
+      opts({
+        stderr: (s) => captured.push(s),
+        readFile: () => Promise.resolve("deadbeef"),
+        statFile: () => Promise.resolve({ mode: 0o100644 }),
+      }),
+      fakeKey,
+    );
+    expect(isCliError(result)).toBe(false);
+    const out = captured.join("");
+    expect(out).toContain("chmod 0600");
+    expect(out).not.toContain("\x1b");
+    expect(out).not.toContain("\x07");
+  });
+});

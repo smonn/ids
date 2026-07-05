@@ -2,7 +2,8 @@ import { createTimestampId } from "../../codecs/timestamp/index.js";
 import { type FlagSpec, parseArgs } from "../args.js";
 import { usageError } from "../errors.js";
 import type { RunOpts } from "../types.js";
-import { fail, mapThrown, redactToken } from "../verbs.js";
+import { redactToken } from "../sanitize.js";
+import { fail, mapThrown } from "../verbs.js";
 
 /**
  * Re-express a UUID as an `Id` for a brand (uuid → id). Codec-agnostic — the Raw UUID

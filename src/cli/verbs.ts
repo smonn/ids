@@ -39,8 +39,6 @@ const usageCodeBuckets: Record<IdsErrorCode, "usage" | "runtime"> = {
   invalid_id: "runtime",
 };
 
-export { redactToken } from "./sanitize.js";
-
 export function mapThrown(err: unknown): CliError {
   if (isIdsError(err) && usageCodeBuckets[err.code] === "usage") {
     return usageError(formatCliError(err));
@@ -72,7 +70,7 @@ function parseAt(values: Map<string, string>): Date | undefined | CliError {
   // A leading-minus integer is still epoch-ms (a pre-epoch instant), not an ISO string;
   // generateAt then rejects it with invalid_timestamp (mapped to a usage error).
   const date = /^-?\d+$/.test(raw) ? new Date(Number(raw)) : new Date(toUtcIso(raw));
-  if (Number.isNaN(date.getTime())) return usageError(`--at: invalid date '${raw}'`);
+  if (Number.isNaN(date.getTime())) return usageError(`--at: invalid date '${redactToken(raw)}'`);
   return date;
 }
 
