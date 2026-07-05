@@ -3,7 +3,8 @@ import { type FlagSpec, parseArgs } from "../args.js";
 import { type CliError, isCliError, usageError } from "../errors.js";
 import { resolveKeyEncoding } from "../key.js";
 import type { RunOpts } from "../types.js";
-import { fail, redactToken } from "../verbs.js";
+import { redactToken } from "../sanitize.js";
+import { fail } from "../verbs.js";
 
 function parseBytes(values: Map<string, string>): 16 | 24 | 32 | CliError {
   const raw = values.get("--bytes");
@@ -12,7 +13,9 @@ function parseBytes(values: Map<string, string>): 16 | 24 | 32 | CliError {
   if (raw === "24") return 24;
   if (raw === "32") return 32;
   return usageError(
-    raw === "" ? "--bytes requires a value" : `--bytes must be 16, 24, or 32, got '${raw}'`,
+    raw === ""
+      ? "--bytes requires a value"
+      : `--bytes must be 16, 24, or 32, got '${redactToken(raw)}'`,
   );
 }
 

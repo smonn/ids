@@ -64,3 +64,21 @@ describe("parseArgs", () => {
     expect(r.values.get("--count")).toBe("");
   });
 });
+
+describe("parseArgs hostile-bytes redaction", () => {
+  it("strips control chars from an unsupported flag token before echoing (args.ts:62)", () => {
+    const r = parseArgs(["--\x1b]0;x\x07nope"], specs);
+    expect(r.error).toBeDefined();
+    expect(r.error).toContain("unsupported flag");
+    expect(r.error).not.toContain("\x1b");
+    expect(r.error).not.toContain("\x07");
+  });
+
+  it("does not echo the inline value for a boolean flag given an inline value (args.ts:94)", () => {
+    const r = parseArgs(["--json=\x1b]0;x\x07"], specs);
+    expect(r.error).toBeDefined();
+    expect(r.error).toContain("flag does not take a value");
+    expect(r.error).not.toContain("\x1b");
+    expect(r.error).not.toContain("\x07");
+  });
+});

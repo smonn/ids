@@ -1,7 +1,7 @@
 import { readFile as fsReadFile, stat as fsStat } from "node:fs/promises";
 import { type CliError, isCliError, usageError } from "./errors.js";
 import { formatCliError } from "./format.js";
-import { stripToken } from "./sanitize.js";
+import { redactToken, stripToken } from "./sanitize.js";
 import type { RunOpts } from "./types.js";
 
 /** The byte-to-string encoding of a key on the CLI boundary. See the Key encoding glossary entry. */
@@ -21,13 +21,13 @@ export function resolveKeyEncoding(
     return usageError(
       flag === ""
         ? "--key-encoding requires a value"
-        : `--key-encoding must be hex or base64url, got '${stripToken(flag)}'`,
+        : `--key-encoding must be hex or base64url, got '${redactToken(flag)}'`,
     );
   }
   const env = (opts.env ?? process.env)["IDS_KEY_ENCODING"];
   if (env === undefined || env === "") return "hex";
   if (env === "hex" || env === "base64url") return env;
-  return usageError(`IDS_KEY_ENCODING must be hex or base64url, got '${stripToken(env)}'`);
+  return usageError(`IDS_KEY_ENCODING must be hex or base64url, got '${redactToken(env)}'`);
 }
 
 async function resolveKeyString(
@@ -69,7 +69,7 @@ async function resolveKeyString(
     }
     if ((mode & 0o077) !== 0) {
       opts.stderr(
-        `Warning: key file '${path}' is accessible to group/others; run: chmod 0600 '${path}'\n`,
+        `Warning: key file '${stripToken(path)}' is accessible to group/others; run: chmod 0600 '${stripToken(path)}'\n`,
       );
     }
     return trimmed;

@@ -40,6 +40,24 @@ describe("parseKind", () => {
   });
 });
 
+describe("parseCount hostile-bytes redaction", () => {
+  it("strips control chars from a bad --count value before echoing (flags.ts:10)", () => {
+    const r = parseCount(new Map([["--count", "abc\x1b]0;x\x07"]]));
+    expect(isCliError(r) && r.message).toContain("positive integer");
+    expect(isCliError(r) && r.message).not.toContain("\x1b");
+    expect(isCliError(r) && r.message).not.toContain("\x07");
+  });
+});
+
+describe("parseKind hostile-bytes redaction", () => {
+  it("strips control chars from a bad --kind value before echoing (flags.ts:25)", () => {
+    const r = parseKind(new Map([["--kind", "u8\x1b]0;x\x07"]]));
+    expect(isCliError(r) && r.message).toContain("u32, i32, u64, or i64");
+    expect(isCliError(r) && r.message).not.toContain("\x1b");
+    expect(isCliError(r) && r.message).not.toContain("\x07");
+  });
+});
+
 describe("parseNs", () => {
   it("accepts a non-empty namespace", () => {
     expect(parseNs(new Map([["--ns", "billing"]]))).toBe("billing");

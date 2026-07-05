@@ -9,7 +9,7 @@ import { runKeygen } from "./commands/keygen.js";
 import { formatCliError } from "./format.js";
 import { helpForCodec, helpForCommand, usage } from "./help.js";
 import type { CodecModule, RunOpts, VerbHandler } from "./types.js";
-import { redactToken } from "./verbs.js";
+import { redactToken } from "./sanitize.js";
 
 export const codecModules: readonly CodecModule[] = [
   timestampCli,
