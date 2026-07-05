@@ -61,6 +61,7 @@ export function writeLen32(value: number, target: Uint8Array, offset: number): v
   target[offset + 3] = value & 0xff;
 }
 
+// 32 raw bytes → 44 base64url chars; 256 is a generous defensive cap with headroom.
 const BASE64URL_MAX_LEN = 256;
 const base64UrlRe = /^[A-Za-z0-9_-]*$/;
 

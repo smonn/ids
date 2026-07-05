@@ -9,7 +9,7 @@ import { sharedCodecOpts } from "../codec-options.js";
 import { isCliError, runtimeError } from "../errors.js";
 import type { CodecKey } from "../key.js";
 import type { CodecModule } from "../types.js";
-import { brandOfId, runInspect, runWrap } from "../verbs.js";
+import { requireBrand, runInspect, runWrap } from "../verbs.js";
 import { parseKind } from "../flags.js";
 
 const wrappingKey: CodecKey<WrappingKey> = { decode: decodeWrappingKey, import: importWrappingKey };
@@ -40,8 +40,8 @@ export const wrappedCli: CodecModule = {
             const kinds: readonly WrappedKind[] = kindOpt === undefined ? trialKinds : [kindOpt];
 
             return async (id) => {
-              const brand = brandOfId(id);
-              if (brand === undefined) return runtimeError("invalid_id: not a valid ID");
+              const brand = requireBrand(id);
+              if (typeof brand !== "string") return brand;
               for (const kind of kinds) {
                 const codec = createWrappedKeyId(brand, {
                   kind,
