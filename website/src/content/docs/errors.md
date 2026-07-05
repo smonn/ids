@@ -70,20 +70,20 @@ try {
 All 12 codes are a public stability contract. Adding a code is minor-additive;
 renaming or removing one is breaking.
 
-| Code                      | Trigger                                                                                                                                  |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `invalid_brand`           | Brand passed to a codec constructor is not exactly three lowercase `a–z` characters                                                      |
-| `invalid_namespace`       | `ns` passed to the Digest codec constructor is empty or whitespace-only                                                                  |
-| `invalid_key_format`      | Declared format is not `"hex"` or `"base64url"`                                                                                          |
-| `invalid_key_encoding`    | Encoded key string is malformed for its declared format (bad hex digits, bad base64url)                                                  |
-| `invalid_key_length`      | Raw key bytes passed to an `import*Key` function are not 16, 24, or 32 bytes                                                             |
-| `invalid_kind`            | `kind` passed to the Wrapped key codec constructor is not `"u32"`, `"i32"`, `"u64"`, or `"i64"`                                          |
-| `empty_keyring`           | `keys` array passed to a keyed codec constructor contains zero entries                                                                   |
-| `duplicate_keyring_entry` | `keys` array passed to a keyed codec constructor contains two entries backed by the same raw secret                                      |
-| `invalid_lookup_key`      | Value passed to `wrap()` is out of range, is the wrong JS type, or is negative zero (`u32`/`i32` only)                                   |
-| `verification_failed`     | No keyring entry's tag matches the payload — thrown by `unwrap()` / `verify()`, returned as a string by `safeUnwrap()` / `safeVerify()`  |
-| `invalid_id`              | String is not a structurally valid ID for the brand — thrown by `parse()` and ORM adapter read paths; `err.cause` holds the `ParseError` |
-| `invalid_timestamp`       | Date passed to `generateAt`, `minIdForTime`, or `maxIdForTime` is Invalid Date, pre-epoch, or exceeds the 48-bit range                   |
+| Code                      | Trigger                                                                                                                                            |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `invalid_brand`           | Brand passed to a codec constructor is not exactly three lowercase `a–z` characters                                                                |
+| `invalid_namespace`       | `ns` passed to the Digest codec constructor is empty or whitespace-only                                                                            |
+| `invalid_key_format`      | Declared format is not `"hex"` or `"base64url"`                                                                                                    |
+| `invalid_key_encoding`    | Encoded key string is malformed for its declared format (bad hex digits, bad base64url)                                                            |
+| `invalid_key_length`      | Raw key bytes passed to an `import*Key` function are not 16, 24, or 32 bytes                                                                       |
+| `invalid_kind`            | `kind` passed to the Wrapped key codec constructor is not `"u32"`, `"i32"`, `"u64"`, or `"i64"`                                                    |
+| `empty_keyring`           | `keys` array passed to a keyed codec constructor contains zero entries                                                                             |
+| `duplicate_keyring_entry` | `keys` array passed to a keyed codec constructor contains two entries backed by the same raw secret                                                |
+| `invalid_lookup_key`      | Value passed to `wrap()` is out of range, is the wrong JS type, or is negative zero (`u32`/`i32` only)                                             |
+| `verification_failed`     | No keyring entry's tag matches the payload — thrown by `unwrap()` / `verify()`, returned as a string by `safeUnwrap()` / `safeVerify()`            |
+| `invalid_id`              | String is not a structurally valid ID for the brand — thrown by `parse()` and ORM adapter read and write paths; `err.cause` holds the `ParseError` |
+| `invalid_timestamp`       | Date passed to `generateAt`, `minIdForTime`, or `maxIdForTime` is Invalid Date, pre-epoch, or exceeds the 48-bit range                             |
 
 ## The returned channel: ParseError
 

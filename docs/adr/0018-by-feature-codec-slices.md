@@ -66,7 +66,7 @@ The dependency-cruiser rule layer is zero-edit for new codecs — no alternation
 
 6. Wire the codec into the CLI (2 sites): create `src/cli/codecs/<name>.ts` (the codec subcommand module) and add an import and a `codecModules` entry in `src/cli/router.ts`.
 
-> **Correction (2026-07-04):** A third CLI wiring site is required: `src/cli/help.ts` contains a hardcoded verb→codec table in the `usage()` function that must be updated for a new codec, or `--help` output will be wrong. The doc surfaces (CONTEXT.md, website, README) also each require a one-line addition for the new codec verb.
+> **Correction (2026-07-04):** A third CLI wiring site is required: `src/cli/help.ts` contains a hardcoded verb→codec table in the `usage()` function that must be updated for a new codec, or `--help` output will be wrong. The doc surfaces (CONTEXT.md, website, README) also each require a one-line addition for the new codec verb. This requirement was introduced by [#793](https://github.com/smonn/ids/pull/793) (ADR-0032).
 
 7. **No `.dependency-cruiser.cjs` edits required** — the directory-based rules cover any `codecs/<name>/` automatically.
 
@@ -127,7 +127,7 @@ Codec constructors import **`wire/codec-shell`** only from `wire/`, and **`creat
 | `types.ts` | Root universal types — `Id<Brand>`, `ParseError`, `ParseResult`, etc. |
 | `error.ts` | Root universal error — `IdsError`, `isIdsError`, `IdsErrorCode` |
 
-> **Correction (2026-07-04):** The ORM adapters row above lists only the original four (`drizzle.ts`, `prisma.ts`, `kysely.ts`, `typeorm.ts`); `mikro-orm.ts` was added as a fifth ORM adapter in [#822](https://github.com/smonn/ids/pull/822). The full set of ORM adapters is `drizzle.ts`, `prisma.ts`, `kysely.ts`, `typeorm.ts`, `mikro-orm.ts`.
+> **Correction (2026-07-04):** The ORM adapters row above lists only the original four (`drizzle.ts`, `prisma.ts`, `kysely.ts`, `typeorm.ts`); `mikro-orm.ts` was added as a fifth ORM adapter after this ADR was written. The full set of ORM adapters is `drizzle.ts`, `prisma.ts`, `kysely.ts`, `typeorm.ts`, `mikro-orm.ts`.
 
 ## Considered Options
 
