@@ -85,8 +85,8 @@ function extractCodeBlocks(content: string): CodeBlock[] {
 function parseBlockImports(code: string): ParsedImport[] {
   const imports: ParsedImport[] = [];
   // Matches: import [type] { ... } from "@smonn/ids[/subpath]"
-  // The `s` flag handles multi-line import blocks.
-  const re = /\bimport\s+(?:type\s+)?\{([^}]*)\}\s+from\s+["'](@smonn\/ids(?:\/[^"']*)?)["']/gs;
+  // [^}]* spans newlines inherently — the `s` flag is not needed here.
+  const re = /\bimport\s+(?:type\s+)?\{([^}]*)\}\s+from\s+["'](@smonn\/ids(?:\/[^"']*)?)["']/g;
   for (const match of code.matchAll(re)) {
     const bindingsStr = match[1] ?? "";
     const specifier = match[2] ?? "";
