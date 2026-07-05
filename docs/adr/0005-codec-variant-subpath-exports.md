@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-03
+last-updated: 2026-06-29
+---
+
 # Codec variants ship as subpath exports
 
 Codec variants beyond the Timestamp codec (Opaque Timestamp, and future Signed Timestamp / Digest / Reverse Timestamp) introduce algorithm code, key types, or async APIs that the dominant codec doesn't need. Each variant ships as a subpath export (`@smonn/ids/opaque`, `@smonn/ids/signed`, etc.) rather than being re-exported from the main entry. The main entry remains sync-only and free of variant-specific types and algorithm code, preserving the package's "small, fast, sync" identity for the common case.

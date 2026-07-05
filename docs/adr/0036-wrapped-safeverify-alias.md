@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-07-04
+last-updated: 2026-07-04
+---
+
 # Wrapped key codec: a `safeVerify` alias so it satisfies the HTTP adapter verify contract
 
 The HTTP adapters (Hono, Express, Fastify, NestJS) accept `verify: true` only when the codec satisfies **IdVerifiableCodec** — a structural interface requiring `safeVerify(input): Promise<{ ok: true; id } | { ok: false; error }>` ([ADR-0012](./0012-signed-timestamp-construction.md), PR #917). The **Signed Timestamp codec** satisfies it; the **Wrapped key codec** does not, because it exposes `safeUnwrap`, not `safeVerify`. This ADR records the decision to close that gap (issue #919) by adding a thin `safeVerify` alias to the Wrapped key codec, rather than by widening the adapter interface.

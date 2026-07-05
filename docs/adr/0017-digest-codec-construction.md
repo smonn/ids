@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-23
+last-updated: 2026-06-29
+---
+
 # Digest codec: one-way keyed deterministic digest, single key, no keyring
 
 > **Note (superseded in part).** The HKDF domain-separation label named here (`ids/digest/hmac`) was renamed to `@smonn/ids/digest/hmac` by [ADR-0019](./0019-hkdf-label-namespace.md). The construction below is otherwise unchanged.

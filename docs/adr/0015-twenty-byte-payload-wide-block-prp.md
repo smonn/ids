@@ -1,3 +1,9 @@
+---
+status: rejected
+created: 2026-06-21
+last-updated: 2026-06-26
+---
+
 # 20-byte payload: a wide-block PRP retires the base32 padding bits
 
 > **Status: Rejected (2026-06-24).** Originally _proposed — deferred to v1_; the v1 evaluation happened and the outcome is **rejection**. The project will **stay at 128 bits / 16 bytes / 26 Crockford base32 chars** and reject 20 bytes and every other payload width. The #210 padding bits remain permanently neutralised by the canonical-form constraint in [ADR-0003](./0003-canonical-strict-is.md) — that is the fix, full stop. This ADR and the 20-byte design are retained as the record of _why_ the width is settled, so the question is not reopened. The decision and its reasoning are in the next section; everything after it is the supporting analysis the decision rests on.

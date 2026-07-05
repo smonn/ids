@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-25
+last-updated: 2026-06-25
+---
+
 # Parameter-intersection over generic-constraint for `ValidBrand<Brand>` enforcement
 
 [ADR-0001](./0001-brand-format.md) establishes the brand format — exactly three lowercase `a–z` characters. That constraint is enforced at runtime by `validateBrand()`, but compile-time enforcement requires a TypeScript type that rejects invalid brand literals at the call site. Issue [#550](https://github.com/smonn/ids/issues/550) exposed that the first attempt (PR #525), which applied the constraint via a generic-constraint form, crashed `tsc` with `RangeError: Map maximum size exceeded`. PR [#554](https://github.com/smonn/ids/pulls/554) shipped the replacement: a **parameter-intersection** form that gives equivalent compile-time guarantees without exhausting the TypeScript type-checker's internal cache.

@@ -1,6 +1,14 @@
+---
+status: accepted
+created: 2026-06-24
+last-updated: 2026-07-04
+supersedes: ADR-0008
+implemented-by: "#317, #318"
+---
+
 # By-feature codec slices: `codecs/<name>/`, `codecs/_kernel/`, and `wire/base32` separation
 
-Status: Accepted — implemented by #317 (codec slices + \_kernel + wire/base32 + codec depcruise) and #318 (adapters); supersedes ADR-0008.
+Implemented by #317 (codec slices + \_kernel + wire/base32 + codec depcruise) and #318 (adapters).
 
 ## Context
 

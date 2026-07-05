@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-26
+last-updated: 2026-06-26
+---
+
 # Frozen wire spec: a descriptive, normative-ready `SPEC.md` plus an append-only conformance-vector file
 
 Publish a `SPEC.md` that documents the wire format and a machine-readable `spec/vectors.json` of conformance vectors that CI asserts the reference implementation against. The goal is twofold: lock the now-settled format against our own future drift (a CI oracle), and give cross-language porters a precise, test-vector-backed description to build to — the "frozen wire spec + cross-language conformance vectors" sketch in [docs/IDEAS.md](../IDEAS.md), the lowest-risk of the TypeID-parity gaps now that width ([ADR-0015](./0015-twenty-byte-payload-wide-block-prp.md)) and the UUID mapping ([ADR-0024](./0024-uuid-interop-raw-mapping.md)) are settled.

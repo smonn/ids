@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-11
+last-updated: 2026-07-04
+---
+
 # Wrapped key codec: deterministic 16-byte verified compact wrapping
 
 > **Note (superseded in part).** The HKDF domain-separation labels named here (`@smonn/ids/wrapped/aes/v1`, `@smonn/ids/wrapped/hmac/v1`) were renamed to drop the `/v1` suffix by [ADR-0019](./0019-hkdf-label-namespace.md). The construction below is otherwise unchanged.

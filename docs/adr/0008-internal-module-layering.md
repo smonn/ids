@@ -1,3 +1,10 @@
+---
+status: superseded
+created: 2026-06-06
+last-updated: 2026-06-26
+superseded-by: ADR-0018
+---
+
 # Internal module layering for wire parsing, byte layouts, and the CLI boundary
 
 > **Superseded by: [ADR-0018](./0018-by-feature-codec-slices.md)** — the by-feature `codecs/<name>/` slice layout replaces the flat-root + `layouts/` structure described here. The ring diagram and responsibilities table in ADR-0018 supersede the corresponding sections below.

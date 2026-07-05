@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-27
+last-updated: 2026-06-27
+---
+
 # Workflow gate logic: single-source helpers, with the tested-twin reserved for pre-checkout gates
 
 Extract a workflow's non-trivial gate logic — round-counter state machines, blocker-state aggregation, scope decisions — into a pure `.mjs` helper under `.github/scripts/`, **invoked directly by the step** and unit-tested. Reserve the hand-synced _tested-twin_ pattern (a `.mjs` that mirrors authoritative inline bash it can never call) for the one case that forces it: a gate that must run **before checkout**.

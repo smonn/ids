@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-20
+last-updated: 2026-07-04
+---
+
 # Signed Timestamp codec: readable timestamp with a truncated-HMAC integrity tail
 
 > **Note (superseded in part).** The HKDF domain-separation label named here (`ids/signed-timestamp/hmac`) was renamed to `@smonn/ids/signed/hmac` by [ADR-0019](./0019-hkdf-label-namespace.md). The construction below is otherwise unchanged.

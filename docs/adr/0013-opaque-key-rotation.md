@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-20
+last-updated: 2026-06-24
+---
+
 # Opaque Timestamp key rotation is caller-driven (forward-only), not transparent
 
 The Opaque Timestamp codec's AES-CBC payload is **unauthenticated** ([ADR-0004](./0004-aes-cbc-strip-trick.md): a wrong key never throws and never yields a padding oracle — the strip-trick reconstruction always produces valid PKCS#7, so a wrong key yields a plausible-looking timestamp, not an error; the decrypt does issue a SubtleCrypto call, which could throw under abnormal conditions unrelated to key correctness) and **wire-indistinguishable with no key id** ([ADR-0007](./0007-wire-indistinguishable-codec-variants.md): no version marker on the wire). There is nothing to match a key against and nothing to validate a trial-decrypt guess. The codec therefore offers **no transparent "try every key in a ring" rotation**, and does not gain a keyring API.

@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-25
+last-updated: 2026-06-25
+---
+
 # The brand registry stays process-global, warn-only, and production-disabled; a test reset hook relieves the only real cost
 
 The shared brand registry in `src/codecs/_kernel/registry.ts` is a **process-global** `Set<string>`: every codec constructor calls `registerBrand(brand, opts.allowDuplicateBrand)` as its second line, and a second registration of the same brand in a non-production Node process emits a one-time `console.warn`. Issue [#546](https://github.com/smonn/ids/issues/546) (split off from [#492](https://github.com/smonn/ids/issues/492)) asks whether a process-global is the right model, or whether brand-duplicate detection should move to an injectable / per-registry boundary. This ADR records the decision to **keep the process-global model**, documents why so it stops being flagged as a nit, and adds one small affordance — an internal `resetBrandRegistry()` — for the single friction that is genuinely worth fixing.

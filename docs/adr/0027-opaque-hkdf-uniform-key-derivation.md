@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-26
+last-updated: 2026-06-26
+---
+
 # Opaque joins HKDF: one operator secret may serve every keyed codec
 
 Route the Opaque Timestamp codec's key through HKDF like the other three keyed codecs, under the domain-separation label `@smonn/ids/opaque/aes`, and bless the resulting invariant: **an operator secret is always input keying material, never a final primitive key**, so one raw secret may safely feed all four keyed codecs because each derives independently under its own label. This closes the question [ADR-0019](./0019-hkdf-label-namespace.md) and [docs/IDEAS.md](../IDEAS.md) left deliberately undecided ("Opaque codec via HKDF").

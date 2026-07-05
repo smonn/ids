@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-24
+last-updated: 2026-06-26
+---
+
 # HKDF domain-separation label namespace: `@smonn/ids/<subpath>/<primitive>`
 
 The keyed codecs derive their subkeys with HKDF, and each passes a distinct `info` string as a **domain-separation label** so the same raw operator secret imported into two codecs yields cryptographically independent keys. Those labels drifted into three inconsistent shapes: `ids/signed-timestamp/hmac` (Signed), `ids/digest/hmac` (Digest), and `@smonn/ids/wrapped/aes/v1` / `@smonn/ids/wrapped/hmac/v1` (Wrapped). We **standardize on `@smonn/ids/<subpath-export>/<primitive>`, unversioned** — yielding `@smonn/ids/signed/hmac`, `@smonn/ids/digest/hmac`, `@smonn/ids/wrapped/aes`, and `@smonn/ids/wrapped/hmac`.

@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-26
+last-updated: 2026-06-26
+---
+
 # Conformance vector file schema: orthogonal category × operation, return-typed expectations, portable rejection layers
 
 [ADR-0025](./0025-frozen-wire-spec-conformance-vectors.md) accepted `spec/vectors.json` — an append-only, `toEqual`-asserted oracle, v1 scoped to the shared wire layer plus the Timestamp and Reverse Timestamp codecs and the Raw UUID mapping — but left the concrete file schema to the implementation issue (#625). This ADR records the schema chosen there. The file is `{ "version": <int>, "vectors": [...] }`; each vector is `{ name, description?, category, operation, input, expected }`.

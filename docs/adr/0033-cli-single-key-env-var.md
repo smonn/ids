@@ -1,3 +1,10 @@
+---
+status: accepted
+created: 2026-06-29
+last-updated: 2026-07-04
+supersedes: ADR-0028
+---
+
 # CLI key resolution: a single `IDS_KEY` and explicit key sources
 
 Resolve the operator key for any keyed command from **one** key value — `--key STRING` > `--key-file PATH` > `IDS_KEY` — decoded under one encoding — `--key-encoding` > `IDS_KEY_ENCODING` > `hex`. Conflicting explicit key flags are a usage error; the decoded key must be 16/24/32 bytes. This removes the per-codec key env vars introduced by [ADR-0028](./0028-cli-primary-secret-env-var.md) and **supersedes** it.

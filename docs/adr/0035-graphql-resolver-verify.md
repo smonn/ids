@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-07-04
+last-updated: 2026-07-04
+---
+
 # GraphQL signature verification is a resolver wrapper, not a scalar option
 
 PR #917 gave the four HTTP adapters (Hono, Express, Fastify, NestJS) an opt-in `verify: true` option that authenticates a Signed Timestamp codec's HMAC tag on the read path. The GraphQL adapter was excluded because its scalar coercers are synchronous and cannot await the verification call. This ADR records the decision to close that gap with a **resolver wrapper** — `verifyIdArgs`, exported from `@smonn/ids/graphql` — rather than an option on `idScalar`, and why the resulting API deliberately diverges in shape from the four HTTP adapters.

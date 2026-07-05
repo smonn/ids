@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-05-31
+last-updated: 2026-05-31
+---
+
 # Brand format: three lowercase a–z characters
 
 Public-facing IDs need a short, fixed-width type identifier that humans can scan, that doesn't collide with the Crockford base32 payload, and that survives in URLs. We use exactly three lowercase a–z characters, validated at runtime: three gives 17,576 brands (more than any single app needs), lowercase removes case-normalisation from the brand portion, and excluding digits keeps the brand visually distinct from the payload. The brand width is part of the wire format — changing it invalidates every previously-issued ID.

@@ -4,6 +4,30 @@ This file documents the conventions for writing and maintaining Architecture Dec
 
 For general contribution guidance see [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
+## Front matter
+
+Every ADR starts with a YAML front-matter block carrying its machine-readable metadata — this is what the audit skill's decided-digest and any tooling greps, so prose never needs to restate it:
+
+```yaml
+---
+status: accepted # proposed | accepted | rejected | superseded
+created: 2026-06-24 # date the ADR first landed on main (YYYY-MM-DD)
+last-updated: 2026-07-04 # date of the most recent substantive edit
+supersedes: ADR-0008 # optional; the ADR this one replaces
+superseded-by: ADR-0018 # required when status: superseded
+implemented-by: "#317, #318" # optional; implementing PR refs (quote — YAML treats bare # as a comment)
+---
+```
+
+Rules, enforced by `.github/scripts/adr-front-matter-lint.mjs` (pre-push and CI):
+
+- `status`, `created`, and `last-updated` are required; `status` is one of the four values above; dates are `YYYY-MM-DD` with `last-updated >= created`.
+- `status: superseded` requires `superseded-by`, and the pair must be bidirectional: if ADR-A is `superseded-by: ADR-B`, then ADR-B declares `supersedes: ADR-A`. Referenced ADRs must exist.
+- Any substantive edit — including adding a correction note — bumps `last-updated`. Typo/formatting-only edits may skip the bump.
+- **No commit hashes in front matter.** A hash is unknowable while authoring (the squash-merge SHA doesn't exist yet) and rots on every subsequent edit; `git log -- docs/adr/<file>` already answers provenance questions. Same reasoning as **Verify provenance before citing it** below.
+
+Status semantics: `accepted` is the default for a merged ADR (merge is acceptance); `rejected` records a decision _against_ the design, retained so the question isn't reopened (e.g. ADR-0015); `superseded` means a later ADR replaced this one — keep the in-prose "Superseded by" blockquote too when it carries substance (what replaced what, and why). `proposed` is for an ADR merged ahead of its decision; none exist today.
+
 ## Correction notes
 
 When a shipped ADR contains a stale claim — for example, a file path moved by a later refactor, or a status that changed after the ADR reached `main` — annotate it with a dated blockquote immediately after the affected paragraph:

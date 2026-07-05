@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-03
+last-updated: 2026-06-07
+---
+
 # Codec variants are wire-indistinguishable; brand registry enforces one codec per brand
 
 Every codec variant produces the same wire shape — `<brand>_` followed by 26 lowercase Crockford base32 characters. `safeParse` cannot tell an Opaque Timestamp ID from a Timestamp ID structurally, and we deliberately don't add per-codec wire markers. Codec choice is a per-brand commitment, enforced at construction time by the shared module-level brand registry: registering the same brand via more than one codec (e.g. `createTimestampId("usr")` and `createOpaqueTimestampId("usr")`) warns in dev, the same way duplicate `createTimestampId("usr")` calls do today.

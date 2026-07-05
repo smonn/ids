@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-21
+last-updated: 2026-06-24
+---
+
 # Shared modules need warrant: de-duplicate only at >2 call sites or substantial shared code
 
 Repetition alone does not justify a shared module. Every abstraction carries standing costs: a new interface that each caller — and each future reader — must learn, a layer of indirection between the call site and the behaviour, and the risk of a **shallow module** whose interface is nearly as wide as its implementation. The design vocabulary's "two adapters = a real seam" tells you a seam _exists_; it does not tell you the seam carries enough behaviour to be worth crossing. We therefore require de-duplication to clear a value bar before it earns a module.

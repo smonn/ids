@@ -1,3 +1,10 @@
+---
+status: superseded
+created: 2026-06-26
+last-updated: 2026-06-29
+superseded-by: ADR-0033
+---
+
 # CLI primary-secret env var, and symmetric per-codec env vars
 
 > **Superseded by [ADR-0033](./0033-cli-single-key-env-var.md) (2026-06-29):** The codec-first CLI redesign ([ADR-0032](./0032-codec-first-cli-grammar.md)) removes the per-codec key env vars decided here. With the codec promoted to an explicit command token, encoding it in the variable name is redundant, so the four `IDS_<CODEC>_KEY` variables and their `_FORMAT` partners collapse to a single `IDS_KEY` / `IDS_KEY_ENCODING`. The reasoning below is preserved for historical context.

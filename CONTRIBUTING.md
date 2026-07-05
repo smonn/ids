@@ -59,7 +59,7 @@ pnpm mutation          # Stryker mutation testing (slow; CI runs it weekly)
 pnpm build             # tsdown
 ```
 
-Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, `pnpm depcruise`, and `pnpm knip` before opening a PR. A Husky pre-push hook runs the fast static tier (`label-trigger-lint`, `knip`, `depcruise`, `lint`, `fmt:check`, `typecheck`, `build`) automatically on `git push`; use `--no-verify` to bypass in an emergency.
+Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, `pnpm depcruise`, and `pnpm knip` before opening a PR. A Husky pre-push hook runs the fast static tier (`label-trigger-lint`, `adr-front-matter-lint`, `knip`, `depcruise`, `lint`, `fmt:check`, `typecheck`, `build`) automatically on `git push`; use `--no-verify` to bypass in an emergency.
 
 ## Style
 
