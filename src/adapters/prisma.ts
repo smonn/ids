@@ -88,15 +88,22 @@ export type IdTransform<Brand extends string> = {
   computeField(fieldName: string): IdComputeField<Brand>;
   /**
    * Creates a `$extends` query-component model slice that auto-generates
-   * `Id<Brand>` values for `create`, `createMany`, and `upsert` operations
-   * when the field is absent, `undefined`, or `null` in `args.data` (or
-   * `args.create` for upsert). When the field is absent, `undefined`, or `null`,
-   * a fresh `Id<Brand>` is injected; when present, the value is validated via
-   * `codec.safeParse` and `IdsError("invalid_id")` is thrown if invalid.
+   * `Id<Brand>` values for `create`, `createMany`, `createManyAndReturn`, and
+   * `upsert` operations when the field is absent, `undefined`, or `null` in
+   * `args.data` (or `args.create` for upsert). When the field is absent,
+   * `undefined`, or `null`, a fresh `Id<Brand>` is injected; when present, the
+   * value is validated via `codec.safeParse` and `IdsError("invalid_id")` is
+   * thrown if invalid.
    *
    * @param fieldName - The model field to auto-generate (e.g. `"id"`).
    * @returns An {@link IdQueryField} suitable for the model-level value inside
    * a Prisma `$extends({ query: { modelName: … } })` block.
+   *
+   * @remarks
+   * **Nested-relation-write limitation:** ID fields inside nested relation writes
+   * (`data: { posts: { create: { … } } }`, `connectOrCreate.create`, etc.) are
+   * **not** reached by any model-level `defaultQuery` hook. Callers must validate
+   * or generate nested IDs explicitly at the service layer.
    *
    * @example
    * ```ts
@@ -204,6 +211,25 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
           return query(nextArgs);
         },
         async createMany({ args, query }) {
+          const data = args.data as
+            | Array<Record<string, unknown>>
+            | Record<string, unknown>
+            | null
+            | undefined;
+          let nextArgs: QueryArg;
+          if (Array.isArray(data)) {
+            nextArgs = {
+              ...args,
+              data: data.map((item) => injectOrValidate(item)),
+            } as unknown as QueryArg;
+          } else if (data != null) {
+            nextArgs = { ...args, data: injectOrValidate(data) } as unknown as QueryArg;
+          } else {
+            nextArgs = args;
+          }
+          return query(nextArgs);
+        },
+        async createManyAndReturn({ args, query }) {
           const data = args.data as
             | Array<Record<string, unknown>>
             | Record<string, unknown>
