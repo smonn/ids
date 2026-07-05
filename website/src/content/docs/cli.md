@@ -185,8 +185,7 @@ export IDS_KEY=$(npx @smonn/ids keygen --bytes 32)
 npx @smonn/ids signed generate usr
 ```
 
-The decoded key must be 16, 24, or 32 bytes; any other length is a usage error (this
-catches truncated or wrong-encoding pastes).
+The decoded key must be 16, 24, or 32 bytes; any other length is a usage error (this catches truncated or wrong-encoding pastes). A malformed encoding (bad hex characters, non-canonical base64url padding bits) is also a usage error (exit 2).
 
 **Digest material** — `derive` and `match` accept their input material via `--material
 <value>` or stdin. Using `--material` emits a one-line advisory on stderr because the value
