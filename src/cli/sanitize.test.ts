@@ -50,7 +50,7 @@ describe("stripToken", () => {
     expect(stripToken("ok\u0000\u200b\u2028!")).toBe("ok!");
   });
 
-  it("leaves newline, tab, and carriage return stripped (they are C0)", () => {
+  it("strips newline, tab, and carriage return (all C0)", () => {
     // \t, \n, \r are all within U+0000-U+001F so stripToken removes them
     expect(stripToken("a\tb\nc\rd")).toBe("abcd");
   });
