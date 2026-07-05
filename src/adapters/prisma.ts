@@ -201,6 +201,26 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
 
       type QueryArg = Parameters<ModelQueryOptionsCbArgs["query"]>[0];
 
+      function applyInjectOrValidate({ args, query }: ModelQueryOptionsCbArgs): Promise<unknown> {
+        const data = args.data as
+          | Array<Record<string, unknown>>
+          | Record<string, unknown>
+          | null
+          | undefined;
+        let nextArgs: QueryArg;
+        if (Array.isArray(data)) {
+          nextArgs = {
+            ...args,
+            data: data.map((item) => injectOrValidate(item)),
+          } as unknown as QueryArg;
+        } else if (data != null) {
+          nextArgs = { ...args, data: injectOrValidate(data) } as unknown as QueryArg;
+        } else {
+          nextArgs = args;
+        }
+        return query(nextArgs);
+      }
+
       return {
         async create({ args, query }) {
           const data = args.data as Record<string, unknown> | null | undefined;
@@ -210,44 +230,8 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
               : args;
           return query(nextArgs);
         },
-        async createMany({ args, query }) {
-          const data = args.data as
-            | Array<Record<string, unknown>>
-            | Record<string, unknown>
-            | null
-            | undefined;
-          let nextArgs: QueryArg;
-          if (Array.isArray(data)) {
-            nextArgs = {
-              ...args,
-              data: data.map((item) => injectOrValidate(item)),
-            } as unknown as QueryArg;
-          } else if (data != null) {
-            nextArgs = { ...args, data: injectOrValidate(data) } as unknown as QueryArg;
-          } else {
-            nextArgs = args;
-          }
-          return query(nextArgs);
-        },
-        async createManyAndReturn({ args, query }) {
-          const data = args.data as
-            | Array<Record<string, unknown>>
-            | Record<string, unknown>
-            | null
-            | undefined;
-          let nextArgs: QueryArg;
-          if (Array.isArray(data)) {
-            nextArgs = {
-              ...args,
-              data: data.map((item) => injectOrValidate(item)),
-            } as unknown as QueryArg;
-          } else if (data != null) {
-            nextArgs = { ...args, data: injectOrValidate(data) } as unknown as QueryArg;
-          } else {
-            nextArgs = args;
-          }
-          return query(nextArgs);
-        },
+        createMany: applyInjectOrValidate,
+        createManyAndReturn: applyInjectOrValidate,
         async upsert({ args, query }) {
           const createData = args.create as Record<string, unknown> | null | undefined;
           const nextArgs =
