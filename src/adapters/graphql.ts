@@ -84,7 +84,7 @@ export function idScalar<Brand extends string>(
  * verify yet reach the resolver un-normalised.
  *
  * **Only listed args are verified, and keys must match the field's argument names exactly.** On the
- * first invocation **for each schema coordinate** (`parentType.name.fieldName`) the wrapper resolves
+ * first invocation **for each schema coordinate** (`ParentType.fieldName`) the wrapper resolves
  * the field's declared argument names from `info` and throws a `GraphQLError` if any codec-map key
  * does not match a declared argument — hardening so a typo cannot silently disable verification.
  * Subsequent invocations on the **same coordinate** use the cached result. If the field cannot be
