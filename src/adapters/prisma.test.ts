@@ -29,8 +29,6 @@ import {
   idFieldNonGenerating,
   idFieldReadOnly,
   nullableIdField,
-  IdsError,
-  isIdsError,
   type IdColumnCodec,
   type IdGeneratingCodec,
   type IdQueryField,
@@ -76,42 +74,20 @@ describe("prisma", () => {
     expectTypeOf(result).toEqualTypeOf<Id<"usr">>();
   });
 
-  it("rejects a wrong-brand value", () => {
+  it("rejects a wrong-brand value", async () => {
     const orgId = org.generate();
-    let err: unknown;
-    try {
-      transform.read(orgId);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_prefix");
+    await expectInvalidIdError(() => transform.read(orgId), { cause: "invalid_prefix" });
   });
 
-  it("rejects a malformed value", () => {
-    let err: unknown;
-    try {
-      // valid prefix, invalid base32 payload
-      transform.read("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_base32");
+  it("rejects a malformed value", async () => {
+    // valid prefix, invalid base32 payload
+    await expectInvalidIdError(() => transform.read("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"), {
+      cause: "invalid_base32",
+    });
   });
 
-  it("rejects a non-string value", () => {
-    let err: unknown;
-    try {
-      transform.read(42);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("not_string");
+  it("rejects a non-string value", async () => {
+    await expectInvalidIdError(() => transform.read(42), { cause: "not_string" });
   });
 
   it("idField result field satisfies Prisma ResultFieldDefinition $extends compute shape", () => {
@@ -164,18 +140,10 @@ describe("prisma", () => {
     await expectInvalidIdError(() => field.compute({ id: "not-a-valid-id" }));
   });
 
-  it("computeField.compute throws IdsError on wrong-brand value", () => {
+  it("computeField.compute throws IdsError on wrong-brand value", async () => {
     const field = transform.computeField("id");
     const orgId = org.generate();
-    let err: unknown;
-    try {
-      field.compute({ id: orgId });
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_prefix");
+    await expectInvalidIdError(() => field.compute({ id: orgId }), { cause: "invalid_prefix" });
   });
 
   it("brand survives $extends result component — type-level assertion via GetPayloadResult", () => {
