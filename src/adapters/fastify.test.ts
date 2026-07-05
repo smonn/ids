@@ -808,7 +808,7 @@ describe("verify option", () => {
       });
       await app.ready();
       const res = await app.inject({ method: "GET", url: "/items/tst_00000000000000000000000000" });
-      expect(res.statusCode).toBeGreaterThanOrEqual(400);
+      expect(res.statusCode).toBe(500);
       await app.close();
     });
 
@@ -1150,7 +1150,7 @@ describe("verify option", () => {
         method: "GET",
         url: "/items?id=tst_00000000000000000000000000",
       });
-      expect(res.statusCode).toBeGreaterThanOrEqual(400);
+      expect(res.statusCode).toBe(500);
       await app.close();
     });
   });
