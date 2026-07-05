@@ -6,6 +6,7 @@ import { type CliError, exitCodeFor, isCliError, runtimeError, usageError } from
 import { parseCount, parseKind, parseNs, type WrappedKindValue } from "./flags.js";
 import { formatCliError } from "./format.js";
 import { type CodecKey, resolveKey } from "./key.js";
+import { redactToken } from "./sanitize.js";
 import {
   formatInspectHuman,
   formatInspectJson,
@@ -38,13 +39,7 @@ const usageCodeBuckets: Record<IdsErrorCode, "usage" | "runtime"> = {
   invalid_id: "runtime",
 };
 
-/** Truncates a stray positional token so it never echoes verbatim in error messages.
- *  Strips C0 (U+0000–U+001F), DEL (U+007F), and C1 (U+0080–U+009F) before truncating. */
-export function redactToken(token: string): string {
-  // oxlint-disable-next-line no-control-regex -- intentional: strip C0/DEL/C1 before echoing
-  const stripped = token.replace(/[\u0000-\u001f\u007f\u0080-\u009f]/g, "");
-  return stripped.length > 20 ? `${stripped.slice(0, 20)}…` : stripped;
-}
+export { redactToken } from "./sanitize.js";
 
 export function mapThrown(err: unknown): CliError {
   if (isIdsError(err) && usageCodeBuckets[err.code] === "usage") {
@@ -338,7 +333,8 @@ export function keylessTimestampInspect(
 function parseLookupValue(kind: WrappedKindValue, raw: string): number | bigint | CliError {
   if (raw === "") return usageError("--value requires a value");
   if (kind === "u32" || kind === "i32") {
-    if (!/^-?\d+$/.test(raw)) return usageError(`--value must be an integer, got '${raw}'`);
+    if (!/^-?\d+$/.test(raw))
+      return usageError(`--value must be an integer, got '${redactToken(raw)}'`);
     const n = Number(raw);
     const [min, max] = kind === "u32" ? [0, 4_294_967_295] : [-2_147_483_648, 2_147_483_647];
     if (!Number.isSafeInteger(n) || n < min || n > max) {
@@ -348,7 +344,8 @@ function parseLookupValue(kind: WrappedKindValue, raw: string): number | bigint 
   }
   // Guard before BigInt(): it would otherwise accept 0x/0o/0b prefixes and surrounding
   // whitespace, silently turning a typo'd value into a wrong-but-valid integer.
-  if (!/^-?\d+$/.test(raw)) return usageError(`--value must be an integer, got '${raw}'`);
+  if (!/^-?\d+$/.test(raw))
+    return usageError(`--value must be an integer, got '${redactToken(raw)}'`);
   const value = BigInt(raw);
   const [min, max] =
     kind === "u64"

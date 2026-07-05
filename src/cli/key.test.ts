@@ -336,6 +336,38 @@ describe("resolveKey", () => {
     expect(captured.join("")).toBe("");
   });
 
+  it("warns on stderr when --key-file has group-execute bit only (0o100610)", async () => {
+    const captured: string[] = [];
+    const result = await resolveKey(
+      new Map([["--key-file", "k"]]),
+      new Set(["--key-file"]),
+      opts({
+        stderr: (s) => captured.push(s),
+        readFile: () => Promise.resolve("deadbeef"),
+        statFile: () => Promise.resolve({ mode: 0o100610 }),
+      }),
+      fakeKey,
+    );
+    expect(isCliError(result)).toBe(false);
+    expect(captured.join("")).toContain("chmod 0600");
+  });
+
+  it("warns on stderr when --key-file has other-execute bit only (0o100601)", async () => {
+    const captured: string[] = [];
+    const result = await resolveKey(
+      new Map([["--key-file", "k"]]),
+      new Set(["--key-file"]),
+      opts({
+        stderr: (s) => captured.push(s),
+        readFile: () => Promise.resolve("deadbeef"),
+        statFile: () => Promise.resolve({ mode: 0o100601 }),
+      }),
+      fakeKey,
+    );
+    expect(isCliError(result)).toBe(false);
+    expect(captured.join("")).toContain("chmod 0600");
+  });
+
   it("silently skips the permissions check when statFile throws", async () => {
     const captured: string[] = [];
     const result = await resolveKey(

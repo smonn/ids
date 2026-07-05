@@ -1,3 +1,5 @@
+import { redactToken } from "./sanitize.js";
+
 /**
  * Declarative flag parsing for a single CLI node (one codec verb or top-level command).
  *
@@ -57,7 +59,7 @@ export function parseArgs(argv: ReadonlyArray<string>, specs: ReadonlyArray<Flag
 
     const spec = byToken.get(token);
     if (spec === undefined) {
-      fail(`unsupported flag: ${token}`);
+      fail(`unsupported flag: ${redactToken(token)}`);
       continue;
     }
     if (flags.has(spec.name)) {
@@ -89,7 +91,7 @@ export function parseArgs(argv: ReadonlyArray<string>, specs: ReadonlyArray<Flag
         i++;
       }
     } else if (inline !== undefined) {
-      fail(`flag does not take a value: ${token}`);
+      fail(`flag does not take a value: ${redactToken(token)}`);
     }
   }
 

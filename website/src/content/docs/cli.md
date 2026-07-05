@@ -197,6 +197,11 @@ stdin keeps it off argv. Machine output (stdout/JSON) is unaffected by the advis
 mistyped bare key), the CLI truncates it to 20 characters followed by `…` in the error
 message so the full token does not appear in stderr or CI logs.
 
+**Error-echo hygiene** — flag values (e.g. a bad `--count` or `--kind` value) and file
+paths in error messages are stripped of control characters and Unicode bidi/format controls
+before echo; flag values are additionally truncated to the first 20 characters where
+truncation does not hurt diagnostics.
+
 ## Exit codes
 
 | code | meaning                                                                                               |
