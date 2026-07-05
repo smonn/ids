@@ -34,7 +34,7 @@ importers:
         specifier: ^11.1.27
         version: 11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))
       '@prisma/client':
-        specifier: '>=7.8.0'
+        specifier: ^7.8.0
         version: 7.8.0(typescript@6.0.3)
       '@stryker-mutator/core':
         specifier: ^9.6.1

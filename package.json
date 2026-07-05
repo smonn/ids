@@ -112,7 +112,7 @@
     "@mikro-orm/core": "^7.1.5",
     "@nestjs/common": "^11.1.27",
     "@nestjs/testing": "^11.1.27",
-    "@prisma/client": ">=7.8.0",
+    "@prisma/client": "^7.8.0",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@total-typescript/shoehorn": "^0.1.2",
