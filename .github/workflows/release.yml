@@ -6,6 +6,11 @@ on:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
+# Default the workflow's GITHUB_TOKEN to no permissions; the release job below
+# declares exactly what it needs, and a future job added without a permissions:
+# block inherits nothing instead of the repo default.
+permissions: {}
+
 jobs:
   release:
     runs-on: ubuntu-latest

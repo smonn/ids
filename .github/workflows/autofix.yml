@@ -30,10 +30,13 @@ concurrency:
   group: autofix-${{ github.event.workflow_run.head_branch || github.event.inputs.branch }}
   cancel-in-progress: false
 
+# The built-in GITHUB_TOKEN is only used implicitly by actions/checkout to
+# fetch the repo (both checkouts set persist-credentials: false, so it never
+# lands in the workspace). Every GitHub mutation — comments, labels, pushes —
+# goes through the least-privilege App tokens minted in-job, so the workflow
+# token needs nothing beyond read.
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
   autofix:

@@ -24,27 +24,30 @@ concurrency:
   group: bench-${{ github.ref }}
   cancel-in-progress: true
 
-# No workflow-level permissions: the bench job below declares its own grants, so a
+# No workflow-level permissions: the jobs below declare their own grants, so a
 # future job added without a permissions: block inherits nothing instead of the repo
 # default. Every other workflow sets a top-level block.
 permissions: {}
 
 jobs:
-  bench:
-    # Same-repo guard: fork PRs skip the bench. This job is write-scoped and runs
-    # no untrusted code on forks; a skipped job is harmless now that the check is
-    # not required.
+  # Skip the bench while this PR is mid-conflict-rebase (same rationale as
+  # ci.yml's guard). A separate read-only job instead of a self-cancel step so
+  # the bench job never needs `actions: write` (Scorecard Token-Permissions);
+  # a skipped bench job is neutral, same as the cancelled run used to be, and
+  # the rebase merge commit runs a fresh bench. Fail-open on a read error.
+  mutex:
+    # Same-repo guard: fork PRs skip the bench. The bench job below is
+    # write-scoped and runs no untrusted code on forks; a skipped job is
+    # harmless now that the check is not required.
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write
-      # The conflict guard below cancels the run when the PR is mid-rebase.
-      actions: write
+      pull-requests: read
+    outputs:
+      locked: ${{ steps.check.outputs.locked }}
     steps:
-      # Pause the bench while this PR is mid-conflict-rebase (same rationale as
-      # ci.yml's guard). Self-cancel rather than fail: a cancelled run is neutral
-      # and the rebase merge commit runs a fresh bench. Fail-open on a read error.
-      - name: Pause while an automation mutex is present on this PR
+      - name: Check for an automation mutex on this PR
+        id: check
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -52,11 +55,17 @@ jobs:
         run: |
           labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || true)
           if echo "$labels" | grep -qE '^automation:'; then
-            echo "PR #$PR_NUMBER carries an automation:* mutex — cancelling; the rebase merge commit will run a fresh bench."
-            gh run cancel "$GITHUB_RUN_ID" || true
-            sleep 30  # let the cancellation land so later steps don't run
+            echo "PR #$PR_NUMBER carries an automation:* mutex — skipping; the rebase merge commit will run a fresh bench."
+            echo "locked=true" >> "$GITHUB_OUTPUT"
           fi
 
+  bench:
+    needs: mutex
+    if: needs.mutex.outputs.locked != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
