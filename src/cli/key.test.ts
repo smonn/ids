@@ -404,7 +404,7 @@ describe("hostile-bytes redaction", () => {
     const r = await resolveKey(
       new Map([["--key-file", "path\x1b]0;x\x07"]]),
       new Set(["--key-file"]),
-      opts({ readFile: () => Promise.reject(new Error("ENOENT")) }),
+      opts({ readFile: () => Promise.reject(new Error("path\x1b]0;x\x07: ENOENT")) }),
       fakeKey,
     );
     expect(isCliError(r) && r.message).toContain("cannot read --key-file");
