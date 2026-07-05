@@ -16,14 +16,13 @@ function extractHookSteps(content: string): string[] {
     .map((line) => {
       const trimmed = line.trim();
       // node .github/scripts/label-trigger-lint.mjs → label-trigger-lint
-      const nodeMatch = /^node\s+\S+\/([^/\s]+)\.mjs$/.exec(trimmed);
-      if (nodeMatch) return nodeMatch[1];
+      const nodeStep = /^node\s+\S+\/([^/\s]+)\.mjs$/.exec(trimmed)?.[1];
+      if (nodeStep !== undefined) return nodeStep;
       // pnpm run knip → knip
-      const pnpmMatch = /^pnpm run (\S+)$/.exec(trimmed);
-      if (pnpmMatch) return pnpmMatch[1];
-      return null;
-    })
-    .filter((s): s is string => s !== null);
+      const pnpmStep = /^pnpm run (\S+)$/.exec(trimmed)?.[1];
+      if (pnpmStep !== undefined) return pnpmStep;
+      throw new Error(`unrecognised hook line: ${trimmed}`);
+    });
 }
 
 function extractDocSteps(content: string): string[] {
