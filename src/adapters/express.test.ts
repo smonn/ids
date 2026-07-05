@@ -760,6 +760,20 @@ describe("verify option", () => {
       middleware(req, fromAny(res), next);
       expect(spyCodec.safeVerify).not.toHaveBeenCalled();
     });
+
+    it("verify: true with status.malformed override → next(IdParamError) with configured status", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      const middleware = idParam("id", spyCodec, { verify: true, status: { malformed: 422 } });
+      const req = makeReq("id", "spy_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      middleware(req, fromAny(res), next);
+      await vi.waitFor(() => expect(next).toHaveBeenCalledOnce());
+      const err: IdParamError = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
+      expect(err).toBeInstanceOf(IdParamError);
+      expect(err.reason).toBe("malformed");
+      expect(err.status).toBe(422);
+    });
   });
 
   describe("idParam with verify: true (real Signed Timestamp codec)", () => {
@@ -1043,6 +1057,16 @@ describe("verify option", () => {
       const err = fromAny(vi.mocked(next).mock.calls[0]?.[0]);
       expect(err).toBeInstanceOf(IdParamError);
       expect((err as IdParamError).reason).toBe("malformed");
+    });
+
+    it("TypeScript rejects verify: true with non-verifiable codec for idQuery; fail-closed at runtime (TypeError)", () => {
+      const plain = makeSpyCodec("tst");
+      // @ts-expect-error — plain codec lacks safeVerify; verify: true requires IdVerifiableCodec
+      const middleware = idQuery("id", plain, { verify: true });
+      const req = makeQueryReq("id", "tst_00000000000000000000000000");
+      const res = makeRes();
+      const next: NextFunction = fromAny(vi.fn());
+      expect(() => middleware(req, fromAny(res), next)).toThrow(TypeError);
     });
   });
 });

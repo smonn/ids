@@ -808,7 +808,32 @@ describe("verify option", () => {
       });
       await app.ready();
       const res = await app.inject({ method: "GET", url: "/items/tst_00000000000000000000000000" });
-      expect(res.statusCode).not.toBe(200);
+      expect(res.statusCode).toBeGreaterThanOrEqual(400);
+      await app.close();
+    });
+
+    it("verify: true with status.malformed override → IdParamError with configured status", async () => {
+      const spyCodec = makeVerifiableSpyCodec("spy", "fail");
+      let capturedError: unknown;
+      const app = Fastify();
+      app.setErrorHandler((err, _req, reply) => {
+        capturedError = err;
+        void reply
+          .status((err as unknown as IdParamError).statusCode ?? 500)
+          .send({ error: (err as unknown as IdParamError).reason });
+      });
+      app.get(
+        "/items/:id",
+        { preHandler: idParam("id", spyCodec, { verify: true, status: { malformed: 422 } }) },
+        (_req, reply) => {
+          void reply.send({ ok: true });
+        },
+      );
+      await app.ready();
+      const res = await app.inject({ method: "GET", url: "/items/spy_00000000000000000000000000" });
+      expect(res.statusCode).toBe(422);
+      expect(capturedError).toBeInstanceOf(IdParamError);
+      expect((capturedError as IdParamError).reason).toBe("malformed");
       await app.close();
     });
   });
@@ -1109,6 +1134,23 @@ describe("verify option", () => {
       expect(res.statusCode).toBe(400);
       expect(capturedError).toBeInstanceOf(IdParamError);
       expect((capturedError as IdParamError).reason).toBe("malformed");
+      await app.close();
+    });
+
+    it("TypeScript rejects verify: true with non-verifiable codec for idQuery; fail-closed at runtime (not 2xx)", async () => {
+      const plain = makeSpyCodec("tst");
+      // @ts-expect-error — plain codec lacks safeVerify; verify: true requires IdVerifiableCodec
+      const preHandler = idQuery("id", plain, { verify: true });
+      const app = Fastify();
+      app.get("/items", { preHandler }, (_req, reply) => {
+        void reply.send({ ok: true });
+      });
+      await app.ready();
+      const res = await app.inject({
+        method: "GET",
+        url: "/items?id=tst_00000000000000000000000000",
+      });
+      expect(res.statusCode).toBeGreaterThanOrEqual(400);
       await app.close();
     });
   });
