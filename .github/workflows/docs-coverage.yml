@@ -14,10 +14,10 @@ name: Docs coverage
 # reason) passes the check with a notice. `edited` is in the trigger so adding
 # the waiver re-runs the check on the head SHA.
 #
-# Fork PRs skip the whole job (job-level `if` below → "skipped", which
-# satisfies branch protection): their token can't post the sticky comment, and
-# the slice-mirroring convention only binds same-repo branches. Human review
-# owns docs coverage on fork PRs.
+# Fork PRs run the gate too: the mapping and enforcement steps are read-only,
+# so only the sticky-comment step is skipped on forks (their token can't
+# write). Fork contributors get the gap report in the job summary instead,
+# and the PR-body waiver line works for them the same way (issue #983).
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
@@ -32,10 +32,6 @@ permissions:
 
 jobs:
   docs-coverage:
-    # Skip fork PRs: their token is read-only, so the comment step would fail and
-    # the slice-mirroring convention only applies to same-repo (incl. automation)
-    # branches anyway.
-    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -52,8 +48,17 @@ jobs:
           CHANGED=$(gh pr diff "$PR_NUMBER" --repo "$GH_REPO" --name-only)
           export CHANGED REPORT_FILE
           bash .github/scripts/check-docs-coverage.sh
+          # The report is more than the bare marker line only when gaps exist.
+          # Surface it on the run's summary page: fork PRs never receive the
+          # sticky comment (read-only token), so this is their copy of the list.
+          if [ "$(wc -l <"$REPORT_FILE")" -gt 1 ]; then
+            cat "$REPORT_FILE" >>"$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Post or update advisory comment
+        # Fork PRs get a read-only token, so this is the one step they skip;
+        # the gap report still reaches them via the job summary below.
+        if: github.event.pull_request.head.repo.full_name == github.repository
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
