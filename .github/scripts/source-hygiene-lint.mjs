@@ -15,7 +15,7 @@
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { extname } from "node:path";
+import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Binary extensions: skip these rather than trying to decode as UTF-8.
@@ -70,7 +70,7 @@ export function loadTrackedFiles(cwd = ".") {
     if (!name) continue;
     if (BINARY_EXTS.has(extname(name).toLowerCase())) continue;
     try {
-      const content = readFileSync(name, "utf8");
+      const content = readFileSync(join(cwd, name), "utf8");
       files.push({ name, content });
     } catch {
       // Unreadable file -- skip silently; not a source-hygiene violation.

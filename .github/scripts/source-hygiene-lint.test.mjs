@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { checkContent, lintFiles, loadTrackedFiles } from "./source-hygiene-lint.mjs";
 
@@ -130,5 +131,16 @@ describe("loadTrackedFiles + lintFiles (integration)", () => {
     expect(files.length).toBeGreaterThan(0);
     const violations = lintFiles(files);
     expect(violations).toEqual([]);
+  });
+
+  it("resolves file paths relative to cwd, not process.cwd()", () => {
+    // Pass an absolute cwd pointing to a subdirectory. git ls-files returns
+    // names relative to that directory (e.g. "source-hygiene-lint.mjs"), so
+    // readFileSync must join(cwd, name) — not resolve name against process.cwd().
+    const subdir = resolve(".github/scripts");
+    const files = loadTrackedFiles(subdir);
+    expect(files.length).toBeGreaterThan(0);
+    expect(files.map((f) => f.name).some((n) => n === "source-hygiene-lint.mjs")).toBe(true);
+    expect(files.every((f) => f.content.length > 0)).toBe(true);
   });
 });
