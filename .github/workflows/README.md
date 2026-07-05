@@ -107,6 +107,6 @@ Jobs that check out an agent/PR branch resolve local actions (`./.github/actions
 | `issue-labels.yml` / `pr-labels.yml` | issue/PR opened/edited/sync | Apply descriptive (`type:`/`area:`/`size:`/…) labels |
 | `labels.yml` | push to `main`, dispatch | Reconcile the label definitions (names, colours, descriptions) |
 | `backfill-labels.yml` | dispatch | One-time namespaced-label backfill (ADR-0029 migration) |
-| `docs.yml` / `docs-coverage.yml` | push, PR | Build the docs site / check automation-doc coverage |
+| `docs.yml` / `docs-coverage.yml` | push, schedule, PR | Build the docs site / check automation-doc coverage |
 | `gitleaks.yml` / `scorecard.yml` | PR, schedule | Secret scanning / OpenSSF scorecard |
 | `pr-title.yml` | PR opened/edited | Enforce conventional-commit PR titles |
