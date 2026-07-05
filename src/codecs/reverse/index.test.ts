@@ -269,6 +269,11 @@ describe("reverse timestamp codec", () => {
     expect(() => createReverseTimestampId("!@?")).toThrow();
   });
 
+  it('safeParse("") returns { ok: false } (empty string has no valid prefix)', () => {
+    const rev = createReverseTimestampId("rev", { allowDuplicateBrand: true });
+    expect(rev.safeParse("")).toEqual({ ok: false, error: "invalid_prefix" });
+  });
+
   it("cross-brand rejection", () => {
     const org = createReverseTimestampId("org");
     const rev = createReverseTimestampId("rev");

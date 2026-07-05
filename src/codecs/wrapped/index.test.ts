@@ -365,6 +365,12 @@ describe("wrapped", () => {
     expect(inv.safeParse("bad")).toEqual({ ok: false, error: "invalid_prefix" });
   });
 
+  it('safeParse("") returns { ok: false } (empty string has no valid prefix)', async () => {
+    const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
+    const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });
+    expect(inv.safeParse("")).toEqual({ ok: false, error: "invalid_prefix" });
+  });
+
   it("the same lookup key under the same wrapping key yields the same public id", async () => {
     const key = await importWrappingKey(new Uint8Array(32).fill(0x42));
     const inv = createWrappedKeyId("inv", { kind: "u32", keys: [key], allowDuplicateBrand: true });

@@ -120,6 +120,19 @@ describe("createDigestId", () => {
     expect(idA.slice(4)).not.toBe(idB.slice(4));
   });
 
+  // --- Material alone differs ---
+
+  it("material alone differs: two inputs differing in one byte under the same (ns, brand, key) → different IDs", async () => {
+    const key = await makeKey();
+    const idk = createDigestId("idk", { ns: "test", key, allowDuplicateBrand: true });
+    const base = new Uint8Array(8).fill(0x42);
+    const mutated = new Uint8Array(base);
+    mutated[4] = 0x43;
+    const id1 = await idk.digest(base);
+    const id2 = await idk.digest(mutated);
+    expect(id1).not.toBe(id2);
+  });
+
   // --- Key dependence ---
 
   it("key dependence: same (brand, ns, material) under different keys → different IDs", async () => {
@@ -310,6 +323,12 @@ describe("createDigestId", () => {
     if (!result.ok) {
       expect(result.error).toBe("invalid_base32");
     }
+  });
+
+  it('safeParse("") returns { ok: false } (empty string has no valid prefix)', async () => {
+    const key = await makeKey();
+    const idk = createDigestId("idk", { ns: "checkout", key, allowDuplicateBrand: true });
+    expect(idk.safeParse("")).toEqual({ ok: false, error: "invalid_prefix" });
   });
 
   it("safeParse() returns invalid_prefix for wrong brand", async () => {

@@ -39,6 +39,25 @@ describe("fastTenByteRng", () => {
   });
 });
 
+describe("user-supplied rng zero-tail behavior", () => {
+  it("a no-op rng leaves the entire buffer as zero (zero-tail is current behavior, not a guarantee)", () => {
+    const buf = new Uint8Array(10);
+    const noOpRng = (_target: Uint8Array): void => {};
+    noOpRng(buf);
+    expect(Array.from(buf)).toEqual(Array.from(new Uint8Array(10)));
+  });
+
+  it("a partial-fill rng leaves unfilled bytes as zero", () => {
+    const buf = new Uint8Array(10);
+    const partialRng = (target: Uint8Array): void => {
+      target[0] = 0xff;
+    };
+    partialRng(buf);
+    expect(buf[0]).toBe(0xff);
+    expect(Array.from(buf.slice(1))).toEqual(Array.from(new Uint8Array(9)));
+  });
+});
+
 describe("harvestUUIDBytes", () => {
   it("maps '00112233-4455-4677-8899-aabbccddeeff' to the expected byte sequence", () => {
     // Exercises both for-loops in hexCharCodeToNibble initialization:
