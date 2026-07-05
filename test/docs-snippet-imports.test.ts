@@ -66,7 +66,7 @@ function getAllDocFiles(): string[] {
 function extractCodeBlocks(content: string): CodeBlock[] {
   const blocks: CodeBlock[] = [];
   // Match opening fences with optional annotations, then content, then closing fence.
-  // The `s` flag lets `.` match newlines so the content group spans multiple lines.
+  // [\s\S]*? spans multiple lines without the `s` flag — `.` is never used.
   const re = /^```(?:ts|typescript|js)([ \t][^\n]*)?\n([\s\S]*?)^```[ \t]*$/gm;
   for (const match of content.matchAll(re)) {
     const annotation = (match[1] ?? "").trim();
