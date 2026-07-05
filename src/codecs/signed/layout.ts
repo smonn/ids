@@ -11,9 +11,14 @@ import {
 
 const signedRandomByteLength = 5;
 const tagByteLength = 5;
-type Equals<A, B> = A extends B ? (B extends A ? true : never) : never;
-const _signedByteCheck: Equals<typeof payloadByteLength, 16> = true; // timestampByteLength(6) + signedRandomByteLength(5) + tagByteLength(5)
-void _signedByteCheck;
+// Runtime guard: timestampByteLength + signedRandomByteLength + tagByteLength must equal payloadByteLength.
+/* v8 ignore start -- only fires if layout constants are misconfigured */
+if (timestampByteLength + signedRandomByteLength + tagByteLength !== payloadByteLength) {
+  throw new Error(
+    `signed layout invariant violated: ${timestampByteLength} + ${signedRandomByteLength} + ${tagByteLength} !== ${payloadByteLength}`,
+  );
+}
+/* v8 ignore stop */
 const randomOffset = timestampByteLength; // 6
 const tagOffset = randomOffset + signedRandomByteLength; // 11
 const signedContentByteLength = tagOffset; // 11 (ts6 ‖ rand5)

@@ -12,9 +12,15 @@ import { payloadByteLength } from "../../wire/invariants.js";
 
 const laneByteLength = 8;
 const tagByteLength = 8;
-type Equals<A, B> = A extends B ? (B extends A ? true : never) : never;
-const _wrappedByteCheck: Equals<typeof payloadByteLength, 16> = true; // laneByteLength(8) + tagByteLength(8)
-void _wrappedByteCheck;
+// Runtime guard: laneByteLength + tagByteLength must equal payloadByteLength.
+/* v8 ignore start -- only fires if layout constants are misconfigured */
+if (laneByteLength + tagByteLength !== payloadByteLength) {
+  throw new Error(
+    `wrapped layout invariant violated: ${laneByteLength} + ${tagByteLength} !== ${payloadByteLength}`,
+  );
+}
+/* v8 ignore stop */
+const laneHalfByteLength = laneByteLength / 2;
 
 type LayoutWrappingKey = {
   aesKey: webcrypto.CryptoKey;
@@ -36,20 +42,20 @@ function writeU32Lane(value: number, lane: Uint8Array): void {
 }
 
 function readU32Lane(lane: Uint8Array): number | null {
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < laneHalfByteLength; i++) {
     if (lane[i] !== 0) return null;
   }
   return ((lane[4]! << 24) | (lane[5]! << 16) | (lane[6]! << 8) | lane[7]!) >>> 0;
 }
 
 function writeI32Lane(value: number, lane: Uint8Array): void {
-  lane.fill(value < 0 ? 0xff : 0x00, 0, 4);
+  lane.fill(value < 0 ? 0xff : 0x00, 0, laneHalfByteLength);
   new DataView(lane.buffer, lane.byteOffset, lane.byteLength).setInt32(4, value, false);
 }
 
 function readI32Lane(lane: Uint8Array): number | null {
-  const signExtension = (lane[4]! & 0x80) === 0 ? 0x00 : 0xff;
-  for (let i = 0; i < 4; i++) {
+  const signExtension = (lane[laneHalfByteLength]! & 0x80) === 0 ? 0x00 : 0xff;
+  for (let i = 0; i < laneHalfByteLength; i++) {
     if (lane[i] !== signExtension) return null;
   }
   return new DataView(lane.buffer, lane.byteOffset, lane.byteLength).getInt32(4, false);
