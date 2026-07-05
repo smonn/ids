@@ -75,7 +75,7 @@ describe("redactToken", () => {
   });
 
   it("strips Unicode bidi/format controls (U+202E RLO)", () => {
-    expect(redactToken("‮EVIL")).toBe("EVIL");
+    expect(redactToken("\u202EEVIL")).toBe("EVIL");
   });
 
   it("truncates to 20 Unicode code points without splitting a surrogate pair", () => {

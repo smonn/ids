@@ -428,6 +428,12 @@ jobs:
               `No changeset needed:` waiver in the PR body); a mapped website page not
               updated for a behavior change; a doc or ADR edit asserting provenance (a
               PR/commit attribution) the diff gives no evidence for.
+            - RAW INVISIBLE CODE POINTS: a text file (source, test, doc, config) that
+              embeds literal control/bidi/format characters — NUL, C0/C1, U+200B-U+200F,
+              U+202A-U+202E, U+2060-U+2069, U+FEFF — instead of `\uXXXX` escapes in code
+              or `U+XXXX` notation in prose. Any text file the diff renders as
+              "Binary files differ" is this class and is always a HARD finding: the
+              content is unreviewable, ungreppable, and invisible to future audits.
             These follow the same scope rules as everything else: inside the changed
             files (or the changed pattern's class) they are IN-SCOPE findings; elsewhere
             they are FOLLOW-UP.

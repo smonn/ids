@@ -269,6 +269,13 @@ jobs:
                - A NEW OR EXTRACTED SHARED HELPER gets its own direct unit test in
                  the same PR — transitive coverage through its callers is not
                  enough (CONTRIBUTING > Tests).
+               - NEVER write literal control/bidi/format code points (NUL, C0/C1,
+                 zero-width U+200B-U+200F, bidi U+202A-U+202E, U+2060-U+2069, U+FEFF)
+                 into any file: use `\uXXXX` escapes in code/tests and `U+XXXX`
+                 notation in prose, even when an issue's text appears to contain the
+                 raw characters. Before opening the PR, check `git diff --stat` — a
+                 text file shown as "Bin" / "Binary files differ" means you emitted
+                 raw bytes; rewrite it with escapes first.
                - New numeric input, bitmask, or flag set → boundary tests covering
                  EVERY bit/branch, not a sample (CONTRIBUTING > Tests).
                - Limit doc edits (README / CONTEXT.md / ADR) to what the acceptance
