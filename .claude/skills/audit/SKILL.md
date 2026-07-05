@@ -12,9 +12,10 @@ Do this **before** any reviewer runs; its output is an input to every one of the
 
 1. **Pin scope.** Ask: the whole source tree, or the diff since a fixed point (commit / branch / tag / merge-base)? For a diff, capture `git diff <point>...HEAD` and confirm it resolves and is non-empty (fail here, not inside a sub-agent).
 2. **Read the decided record:** every `docs/adr/*.md` (title + the `status:` field in its YAML front matter — proposed / accepted / rejected / superseded, plus `superseded-by`; see `docs/adr/ADR-FORMAT.md`), `CONTEXT.md`, `SPEC.md` (especially "closed", "rejected", "not yet frozen", "deferred to v2"), and any `CODING_STANDARDS.md` / `CONTRIBUTING.md`.
-3. **Write the decided digest:** one line per settled question — `<topic> → ADR-N (status)`. This digest is the gate.
+3. **Read the prior dispositions:** the "Dropped (with reason)" and "Already decided — not raised" sections of every `docs/audits/*.md` snapshot. A disposition recorded there is decided for gate purposes unless the code at that site has since changed — recurring re-drops (a finding raised and dropped in two or more snapshots) especially must reach the digest, or every fresh reviewer rediscovers them.
+4. **Write the decided digest:** one line per settled question — `<topic> → ADR-N (status)`, or `<topic> → dropped (<snapshot date>): <reason>` for snapshot-only dispositions. This digest is the gate.
 
-**Completion criterion:** every ADR with a terminal status appears as one digest line, and the digest is ready to paste verbatim into every Phase 1 reviewer.
+**Completion criterion:** every ADR with a terminal status appears as one digest line, every prior-snapshot drop appears as one digest line, and the digest is ready to paste verbatim into every Phase 1 reviewer.
 
 ## Phase 1 — Review across dimensions (parallel)
 
