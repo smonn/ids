@@ -503,6 +503,32 @@ describe("verifyIdArgs", () => {
     );
   });
 
+  it("per-coordinate guard: reversed-order — typo'd codec-map key on fieldB (invoked first) fails closed; valid fieldA (invoked second) verifies successfully", async () => {
+    const usr = makeVerifiableSpyCodec("usr", "ok");
+    const resolver = vi.fn(() => "ran");
+    // Codec-map key "idx" is a typo — the intended arg name is "id" on fieldB, but the
+    // developer typed "idx". fieldA declares arg "idx" (matching the codec-map key) and is
+    // therefore the "valid" coordinate for this wrapper.
+    const wrapped = verifyIdArgs({ idx: usr }, resolver);
+
+    // fieldB declares arg "id" — codec-map key "idx" is absent from fieldB's declared args.
+    // The guard throws before args are read, so fromAny({}) satisfies the type.
+    // The guard must fail closed before the resolver body runs.
+    await expect(wrapped(null, fromAny({}), {}, makeFakeInfo("fieldB", ["id"]))).rejects.toThrow(
+      expect.objectContaining({
+        message: expect.stringContaining("idx"),
+      }),
+    );
+    expect(resolver).not.toHaveBeenCalled();
+
+    // fieldA declares arg "idx" — the coordinate is new (independent of fieldB's failure),
+    // the guard runs and passes, safeVerify runs, and the resolver executes.
+    const idx = usr.generate();
+    await expect(wrapped(null, { idx }, {}, makeFakeInfo("fieldA", ["idx"]))).resolves.toBe("ran");
+    expect(resolver).toHaveBeenCalledOnce();
+    expect(usr.safeVerify).toHaveBeenCalledWith(idx);
+  });
+
   it("skips the arg-name guard and still verifies IDs when the field is absent from parentType.getFields()", async () => {
     const usr = makeVerifiableSpyCodec("usr", "ok");
     const id = fromAny("usr_00000000000000000000000000");
