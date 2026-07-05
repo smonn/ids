@@ -297,8 +297,17 @@ describe("getWrappingKeyMaterial", () => {
     expect(hmacKey.algorithm).toMatchObject({ name: "HMAC" });
   });
 
-  it("throws for an unregistered handle", () => {
+  it("getWrappingKeyMaterial throws on an unregistered handle (internal guard — plain Error)", () => {
     const fake = Object.freeze({}) as WrappingKey;
-    expect(() => getWrappingKeyMaterial(fake)).toThrow(Error);
+    let err: unknown;
+    try {
+      getWrappingKeyMaterial(fake);
+    } catch (e) {
+      err = e;
+    }
+    // WeakMap handle-not-found is an internal invariant — stays plain Error, not IdsError
+    expect(err instanceof Error).toBe(true);
+    expect(isIdsError(err)).toBe(false);
+    expect((err as Error).message).toContain("wrapping");
   });
 });
