@@ -5,8 +5,6 @@ import {
   idType,
   idField,
   nullableIdType,
-  IdsError,
-  isIdsError,
   type IdColumnCodec,
   type IdGeneratingCodec,
 } from "./mikro-orm.js";
@@ -60,41 +58,26 @@ describe("mikro-orm", () => {
     expectTypeOf(usr).toMatchTypeOf<IdColumnCodec<"usr">>();
   });
 
-  it("rejects a wrong-brand value from DB", () => {
+  it("rejects a wrong-brand value from DB", async () => {
     const orgId = org.generate();
-    let err: unknown;
-    try {
-      instance.convertToJSValue(fromAny(orgId), undefined as never);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_prefix");
+    await expectInvalidIdError(
+      () => instance.convertToJSValue(fromAny(orgId), undefined as never),
+      { cause: "invalid_prefix" },
+    );
   });
 
-  it("rejects a malformed value from DB", () => {
-    let err: unknown;
-    try {
-      instance.convertToJSValue(fromAny("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"), undefined as never);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_base32");
+  it("rejects a malformed value from DB", async () => {
+    await expectInvalidIdError(
+      () =>
+        instance.convertToJSValue(fromAny("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"), undefined as never),
+      { cause: "invalid_base32" },
+    );
   });
 
-  it("rejects a non-string value from DB", () => {
-    let err: unknown;
-    try {
-      instance.convertToJSValue(fromAny(null), undefined as never);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("not_string");
+  it("rejects a non-string value from DB", async () => {
+    await expectInvalidIdError(() => instance.convertToJSValue(fromAny(null), undefined as never), {
+      cause: "not_string",
+    });
   });
 
   describe("safeParse-only contract (spy codec)", () => {

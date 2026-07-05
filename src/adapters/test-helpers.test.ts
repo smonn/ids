@@ -34,4 +34,24 @@ describe("expectInvalidIdError", () => {
       }),
     ).rejects.toThrow();
   });
+
+  it("resolves when fn throws IdsError(invalid_id) with matching cause", async () => {
+    await expectInvalidIdError(
+      () => {
+        throw new IdsError("invalid_id", "test", { cause: "invalid_prefix" });
+      },
+      { cause: "invalid_prefix" },
+    );
+  });
+
+  it("assertion fails when fn throws IdsError(invalid_id) with mismatched cause", async () => {
+    await expect(
+      expectInvalidIdError(
+        () => {
+          throw new IdsError("invalid_id", "test", { cause: "invalid_base32" });
+        },
+        { cause: "invalid_prefix" },
+      ),
+    ).rejects.toThrow();
+  });
 });

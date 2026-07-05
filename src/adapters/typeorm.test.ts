@@ -6,8 +6,6 @@ import {
   idTransformer,
   nullableIdTransformer,
   beforeInsertHook,
-  IdsError,
-  isIdsError,
   type IdColumnCodec,
   type IdGeneratingCodec,
 } from "./typeorm.js";
@@ -46,66 +44,28 @@ describe("typeorm", () => {
     expectTypeOf(usr).toMatchTypeOf<IdColumnCodec<"usr">>();
   });
 
-  it("rejects a wrong-brand value from DB", () => {
+  it("rejects a wrong-brand value from DB", async () => {
     const orgId = org.generate();
-    let err: unknown;
-    try {
-      transformer.from(orgId);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_prefix");
+    await expectInvalidIdError(() => transformer.from(orgId), { cause: "invalid_prefix" });
   });
 
-  it("rejects a malformed value from DB", () => {
-    let err: unknown;
-    try {
-      // valid prefix, invalid base32 payload
-      transformer.from("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_base32");
+  it("rejects a malformed value from DB", async () => {
+    // valid prefix, invalid base32 payload
+    await expectInvalidIdError(() => transformer.from("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"), {
+      cause: "invalid_base32",
+    });
   });
 
-  it("rejects null from DB", () => {
-    let err: unknown;
-    try {
-      transformer.from(null);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("not_string");
+  it("rejects null from DB", async () => {
+    await expectInvalidIdError(() => transformer.from(null), { cause: "not_string" });
   });
 
-  it("rejects undefined from DB", () => {
-    let err: unknown;
-    try {
-      transformer.from(undefined);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("not_string");
+  it("rejects undefined from DB", async () => {
+    await expectInvalidIdError(() => transformer.from(undefined), { cause: "not_string" });
   });
 
-  it("rejects a number from DB", () => {
-    let err: unknown;
-    try {
-      transformer.from(42);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("not_string");
+  it("rejects a number from DB", async () => {
+    await expectInvalidIdError(() => transformer.from(42), { cause: "not_string" });
   });
 
   it("read result is typed as Id<Brand>", () => {

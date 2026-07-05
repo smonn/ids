@@ -140,8 +140,11 @@ export function makeWrappedVerifiableSpyCodec<Brand extends string>(
   };
 }
 
-/** Assert that `fn()` throws (or rejects with) an `IdsError` with `code === "invalid_id"`. Accepts both sync and async callees. */
-export async function expectInvalidIdError(fn: () => unknown): Promise<void> {
+/** Assert that `fn()` throws (or rejects with) an `IdsError` with `code === "invalid_id"`, and optionally that `.cause` matches. Accepts both sync and async callees. */
+export async function expectInvalidIdError(
+  fn: () => unknown,
+  opts?: { cause?: ParseError },
+): Promise<void> {
   let err: unknown;
   try {
     await fn();
@@ -150,4 +153,7 @@ export async function expectInvalidIdError(fn: () => unknown): Promise<void> {
   }
   expect(isIdsError(err)).toBe(true);
   expect((err as IdsError).code).toBe("invalid_id");
+  if (opts?.cause !== undefined) {
+    expect((err as IdsError).cause).toBe(opts.cause);
+  }
 }

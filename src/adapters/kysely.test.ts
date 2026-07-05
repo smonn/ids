@@ -8,8 +8,6 @@ import {
   idPlugin,
   insertId,
   nullableIdColumn,
-  IdsError,
-  isIdsError,
   type IdColumnCodec,
   type IdColumnType,
   type IdGeneratingCodec,
@@ -65,42 +63,24 @@ describe("kysely", () => {
     >();
   });
 
-  it("rejects a wrong-brand value from DB", () => {
+  it("rejects a wrong-brand value from DB", async () => {
     const orgId = org.generate();
-    let err: unknown;
-    try {
-      usrCol.fromDriver(fromAny(orgId));
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_prefix");
+    await expectInvalidIdError(() => usrCol.fromDriver(fromAny(orgId)), {
+      cause: "invalid_prefix",
+    });
   });
 
-  it("rejects a malformed value from DB", () => {
-    let err: unknown;
-    try {
-      // valid prefix, invalid base32 payload
-      usrCol.fromDriver("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_base32");
+  it("rejects a malformed value from DB", async () => {
+    // valid prefix, invalid base32 payload
+    await expectInvalidIdError(() => usrCol.fromDriver("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"), {
+      cause: "invalid_base32",
+    });
   });
 
-  it("rejects a non-string value from DB", () => {
-    let err: unknown;
-    try {
-      usrCol.fromDriver(fromAny(undefined));
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("not_string");
+  it("rejects a non-string value from DB", async () => {
+    await expectInvalidIdError(() => usrCol.fromDriver(fromAny(undefined)), {
+      cause: "not_string",
+    });
   });
 
   it("IdColumnCodec accepts any codec variant with safeParse", () => {

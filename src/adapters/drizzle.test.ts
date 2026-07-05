@@ -21,8 +21,6 @@ import {
   generatedIdColumn,
   generatedIdColumnMysql,
   generatedIdColumnSqlite,
-  IdsError,
-  isIdsError,
   type IdColumnCodec,
   type IdGeneratingCodec,
 } from "./drizzle.js";
@@ -72,42 +70,27 @@ describe("drizzle", () => {
     expect(fromDb).toBe(id);
   });
 
-  it("rejects a wrong-brand value from DB", () => {
+  it("rejects a wrong-brand value from DB", async () => {
     const orgId = org.generate();
-    let err: unknown;
-    try {
-      users.id.mapFromDriverValue(fromAny(orgId));
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_prefix");
+    await expectInvalidIdError(() => users.id.mapFromDriverValue(fromAny(orgId)), {
+      cause: "invalid_prefix",
+    });
   });
 
-  it("rejects a malformed value from DB", () => {
-    let err: unknown;
-    try {
-      // valid prefix, invalid base32 payload
-      users.id.mapFromDriverValue("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_base32");
+  it("rejects a malformed value from DB", async () => {
+    // valid prefix, invalid base32 payload
+    await expectInvalidIdError(
+      () => users.id.mapFromDriverValue("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"),
+      {
+        cause: "invalid_base32",
+      },
+    );
   });
 
-  it("rejects a non-string value from DB", () => {
-    let err: unknown;
-    try {
-      users.id.mapFromDriverValue(fromAny(null));
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("not_string");
+  it("rejects a non-string value from DB", async () => {
+    await expectInvalidIdError(() => users.id.mapFromDriverValue(fromAny(null)), {
+      cause: "not_string",
+    });
   });
 
   it("IdColumnCodec accepts any codec variant with safeParse", () => {
@@ -347,41 +330,27 @@ describe("drizzle — MySQL", () => {
     expect(users.id.mapFromDriverValue(fromAny(id))).toBe(id);
   });
 
-  it("rejects a wrong-brand value from DB", () => {
+  it("rejects a wrong-brand value from DB", async () => {
     const orgId = org.generate();
-    let err: unknown;
-    try {
-      users.id.mapFromDriverValue(fromAny(orgId));
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_prefix");
+    await expectInvalidIdError(() => users.id.mapFromDriverValue(fromAny(orgId)), {
+      cause: "invalid_prefix",
+    });
   });
 
-  it("rejects a malformed value from DB", () => {
-    let err: unknown;
-    try {
-      users.id.mapFromDriverValue("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_base32");
+  it("rejects a malformed value from DB", async () => {
+    // valid prefix, invalid base32 payload
+    await expectInvalidIdError(
+      () => users.id.mapFromDriverValue("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"),
+      {
+        cause: "invalid_base32",
+      },
+    );
   });
 
-  it("rejects a non-string value from DB", () => {
-    let err: unknown;
-    try {
-      users.id.mapFromDriverValue(fromAny(null));
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("not_string");
+  it("rejects a non-string value from DB", async () => {
+    await expectInvalidIdError(() => users.id.mapFromDriverValue(fromAny(null)), {
+      cause: "not_string",
+    });
   });
 
   it("IdColumnCodec accepts any codec variant with safeParse", () => {
@@ -507,41 +476,27 @@ describe("drizzle — SQLite", () => {
     expect(users.id.mapFromDriverValue(fromAny(id))).toBe(id);
   });
 
-  it("rejects a wrong-brand value from DB", () => {
+  it("rejects a wrong-brand value from DB", async () => {
     const orgId = org.generate();
-    let err: unknown;
-    try {
-      users.id.mapFromDriverValue(fromAny(orgId));
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_prefix");
+    await expectInvalidIdError(() => users.id.mapFromDriverValue(fromAny(orgId)), {
+      cause: "invalid_prefix",
+    });
   });
 
-  it("rejects a malformed value from DB", () => {
-    let err: unknown;
-    try {
-      users.id.mapFromDriverValue("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("invalid_base32");
+  it("rejects a malformed value from DB", async () => {
+    // valid prefix, invalid base32 payload
+    await expectInvalidIdError(
+      () => users.id.mapFromDriverValue("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"),
+      {
+        cause: "invalid_base32",
+      },
+    );
   });
 
-  it("rejects a non-string value from DB", () => {
-    let err: unknown;
-    try {
-      users.id.mapFromDriverValue(fromAny(null));
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
-    expect((err as IdsError).cause).toBe("not_string");
+  it("rejects a non-string value from DB", async () => {
+    await expectInvalidIdError(() => users.id.mapFromDriverValue(fromAny(null)), {
+      cause: "not_string",
+    });
   });
 
   it("IdColumnCodec accepts any codec variant with safeParse", () => {
