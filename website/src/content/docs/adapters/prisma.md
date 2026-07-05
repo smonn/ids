@@ -58,14 +58,19 @@ await xprisma.user.create({ data: { name: "Alice" } });
 
 The schema keeps a plain `String @id` with no `@default(…)`; the extension supplies the value client-side.
 
-`defaultQuery` intercepts **`create`**, **`createMany`**, and **`upsert`**:
+`defaultQuery` intercepts **`create`**, **`createMany`**, **`createManyAndReturn`**, and **`upsert`**:
 
 - **`create`** — when the field is absent, `undefined`, or `null` in `args.data`, injects a freshly generated `Id<Brand>`; when the field is present, validates it via `codec.safeParse` and throws `IdsError("invalid_id")` if invalid.
 - **`createMany`** — handles both the array and single-object forms of Prisma's `Enumerable<T>`: iterates each element when `args.data` is an array; applies the same absent-injects / present-validates logic directly when `args.data` is a single object.
+- **`createManyAndReturn`** — identical branching to `createMany`: array form maps each item through inject-or-validate; single-object form applies the same absent-injects / present-validates logic directly; absent `args.data` is passed through unchanged.
 - **`upsert`** — applies the same logic to `args.create` (the new-row data); the `update` side is left unchanged.
 
 :::note[update / updateMany limitation]
-`defaultQuery` only wraps the three generation-context operations (`create`, `createMany`, `upsert`). IDs supplied in `update` and `updateMany` data are **not** validated by `defaultQuery` — they are caller-owned. Validate them explicitly with `idField.write(value)` if needed.
+`defaultQuery` only wraps the four generation-context operations (`create`, `createMany`, `createManyAndReturn`, `upsert`). IDs supplied in `update` and `updateMany` data are **not** validated by `defaultQuery` — they are caller-owned. Validate them explicitly with `idField.write(value)` if needed.
+:::
+
+:::note[nested-relation-write limitation]
+ID fields inside nested relation writes (`data: { posts: { create: { … } } }`, `connectOrCreate.create`, etc.) are **not** reached by any model-level `defaultQuery` hook — the hook fires once per top-level operation, not recursively into Prisma's nested-write tree. Callers must validate or generate nested IDs explicitly at the service layer.
 :::
 
 ## Non-generating path for codecs without synchronous `generate()` — `idFieldNonGenerating`

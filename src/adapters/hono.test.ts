@@ -475,7 +475,7 @@ describe("verify option", () => {
       const app = new Hono();
       app.get("/items/:id", handler, (c) => c.json({ ok: true }));
       const res = await app.request("/items/tst_00000000000000000000000000");
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBe(500);
     });
 
     it("verify: true with status.malformed override → configured status via app.onError", async () => {
@@ -599,7 +599,7 @@ describe("verify option", () => {
       const app = new Hono();
       app.get("/items", handler, (c) => c.json({ ok: true }));
       const res = await app.request("/items?id=tst_00000000000000000000000000");
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBe(500);
     });
   });
 

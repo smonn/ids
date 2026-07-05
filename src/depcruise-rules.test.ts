@@ -1,5 +1,7 @@
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -17,6 +19,19 @@ const fromOverrides = _require("../.dependency-cruiser-from-overrides.cjs") as R
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const depcruiseBin = fileURLToPath(new URL("../node_modules/.bin/depcruise", import.meta.url));
+
+function walkDir(absDir: string): string[] {
+  const result: string[] = [];
+  for (const entry of readdirSync(absDir, { withFileTypes: true })) {
+    const full = join(absDir, entry.name);
+    if (entry.isDirectory()) {
+      result.push(...walkDir(full));
+    } else if (entry.isFile()) {
+      result.push(full);
+    }
+  }
+  return result;
+}
 
 function runDepcruise(fixturePath: string): {
   status: number | null;
@@ -210,6 +225,17 @@ describe("depcruise config — sync assertions", () => {
   const fixtureRuleNames = new Set(fixturesConfig.forbidden.map((r) => r.name));
   const caseRuleNames = new Set(cases.map((c) => c.rule));
 
+  // Structural rules have no from.path or from.pathNot; they apply globally and are
+  // intentionally not covered by path-scoped fixture tests.
+  const STRUCTURAL_RULE_SKIP_LIST: ReadonlySet<string> = new Set([
+    "no-circular", // structural: from has no path or pathNot
+    "not-to-unresolvable", // structural: from has no path or pathNot
+  ]);
+
+  const allFixtureFilePaths = walkDir(join(projectRoot, "test/fixtures/depcruise")).map((p) =>
+    p.slice(projectRoot.length),
+  );
+
   it("derived-config rule names equal main-config path-scoped rule names", () => {
     expect(fixtureRuleNames).toEqual(new Set(pathScopedRuleNames));
   });
@@ -225,6 +251,28 @@ describe("depcruise config — sync assertions", () => {
   it("every path-scoped main-config rule name appears in cases", () => {
     for (const name of pathScopedRuleNames) {
       expect(caseRuleNames.has(name), `main-config rule "${name}" has no test case`).toBe(true);
+    }
+  });
+
+  it("every main-config rule name appears in cases or the structural skip-list", () => {
+    for (const { name } of mainConfig.forbidden) {
+      const covered = caseRuleNames.has(name) || STRUCTURAL_RULE_SKIP_LIST.has(name);
+      expect(
+        covered,
+        `main-config rule "${name}" is neither in cases nor in the structural skip-list`,
+      ).toBe(true);
+    }
+  });
+
+  it("every FROM_OVERRIDES path value matches at least one fixture file", () => {
+    for (const key of Object.keys(fromOverrides)) {
+      const override = fromOverrides[key] as { path: string };
+      const re = new RegExp(override.path);
+      const matches = allFixtureFilePaths.some((p) => re.test(p));
+      expect(
+        matches,
+        `FROM_OVERRIDES["${key}"].path "${override.path}" matches no file under test/fixtures/depcruise/`,
+      ).toBe(true);
     }
   });
 });

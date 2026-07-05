@@ -475,6 +475,91 @@ describe("prisma", () => {
       expect(data.id).toBe(suppliedId);
     });
 
+    it("handles createManyAndReturn with a mix of items (some with, some without the field)", async () => {
+      const existingId = usr.generate();
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("createManyAndReturn", {
+        data: [{ name: "Alice" }, { id: existingId, name: "Bob" }, { id: null, name: "Carol" }],
+      });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.createManyAndReturn!(cbArgs);
+      const data = capturedArgs!.data as Array<Record<string, unknown>>;
+      // Alice: absent → injected
+      expect(typeof data[0]!.id).toBe("string");
+      expect(usr.is(data[0]!.id as string)).toBe(true);
+      // Bob: explicit value → preserved
+      expect(data[1]!.id).toBe(existingId);
+      // Carol: null → injected
+      expect(typeof data[2]!.id).toBe("string");
+      expect(usr.is(data[2]!.id as string)).toBe(true);
+    });
+
+    it("throws IdsError(invalid_id) when a cast-smuggled invalid string is supplied in createManyAndReturn array data", async () => {
+      const field = transform.defaultQuery("id");
+      const cbArgs = makeQueryArgs("createManyAndReturn", {
+        data: [{ id: "not-a-valid-id", name: "Alice" }],
+      });
+      await expectInvalidIdError(async () => {
+        await field.createManyAndReturn!(cbArgs);
+      });
+    });
+
+    it("injects a generated ID when the field is absent from args.data (createManyAndReturn single-object)", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("createManyAndReturn", { data: { name: "Alice" } });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.createManyAndReturn!(cbArgs);
+      const data = capturedArgs!.data as Record<string, unknown>;
+      expect(typeof data.id).toBe("string");
+      expect(usr.is(data.id as string)).toBe(true);
+    });
+
+    it("throws IdsError(invalid_id) for a cast-smuggled invalid ID in createManyAndReturn single-object data", async () => {
+      const field = transform.defaultQuery("id");
+      const cbArgs = makeQueryArgs("createManyAndReturn", {
+        data: { id: "not-a-valid-id", name: "Alice" },
+      });
+      await expectInvalidIdError(async () => {
+        await field.createManyAndReturn!(cbArgs);
+      });
+    });
+
+    it("passes a valid present ID through unchanged in createManyAndReturn single-object data", async () => {
+      const suppliedId = usr.generate();
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("createManyAndReturn", {
+        data: { id: suppliedId, name: "Alice" },
+      });
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.createManyAndReturn!(cbArgs);
+      const data = capturedArgs!.data as Record<string, unknown>;
+      expect(data.id).toBe(suppliedId);
+    });
+
+    it("passes args through unchanged for createManyAndReturn when args.data is absent", async () => {
+      const field = transform.defaultQuery("id");
+      let capturedArgs: Record<string, unknown> | undefined;
+      const cbArgs = makeQueryArgs("createManyAndReturn", {});
+      cbArgs.query = async (a) => {
+        capturedArgs = a as Record<string, unknown>;
+        return a;
+      };
+      await field.createManyAndReturn!(cbArgs);
+      expect(capturedArgs!.data).toBeUndefined();
+    });
+
     it("passes a valid present ID through unchanged in upsert create data", async () => {
       const suppliedId = usr.generate();
       const field = transform.defaultQuery("id");

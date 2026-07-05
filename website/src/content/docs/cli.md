@@ -197,10 +197,12 @@ stdin keeps it off argv. Machine output (stdout/JSON) is unaffected by the advis
 mistyped bare key), the CLI truncates it to 20 characters followed by `…` in the error
 message so the full token does not appear in stderr or CI logs.
 
-**Error-echo hygiene** — flag values (e.g. a bad `--count` or `--kind` value) and file
-paths in error messages are stripped of control characters, Unicode bidi/format controls, and line/paragraph separators (U+2028–U+2029)
-before echo; flag values are additionally truncated to the first 20 characters where
-truncation does not hurt diagnostics.
+**Error-echo hygiene** — flag values and file paths in error messages are stripped of
+control characters, Unicode bidi/format controls, and line/paragraph separators (U+2028–U+2029)
+before echo. Non-path flag values (e.g.
+`--count`, `--kind`, `--key-encoding`, `--bytes`, `--at` invalid dates) are additionally
+truncated to 20 Unicode code points. File path diagnostics (e.g. `--key-file` errors and
+warnings) are stripped but not truncated, so the full path remains readable.
 
 ## Exit codes
 

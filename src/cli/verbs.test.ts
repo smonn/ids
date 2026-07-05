@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { IdsError } from "../error.js";
+import type { CodecKey } from "./key.js";
+import type { RunOpts } from "./types.js";
 import type { InspectSpec } from "./verbs.js";
-import { brandOfId, mapThrown, redactToken } from "./verbs.js";
+import { redactToken } from "./sanitize.js";
+import { brandOfId, mapThrown, runGenerateKeyless, runWrap } from "./verbs.js";
 
 describe("mapThrown", () => {
   const usageCodes = [
@@ -84,6 +87,58 @@ describe("redactToken", () => {
     const result = redactToken("a".repeat(20) + emoji);
     expect(result).toBe("a".repeat(20) + "…");
     expect(result).not.toMatch(/[\uD800-\uDFFF]$/);
+  });
+});
+
+describe("hostile-bytes redaction in verb error messages", () => {
+  function runOpts(err: string[]): RunOpts {
+    return { argv: [], stdout: () => {}, stderr: (s) => err.push(s) };
+  }
+
+  const dummyKey: CodecKey<{ b: Uint8Array }> = {
+    decode: () => new Uint8Array(32),
+    import: (b) => ({ b }),
+  };
+
+  it("strips control chars from --at invalid-date error (verbs.ts:75)", async () => {
+    const err: string[] = [];
+    const code = await runGenerateKeyless(
+      () => ({ generate: () => "", generateAt: () => "" }),
+      ["usr", "--at", "not-a-date\x1b]0;x\x07"],
+      runOpts(err),
+    );
+    expect(code).toBe(2);
+    expect(err.join("")).toContain("invalid date");
+    expect(err.join("")).not.toContain("\x1b");
+    expect(err.join("")).not.toContain("\x07");
+  });
+
+  it("strips control chars from --value integer error for u32/i32 (verbs.ts:337)", async () => {
+    const err: string[] = [];
+    const code = await runWrap(
+      dummyKey,
+      () => ({ wrap: () => Promise.resolve("x_01") }),
+      ["ord", "--kind", "u32", "--value", "abc\x1b]0;x\x07"],
+      runOpts(err),
+    );
+    expect(code).toBe(2);
+    expect(err.join("")).toContain("must be an integer");
+    expect(err.join("")).not.toContain("\x1b");
+    expect(err.join("")).not.toContain("\x07");
+  });
+
+  it("strips control chars from --value integer error for u64/i64 (verbs.ts:348)", async () => {
+    const err: string[] = [];
+    const code = await runWrap(
+      dummyKey,
+      () => ({ wrap: () => Promise.resolve("x_01") }),
+      ["ord", "--kind", "u64", "--value", "abc\x1b]0;x\x07"],
+      runOpts(err),
+    );
+    expect(code).toBe(2);
+    expect(err.join("")).toContain("must be an integer");
+    expect(err.join("")).not.toContain("\x1b");
+    expect(err.join("")).not.toContain("\x07");
   });
 });
 
