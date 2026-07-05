@@ -119,7 +119,7 @@ function collectSourceExports(relPath: string): Set<string> {
 
   // export { name1, type name2, name3 as alias } [from "..."]
   // export type { name1, name2 } [from "..."]
-  const blockRe = /\bexport\s+(?:type\s+)?\{([^}]+)\}/gs;
+  const blockRe = /\bexport\s+(?:type\s+)?\{([^}]+)\}/g;
   for (const match of content.matchAll(blockRe)) {
     for (const entry of (match[1] ?? "").split(",")) {
       const trimmed = entry.trim();
