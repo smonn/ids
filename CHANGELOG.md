@@ -1,5 +1,13 @@
 # @smonn/ids
 
+## 1.2.2
+
+### Patch Changes
+
+- 47193b8: Fix CLI flag-value and file-path echo sites to strip control/bidi/format characters before stderr output; extend redactToken to cover Unicode bidi controls and truncate on code points.
+- 8b95a47: Fix `verifyIdArgs` arg-name guard to check per schema coordinate (`parentType.name.fieldName`) instead of once per wrapper, so a shared resolver mounted on two fields correctly validates each field's declared arguments independently.
+- 69b6b55: Fix `createMany` single-object data form bypassing ID injection and validation in the Prisma adapter.
+
 ## 1.2.1
 
 ### Patch Changes
