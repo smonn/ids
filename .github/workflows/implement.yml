@@ -263,7 +263,9 @@ jobs:
                  ones in the PR body. Fixing only the enumerated sites is the top
                  producer of follow-up audit findings. Stay inside the issue's
                  `Out of scope` fence — a sweep widens coverage of the SAME defect
-                 class, never the kind of change.
+                 class, never the kind of change. Hits under `.github/workflows/`
+                 always go on the skip list (cite them in the PR body, never edit
+                 them — see the workflow-file rule below).
                - A NEW OR EXTRACTED SHARED HELPER gets its own direct unit test in
                  the same PR — transitive coverage through its callers is not
                  enough (CONTRIBUTING > Tests).
@@ -319,6 +321,15 @@ jobs:
                a changeset; if the change is genuinely not release-note-worthy,
                state that in the PR body on a line starting `No changeset needed:`
                followed by the reason.
+
+               Likewise the `docs-coverage` CI gate FAILS the PR when a source
+               file with a mapped website page changed but the page didn't
+               (src/adapters/<name>.ts ↔ adapters/<name>.md, src/codecs/<name>/ ↔
+               codecs/<name>.md, src/cli/ ↔ cli.md, src/error.ts ↔ errors.md).
+               If your change alters documented behavior, update the mapped page
+               in this same PR; if it genuinely doesn't affect the page (internal
+               refactor behind an unchanged contract), add a line starting
+               `No docs update needed:` with the reason to the PR body.
             6. Commit your work LOCALLY with a clear conventional-commit message
                (`git add` + `git commit`). Make as many commits as the slices
                warrant. Do NOT push — you cannot, and the poster does it.

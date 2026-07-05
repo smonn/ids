@@ -1,14 +1,13 @@
 ---
 status: accepted
 created: 2026-06-24
-last-updated: 2026-07-04
+last-updated: 2026-07-05
 supersedes: ADR-0008
-implemented-by: "#317, #318"
 ---
 
 # By-feature codec slices: `codecs/<name>/`, `codecs/_kernel/`, and `wire/base32` separation
 
-Implemented by #317 (codec slices + \_kernel + wire/base32 + codec depcruise) and #318 (adapters).
+Implemented in two slices tracked by issues #317 (codec slices + \_kernel + wire/base32 + codec depcruise) and #318 (adapters).
 
 ## Context
 
@@ -141,6 +140,8 @@ Codec constructors import **`wire/codec-shell`** only from `wire/`, and **`creat
 This ADR supersedes [ADR-0008](./0008-internal-module-layering.md) once both #317 and #318 land. ADR-0008's ring diagram and responsibilities table describe the current flat-root layout; the new ring diagram and responsibilities table above replace them. ADR-0008's `Superseded by: ADR-0018` header was added in #325 (slice D); once #318 lands, this ADR's Status will flip to `Accepted`, completing the supersession.
 
 ## Status lifecycle
+
+> **Correction (2026-07-05):** The prose `Status:` line described below is retired. ADR status now lives in each file's YAML front matter (`status: proposed | accepted | rejected | superseded`, with `supersedes` / `superseded-by` links), validated by `adr-front-matter-lint.mjs` — see [ADR-FORMAT.md](./ADR-FORMAT.md) "Front matter". The lifecycle semantics below (open Proposed ahead of code, flip on the last implementing change) still apply; only the storage location changed.
 
 The `Status:` field introduced here is a new lightweight convention for ADRs in this repository:
 

@@ -2,7 +2,7 @@
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
   "testRunner": "vitest",
   "plugins": ["@stryker-mutator/vitest-runner"],
-  "mutate": ["src/**/*.ts", "bin/**/*.ts", "!src/**/*.test.ts", "!src/adapters/test-helpers.ts"],
+  "mutate": ["src/**/*.ts", "bin/**/*.ts", "!src/**/*.test.ts", "!src/**/test-helpers.ts"],
   "incremental": true,
   "incrementalFile": "reports/stryker-incremental.json",
   "reporters": ["html", "clear-text", "progress"],

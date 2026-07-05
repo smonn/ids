@@ -13,6 +13,11 @@ name: Docs coverage
 # waiver line in the PR body starting `No docs update needed:` (with the
 # reason) passes the check with a notice. `edited` is in the trigger so adding
 # the waiver re-runs the check on the head SHA.
+#
+# Fork PRs skip the whole job (job-level `if` below → "skipped", which
+# satisfies branch protection): their token can't post the sticky comment, and
+# the slice-mirroring convention only binds same-repo branches. Human review
+# owns docs coverage on fork PRs.
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]

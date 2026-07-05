@@ -13,8 +13,8 @@ name: Mutation testing
 # via the Actions cache so the weekly run only re-tests what changed.
 on:
   schedule:
-    # Mondays 04:30 UTC — off the hourly-cron rush and clear of the nightly
-    # security-audit window.
+    # Mondays 04:30 UTC — off the hourly-cron rush and ahead of the weekly
+    # security-audit window (Mondays 06:00 UTC).
     - cron: "30 4 * * 1"
   workflow_dispatch: {}
 
@@ -53,8 +53,11 @@ jobs:
       - name: Run Stryker
         run: pnpm mutation
 
+      # Save only when Stryker actually (re)wrote the file this run — an
+      # unconditional always() would re-save a restored stale copy under a
+      # fresh key after a crash, and error on a cold-start crash (no file).
       - name: Save incremental cache
-        if: always()
+        if: always() && hashFiles('reports/stryker-incremental.json') != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: reports/stryker-incremental.json

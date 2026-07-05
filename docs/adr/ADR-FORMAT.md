@@ -14,15 +14,17 @@ status: accepted # proposed | accepted | rejected | superseded
 created: 2026-06-24 # date the ADR first landed on main (YYYY-MM-DD)
 last-updated: 2026-07-04 # date of the most recent substantive edit
 supersedes: ADR-0008 # optional; the ADR this one replaces
-superseded-by: ADR-0018 # required when status: superseded
-implemented-by: "#317, #318" # optional; implementing PR refs (quote — YAML treats bare # as a comment)
+implemented-by: "#509" # optional; implementing PR refs (quote — YAML treats bare # as a comment)
 ---
 ```
+
+A superseded ADR carries `superseded-by: ADR-NNNN` instead (required exactly when `status: superseded`, forbidden otherwise), and the two files must point at each other: the example above would require ADR-0008 to declare `status: superseded` + `superseded-by` back to it. This example block is lint-valid as written; don't copy `superseded-by` into an accepted ADR.
 
 Rules, enforced by `.github/scripts/adr-front-matter-lint.mjs` (pre-push and CI):
 
 - `status`, `created`, and `last-updated` are required; `status` is one of the four values above; dates are `YYYY-MM-DD` with `last-updated >= created`.
 - `status: superseded` requires `superseded-by`, and the pair must be bidirectional: if ADR-A is `superseded-by: ADR-B`, then ADR-B declares `supersedes: ADR-A`. Referenced ADRs must exist.
+- `implemented-by` is a `#N, #N` PR-ref list — verify the numbers are PRs, not issues, before citing them (the lint checks the shape; only you can check the referent). ADR numbers must be unique.
 - Any substantive edit — including adding a correction note — bumps `last-updated`. Typo/formatting-only edits may skip the bump.
 - **No commit hashes in front matter.** A hash is unknowable while authoring (the squash-merge SHA doesn't exist yet) and rots on every subsequent edit; `git log -- docs/adr/<file>` already answers provenance questions. Same reasoning as **Verify provenance before citing it** below.
 
