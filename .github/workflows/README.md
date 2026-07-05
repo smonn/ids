@@ -70,7 +70,7 @@ A workflow that **defers** without doing its work (see the pause-mutex below) mu
 
 ### The `automation:*` rebase pause-mutex
 
-While a conflict-rebase is in flight, `conflicts.yml` marks the PR `automation:rebasing`. The current head commit is about to be superseded by the rebase merge commit, so **every PR-triggered workflow pauses while any `automation:*` label is present** — it reports success without acting (`ci`, `bench` cancel their run; `review`, `address-review`, `autofix` no-op) and lets the rebase merge commit re-fire the work on the new SHA. `rebase.yml` clears the mutex **early**, before pushing that commit, so the re-fired runs see a clean state. This generalises the old magic-word `conflicting` check into a namespace check.
+While a conflict-rebase is in flight, `conflicts.yml` marks the PR `automation:rebasing`. The current head commit is about to be superseded by the rebase merge commit, so **every PR-triggered workflow pauses while any `automation:*` label is present** — it reports success without acting (`ci` cancels its run; `bench` skips via a read-only guard job; `review`, `address-review`, `autofix` no-op) and lets the rebase merge commit re-fire the work on the new SHA. `rebase.yml` clears the mutex **early**, before pushing that commit, so the re-fired runs see a clean state. This generalises the old magic-word `conflicting` check into a namespace check.
 
 Workflows implementing the pause: `ci`, `bench`, `autofix`, `review`, `address-review` (and `conflicts` / `rebase` / `labels` reference it).
 
