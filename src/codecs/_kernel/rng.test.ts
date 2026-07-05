@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { defaultRng, fastTenByteRng, harvestUUIDBytes } from "./rng.js";
+import { createTimestampId } from "../timestamp/index.js";
 
 describe("defaultRng", () => {
   it("overwrites every byte in the target buffer", () => {
@@ -40,21 +41,30 @@ describe("fastTenByteRng", () => {
 });
 
 describe("user-supplied rng zero-tail behavior", () => {
-  it("a no-op rng leaves the entire buffer as zero (zero-tail is current behavior, not a guarantee)", () => {
-    const buf = new Uint8Array(10);
-    const noOpRng = (_target: Uint8Array): void => {};
-    noOpRng(buf);
-    expect(Array.from(buf)).toEqual(Array.from(new Uint8Array(10)));
+  it("a no-op rng at codec level leaves the random region as zero (zero-tail is current behavior, not a guarantee)", () => {
+    const usr = createTimestampId("rzt", {
+      allowDuplicateBrand: true,
+      now: () => 0,
+      rng: () => {},
+    });
+    // 16-byte payload: 6 zero timestamp bytes + 10 unfilled random bytes → 26 '0' chars
+    expect(usr.generate()).toBe("rzt_" + "0".repeat(26));
   });
 
-  it("a partial-fill rng leaves unfilled bytes as zero", () => {
-    const buf = new Uint8Array(10);
-    const partialRng = (target: Uint8Array): void => {
-      target[0] = 0xff;
-    };
-    partialRng(buf);
-    expect(buf[0]).toBe(0xff);
-    expect(Array.from(buf.slice(1))).toEqual(Array.from(new Uint8Array(9)));
+  it("a partial-fill rng receives a zero-initialized buffer from the codec", () => {
+    let receivedBefore: number[] = [];
+    const usr = createTimestampId("rzp", {
+      allowDuplicateBrand: true,
+      now: () => 0,
+      rng: (target) => {
+        receivedBefore = Array.from(target); // snapshot BEFORE writing
+        target[0] = 0xff;
+      },
+    });
+    usr.generate();
+    // The codec passes a freshly-zero-initialized view; if layout.ts ever
+    // reused a dirty buffer this assertion would catch it.
+    expect(receivedBefore).toEqual(Array.from({ length: 10 }, () => 0));
   });
 });
 
