@@ -48,7 +48,16 @@ function runDepcruise(fixturePath: string): {
   };
 }
 
+// Note: the rules below are exercised against synthetic fixtures only.
+// The real-tree enforcement — running depcruise against the live src/ tree —
+// is the separate `pnpm depcruise` step in CI.
+
 const cases = [
+  // root barrel
+  {
+    fixture: "test/fixtures/depcruise/index.ts",
+    rule: "index-imports-allowlist",
+  },
   // wire layer
   {
     fixture: "test/fixtures/depcruise/wire/no-layouts.ts",
@@ -128,6 +137,10 @@ const cases = [
     rule: "_kernel-brand-registry-only-from-codec-constructors",
   },
   // leaf guards
+  {
+    fixture: "test/fixtures/depcruise/wire/base32.ts",
+    rule: "wire-base32-imports-allowlist",
+  },
   {
     fixture: "test/fixtures/depcruise/wire/base32.ts",
     rule: "leaves-no-upward",

@@ -14,6 +14,17 @@ module.exports = {
       to: { couldNotResolve: true },
     },
     {
+      name: "index-imports-allowlist",
+      severity: "error",
+      comment:
+        "root barrel may only export from error, types, and the Timestamp codec public index (ADR-0005)",
+      from: { path: "^src/index\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot: "^src/(error|types)\\.ts$|^src/codecs/timestamp/index\\.ts$",
+      },
+    },
+    {
       name: "adapter-types-imports-allowlist",
       severity: "error",
       comment:
@@ -45,7 +56,7 @@ module.exports = {
       comment:
         "adapters may import only types, error surface, and adapter-types from @smonn/ids internals; adapter-types is the hub (types, error only); adding a new adapter requires zero depcruise edits",
       from: {
-        path: "^src/adapters/[^/]+\\.ts$",
+        path: "^src/adapters/.+\\.ts$",
         pathNot: "^src/adapters/adapter-types\\.ts$|^src/adapters/test-helpers\\.ts$|\\.test\\.ts$",
       },
       to: {
@@ -117,6 +128,13 @@ module.exports = {
         path: "^src",
         pathNot: "^src/(wire/base32|error)\\.ts$",
       },
+    },
+    {
+      name: "wire-base32-imports-allowlist",
+      severity: "error",
+      comment: "base32 is a pure leaf and may not import any src/ module",
+      from: { path: "^src/wire/base32\\.ts$" },
+      to: { path: "^src" },
     },
     {
       name: "codec-shell-parse-invariants-only",
