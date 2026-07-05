@@ -1,17 +1,21 @@
 name: Docs coverage
 
-# Advisory nudge: when a PR changes source whose hand-written website page
+# Blocking gate: when a PR changes source whose hand-written website page
 # (website/src/content/docs/**) was NOT updated in the same diff, post a sticky
-# comment listing the pages that may need attention. The slice architecture
-# gives a near 1:1 source↔docs mapping (see check-docs-coverage.sh); the TypeDoc
-# API reference regenerates itself, so only the narrative pages are mapped.
+# comment listing the pages and FAIL the check. The slice architecture gives a
+# near 1:1 source↔docs mapping (see check-docs-coverage.sh); the TypeDoc API
+# reference regenerates itself, so only the narrative pages are mapped.
 #
-# This NEVER blocks merge — it exists because automation implementations tend to
-# update README/CONTEXT.md and forget the website. The job always succeeds; the
-# signal is the comment, not a failing check.
+# It exists because automation implementations tend to update README/CONTEXT.md
+# and forget the website — errors.md alone drifted twice across the 2026-07-04
+# audit rounds while this check was advisory. Because the mapping is
+# file-level (it can't tell a behavior change from an internal refactor), a
+# waiver line in the PR body starting `No docs update needed:` (with the
+# reason) passes the check with a notice. `edited` is in the trigger so adding
+# the waiver re-runs the check on the head SHA.
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, edited, synchronize, reopened]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -76,3 +80,22 @@ jobs:
           else
             echo "No gaps and no prior comment; nothing to post."
           fi
+
+      - name: Enforce coverage (waivable)
+        env:
+          GAPS: ${{ steps.map.outputs.gaps }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          if [ "${GAPS:-0}" -eq 0 ]; then
+            echo "No docs-coverage gaps."
+            exit 0
+          fi
+          if printf '%s\n' "$PR_BODY" | grep -qiE '^[[:space:]]*No docs update needed:'; then
+            echo "::notice::$GAPS docs-coverage gap(s) waived by PR body ('No docs update needed:')."
+            exit 0
+          fi
+          echo "::error::$GAPS mapped docs page(s) not updated for changed source (see the docs-coverage PR comment)."
+          echo "Update the page(s), or add a line starting 'No docs update needed: <reason>' to the PR body."
+          echo "See CONTRIBUTING.md > Style for the source↔docs mapping."
+          exit 1

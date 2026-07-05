@@ -24,4 +24,6 @@ Typical triggers: a file or directory moved by a later refactor, an error code o
 
 **When NOT to use a correction note — prefer a silent rewrite instead.** If the incorrect framing predates any real merge — that is, the ADR was still in draft or on a branch that never reached `main` — there is no historical record to preserve. Rewrite the sentence directly rather than leaving a correction note alongside a claim that was never shipped as written.
 
+**Verify provenance before citing it.** A correction note that attributes a change to a PR or commit must verify the attribution first — `git log --diff-filter=A -- <path>` for "added in", `git log -S<symbol>` or `git show <sha> --stat` for behavior changes — rather than inferring it from prose, a blockquote, or memory. If the provenance can't be cheaply verified, omit the attribution and state only what is true now (a dateless "was added later" beats a confident wrong PR number). A correction note whose own claim is false defeats the mechanism: readers trust correction notes precisely because they are the fix for stale claims.
+
 **Format reference.** The seven correction notes across ADR-0014, ADR-0015, and ADR-0017 (dated 2026-06-24, from the ADR-0018 slice refactor) are the canonical live examples of this pattern.

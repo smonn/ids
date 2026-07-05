@@ -414,6 +414,24 @@ jobs:
             about correctness, design, architecture, API surface, and naming; do NOT run
             or re-verify the static-analysis gate.
 
+            On the Standards axis, explicitly check the recurring defect classes past
+            audit rounds keep finding in fix PRs (see docs/audits/):
+            - MISSED SIBLINGS: the PR fixes the sites its issue enumerated but not the
+              rest of the class — grep for the pattern (same literal, same echo shape,
+              same claim in a sibling file, same input handled in one shape but not
+              another) and flag unfixed in-scope hits.
+            - UNTESTED NEW SEAM: the PR creates or extracts a shared helper without a
+              direct unit test for it (transitive caller coverage does not count).
+            - BOUNDARY-INCOMPLETE TESTS: a new numeric input, bitmask, or flag set whose
+              tests sample the bits/branches instead of covering each one.
+            - BOOKKEEPING: a user-visible change without a changeset (and no
+              `No changeset needed:` waiver in the PR body); a mapped website page not
+              updated for a behavior change; a doc or ADR edit asserting provenance (a
+              PR/commit attribution) the diff gives no evidence for.
+            These follow the same scope rules as everything else: inside the changed
+            files (or the changed pattern's class) they are IN-SCOPE findings; elsewhere
+            they are FOLLOW-UP.
+
             You are NOT limited to the changed lines: the whole repo is checked out, so use
             Read/Grep/Glob to consult precedent BEYOND the diff when it sharpens a finding —
             how a similar API/type/error is named and shaped elsewhere, the conventions in

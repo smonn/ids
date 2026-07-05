@@ -164,3 +164,9 @@ sbom.cdx.json
 # Transient git worktrees created for isolated background agents; internal
 # scratch checkouts, auto-cleaned after the agent finishes — never committed.
 .claude/worktrees/
+
+# Stryker mutation-testing artifacts: instrumented sandbox, HTML report, and
+# the incremental cache (persisted between scheduled runs via the Actions
+# cache, not the repo).
+.stryker-tmp/
+reports/
