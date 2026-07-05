@@ -54,6 +54,18 @@ module.exports = {
       },
     },
     {
+      name: "adapters-test-helpers-imports-allowlist",
+      severity: "error",
+      comment:
+        "test-helpers may only import types, error, adapter-types, and codec public index entrypoints",
+      from: { path: "^src/adapters/test-helpers\\.ts$" },
+      to: {
+        path: "^src",
+        pathNot:
+          "^src/(types|error)\\.ts$|^src/adapters/adapter-types\\.ts$|^src/codecs/[^/]+/index\\.ts$",
+      },
+    },
+    {
       name: "wire-middle-no-siblings",
       severity: "error",
       comment: "parse and envelope import invariants only, not each other",
@@ -120,7 +132,7 @@ module.exports = {
       name: "codec-constructors-imports-allowlist",
       severity: "error",
       comment:
-        "codec constructors may only import wire/codec-shell, their own layout and key, _kernel modules, types, and error",
+        "codec constructors may only import wire/codec-shell, any codec's layout or key, _kernel modules, types, and error; cross-slice imports (e.g. one codec index importing another codec's layout) are caught by codec-slice-no-cross-codec-imports",
       from: { path: "^src/codecs/[^/]+/index\\.ts$" },
       to: {
         path: "^src",
@@ -147,14 +159,6 @@ module.exports = {
         pathNot: "^src/codecs/[^/]+/index\\.ts$",
       },
       to: { path: "^src/codecs/[^/]+/layout\\.ts$" },
-    },
-    {
-      name: "layouts-no-shell",
-      severity: "error",
-      from: { path: "^src/codecs/[^/]+/layout\\.ts$" },
-      to: {
-        path: "^src/codecs/[^/]+/index\\.ts$|^src/cli/",
-      },
     },
     {
       name: "layouts-no-sibling-layouts",
