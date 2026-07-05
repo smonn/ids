@@ -73,6 +73,18 @@ describe("redactToken", () => {
   it("strips DEL (U+007F) and C1 range (U+0080–U+009F)", () => {
     expect(redactToken("\x7fhello\x80world\x9f")).toBe("helloworld");
   });
+
+  it("strips Unicode bidi/format controls (U+202E RLO)", () => {
+    expect(redactToken("‮EVIL")).toBe("EVIL");
+  });
+
+  it("truncates to 20 Unicode code points without splitting a surrogate pair", () => {
+    const emoji = String.fromCodePoint(0x1f600); // 😀 — 2 UTF-16 units, 1 code point
+    // 20 'a' + 1 emoji = 21 code points: truncate to 20 a + ellipsis (emoji is dropped whole)
+    const result = redactToken("a".repeat(20) + emoji);
+    expect(result).toBe("a".repeat(20) + "…");
+    expect(result).not.toMatch(/[\uD800-\uDFFF]$/);
+  });
 });
 
 // Type-level check: constructing a keyed:true InspectSpec without codecKey is a type error.
