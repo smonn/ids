@@ -9,6 +9,8 @@
 - 8a5a17d: Fix stale `verifyIdArgs` docs (both codecs named), hoist codec-entry computation to factory scope, and add fail-closed unknown-key guard on first resolver invocation.
 - de88cb2: Widen key-file permission mask from `0o044` to `0o077` so write and execute bits on group/others also trigger the advisory warning.
 - cb6e2a4: Fix NestJS `ParseIdPipe` to throw the default exception after a non-throwing `onError` hook returns, preventing fail-open behavior on both the structural-parse and verify branches.
+- b2ead50: Widen `verify?` option type from `true` to `boolean` in `IdParamVerifyOptions` across the four HTTP adapters (Hono, Express, Fastify, NestJS).
+- 91a9fe3: Add Crockford i/l → 1 alias conformance vector to `spec/vectors.json` (v3 → v4); the vector file ships in the npm tarball.
 
 ## 1.2.0
 
@@ -17,7 +19,7 @@
 - 9b87263: Add opt-in signature verification to HTTP adapters (`idParam`, `idQuery`, `ParseIdPipe`). Pass `verify: true` with a Signed Timestamp codec to authenticate the HMAC tag after structural parsing — tag failure is treated as a `"malformed"` failure. The option is only accepted when the codec satisfies the new `IdVerifiableCodec` structural interface (enforced via TypeScript function overloads). Default behaviour (no `verify`) is byte-for-byte unchanged.
 - d1d9106: `writeIdColumn` and `writeIdColumnNullable` now validate the value via `codec.safeParse` at the write site and throw `IdsError("invalid_id")` on failure. Previously, a cast-smuggled arbitrary string would be stored unvalidated and cause `IdsError` on every subsequent read. Both helpers now accept `codec` as their first parameter; all five ORM adapters (Drizzle, Kysely, Prisma, TypeORM, MikroORM) are updated accordingly.
 - 867f5c1: Extend HTTP adapter `verify: true` to the Wrapped key codec. The Wrapped key codec now exposes `safeVerify` — a verify-only alias of `safeUnwrap` that drops the recovered `lookupKey` from the success shape (`{ ok: true; id }`) — so it satisfies the `IdVerifiableCodec` structural interface. `idParam`, `idQuery`, and the NestJS `ParseIdPipe` now accept a Wrapped key codec under `verify: true` exactly like the Signed Timestamp codec: a wrong-key, tampered, or revoked-key ID is rejected as a `"malformed"` failure through the existing channel. The adapter and `IdVerifiableCodec` are unchanged; default behaviour (no `verify`) is byte-for-byte unchanged. See ADR-0036.
-- b639686: Add `verifyIdArgs` to `@smonn/ids/graphql` — a resolver wrapper that authenticates named ID arguments before the resolver body runs. Pass a map of argument names to `IdVerifiableCodec` instances; `verifyIdArgs` calls `safeVerify` on each named argument and throws a `GraphQLError` on tag mismatch, short-circuiting the resolver. See ADR-0035.
+- 3a07248: Add `verifyIdArgs` to `@smonn/ids/graphql` — a resolver wrapper that authenticates named ID arguments before the resolver body runs. Pass a map of argument names to `IdVerifiableCodec` instances; `verifyIdArgs` calls `safeVerify` on each named argument and throws a `GraphQLError` on tag mismatch, short-circuiting the resolver. See ADR-0035.
 
 ### Patch Changes
 

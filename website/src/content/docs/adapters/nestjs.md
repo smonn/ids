@@ -75,8 +75,8 @@ Unlike Hono or Express, `PipeTransform.transform` receives only the raw value an
 `ArgumentMetadata` — there is no HTTP context. The `onError` hook is therefore typed as
 `(failure: IdParamFailure) => never`; it **must** throw or re-throw rather than writing a
 response inline. If the hook returns without throwing, the pipe still throws the default
-NestJS exception for that failure (`NotFoundException` for brand mismatches, `BadRequestException`
-for malformed IDs).
+NestJS exception for that failure (absent a custom `status` override, `NotFoundException` for
+brand mismatches, `BadRequestException` for malformed IDs).
 
 ```ts
 import { UnprocessableEntityException } from "@nestjs/common";
