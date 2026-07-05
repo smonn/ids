@@ -62,7 +62,7 @@ codes to clients.
 
 ```ts
 import { idScalar, verifyIdArgs } from "@smonn/ids/graphql";
-import { createSignedTimestampId } from "@smonn/ids";
+import { createSignedTimestampId } from "@smonn/ids/signed";
 
 const usr = createSignedTimestampId("usr", { keys: [signingKey] });
 const UserId = idScalar(usr, { name: "UserId" });
