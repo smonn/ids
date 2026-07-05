@@ -207,6 +207,12 @@ describe("opaque", () => {
     expect(usr.safeParse(synthetic)).toEqual({ ok: true, id: synthetic });
   });
 
+  it('safeParse("") returns { ok: false } (empty string has no valid prefix)', async () => {
+    const key = await importOpaqueKey(new Uint8Array(16));
+    const usr = createOpaqueTimestampId("usr", { key });
+    expect(usr.safeParse("")).toEqual({ ok: false, error: "invalid_prefix" });
+  });
+
   it("safeParse() of a foreign prefix fails with invalid_prefix", async () => {
     const key = await importOpaqueKey(new Uint8Array(16));
     const usr = createOpaqueTimestampId("usr", { key });

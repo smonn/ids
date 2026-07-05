@@ -461,6 +461,12 @@ describe("createSignedTimestampId", () => {
     expect(codec.safeParse("bad")).toEqual({ ok: false, error: "invalid_prefix" });
   });
 
+  it('safeParse("") returns { ok: false } (empty string has no valid prefix)', async () => {
+    const key = await makeKey();
+    const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    expect(codec.safeParse("")).toEqual({ ok: false, error: "invalid_prefix" });
+  });
+
   it("toJsonSchema returns a valid JSON Schema with a canonical example", async () => {
     const key = await makeKey();
     const codec = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });

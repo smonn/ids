@@ -308,6 +308,11 @@ describe("id", () => {
     });
   });
 
+  it('safeParse("") returns { ok: false } (empty string has no valid prefix)', () => {
+    const usr = createTimestampId("usr");
+    expect(usr.safeParse("")).toEqual({ ok: false, error: "invalid_prefix" });
+  });
+
   it("cross-brand rejection", () => {
     const org = createTimestampId("org");
     const usr = createTimestampId("usr");
