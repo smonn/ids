@@ -61,7 +61,7 @@ The schema keeps a plain `String @id` with no `@default(…)`; the extension sup
 `defaultQuery` intercepts **`create`**, **`createMany`**, and **`upsert`**:
 
 - **`create`** — when the field is absent, `undefined`, or `null` in `args.data`, injects a freshly generated `Id<Brand>`; when the field is present, validates it via `codec.safeParse` and throws `IdsError("invalid_id")` if invalid.
-- **`createMany`** — iterates `args.data` (the array) and applies the same absent-injects / present-validates logic to each element.
+- **`createMany`** — handles both the array and single-object forms of Prisma's `Enumerable<T>`: iterates each element when `args.data` is an array; applies the same absent-injects / present-validates logic directly when `args.data` is a single object.
 - **`upsert`** — applies the same logic to `args.create` (the new-row data); the `update` side is left unchanged.
 
 :::note[update / updateMany limitation]
