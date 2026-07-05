@@ -198,7 +198,7 @@ mistyped bare key), the CLI truncates it to 20 characters followed by `…` in t
 message so the full token does not appear in stderr or CI logs.
 
 **Error-echo hygiene** — flag values (e.g. a bad `--count` or `--kind` value) and file
-paths in error messages are stripped of control characters and Unicode bidi/format controls
+paths in error messages are stripped of control characters, Unicode bidi/format controls, and line/paragraph separators (U+2028–U+2029)
 before echo; flag values are additionally truncated to the first 20 characters where
 truncation does not hurt diagnostics.
 
