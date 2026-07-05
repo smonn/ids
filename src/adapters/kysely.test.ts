@@ -17,7 +17,7 @@ import {
 } from "./kysely.js";
 import type { Id } from "../types.js";
 import type { ColumnType, KyselyPlugin } from "kysely";
-import { makeSpyCodec } from "./test-helpers.js";
+import { makeSpyCodec, expectInvalidIdError } from "./test-helpers.js";
 
 describe("kysely", () => {
   let warnSilencer: ReturnType<typeof vi.spyOn>;
@@ -39,15 +39,8 @@ describe("kysely", () => {
     expectTypeOf(usrCol.toDriver(id)).toEqualTypeOf<string>();
   });
 
-  it("write path rejects a cast-smuggled invalid string", () => {
-    let err: unknown;
-    try {
-      usrCol.toDriver("not_an_id" as Id<"usr">);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
+  it("write path rejects a cast-smuggled invalid string", async () => {
+    await expectInvalidIdError(() => usrCol.toDriver("not_an_id" as Id<"usr">));
   });
 
   it("read-back returns Id<Brand>", () => {
@@ -164,16 +157,11 @@ describe("kysely", () => {
 
     it("transformResult throws IdsError with invalid_id when a matched column has an invalid value", async () => {
       const plugin = idPlugin({ id: usr });
-      let err: unknown;
-      try {
+      await expectInvalidIdError(async () => {
         await plugin.transformResult(
           fromAny({ queryId: {}, result: { rows: [{ id: "not-a-valid-usr-id" }] } }),
         );
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+      });
     });
 
     it("transformResult passes through columns not in the map unchanged", async () => {
@@ -296,15 +284,8 @@ describe("kysely", () => {
       expectTypeOf(nullableUsrCol.fromDriver(fromAny(id))).toEqualTypeOf<Id<"usr"> | null>();
     });
 
-    it("invalid string driver value → throws IdsError(invalid_id)", () => {
-      let err: unknown;
-      try {
-        nullableUsrCol.fromDriver("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+    it("invalid string driver value → throws IdsError(invalid_id)", async () => {
+      await expectInvalidIdError(() => nullableUsrCol.fromDriver("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"));
     });
 
     it("write path passes null through unchanged", () => {
@@ -321,15 +302,8 @@ describe("kysely", () => {
       expect(nullableUsrCol.toDriver(id)).toBe(id);
     });
 
-    it("write path rejects a cast-smuggled invalid string", () => {
-      let err: unknown;
-      try {
-        nullableUsrCol.toDriver("not_an_id" as Id<"usr">);
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+    it("write path rejects a cast-smuggled invalid string", async () => {
+      await expectInvalidIdError(() => nullableUsrCol.toDriver("not_an_id" as Id<"usr">));
     });
 
     it("NullableIdColumnType is assignable to Kysely ColumnType", () => {

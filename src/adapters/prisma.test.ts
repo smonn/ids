@@ -14,7 +14,7 @@
  */
 import { fromAny } from "@total-typescript/shoehorn";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
-import { makeSpyCodec } from "./test-helpers.js";
+import { makeSpyCodec, expectInvalidIdError } from "./test-helpers.js";
 import type {
   GetPayloadResult,
   InternalArgs,
@@ -51,15 +51,8 @@ describe("prisma", () => {
     expect(transform.write(id)).toBe(id);
   });
 
-  it("write throws IdsError(invalid_id) for a cast-smuggled invalid string", () => {
-    let err: unknown;
-    try {
-      transform.write("not-a-valid-id" as Id<"usr">);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
+  it("write throws IdsError(invalid_id) for a cast-smuggled invalid string", async () => {
+    await expectInvalidIdError(() => transform.write("not-a-valid-id" as Id<"usr">));
   });
 
   it("read-back returns Id<Brand>", () => {
@@ -166,16 +159,9 @@ describe("prisma", () => {
     expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr">>();
   });
 
-  it("computeField.compute throws IdsError on invalid value", () => {
+  it("computeField.compute throws IdsError on invalid value", async () => {
     const field = transform.computeField("id");
-    let err: unknown;
-    try {
-      field.compute({ id: "not-a-valid-id" });
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
+    await expectInvalidIdError(() => field.compute({ id: "not-a-valid-id" }));
   });
 
   it("computeField.compute throws IdsError on wrong-brand value", () => {
@@ -226,15 +212,8 @@ describe("prisma", () => {
       expectTypeOf(transform.readNullable(id)).toEqualTypeOf<Id<"usr"> | null>();
     });
 
-    it("throws IdsError(invalid_id) for an invalid string", () => {
-      let err: unknown;
-      try {
-        transform.readNullable("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+    it("throws IdsError(invalid_id) for an invalid string", async () => {
+      await expectInvalidIdError(() => transform.readNullable("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"));
     });
   });
 
@@ -266,16 +245,9 @@ describe("prisma", () => {
       expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr"> | null>();
     });
 
-    it("compute throws IdsError on invalid value", () => {
+    it("compute throws IdsError on invalid value", async () => {
       const field = transform.computeNullableField("authorId");
-      let err: unknown;
-      try {
-        field.compute({ authorId: "not-a-valid-id" });
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+      await expectInvalidIdError(() => field.compute({ authorId: "not-a-valid-id" }));
     });
 
     it("NullableIdComputeField type is satisfied", () => {
@@ -452,14 +424,9 @@ describe("prisma", () => {
     it("throws IdsError(invalid_id) when a cast-smuggled invalid string is supplied in create data", async () => {
       const field = transform.defaultQuery("id");
       const cbArgs = makeQueryArgs("create", { data: { id: "not-a-valid-id", name: "Alice" } });
-      let err: unknown;
-      try {
+      await expectInvalidIdError(async () => {
         await field.create!(cbArgs);
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+      });
     });
 
     it("throws IdsError(invalid_id) when a cast-smuggled invalid string is supplied in createMany data", async () => {
@@ -467,14 +434,9 @@ describe("prisma", () => {
       const cbArgs = makeQueryArgs("createMany", {
         data: [{ id: "not-a-valid-id", name: "Alice" }],
       });
-      let err: unknown;
-      try {
+      await expectInvalidIdError(async () => {
         await field.createMany!(cbArgs);
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+      });
     });
 
     it("injects a generated ID when the field is absent from args.data (createMany single-object)", async () => {
@@ -494,14 +456,9 @@ describe("prisma", () => {
     it("throws IdsError(invalid_id) for a cast-smuggled invalid ID in createMany single-object data", async () => {
       const field = transform.defaultQuery("id");
       const cbArgs = makeQueryArgs("createMany", { data: { id: "not-a-valid-id", name: "Alice" } });
-      let err: unknown;
-      try {
+      await expectInvalidIdError(async () => {
         await field.createMany!(cbArgs);
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+      });
     });
 
     it("passes a valid present ID through unchanged in createMany single-object data", async () => {
@@ -543,14 +500,9 @@ describe("prisma", () => {
         create: { id: "not-a-valid-id", name: "Alice" },
         update: { name: "Alice" },
       });
-      let err: unknown;
-      try {
+      await expectInvalidIdError(async () => {
         await field.upsert!(cbArgs);
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+      });
     });
   });
 
@@ -594,16 +546,9 @@ describe("prisma", () => {
         expect(ro.read(id)).toBe(id);
       });
 
-      it("read throws IdsError on invalid value", () => {
+      it("read throws IdsError on invalid value", async () => {
         const ro = factory(usr);
-        let err: unknown;
-        try {
-          ro.read("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        } catch (e) {
-          err = e;
-        }
-        expect(isIdsError(err)).toBe(true);
-        expect((err as IdsError).code).toBe("invalid_id");
+        await expectInvalidIdError(() => ro.read("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"));
       });
 
       it("readNullable returns null for null", () => {
@@ -648,17 +593,10 @@ describe("prisma", () => {
         expectTypeOf(field.compute).returns.toEqualTypeOf<Id<"usr">>();
       });
 
-      it("computeField.compute throws IdsError on invalid value", () => {
+      it("computeField.compute throws IdsError on invalid value", async () => {
         const ro = factory(usr);
         const field = ro.computeField("id");
-        let err: unknown;
-        try {
-          field.compute({ id: "not-a-valid-id" });
-        } catch (e) {
-          err = e;
-        }
-        expect(isIdsError(err)).toBe(true);
-        expect((err as IdsError).code).toBe("invalid_id");
+        await expectInvalidIdError(() => field.compute({ id: "not-a-valid-id" }));
       });
 
       it("computeNullableField.compute returns null when field is null", () => {
@@ -732,16 +670,9 @@ describe("prisma", () => {
       expectTypeOf(result.readNullable(id)).toEqualTypeOf<Id<"usr"> | null>();
     });
 
-    it("readNullable throws IdsError(invalid_id) for an invalid string", () => {
+    it("readNullable throws IdsError(invalid_id) for an invalid string", async () => {
       const result = nullableIdField(usr);
-      let err: unknown;
-      try {
-        result.readNullable("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+      await expectInvalidIdError(() => result.readNullable("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"));
     });
 
     it("write passes Id<Brand> through unchanged", () => {
@@ -766,16 +697,9 @@ describe("prisma", () => {
       expect(result.write(id)).toBe(id);
     });
 
-    it("write throws IdsError(invalid_id) for a cast-smuggled invalid string", () => {
+    it("write throws IdsError(invalid_id) for a cast-smuggled invalid string", async () => {
       const result = nullableIdField(usr);
-      let err: unknown;
-      try {
-        result.write("not-a-valid-id" as Id<"usr">);
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+      await expectInvalidIdError(() => result.write("not-a-valid-id" as Id<"usr">));
     });
 
     it("computeNullableField returns a { needs, compute } object", () => {
@@ -810,17 +734,10 @@ describe("prisma", () => {
       expect(field.compute({ authorId: id })).toBe(id);
     });
 
-    it("computeNullableField.compute throws IdsError(invalid_id) for an invalid non-null value", () => {
+    it("computeNullableField.compute throws IdsError(invalid_id) for an invalid non-null value", async () => {
       const result = nullableIdField(usr);
       const field = result.computeNullableField("authorId");
-      let err: unknown;
-      try {
-        field.compute({ authorId: "not-a-valid-id" });
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+      await expectInvalidIdError(() => field.compute({ authorId: "not-a-valid-id" }));
     });
 
     it("NullableIdTransform<Brand> type is satisfied by the returned object", () => {
