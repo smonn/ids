@@ -1,6 +1,7 @@
 import { fromAny } from "@total-typescript/shoehorn";
-import { vi } from "vitest";
+import { expect, vi } from "vitest";
 import type { Id, ParseError, ParseResult, ValidBrand } from "../types.js";
+import { isIdsError, type IdsError } from "../error.js";
 import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
 import type { SignedTimestampCodec } from "../codecs/signed/index.js";
 import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
@@ -137,4 +138,16 @@ export function makeWrappedVerifiableSpyCodec<Brand extends string>(
       ),
     ),
   };
+}
+
+/** Assert that `fn()` throws (or rejects with) an `IdsError` with `code === "invalid_id"`. Accepts both sync and async callees. */
+export async function expectInvalidIdError(fn: () => unknown): Promise<void> {
+  let err: unknown;
+  try {
+    await fn();
+  } catch (e) {
+    err = e;
+  }
+  expect(isIdsError(err)).toBe(true);
+  expect((err as IdsError).code).toBe("invalid_id");
 }

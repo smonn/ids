@@ -12,7 +12,7 @@ import {
   type IdGeneratingCodec,
 } from "./typeorm.js";
 import type { Id } from "../types.js";
-import { makeSpyCodec } from "./test-helpers.js";
+import { makeSpyCodec, expectInvalidIdError } from "./test-helpers.js";
 
 describe("typeorm", () => {
   const usr = createTimestampId("usr", { allowDuplicateBrand: true });
@@ -26,15 +26,8 @@ describe("typeorm", () => {
     expect(transformer.to(id)).toBe(id);
   });
 
-  it("write path rejects a cast-smuggled invalid string", () => {
-    let err: unknown;
-    try {
-      transformer.to("not_an_id" as Id<"usr">);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
+  it("write path rejects a cast-smuggled invalid string", async () => {
+    await expectInvalidIdError(() => transformer.to("not_an_id" as Id<"usr">));
   });
 
   it("read-back returns Id<Brand>", () => {
@@ -195,15 +188,8 @@ describe("typeorm", () => {
       expect(nullableTransformer.from(id)).toBe(id);
     });
 
-    it("invalid string from DB → throws IdsError(invalid_id)", () => {
-      let err: unknown;
-      try {
-        nullableTransformer.from("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!");
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+    it("invalid string from DB → throws IdsError(invalid_id)", async () => {
+      await expectInvalidIdError(() => nullableTransformer.from("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"));
     });
 
     it("write path passes null through unchanged", () => {
@@ -219,15 +205,8 @@ describe("typeorm", () => {
       expect(nullableTransformer.to(id)).toBe(id);
     });
 
-    it("write path rejects a cast-smuggled invalid string", () => {
-      let err: unknown;
-      try {
-        nullableTransformer.to("not_an_id" as Id<"usr">);
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+    it("write path rejects a cast-smuggled invalid string", async () => {
+      await expectInvalidIdError(() => nullableTransformer.to("not_an_id" as Id<"usr">));
     });
   });
 });

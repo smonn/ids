@@ -12,7 +12,7 @@ import {
 } from "./mikro-orm.js";
 import type { Id } from "../types.js";
 import { Type } from "@mikro-orm/core";
-import { makeSpyCodec } from "./test-helpers.js";
+import { makeSpyCodec, expectInvalidIdError } from "./test-helpers.js";
 
 describe("mikro-orm", () => {
   const usr = createTimestampId("usr", { allowDuplicateBrand: true });
@@ -30,15 +30,10 @@ describe("mikro-orm", () => {
     expect(instance.convertToDatabaseValue(id, undefined as never)).toBe(id);
   });
 
-  it("write path rejects a cast-smuggled invalid string", () => {
-    let err: unknown;
-    try {
-      instance.convertToDatabaseValue("not_an_id" as Id<"usr">, undefined as never);
-    } catch (e) {
-      err = e;
-    }
-    expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_id");
+  it("write path rejects a cast-smuggled invalid string", async () => {
+    await expectInvalidIdError(() =>
+      instance.convertToDatabaseValue("not_an_id" as Id<"usr">, undefined as never),
+    );
   });
 
   it("read-back returns Id<Brand>", () => {
@@ -199,18 +194,13 @@ describe("mikro-orm", () => {
       expect(nullableInstance.convertToJSValue(fromAny(id), undefined as never)).toBe(id);
     });
 
-    it("invalid string driver value → throws IdsError(invalid_id)", () => {
-      let err: unknown;
-      try {
+    it("invalid string driver value → throws IdsError(invalid_id)", async () => {
+      await expectInvalidIdError(() =>
         nullableInstance.convertToJSValue(
           fromAny("usr_!!!!!!!!!!!!!!!!!!!!!!!!!!"),
           undefined as never,
-        );
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+        ),
+      );
     });
 
     it("write path passes null through unchanged", () => {
@@ -228,15 +218,10 @@ describe("mikro-orm", () => {
       expect(nullableInstance.convertToDatabaseValue(id, undefined as never)).toBe(id);
     });
 
-    it("write path rejects a cast-smuggled invalid string", () => {
-      let err: unknown;
-      try {
-        nullableInstance.convertToDatabaseValue("not_an_id" as Id<"usr">, undefined as never);
-      } catch (e) {
-        err = e;
-      }
-      expect(isIdsError(err)).toBe(true);
-      expect((err as IdsError).code).toBe("invalid_id");
+    it("write path rejects a cast-smuggled invalid string", async () => {
+      await expectInvalidIdError(() =>
+        nullableInstance.convertToDatabaseValue("not_an_id" as Id<"usr">, undefined as never),
+      );
     });
 
     it("getColumnType returns text", () => {
