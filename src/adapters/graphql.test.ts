@@ -12,10 +12,11 @@ import { fromAny } from "@total-typescript/shoehorn";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTimestampId } from "../codecs/timestamp/index.js";
 import { createSignedTimestampId, importSigningKey } from "../codecs/signed/index.js";
-import { createWrappedKeyId, importWrappingKey } from "../codecs/wrapped/index.js";
 import { idScalar, verifyIdArgs } from "./graphql.js";
 import {
   makeFailingSpyCodec,
+  makeRealSignedCodec,
+  makeRealWrappedCodec,
   makeSpyCodec,
   makeVerifiableSpyCodec,
   makeWrappedVerifiableSpyCodec,
@@ -487,6 +488,21 @@ describe("verifyIdArgs", () => {
     expect(resolver).not.toHaveBeenCalled();
   });
 
+  it("per-coordinate guard: invoking field A (declares id) first does not suppress the check on field B (no id arg)", async () => {
+    const usr = makeVerifiableSpyCodec("usr", "ok");
+    const id = usr.generate();
+    const resolver = vi.fn(() => "ran");
+    const wrapped = verifyIdArgs({ id: usr }, resolver);
+
+    // Field A declares "id" — guard passes, A's coordinate is marked checked.
+    await expect(wrapped(null, { id }, {}, makeFakeInfo("fieldA", ["id"]))).resolves.toBe("ran");
+
+    // Field B does NOT declare "id" — B's coordinate is new, so the guard runs and throws.
+    await expect(wrapped(null, { id }, {}, makeFakeInfo("fieldB", []))).rejects.toThrow(
+      expect.objectContaining({ message: expect.stringContaining("id") }),
+    );
+  });
+
   it("skips the arg-name guard and still verifies IDs when the field is absent from parentType.getFields()", async () => {
     const usr = makeVerifiableSpyCodec("usr", "ok");
     const id = fromAny("usr_00000000000000000000000000");
@@ -522,8 +538,7 @@ describe("verifyIdArgs — graphql() execution engine (integration)", () => {
   }
 
   it("resolves a genuinely signed ID and rejects a forged one before the resolver runs", async () => {
-    const key = await importSigningKey(new Uint8Array(32).fill(0x42));
-    const sgn = createSignedTimestampId("sgn", { keys: [key], allowDuplicateBrand: true });
+    const sgn = await makeRealSignedCodec("sgn");
     const SignedId = idScalar(sgn, { name: "SignedId" });
 
     let resolverRuns = 0;
@@ -560,8 +575,7 @@ describe("verifyIdArgs — graphql() execution engine (integration)", () => {
   });
 
   it("resolves a genuine Wrapped key ID and rejects a tampered one", async () => {
-    const wKey = await importWrappingKey(new Uint8Array(32).fill(0x77));
-    const wrp = createWrappedKeyId("wrp", { kind: "u32", keys: [wKey], allowDuplicateBrand: true });
+    const wrp = await makeRealWrappedCodec("wrp");
     const WrappedId = idScalar(wrp, { name: "WrappedId" });
 
     let resolverRuns = 0;

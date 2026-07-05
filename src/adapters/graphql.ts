@@ -84,9 +84,13 @@ export function idScalar<Brand extends string>(
  * verify yet reach the resolver un-normalised.
  *
  * **Only listed args are verified, and keys must match the field's argument names exactly.** On the
- * first invocation the wrapper resolves the field's declared argument names from `info` and throws a
- * `GraphQLError` if any codec-map key does not match a declared argument — fail-closed hardening so
- * a typo cannot silently disable verification. Subsequent invocations use the cached result.
+ * first invocation **for each schema coordinate** (`parentType.name.fieldName`) the wrapper resolves
+ * the field's declared argument names from `info` and throws a `GraphQLError` if any codec-map key
+ * does not match a declared argument — hardening so a typo cannot silently disable verification.
+ * Subsequent invocations on the **same coordinate** use the cached result. If the field cannot be
+ * found in `parentType.getFields()`, the arg-name guard is skipped for that coordinate — this path
+ * is **not** fail-closed for unknown fields — but per-ID `safeVerify` still runs on every
+ * invocation regardless.
  *
  * @example
  * ```ts
@@ -111,10 +115,11 @@ export function verifyIdArgs<
     Object.entries(codecs) as Array<[keyof TArgs & string, IdVerifiableCodec<string> | undefined]>
   ).filter((e): e is [keyof TArgs & string, IdVerifiableCodec<string>] => e[1] !== undefined);
 
-  let argNamesChecked = false;
+  const checkedCoordinates = new Set<string>();
 
   return async (source, args, context, info) => {
-    if (!argNamesChecked) {
+    const coordinate = `${info.parentType.name}.${info.fieldName}`;
+    if (!checkedCoordinates.has(coordinate)) {
       const field = info.parentType.getFields()[info.fieldName];
       if (field !== undefined) {
         const declaredNames = new Set(field.args.map((a) => a.name));
@@ -125,7 +130,7 @@ export function verifyIdArgs<
             );
           }
         }
-        argNamesChecked = true;
+        checkedCoordinates.add(coordinate);
       }
     }
 
