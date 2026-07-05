@@ -48,3 +48,9 @@ overrides:
   # the website toolchain (@astrojs/check); the root devDep already uses 2.9.0.
   # Patch is semver-compatible within 2.x. Dev-only; not in the published package.
   yaml@2: ">=2.8.3"
+  # GHSA-q8mj-m7cp-5q26 (moderate): qs 6.11.1-6.15.1 unhandled TypeError in
+  # stringify() with arrayFormat 'comma' + encodeValuesOnly on null/undefined
+  # array elements. Reached via @stryker-mutator/core -> typed-rest-client,
+  # which pins qs 6.15.1 exactly, so resolution alone can never pick up the
+  # patch. Dev-only mutation-testing tooling; not in the published package.
+  qs@6.15.1: 6.15.2
