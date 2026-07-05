@@ -94,7 +94,8 @@ Pass `verify: true` together with a **Signed Timestamp codec** or a **Wrapped ke
 
 ```ts
 import { ParseIdPipe } from "@smonn/ids/nestjs";
-import { type Id, createSignedTimestampId, importSigningKey } from "@smonn/ids";
+import { type Id } from "@smonn/ids";
+import { createSignedTimestampId, importSigningKey } from "@smonn/ids/signed";
 import { Controller, Get, Param } from "@nestjs/common";
 
 const key = await importSigningKey(new Uint8Array(32));

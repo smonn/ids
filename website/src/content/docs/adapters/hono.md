@@ -144,7 +144,7 @@ Pass `verify: true` together with a **Signed Timestamp codec** or a **Wrapped ke
 
 ```ts
 import { idParam } from "@smonn/ids/hono";
-import { createSignedTimestampId, importSigningKey } from "@smonn/ids";
+import { createSignedTimestampId, importSigningKey } from "@smonn/ids/signed";
 
 const key = await importSigningKey(new Uint8Array(32));
 const usr = createSignedTimestampId("usr", { keys: [key] });
