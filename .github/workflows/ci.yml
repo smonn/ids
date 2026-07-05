@@ -9,12 +9,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Top level stays read-only (Scorecard Token-Permissions); the write grant the
+# conflict guard needs is declared on the job below.
 permissions:
   contents: read
-  # The conflict guard (first step below) reads the PR's labels and, when the PR is
-  # mid-rebase, self-cancels this run — both need slightly more than the default.
-  pull-requests: read
-  actions: write
 
 jobs:
   ci:
@@ -28,6 +26,16 @@ jobs:
         node-version: [22, 24, 26]
     name: ci (node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    # A job-level permissions block REPLACES the top-level one, so contents: read
+    # is redeclared. The conflict guard (first step below) reads the PR's labels
+    # and, when the PR is mid-rebase, self-cancels this run — `ci` is a REQUIRED
+    # check, so cancelling (which blocks merge) rather than skipping (which
+    # branch protection counts as passing) is load-bearing; actions: write is
+    # the only token scope that can cancel, hence this job-level write grant.
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: write
     steps:
       # Monitor egress in audit mode (log-only, never blocks). This job is
       # read-only, but the dependency install runs untrusted postinstall
