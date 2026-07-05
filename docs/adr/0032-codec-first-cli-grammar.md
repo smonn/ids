@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-29
+last-updated: 2026-06-29
+---
+
 # Codec-first CLI grammar with per-codec command ownership
 
 Restructure the CLI from a flag-selected codec dispatch engine to a **codec-first grammar** — `ids <codec> <verb> [args] [flags]` — with codec-agnostic operations (`keygen`, `convert`) as top-level commands, and each codec owning its own CLI module so the generic dispatch engine is deleted. This is a breaking CLI change, taken in the pre-1.0 window.

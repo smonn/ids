@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-27
+last-updated: 2026-06-27
+---
+
 # Namespaced label taxonomy for issues and PRs
 
 Replace the repo's flat issue/PR label set with a uniform `namespace:value` grammar. Each namespace declares a **select-arity** — single-select (a state machine, one value live) or multi-select (free tags) — and a **kind** (descriptive _status_ vs. imperative _trigger_; the status/trigger split and its safety rationale are [ADR-0030](./0030-label-status-vs-triggers.md)). The flat labels in `.github/workflows/labels.yml` are the migration's source; the namespaced set is the target, and the two coexist only during the rollout.

@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-05-31
+last-updated: 2026-06-07
+---
+
 # Timestamp byte layout: ULID-shaped, with deliberate divergences
 
 The Timestamp codec's byte layout — 48-bit millisecond Unix timestamp (big-endian) followed by 80 random bits — fills the 16-byte payload directly. We adopt the ULID byte split because it's already k-sortable, fits cleanly into 26 base32 chars, and gives ~80 bits of randomness per millisecond (collision-safe for any plausible single-app throughput).

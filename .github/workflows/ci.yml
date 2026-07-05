@@ -104,6 +104,10 @@ jobs:
       # standalone step keeps it a visible, fast CI gate.
       - run: node .github/scripts/label-trigger-lint.mjs
 
+      # ADR front-matter schema (docs/adr/ADR-FORMAT.md > Front matter): status
+      # enum, date shape/order, and bidirectional supersedes links.
+      - run: node .github/scripts/adr-front-matter-lint.mjs
+
       - run: pnpm depcruise
 
       - run: pnpm knip

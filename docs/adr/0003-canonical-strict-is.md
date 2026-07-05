@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-05-31
+last-updated: 2026-06-27
+---
+
 # Lenient at boundaries, strict everywhere else
 
 `Id<Brand>` denotes a **canonical** ID: lowercase, with Crockford base32 aliases (`o`, `i`, `l`) already resolved, **and the final base32 character must have zero low 2 bits**. The boundary between an untrusted external string and a typed `Id<Brand>` is `parse()` / `safeParse()`; these accept lenient input (mixed case, `o`/`i`/`l` aliases) and return the canonical form. `is()` is strict — it returns `true` only for strings that are already canonical. Once a value carries the `Id<Brand>` type, `===` reliably tests logical equality.

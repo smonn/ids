@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-24
+last-updated: 2026-06-26
+---
+
 # Adapter error types: framework-native errors in transport adapters, `IdsError` in ORM adapters
 
 The adapter layer in `src/adapters/` splits into two distinct ownership axes — transport-layer adapters (web frameworks and query runtimes) and ORM/data-layer adapters — and the two axes have opposite error-handling requirements. This ADR records the decision to use **framework-native errors in transport-layer adapters** and **`IdsError("invalid_id")` in ORM adapters**, and provides guidance for future adapter authors.

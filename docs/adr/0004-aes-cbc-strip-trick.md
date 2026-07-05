@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-03
+last-updated: 2026-06-27
+---
+
 # Opaque Timestamp codec: AES-CBC with strip-and-reconstruct
 
 `createOpaqueTimestampId` needs a 128-bit permutation under a key, encoded into the same 16-byte payload as every other codec. WebCrypto exposes no raw single-block AES — every mode either pads (CBC: +16B), authenticates (GCM: +16B tag), wraps (KW: +8B), or streams in a way that's not a permutation (CTR). We use AES-CBC with a zero IV and exploit PKCS#7's full-padding-block property: encrypting a 16-byte plaintext produces a 32-byte ciphertext `C1 ‖ C2` where `C2 = AES_K(0x10×16 XOR C1)`. We keep only `C1` on the wire; to decrypt, we recompute `C2` via a second CBC encrypt of `0x10×16 XOR C1`, then run CBC decrypt on the reconstructed 32-byte ciphertext.

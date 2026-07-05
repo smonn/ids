@@ -1,0 +1,89 @@
+name: Changeset check
+
+# Blocks the recurring release-bookkeeping gap: a user-visible change shipping
+# with no changeset, so the next "Version Packages" PR silently omits it from
+# the CHANGELOG (three retroactive entries were needed across the 2026-07-04
+# audit rounds). The gate is deliberately narrow:
+#
+#   fail  = PR title type is feat/fix/perf
+#         AND the diff touches src/, bin/, or spec/
+#         AND the diff adds/edits no .changeset/*.md
+#         AND the PR body has no waiver line
+#
+# Waiver: a line in the PR body starting `No changeset needed:` (with the
+# reason) passes the check with a notice — for genuinely non-release-note-worthy
+# changes that still carry a feat/fix/perf title. docs/test/ci/chore/refactor
+# titles never trip the gate. See CONTRIBUTING.md > Style.
+#
+# `edited` is in the trigger so fixing the title, adding the waiver line, or
+# (via synchronize) pushing a changeset re-runs the check on the head SHA —
+# required for use as a branch-protection required check.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changeset-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a changeset for user-visible changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          # Changesets' own release PR consumes changesets rather than adding
+          # them; exempt it like pr-title.yml does.
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          set -euo pipefail
+
+          # head.ref is attacker-chosen on fork PRs, so the release-PR exemption
+          # also requires the branch to live in this repo.
+          if [[ "$HEAD_REF" == "changeset-release/main" && "$HEAD_REPO" == "$GH_REPO" ]]; then
+            echo "Changesets release PR ($HEAD_REF); skipping."
+            exit 0
+          fi
+
+          # Keep this pattern in sync with pr-title.yml's Conventional Commits
+          # regex (same scope charset, narrowed to the release-worthy types).
+          if [[ ! "$PR_TITLE" =~ ^(feat|fix|perf)(\([a-z0-9._/-]+\))?!?: ]]; then
+            echo "Title type is not feat/fix/perf; no changeset required."
+            exit 0
+          fi
+
+          changed=$(gh pr diff "$PR_NUMBER" --repo "$GH_REPO" --name-only)
+
+          if ! printf '%s\n' "$changed" | grep -qE '^(src|bin|spec)/'; then
+            echo "No src/, bin/, or spec/ changes; no changeset required."
+            exit 0
+          fi
+
+          # A changeset = any .changeset/*.md other than the README (which may
+          # legitimately be edited alongside a real changeset).
+          if printf '%s\n' "$changed" | grep -vxF '.changeset/README.md' \
+            | grep -qE '^\.changeset/.+\.md$'; then
+            echo "Changeset present."
+            exit 0
+          fi
+
+          if printf '%s\n' "$PR_BODY" | grep -qiE '^[[:space:]]*No changeset needed:'; then
+            echo "::notice::Changeset waived by PR body ('No changeset needed:')."
+            exit 0
+          fi
+
+          echo "::error::This ${PR_TITLE%%:*} PR changes src/, bin/, or spec/ but adds no changeset."
+          echo "Add one at .changeset/<slug>.md (minor for additive API, patch for fixes),"
+          echo "or add a line starting 'No changeset needed: <reason>' to the PR body."
+          echo "See CONTRIBUTING.md > Style."
+          exit 1

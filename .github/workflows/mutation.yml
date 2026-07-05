@@ -1,0 +1,72 @@
+name: Mutation testing
+
+# Weekly scheduled Stryker run over src/ + bin/ with the vitest runner. This is
+# the systematic answer to the "boundary-incomplete tests" audit class: a suite
+# can stay green while a mask narrows (0o077 → 0o066), a `.trim()` drops, or a
+# comparison flips — mutation testing surfaces exactly those survivors. See
+# CONTRIBUTING.md > Tests and the docs/audits/ snapshots that motivated it.
+#
+# NON-BLOCKING by design: no PR gate, no failure threshold (`thresholds.break`
+# is unset in stryker.config.json). The deliverables are the clear-text score
+# in the job log and the HTML report artifact; surviving mutants worth acting
+# on become filed issues, not red checks. The incremental cache is persisted
+# via the Actions cache so the weekly run only re-tests what changed.
+on:
+  schedule:
+    # Mondays 04:30 UTC — off the hourly-cron rush and ahead of the weekly
+    # security-audit window (Mondays 06:00 UTC).
+    - cron: "30 4 * * 1"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # Audit-mode egress logging, same rationale as ci.yml: the install runs
+      # untrusted postinstall scripts.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: ./.github/actions/setup-node-pnpm
+
+      # Restore the newest prior incremental cache; save under a unique key so
+      # each run's updated cache is kept (a static key would never re-save).
+      - name: Restore incremental cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: reports/stryker-incremental.json
+          key: stryker-incremental-${{ github.run_id }}
+          restore-keys: |
+            stryker-incremental-
+
+      - name: Run Stryker
+        run: pnpm mutation
+
+      # Save only when Stryker actually (re)wrote the file this run — an
+      # unconditional always() would re-save a restored stale copy under a
+      # fresh key after a crash, and error on a cold-start crash (no file).
+      - name: Save incremental cache
+        if: always() && hashFiles('reports/stryker-incremental.json') != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: reports/stryker-incremental.json
+          key: stryker-incremental-${{ github.run_id }}
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          retention-days: 30

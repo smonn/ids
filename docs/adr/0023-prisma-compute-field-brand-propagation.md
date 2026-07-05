@@ -1,6 +1,13 @@
+---
+status: accepted
+created: 2026-06-25
+last-updated: 2026-06-25
+implemented-by: "#509"
+---
+
 # Prisma `computeField`: carrying `Id<Brand>` through `$extends` without a per-call-site cast
 
-Status: Accepted — implemented by [#509](https://github.com/smonn/ids/pull/509) (Closes #481).
+Implemented by [#509](https://github.com/smonn/ids/pull/509) (Closes #481).
 
 The Prisma adapter's `IdTransform<Brand>` exposes `computeField(fieldName)`, a factory that produces a typed `$extends` result-component field definition. Its purpose is to make an extended-client model field — e.g. `xprisma.user.findUnique(…).id` — type as `Id<Brand>` automatically, without the `as Id<"brand">` cast that every call site previously needed. This ADR records why the factory is shaped the way it is.
 

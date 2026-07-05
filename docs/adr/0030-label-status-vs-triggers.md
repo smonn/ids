@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-27
+last-updated: 2026-06-27
+---
+
 # Labels: status vs. triggers, and the no-status-triggers invariant
 
 Split every issue/PR label into one of two kinds. A **status** label is bot-maintained, descriptive, single-select by convention, and **never starts a workflow** — an accidental second value is reconciled on the next pass, not acted on. A **trigger** label (`do:*`, [ADR-0029](./0029-namespaced-label-taxonomy.md)) is an explicit imperative that the workflow it starts **consumes** (removes). The governing invariant: **no status label ever triggers a workflow; every workflow start is a `do:*` trigger or a native git event.**

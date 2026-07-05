@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-03
+last-updated: 2026-06-07
+---
+
 # Keyed codecs are async; non-keyed codecs stay sync
 
 WebCrypto SubtleCrypto — the only cross-runtime crypto API available in modern Node and browsers — is async-only. Any codec that needs a key (Opaque Timestamp, Signed Timestamp, Digest) therefore has async key-dependent methods. We accept the async contract for these codecs rather than bundling a pure-JS algorithm implementation to preserve sync semantics. Non-keyed codecs (Timestamp, Reverse Timestamp) remain fully sync.

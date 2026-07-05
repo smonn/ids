@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-22
+last-updated: 2026-06-26
+---
+
 # Key-handle memory posture: no raw-secret retention; digest-backed keyring equality
 
 Keyed codec handles (`SigningKey`, `WrappingKey`) derive non-extractable `CryptoKey` objects via HKDF during import. Non-extractable keys are held by the WebCrypto runtime in memory the JS heap cannot observe directly — this is the deliberate security property. Prior to this ADR, both `importSigningKey` and `importWrappingKey` stored `bytes.slice()` — a copy of the caller's raw operator secret — in the handle's WeakMap internals alongside those derived keys. That copy was read by exactly one consumer: the `signingKeysEqual` / `wrappingKeysEqual` comparators that power keyring duplicate-detection at codec construction. After construction the copy was never read again, yet it lived for the handle's lifetime. Handles are typically module-global singletons, so the retention was effectively process-lifetime.

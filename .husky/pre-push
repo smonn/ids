@@ -1,4 +1,5 @@
 node .github/scripts/label-trigger-lint.mjs
+node .github/scripts/adr-front-matter-lint.mjs
 pnpm run knip
 pnpm run depcruise
 pnpm run lint

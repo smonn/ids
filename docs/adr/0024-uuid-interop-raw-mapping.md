@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-26
+last-updated: 2026-06-26
+---
+
 # UUID interop: a raw, lossless, version-agnostic 128-bit mapping on every codec
 
 Add a conversion pair — `toUUID` / `fromUUID` (plus `safeFromUUID`) — between an `Id<Brand>` and a 128-bit UUID string, so a branded ID can be persisted into a native `uuid` column (or handed to a UUID-only system) and read back without loss. The motivating consumers are migration off UUID primary keys (an app adopting branded IDs at the edge while keeping its existing `uuid` column type and indexes), DBAs who want a real indexed `uuid` storage type rather than `text`, and cross-system handoff to a UUID-only API — together the "UUID interop" sketch in [docs/IDEAS.md](../IDEAS.md). This is the closest of the TypeID feature-parity gaps now that the 128-bit payload width is settled ([ADR-0015](./0015-twenty-byte-payload-wide-block-prp.md)).

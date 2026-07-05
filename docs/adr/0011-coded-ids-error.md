@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-20
+last-updated: 2026-06-29
+---
+
 # Coded `IdsError` for caller-reachable throws
 
 Public API failures that **throw** today raise plain `Error` instances whose only machine-readable signal is the message string. Non-throwing parse paths already return string codes — `ParseError` (`not_string` | `invalid_prefix` | `invalid_base32`) and the Wrapped key `safeUnwrap` adds `verification_failed`. Programmatic callers can branch on those result codes but have no stable way to distinguish a thrown invalid-brand from invalid key material, an out-of-range lookup key, or a verification failure that throws — except by matching message substrings, which the library does not want to freeze.

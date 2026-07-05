@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-07-01
+last-updated: 2026-07-01
+---
+
 # ID column mapper naming: host-idiom export names and the generating/non-generating axis
 
 The five ORM adapters (`drizzle.ts`, `kysely.ts`, `mikro-orm.ts`, `prisma.ts`, `typeorm.ts`) each expose an **ID column mapper** — the read/write mapping that carries an `Id<Brand>` across the ORM boundary — in three variants. This ADR records two related naming decisions that govern that surface: (1) adapter export names mirror the **host ORM's own vocabulary** rather than a library-wide canonical name, and (2) the axis distinguishing a caller-supplied mapper from a self-generating one is named **`generating` / `non-generating`**, matching the existing **IdGeneratingCodec** constraint. As a consequence of (2), the misleadingly-named `idFieldReadOnly` export is renamed to `idFieldNonGenerating`.

@@ -1,3 +1,9 @@
+---
+status: accepted
+created: 2026-06-20
+last-updated: 2026-06-26
+---
+
 # Reverse Timestamp: bitwise inversion and bound-direction flip
 
 The Reverse Timestamp codec inverts the 48-bit timestamp field before encoding so that lexicographic ID order equals **descending** creation-time order (newest first). This is useful in KV stores (DynamoDB, Cloud Datastore, range-scan KV) where descending range scans are awkward or unavailable and a newest-first key is cheaper than reversing at query time.
