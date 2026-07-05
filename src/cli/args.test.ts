@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { type FlagSpec, parseArgs } from "./args.js";
+import { type FlagSpec, parseArgs, rejectExtraPositionals } from "./args.js";
+import type { RunOpts } from "./types.js";
+
+function makeOpts(): RunOpts & { errLines: string[] } {
+  const errLines: string[] = [];
+  return {
+    argv: [],
+    stdout: () => {},
+    stderr: (s: string) => errLines.push(s),
+    errLines,
+  };
+}
 
 const specs: ReadonlyArray<FlagSpec> = [
   { name: "--count", alias: "-c", value: true },
@@ -62,6 +73,51 @@ describe("parseArgs", () => {
   it("does not consume a recognized following flag written in inline form", () => {
     const r = parseArgs(["--count", "--json=x"], specs);
     expect(r.values.get("--count")).toBe("");
+  });
+});
+
+describe("rejectExtraPositionals", () => {
+  it("returns undefined when positionals count is within maxAllowed", () => {
+    const opts = makeOpts();
+    expect(rejectExtraPositionals(opts, [], 0)).toBeUndefined();
+    expect(rejectExtraPositionals(opts, ["usr"], 1)).toBeUndefined();
+    expect(rejectExtraPositionals(opts, ["usr"], 0 + 1)).toBeUndefined();
+    expect(opts.errLines).toHaveLength(0);
+  });
+
+  it("returns 2 (usage exit code) when positionals exceed maxAllowed=1", () => {
+    const opts = makeOpts();
+    const result = rejectExtraPositionals(opts, ["usr", "extra"], 1);
+    expect(result).toBe(2);
+  });
+
+  it("returns 2 (usage exit code) when positionals exceed maxAllowed=0", () => {
+    const opts = makeOpts();
+    const result = rejectExtraPositionals(opts, ["extra"], 0);
+    expect(result).toBe(2);
+  });
+
+  it("writes the error message to stderr", () => {
+    const opts = makeOpts();
+    rejectExtraPositionals(opts, ["usr", "extra"], 1);
+    expect(opts.errLines).toHaveLength(1);
+    expect(opts.errLines[0]).toContain("unexpected argument:");
+    expect(opts.errLines[0]).toContain("extra");
+  });
+
+  it("names the first extra positional in the error (index = maxAllowed)", () => {
+    const opts = makeOpts();
+    rejectExtraPositionals(opts, ["usr", "first-extra", "second-extra"], 1);
+    expect(opts.errLines[0]).toContain("first-extra");
+    expect(opts.errLines[0]).not.toContain("second-extra");
+  });
+
+  it("redacts long tokens in the error message", () => {
+    const opts = makeOpts();
+    const long = "x".repeat(25);
+    rejectExtraPositionals(opts, [long], 0);
+    expect(opts.errLines[0]).not.toContain(long);
+    expect(opts.errLines[0]).toContain("x".repeat(20) + "…");
   });
 });
 
