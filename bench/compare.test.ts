@@ -106,6 +106,18 @@ describe("renderComment", () => {
     expect(out).toContain("does not block merge");
   });
 
+  it("emits the mixed-band warn label when severe > 0 and regressions > severe", () => {
+    // generate at +35% → severe (sync, above SEVERE_THRESHOLD 30%)
+    // opaque.generate at +45% → warn (async, above ASYNC_WARN_THRESHOLD 40%), never severe
+    // Result: severe=1, regressions=2, regressions > severe → "1 more above warn" line fires.
+    const out = renderComment(
+      report([bench("generate", 100), bench("opaque.generate", 100)]),
+      report([bench("generate", 135), bench("opaque.generate", 145)]),
+    );
+    expect(out).toContain("🛑 **1 severe regression**");
+    expect(out).toContain("1 more above warn (±15% sync / ±40% async-crypto).");
+  });
+
   it("never marks async-crypto benches severe, even above the severe threshold", () => {
     // +50% delta is above ASYNC_WARN_THRESHOLD (±40%) so it classifies as warn,
     // and above SEVERE_THRESHOLD (30%) but must never be severe.
