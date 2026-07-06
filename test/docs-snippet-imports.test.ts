@@ -179,6 +179,126 @@ function getSourceExports(specifier: string): Set<string> {
 }
 
 // ---------------------------------------------------------------------------
+// Unit tests for private helpers
+// ---------------------------------------------------------------------------
+
+describe("extractCodeBlocks", () => {
+  it("returns empty array for a document with no fenced blocks", () => {
+    expect(extractCodeBlocks("# Title\n\nSome text.\n")).toEqual([]);
+  });
+
+  it("extracts a single ts fenced block with no annotation", () => {
+    const content = "Before\n```ts\nconst x = 1;\n```\nAfter\n";
+    expect(extractCodeBlocks(content)).toEqual([{ code: "const x = 1;\n", skipReason: null }]);
+  });
+
+  it("extracts a single typescript fenced block", () => {
+    const content = "```typescript\nconst y = 2;\n```\n";
+    expect(extractCodeBlocks(content)).toEqual([{ code: "const y = 2;\n", skipReason: null }]);
+  });
+
+  it("extracts a single js fenced block", () => {
+    const content = "```js\nconst z = 3;\n```\n";
+    expect(extractCodeBlocks(content)).toEqual([{ code: "const z = 3;\n", skipReason: null }]);
+  });
+
+  it("extracts multiple fenced blocks in one document", () => {
+    const content = "```ts\nfoo();\n```\nMiddle\n```typescript\nbar();\n```\n";
+    expect(extractCodeBlocks(content)).toEqual([
+      { code: "foo();\n", skipReason: null },
+      { code: "bar();\n", skipReason: null },
+    ]);
+  });
+
+  it("sets skipReason to the annotation text when no-verify appears alone", () => {
+    const content = "```ts no-verify\nsome code\n```\n";
+    const blocks = extractCodeBlocks(content);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.skipReason).toBe("no-verify");
+  });
+
+  it("sets skipReason to the full annotation when no-verify has trailing text", () => {
+    const content = "```ts no-verify intentionally broken example\nsome code\n```\n";
+    const blocks = extractCodeBlocks(content);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.skipReason).toBe("no-verify intentionally broken example");
+  });
+
+  it("leaves skipReason null for an unannotated block even when another block has no-verify", () => {
+    const content = "```ts no-verify\nskipped\n```\n\n```ts\nnormal\n```\n";
+    const blocks = extractCodeBlocks(content);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]!.skipReason).toBe("no-verify");
+    expect(blocks[1]!.skipReason).toBeNull();
+  });
+});
+
+describe("parseBlockImports", () => {
+  it("returns empty array for a block with no import statements", () => {
+    expect(parseBlockImports("const x = 1;\nconsole.log(x);\n")).toEqual([]);
+  });
+
+  it("parses a plain named import from @smonn/ids", () => {
+    const code = 'import { Foo } from "@smonn/ids";\n';
+    expect(parseBlockImports(code)).toEqual([{ specifier: "@smonn/ids", names: ["Foo"] }]);
+  });
+
+  it("parses an import type from @smonn/ids", () => {
+    const code = 'import type { Bar } from "@smonn/ids";\n';
+    expect(parseBlockImports(code)).toEqual([{ specifier: "@smonn/ids", names: ["Bar"] }]);
+  });
+
+  it("parses a multi-binding import from @smonn/ids", () => {
+    const code = 'import { A, B, C } from "@smonn/ids";\n';
+    expect(parseBlockImports(code)).toEqual([{ specifier: "@smonn/ids", names: ["A", "B", "C"] }]);
+  });
+
+  it("excludes imports whose specifier is not @smonn/ids", () => {
+    const code = 'import { something } from "some-other-package";\n';
+    expect(parseBlockImports(code)).toEqual([]);
+  });
+
+  it("parses imports from @smonn/ids subpath specifiers", () => {
+    const code = 'import { reverse } from "@smonn/ids/reverse";\n';
+    expect(parseBlockImports(code)).toEqual([
+      { specifier: "@smonn/ids/reverse", names: ["reverse"] },
+    ]);
+  });
+
+  it("includes only the @smonn/ids import when a block mixes specifiers", () => {
+    const code = 'import { other } from "unrelated";\nimport { IdType } from "@smonn/ids";\n';
+    expect(parseBlockImports(code)).toEqual([{ specifier: "@smonn/ids", names: ["IdType"] }]);
+  });
+});
+
+describe("collectSourceExports", () => {
+  it("returns all exported names from a file that only exports", () => {
+    const exports = collectSourceExports("test/fixtures/docs-snippet-imports/all-exports.ts");
+    expect(exports.has("alpha")).toBe(true);
+    expect(exports.has("beta")).toBe(true);
+    expect(exports.has("Gamma")).toBe(true);
+    expect(exports.has("Delta")).toBe(true);
+    expect(exports.has("Epsilon")).toBe(true);
+    expect(exports.has("Zeta")).toBe(true);
+  });
+
+  it("returns an empty set for a file with no exports", () => {
+    const exports = collectSourceExports("test/fixtures/docs-snippet-imports/no-exports.ts");
+    expect(exports.size).toBe(0);
+  });
+
+  it("includes only exported names from a mixed file", () => {
+    const exports = collectSourceExports("test/fixtures/docs-snippet-imports/mixed-exports.ts");
+    expect(exports.has("publicFn")).toBe(true);
+    expect(exports.has("publicConst")).toBe(true);
+    expect(exports.has("PublicClass")).toBe(true);
+    expect(exports.has("privateFn")).toBe(false);
+    expect(exports.has("privateConst")).toBe(false);
+    expect(exports.has("PrivateClass")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
