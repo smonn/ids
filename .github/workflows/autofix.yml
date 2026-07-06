@@ -232,6 +232,7 @@ jobs:
           claude_args: |
             --max-turns 60
             --model claude-sonnet-5
+            --effort high
             --allowedTools "Bash(pnpm:*),Bash(git:*),Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
           prompt: |
             You are fixing failing CI on pull request #${{ steps.gate.outputs.pr }}

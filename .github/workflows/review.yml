@@ -544,6 +544,7 @@ jobs:
           claude_args: |
             --max-turns 60
             --model claude-sonnet-5
+            --effort high
             --allowedTools "Read,Grep,Glob,Write,TodoWrite,Task"
 
       # Deterministic poster: read the producer's .review/ files and post ONE COMMENT

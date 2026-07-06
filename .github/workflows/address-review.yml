@@ -302,6 +302,7 @@ jobs:
           claude_args: |
             --max-turns 150
             --model claude-sonnet-5
+            --effort high
             --allowedTools "Bash(pnpm:*),Bash(git:*),Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
           prompt: |
             A human applied the `do:address` label to pull request
