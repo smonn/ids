@@ -6,6 +6,18 @@
 
 - 0c5159a: Add shared `createKeyHandleStore` factory to `_kernel/`; consolidate `brandOfId` guard in CLI inspect handlers; unify `decodeKeyMaterial` to decode-then-catch-wrap with `cause` on `IdsError("invalid_key_encoding", …)`; derive `BASE64URL_MAX_LEN` comment. `IdsError.cause` is widened to `ParseError | Error | undefined`.
 
+### Erratum
+
+**Empty hex key string now throws `invalid_key_length` instead of `invalid_key_encoding` (programmatic API only)**
+
+The `decodeKeyMaterial` unification in `0c5159a` changed the error code thrown when an empty string (`""`) is passed as a hex-encoded key to any of the keyed codec decode helpers (`decodeOpaqueKey`, `decodeSigningKey`, `decodeWrappingKey`, `decodeDigestKey`).
+
+In 1.2.3 and earlier, `decodeHex("")` raised an error immediately (odd-length check), so the error was caught and re-wrapped as `IdsError("invalid_key_encoding", …)`. In 1.2.4, `decodeHex("")` returns an empty `Uint8Array` (0 % 2 === 0, loop runs zero iterations), so control falls through to the byte-length assertion, which throws `IdsError("invalid_key_length", …)` instead.
+
+Per [ADR-0011](https://github.com/smonn/ids/blob/main/docs/adr/0011-ids-error-codes.md), `code` is the contract. Consumers who branch on `err.code === "invalid_key_encoding"` to handle an empty hex key must update that branch to `err.code === "invalid_key_length"`.
+
+This path is **not CLI-reachable** — `resolveKeyString` rejects empty keys earlier — and affects programmatic API callers only. All four keyed codec variants (Opaque, Signed, Wrapped, Digest) share the `decodeKeyMaterial` path and are equally affected.
+
 ## 1.2.3
 
 ### Patch Changes
