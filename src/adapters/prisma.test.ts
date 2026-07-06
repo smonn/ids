@@ -528,6 +528,24 @@ describe("prisma", () => {
       expect(capturedArgs!.data).toBeUndefined();
     });
 
+    it("createMany invalid-ID failure is a rejection, not a sync throw", async () => {
+      const field = transform.defaultQuery("id");
+      const cbArgs = makeQueryArgs("createMany", {
+        data: [{ id: "not-a-valid-id", name: "Alice" }],
+      });
+      await expect(field.createMany!(cbArgs)).rejects.toMatchObject({ code: "invalid_id" });
+    });
+
+    it("createManyAndReturn invalid-ID failure is a rejection, not a sync throw", async () => {
+      const field = transform.defaultQuery("id");
+      const cbArgs = makeQueryArgs("createManyAndReturn", {
+        data: [{ id: "not-a-valid-id", name: "Alice" }],
+      });
+      await expect(field.createManyAndReturn!(cbArgs)).rejects.toMatchObject({
+        code: "invalid_id",
+      });
+    });
+
     it("passes a valid present ID through unchanged in upsert create data", async () => {
       const suppliedId = usr.generate();
       const field = transform.defaultQuery("id");

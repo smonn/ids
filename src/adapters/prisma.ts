@@ -201,7 +201,10 @@ export function idField<Brand extends string>(codec: IdGeneratingCodec<Brand>): 
 
       type QueryArg = Parameters<ModelQueryOptionsCbArgs["query"]>[0];
 
-      function applyInjectOrValidate({ args, query }: ModelQueryOptionsCbArgs): Promise<unknown> {
+      async function applyInjectOrValidate({
+        args,
+        query,
+      }: ModelQueryOptionsCbArgs): Promise<unknown> {
         const data = args.data as
           | Array<Record<string, unknown>>
           | Record<string, unknown>
