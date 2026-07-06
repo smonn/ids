@@ -29,7 +29,7 @@ const SPECIFIER_TO_SOURCE: Record<string, string> = {
 
 interface CodeBlock {
   code: string;
-  /** Non-null when the block has a `no-verify` annotation; holds the annotation text. */
+  /** Non-null when the block has a `no-verify` annotation; holds the non-empty reason text. */
   skipReason: string | null;
 }
 
@@ -60,19 +60,35 @@ function getAllDocFiles(): string[] {
 /**
  * Extract fenced ```ts / ```typescript / ```js code blocks from Markdown content.
  *
- * A block annotated with `no-verify` (e.g. ```ts no-verify) is returned with a
- * non-null `skipReason` and must be excluded from import checks.
+ * A block annotated with `no-verify` must include a non-empty reason suffix after the
+ * keyword (e.g. ```ts no-verify: intentionally partial). Bare `no-verify` or a
+ * whitespace-only suffix causes an immediate throw identifying the file and snippet index.
+ * Valid `no-verify` blocks are returned with a non-null `skipReason` (the reason text)
+ * and must be excluded from import checks.
  */
-function extractCodeBlocks(content: string): CodeBlock[] {
+function extractCodeBlocks(content: string, filePath?: string): CodeBlock[] {
   const blocks: CodeBlock[] = [];
   // Match opening fences with optional annotations, then content, then closing fence.
   // [\s\S]*? spans multiple lines without the `s` flag — `.` is never used.
   const re = /^```(?:ts|typescript|js)([ \t][^\n]*)?\n([\s\S]*?)^```[ \t]*$/gm;
+  let index = 0;
   for (const match of content.matchAll(re)) {
     const annotation = (match[1] ?? "").trim();
     const code = match[2] ?? "";
-    const skipReason = annotation.includes("no-verify") ? annotation : null;
+    let skipReason: string | null = null;
+    if (annotation.includes("no-verify")) {
+      const after = annotation.slice(annotation.indexOf("no-verify") + "no-verify".length);
+      const reason = after.replace(/^:\s*/, "").trim();
+      if (!reason) {
+        const loc = filePath ? `${filePath}:snippet-${index}` : `snippet-${index}`;
+        throw new Error(
+          `${loc}: \`no-verify\` annotation requires a non-empty reason suffix (e.g. \`no-verify: intentionally partial\`)`,
+        );
+      }
+      skipReason = reason;
+    }
     blocks.push({ code, skipReason });
+    index++;
   }
   return blocks;
 }
@@ -182,6 +198,34 @@ function getSourceExports(specifier: string): Set<string> {
 // Tests
 // ---------------------------------------------------------------------------
 
+describe("extractCodeBlocks no-verify enforcement", () => {
+  it("throws when no-verify has no reason suffix", () => {
+    const content = "```ts no-verify\nconsole.log('hi');\n```";
+    expect(() => extractCodeBlocks(content)).toThrow(
+      "`no-verify` annotation requires a non-empty reason suffix",
+    );
+  });
+
+  it("throws when no-verify has whitespace-only text after the colon", () => {
+    const content = "```ts no-verify:   \nconsole.log('hi');\n```";
+    expect(() => extractCodeBlocks(content)).toThrow(
+      "`no-verify` annotation requires a non-empty reason suffix",
+    );
+  });
+
+  it("passes when no-verify has a non-empty reason suffix", () => {
+    const content = "```ts no-verify: intentionally partial\nconsole.log('hi');\n```";
+    const blocks = extractCodeBlocks(content);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]?.skipReason).toBe("intentionally partial");
+  });
+
+  it("includes file path and snippet index in the error message when filePath is provided", () => {
+    const content = "```ts no-verify\nconsole.log('hi');\n```";
+    expect(() => extractCodeBlocks(content, "docs/foo.md")).toThrow("docs/foo.md:snippet-0:");
+  });
+});
+
 describe("docs snippet imports", () => {
   it("every @smonn/ids import in a doc snippet references a valid specifier", () => {
     const violations: string[] = [];
@@ -189,7 +233,7 @@ describe("docs snippet imports", () => {
     for (const docFile of getAllDocFiles()) {
       const relPath = docFile.slice(ROOT.length + 1);
       const content = readFileSync(docFile, "utf-8");
-      const blocks = extractCodeBlocks(content);
+      const blocks = extractCodeBlocks(content, relPath);
 
       for (let i = 0; i < blocks.length; i++) {
         const block = blocks[i];
@@ -214,7 +258,7 @@ describe("docs snippet imports", () => {
     for (const docFile of getAllDocFiles()) {
       const relPath = docFile.slice(ROOT.length + 1);
       const content = readFileSync(docFile, "utf-8");
-      const blocks = extractCodeBlocks(content);
+      const blocks = extractCodeBlocks(content, relPath);
 
       for (let i = 0; i < blocks.length; i++) {
         const block = blocks[i];
