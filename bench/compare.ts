@@ -25,6 +25,12 @@ export type Report = {
 
 const WARN_THRESHOLD = 0.15;
 
+// Async-crypto benches (opaque.*, wrapped.*, signed.*, digest.*) swing ±40%
+// run-to-run on zero code changes — OS scheduler and thermal jitter on shared
+// GitHub runners. Use a wider warn band that matches their documented noise so
+// steady-state PRs don't flood the attention table with spurious regressions.
+const ASYNC_WARN_THRESHOLD = 0.4;
+
 // Severe-regression threshold for the *gating* benches. Only sync, ns-scale ops
 // are eligible (see isBlockingEligible). The rationale assumes paired
 // measurement: base and PR p50s come either from the same runner (the bench
@@ -63,11 +69,20 @@ function usage(): never {
   process.exit(2);
 }
 
-function readReport(path: string): Report | null {
+export function readReport(path: string): Report | null {
   try {
     const raw = readFileSync(path, "utf8").trim();
     if (raw === "") return null;
-    return JSON.parse(raw) as Report;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const obj = parsed as Record<string, unknown>;
+    if (obj["schema"] !== 1) return null;
+    if (!Array.isArray(obj["benches"])) return null;
+    for (const b of obj["benches"] as unknown[]) {
+      if (typeof b !== "object" || b === null) return null;
+      if (!Number.isFinite((b as Record<string, unknown>)["p50_ns"])) return null;
+    }
+    return parsed as Report;
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw e;
@@ -159,16 +174,18 @@ export function renderComment(base: Report | null, pr: Report): string {
       continue;
     }
     const delta = (cur.p50_ns - prev.p50_ns) / prev.p50_ns;
+    const blocking = isBlockingEligible(cur.name);
+    const warnBand = blocking ? WARN_THRESHOLD : ASYNC_WARN_THRESHOLD;
     let status: RowStatus = "ok";
-    if (delta > WARN_THRESHOLD) {
+    if (delta > warnBand) {
       regressions++;
-      if (isBlockingEligible(cur.name) && delta > SEVERE_THRESHOLD) {
+      if (blocking && delta > SEVERE_THRESHOLD) {
         status = "severe";
         severe++;
       } else {
         status = "warn";
       }
-    } else if (delta < -WARN_THRESHOLD) {
+    } else if (delta < -warnBand) {
       status = "improvement";
       improvements++;
     }
@@ -195,6 +212,9 @@ export function renderComment(base: Report | null, pr: Report): string {
   lines.push("## Benchmarks");
   lines.push("");
 
+  const newCount = rows.filter((r) => r.status === "new").length;
+  const removedCount = rows.filter((r) => r.status === "removed").length;
+
   // Headline: at-a-glance counts, worst first.
   const headline: string[] = [];
   if (severe > 0) headline.push(`🛑 **${severe} severe regression${severe === 1 ? "" : "s"}**`);
@@ -204,6 +224,8 @@ export function renderComment(base: Report | null, pr: Report): string {
     );
   if (improvements > 0)
     headline.push(`🟢 ${improvements} improvement${improvements === 1 ? "" : "s"}`);
+  if (newCount > 0) headline.push(`➕ ${newCount} new`);
+  if (removedCount > 0) headline.push(`➖ ${removedCount} removed`);
   headline.push(`✅ ${quiet.length} within noise`);
   lines.push(headline.join(" · "));
   lines.push("");
@@ -260,7 +282,7 @@ export function renderComment(base: Report | null, pr: Report): string {
   }
 
   lines.push(
-    `<sub>Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}; severe +${pct(SEVERE_THRESHOLD)} (sync benches only). ` +
+    `<sub>Thresholds on p50: sync warn ±${pct(WARN_THRESHOLD)}; async-crypto warn ±${pct(ASYNC_WARN_THRESHOLD)}; severe +${pct(SEVERE_THRESHOLD)} (sync benches only). ` +
       `opaque.* / wrapped.* / signed.* / digest.* are async-crypto and reported for information only — ` +
       `their shared-runner variance is too high to gate on. This check is informational and never fails. ` +
       `Base: \`${base.node}\` ${provenance(base)}. PR: \`${pr.node}\` ${provenance(pr)}.</sub>`,
