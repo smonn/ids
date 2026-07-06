@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 1.2.5
+
+### Patch Changes
+
+- ee45cc4: Fix `applyInjectOrValidate` sync-throw regression: declare it `async` so `createMany`/`createManyAndReturn` invalid-ID errors surface as rejected promises, restoring pre-#1015 behavior.
+
 ## 1.2.4
 
 ### Patch Changes
