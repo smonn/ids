@@ -217,7 +217,7 @@ describe("extractCodeBlocks no-verify enforcement", () => {
     const content = "```ts no-verify: intentionally partial\nconsole.log('hi');\n```";
     const blocks = extractCodeBlocks(content);
     expect(blocks).toHaveLength(1);
-    expect(blocks[0]?.skipReason).not.toBeNull();
+    expect(blocks[0]?.skipReason).toBe("intentionally partial");
   });
 
   it("includes file path and snippet index in the error message when filePath is provided", () => {
