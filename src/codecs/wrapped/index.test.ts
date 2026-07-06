@@ -463,7 +463,8 @@ describe("wrapped", () => {
       err = e;
     }
     expect(isIdsError(err)).toBe(true);
-    expect((err as IdsError).code).toBe("invalid_key_encoding");
+    // empty hex decodes to 0 bytes — invalid key length, not an encoding error
+    expect((err as IdsError).code).toBe("invalid_key_length");
 
     err = undefined;
     try {

@@ -20,7 +20,7 @@ describe("readIdColumn", () => {
       readIdColumn(codec, "bad_value");
     } catch (err) {
       if (isIdsError(err)) {
-        expectTypeOf(err.cause).toEqualTypeOf<ParseError | undefined>();
+        expectTypeOf(err.cause).toEqualTypeOf<ParseError | Error | undefined>();
         expect(err.cause).toBe("invalid_prefix");
       }
     }

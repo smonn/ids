@@ -39,12 +39,13 @@ export type IdsErrorCode =
 export class IdsError extends Error {
   readonly code: IdsErrorCode;
   /**
-   * Populated **only** when `code === "invalid_id"`, carrying the originating `ParseError`
-   * that describes why the string failed to parse. All other codes leave `cause` undefined.
+   * Populated when `code === "invalid_id"` (carrying the originating `ParseError` string)
+   * or when `code === "invalid_key_encoding"` (carrying the original decode `Error`).
+   * All other codes leave `cause` undefined.
    */
-  declare readonly cause?: ParseError;
+  declare readonly cause?: ParseError | Error;
 
-  constructor(code: IdsErrorCode, message: string, options?: { cause?: ParseError }) {
+  constructor(code: IdsErrorCode, message: string, options?: { cause?: ParseError | Error }) {
     super(message, options);
     this.name = "IdsError";
     this.code = code;

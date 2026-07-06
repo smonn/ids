@@ -8,7 +8,7 @@ import { sharedCodecOpts } from "../codec-options.js";
 import { runtimeError } from "../errors.js";
 import type { CodecKey } from "../key.js";
 import type { CodecModule } from "../types.js";
-import { brandOfId, runGenerateKeyed, runInspect } from "../verbs.js";
+import { requireBrand, runGenerateKeyed, runInspect } from "../verbs.js";
 
 const opaqueKey: CodecKey<OpaqueKey> = { decode: decodeOpaqueKey, import: importOpaqueKey };
 
@@ -28,8 +28,8 @@ export const opaqueCli: CodecModule = {
           keyed: true,
           codecKey: opaqueKey,
           prepare: (o, key) => async (id) => {
-            const brand = brandOfId(id);
-            if (brand === undefined) return runtimeError("invalid_id: not a valid ID");
+            const brand = requireBrand(id);
+            if (typeof brand !== "string") return brand;
             const codec = createOpaqueTimestampId(brand, { key: key!, ...sharedCodecOpts(o) });
             const parsed = codec.safeParse(id);
             if (!parsed.ok) return runtimeError(`invalid_id: ${parsed.error}`);

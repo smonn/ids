@@ -1,6 +1,32 @@
 import { decodeBase64Url, decodeHex, encodeBase64Url, encodeHex } from "./bytes.js";
 import { IdsError } from "../../error.js";
 
+/**
+ * Creates a shared opaque-handle store: `make(internals)` returns a frozen object
+ * handle and stores `internals` under it; `get(handle)` retrieves internals or throws
+ * a plain `Error` on an unknown handle (defensive guard for forged handles).
+ *
+ * @param noun - Codec noun used in the thrown message (e.g. `"opaque"`, `"signing"`).
+ */
+export function createKeyHandleStore<Handle extends object, Internals>(
+  noun: string,
+): { make(internals: Internals): Handle; get(handle: Handle): Internals } {
+  const store = new WeakMap<Handle, Internals>();
+  return {
+    make(internals: Internals): Handle {
+      const handle = Object.freeze({}) as unknown as Handle;
+      store.set(handle, internals);
+      return handle;
+    },
+    get(handle: Handle): Internals {
+      const internals = store.get(handle);
+      /* v8 ignore next -- defensive guard; only reachable with a forged handle */
+      if (internals === undefined) throw new Error(`invalid ${noun} key`);
+      return internals;
+    },
+  };
+}
+
 type KeyMaterialFormat = "hex" | "base64url";
 
 const validByteLengths = new Set([16, 24, 32]);
@@ -115,23 +141,14 @@ export function decodeKeyMaterial(
 ): Uint8Array {
   assertKeyMaterialFormat(format, formatNoun);
   let bytes: Uint8Array;
-  if (format === "hex") {
-    if (encoded.length === 0 || encoded.length % 2 !== 0) {
-      throw new IdsError(
-        "invalid_key_encoding",
-        "invalid hex key: length must be a positive even number of characters",
-      );
-    }
-    if (!/^[0-9a-fA-F]+$/.test(encoded)) {
-      throw new IdsError("invalid_key_encoding", "invalid hex key: expected [0-9a-fA-F] only");
-    }
-    bytes = decodeHex(encoded);
-  } else {
-    try {
-      bytes = decodeBase64Url(encoded);
-    } catch {
-      throw new IdsError("invalid_key_encoding", "invalid base64url key");
-    }
+  try {
+    bytes = format === "hex" ? decodeHex(encoded) : decodeBase64Url(encoded);
+  } catch (cause) {
+    throw new IdsError(
+      "invalid_key_encoding",
+      format === "hex" ? "invalid hex key" : "invalid base64url key",
+      { cause: cause as Error },
+    );
   }
   assertValidKeyMaterialByteLength(bytes.length, lengthNoun);
   return bytes;

@@ -52,6 +52,13 @@ export function brandOfId(id: string): string | undefined {
   return id.slice(0, 3).toLowerCase();
 }
 
+/** Returns the lowercased brand for `id`, or a runtime {@link CliError} if it is not a valid ID prefix. */
+export function requireBrand(id: string): string | CliError {
+  const brand = brandOfId(id);
+  if (brand === undefined) return runtimeError("invalid_id: not a valid ID");
+  return brand;
+}
+
 export function fail(opts: RunOpts, error: CliError): number {
   opts.stderr(error.message + "\n");
   return exitCodeFor(error);

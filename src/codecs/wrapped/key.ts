@@ -3,6 +3,7 @@ import { deriveKey, timingSafeEqual } from "../_kernel/crypto.js";
 import {
   assertValidKeyMaterialByteLength,
   assertValidKeyring,
+  createKeyHandleStore,
   decodeKeyMaterial,
   encodeKeyMaterial,
 } from "../_kernel/key-material.js";
@@ -42,7 +43,7 @@ export type WrappingKeyMaterial = {
   hmacKey: webcrypto.CryptoKey;
 };
 
-const internals = new WeakMap<WrappingKey, WrappingKeyInternals>();
+const wrappingKeyStore = createKeyHandleStore<WrappingKey, WrappingKeyInternals>("wrapping");
 
 /**
  * Import raw operator secret bytes into a {@link WrappingKey} handle.
@@ -65,13 +66,11 @@ export async function importWrappingKey(bytes: Uint8Array): Promise<WrappingKey>
     deriveKey(bytes, hmacInfo, { name: "HMAC", hash: "SHA-256", length: 256 }, ["sign"]),
     crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>),
   ]);
-  const key = Object.freeze({}) as WrappingKey;
-  internals.set(key, {
+  return wrappingKeyStore.make({
     keyDigest: new Uint8Array(digestBuffer),
     aesKey,
     hmacKey,
   });
-  return key;
 }
 
 /**
@@ -122,8 +121,5 @@ export function getWrappingKeyMaterial(key: WrappingKey): WrappingKeyMaterial {
 }
 
 function getWrappingKeyInternals(key: WrappingKey): WrappingKeyInternals {
-  const keyInternals = internals.get(key);
-  /* v8 ignore next -- defensive guard; only reachable with a forged WrappingKey handle */
-  if (keyInternals === undefined) throw new Error("invalid wrapping key");
-  return keyInternals;
+  return wrappingKeyStore.get(key);
 }

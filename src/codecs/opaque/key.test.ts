@@ -181,5 +181,6 @@ describe("importOpaqueKey", () => {
     // WeakMap handle-not-found is an internal invariant — stays plain Error, not IdsError
     expect(err instanceof Error).toBe(true);
     expect(isIdsError(err)).toBe(false);
+    expect((err as Error).message).toContain("opaque");
   });
 });

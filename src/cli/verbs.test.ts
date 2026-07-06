@@ -4,7 +4,8 @@ import type { CodecKey } from "./key.js";
 import type { RunOpts } from "./types.js";
 import type { InspectSpec } from "./verbs.js";
 import { redactToken } from "./sanitize.js";
-import { brandOfId, mapThrown, runGenerateKeyless, runWrap } from "./verbs.js";
+import { brandOfId, mapThrown, requireBrand, runGenerateKeyless, runWrap } from "./verbs.js";
+import { isCliError } from "./errors.js";
 
 describe("mapThrown", () => {
   const usageCodes = [
@@ -49,6 +50,28 @@ describe("brandOfId", () => {
 
   it("returns undefined for a non-id token", () => {
     expect(brandOfId("not-an-id")).toBeUndefined();
+  });
+});
+
+describe("requireBrand", () => {
+  it("returns the lowercased brand for a well-formed id", () => {
+    const result = requireBrand("USR_06f8");
+    expect(result).toBe("usr");
+  });
+
+  it("returns a runtime CliError for a non-id token", () => {
+    const result = requireBrand("not-an-id");
+    expect(isCliError(result)).toBe(true);
+    if (isCliError(result)) {
+      expect(result.kind).toBe("runtime");
+    }
+  });
+
+  it("CliError message mentions invalid_id", () => {
+    const result = requireBrand("not-an-id");
+    if (isCliError(result)) {
+      expect(result.message).toContain("invalid_id");
+    }
   });
 });
 

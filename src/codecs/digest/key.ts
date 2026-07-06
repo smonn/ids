@@ -2,6 +2,7 @@ import type { webcrypto } from "node:crypto";
 import { deriveKey } from "../_kernel/crypto.js";
 import {
   assertValidKeyMaterialByteLength,
+  createKeyHandleStore,
   decodeKeyMaterial,
   encodeKeyMaterial,
 } from "../_kernel/key-material.js";
@@ -37,7 +38,7 @@ type DigestKeyInternals = {
   hmacKey: webcrypto.CryptoKey;
 };
 
-const internals = new WeakMap<DigestKey, DigestKeyInternals>();
+const digestKeyStore = createKeyHandleStore<DigestKey, DigestKeyInternals>("digest");
 
 /**
  * Import raw operator key material into a {@link DigestKey} handle.
@@ -55,9 +56,7 @@ export async function importDigestKey(bytes: Uint8Array): Promise<DigestKey> {
   const hmacKey = await deriveKey(bytes, hmacInfo, { name: "HMAC", hash: "SHA-256", length: 256 }, [
     "sign",
   ]);
-  const key = Object.freeze({}) as DigestKey;
-  internals.set(key, { hmacKey });
-  return key;
+  return digestKeyStore.make({ hmacKey });
 }
 
 /**
@@ -93,8 +92,5 @@ export function decodeDigestKey(encoded: string, format: DigestKeyFormat): Uint8
  * Not re-exported from `@smonn/ids/digest`; external callers cannot reach this.
  */
 export function getDigestKeyHmacKey(key: DigestKey): webcrypto.CryptoKey {
-  const keyInternals = internals.get(key);
-  /* v8 ignore next -- defensive guard; only reachable with a forged DigestKey handle */
-  if (keyInternals === undefined) throw new Error("invalid digest key");
-  return keyInternals.hmacKey;
+  return digestKeyStore.get(key).hmacKey;
 }

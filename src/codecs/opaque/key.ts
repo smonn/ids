@@ -2,6 +2,7 @@ import type { webcrypto } from "node:crypto";
 import { deriveKey } from "../_kernel/crypto.js";
 import {
   assertValidKeyMaterialByteLength,
+  createKeyHandleStore,
   decodeKeyMaterial,
   encodeKeyMaterial,
 } from "../_kernel/key-material.js";
@@ -30,7 +31,7 @@ export type OpaqueKey = {
   readonly [opaqueKeyBrand]: "OpaqueKey";
 };
 
-const opaqueKeyInternals = new WeakMap<OpaqueKey, webcrypto.CryptoKey>();
+const opaqueKeyStore = createKeyHandleStore<OpaqueKey, webcrypto.CryptoKey>("opaque");
 
 /**
  * Imports operator key material into an {@link OpaqueKey} handle for the Opaque
@@ -53,16 +54,11 @@ export async function importOpaqueKey(bytes: Uint8Array): Promise<OpaqueKey> {
     "encrypt",
     "decrypt",
   ]);
-  const key = Object.freeze({}) as OpaqueKey;
-  opaqueKeyInternals.set(key, cryptoKey);
-  return key;
+  return opaqueKeyStore.make(cryptoKey);
 }
 
 export function getOpaqueKeyCryptoKey(key: OpaqueKey): webcrypto.CryptoKey {
-  const cryptoKey = opaqueKeyInternals.get(key);
-  /* v8 ignore next -- defensive guard; only reachable with a forged OpaqueKey handle */
-  if (cryptoKey === undefined) throw new Error("invalid opaque key");
-  return cryptoKey;
+  return opaqueKeyStore.get(key);
 }
 
 /**

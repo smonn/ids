@@ -172,11 +172,11 @@ import { isIdsError } from "@smonn/ids";
 
 **Key helper errors**:
 
-| Code                   | Thrown when                                       | Function                                                               |
-| ---------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
-| `invalid_key_length`   | Raw key bytes are not 16, 24, or 32 bytes         | `encodeSigningKey`, `decodeSigningKey`; rejected by `importSigningKey` |
-| `invalid_key_format`   | `format` argument is not `"hex"` or `"base64url"` | `encodeSigningKey`, `decodeSigningKey`                                 |
-| `invalid_key_encoding` | Encoded string is malformed for its format        | `decodeSigningKey`                                                     |
+| Code                   | Thrown when                                                                               | Function                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `invalid_key_length`   | Raw key bytes are not 16, 24, or 32 bytes                                                 | `encodeSigningKey`, `decodeSigningKey`; rejected by `importSigningKey` |
+| `invalid_key_format`   | `format` argument is not `"hex"` or `"base64url"`                                         | `encodeSigningKey`, `decodeSigningKey`                                 |
+| `invalid_key_encoding` | Encoded string is malformed for its format; `err.cause` holds the original decode `Error` | `decodeSigningKey`                                                     |
 
 **Verification error** — thrown by `verify`:
 

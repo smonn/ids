@@ -3,6 +3,7 @@ import { deriveKey, timingSafeEqual } from "../_kernel/crypto.js";
 import {
   assertValidKeyMaterialByteLength,
   assertValidKeyring,
+  createKeyHandleStore,
   decodeKeyMaterial,
   encodeKeyMaterial,
 } from "../_kernel/key-material.js";
@@ -37,7 +38,7 @@ type SigningKeyInternals = {
   hmacKey: webcrypto.CryptoKey;
 };
 
-const internals = new WeakMap<SigningKey, SigningKeyInternals>();
+const signingKeyStore = createKeyHandleStore<SigningKey, SigningKeyInternals>("signing");
 
 /**
  * Import raw operator key material into a {@link SigningKey} handle.
@@ -56,9 +57,7 @@ export async function importSigningKey(bytes: Uint8Array): Promise<SigningKey> {
     deriveKey(bytes, hmacInfo, { name: "HMAC", hash: "SHA-256", length: 256 }, ["sign"]),
     crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>),
   ]);
-  const key = Object.freeze({}) as SigningKey;
-  internals.set(key, { keyDigest: new Uint8Array(digestBuffer), hmacKey });
-  return key;
+  return signingKeyStore.make({ keyDigest: new Uint8Array(digestBuffer), hmacKey });
 }
 
 /**
@@ -108,8 +107,5 @@ export function getSigningKeyHmacKey(key: SigningKey): webcrypto.CryptoKey {
 }
 
 function getSigningKeyInternals(key: SigningKey): SigningKeyInternals {
-  const keyInternals = internals.get(key);
-  /* v8 ignore next -- defensive guard; only reachable with a forged SigningKey handle */
-  if (keyInternals === undefined) throw new Error("invalid signing key");
-  return keyInternals;
+  return signingKeyStore.get(key);
 }

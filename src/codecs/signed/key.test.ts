@@ -266,8 +266,17 @@ describe("getSigningKeyHmacKey", () => {
     expect(hmacKey.algorithm).toMatchObject({ name: "HMAC" });
   });
 
-  it("throws for an unregistered handle", () => {
+  it("getSigningKeyHmacKey throws on an unregistered handle (internal guard — plain Error)", () => {
     const fake = Object.freeze({}) as SigningKey;
-    expect(() => getSigningKeyHmacKey(fake)).toThrow(Error);
+    let err: unknown;
+    try {
+      getSigningKeyHmacKey(fake);
+    } catch (e) {
+      err = e;
+    }
+    // WeakMap handle-not-found is an internal invariant — stays plain Error, not IdsError
+    expect(err instanceof Error).toBe(true);
+    expect(isIdsError(err)).toBe(false);
+    expect((err as Error).message).toContain("signing");
   });
 });

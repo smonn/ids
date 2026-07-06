@@ -72,6 +72,8 @@ const raw2 = decodeOpaqueKey(b64, "base64url");
 
 The [CLI](/cli/) `keygen` command emits keys in this format.
 
+`decodeOpaqueKey` throws `IdsError` with `code: "invalid_key_encoding"` when the string is malformed for its format (bad hex digits, non-canonical base64url); `err.cause` holds the original decode `Error` with the specific reason. See the [error-code reference](/errors/) for the full `invalid_key_encoding` entry.
+
 ## `generateAt` validation
 
 `generateAt(date)` rejects invalid input and throws an `IdsError` with

@@ -58,9 +58,9 @@ describe("IdsError", () => {
     expect(err.cause).toBe(cause);
   });
 
-  it("cause is typed as ParseError | undefined", () => {
+  it("cause is typed as ParseError | Error | undefined", () => {
     const err = new IdsError("invalid_id", "not a valid ID", { cause: "invalid_prefix" });
-    expectTypeOf(err.cause).toEqualTypeOf<ParseError | undefined>();
+    expectTypeOf(err.cause).toEqualTypeOf<ParseError | Error | undefined>();
   });
 
   it("brand property is non-enumerable", () => {
