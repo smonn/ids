@@ -38,7 +38,7 @@ const SPECIFIER_TO_SOURCE: Record<string, string> = {
 
 interface CodeBlock {
   code: string;
-  /** Non-null when the block has a `no-verify` annotation; holds the annotation text. */
+  /** Non-null when the block has a `no-verify` annotation; holds the non-empty reason text. */
   skipReason: string | null;
 }
 
@@ -69,19 +69,35 @@ function getAllDocFiles(): string[] {
 /**
  * Extract fenced ```ts / ```typescript / ```js code blocks from Markdown content.
  *
- * A block annotated with `no-verify` (e.g. ```ts no-verify) is returned with a
- * non-null `skipReason` and must be excluded from import checks.
+ * A block annotated with `no-verify` must include a non-empty reason suffix after the
+ * keyword (e.g. ```ts no-verify: intentionally partial). Bare `no-verify` or a
+ * whitespace-only suffix causes an immediate throw identifying the file and snippet index.
+ * Valid `no-verify` blocks are returned with a non-null `skipReason` (the reason text)
+ * and must be excluded from import checks.
  */
-function extractCodeBlocks(content: string): CodeBlock[] {
+function extractCodeBlocks(content: string, filePath?: string): CodeBlock[] {
   const blocks: CodeBlock[] = [];
   // Match opening fences with optional annotations, then content, then closing fence.
   // [\s\S]*? spans multiple lines without the `s` flag — `.` is never used.
   const re = /^```(?:ts|typescript|js)([ \t][^\n]*)?\n([\s\S]*?)^```[ \t]*$/gm;
+  let index = 0;
   for (const match of content.matchAll(re)) {
     const annotation = (match[1] ?? "").trim();
     const code = match[2] ?? "";
-    const skipReason = annotation.includes("no-verify") ? annotation : null;
+    let skipReason: string | null = null;
+    if (annotation.includes("no-verify")) {
+      const after = annotation.slice(annotation.indexOf("no-verify") + "no-verify".length);
+      const reason = after.replace(/^:\s*/, "").trim();
+      if (!reason) {
+        const loc = filePath ? `${filePath}:snippet-${index}` : `snippet-${index}`;
+        throw new Error(
+          `${loc}: \`no-verify\` annotation requires a non-empty reason suffix (e.g. \`no-verify: intentionally partial\`)`,
+        );
+      }
+      skipReason = reason;
+    }
     blocks.push({ code, skipReason });
+    index++;
   }
   return blocks;
 }
@@ -252,6 +268,139 @@ function getSourceExports(specifier: string): Set<string> {
 }
 
 // ---------------------------------------------------------------------------
+// Unit tests for private helpers
+// ---------------------------------------------------------------------------
+
+describe("extractCodeBlocks", () => {
+  it("returns empty array for a document with no fenced blocks", () => {
+    expect(extractCodeBlocks("# Title\n\nSome text.\n")).toEqual([]);
+  });
+
+  it("extracts a single ts fenced block with no annotation", () => {
+    const content = "Before\n```ts\nconst x = 1;\n```\nAfter\n";
+    expect(extractCodeBlocks(content)).toEqual([{ code: "const x = 1;\n", skipReason: null }]);
+  });
+
+  it("extracts a single typescript fenced block", () => {
+    const content = "```typescript\nconst y = 2;\n```\n";
+    expect(extractCodeBlocks(content)).toEqual([{ code: "const y = 2;\n", skipReason: null }]);
+  });
+
+  it("extracts a single js fenced block", () => {
+    const content = "```js\nconst z = 3;\n```\n";
+    expect(extractCodeBlocks(content)).toEqual([{ code: "const z = 3;\n", skipReason: null }]);
+  });
+
+  it("extracts multiple fenced blocks in one document", () => {
+    const content = "```ts\nfoo();\n```\nMiddle\n```typescript\nbar();\n```\n";
+    expect(extractCodeBlocks(content)).toEqual([
+      { code: "foo();\n", skipReason: null },
+      { code: "bar();\n", skipReason: null },
+    ]);
+  });
+
+  it("sets skipReason to the reason text after no-verify:", () => {
+    const content = "```ts no-verify: standalone reason\nsome code\n```\n";
+    const blocks = extractCodeBlocks(content);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.skipReason).toBe("standalone reason");
+  });
+
+  it("sets skipReason to the reason portion only (not the full annotation)", () => {
+    const content = "```ts no-verify: intentionally broken example\nsome code\n```\n";
+    const blocks = extractCodeBlocks(content);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.skipReason).toBe("intentionally broken example");
+  });
+
+  it("leaves skipReason null for an unannotated block even when another block has no-verify", () => {
+    const content = "```ts no-verify: skip reason\nskipped\n```\n\n```ts\nnormal\n```\n";
+    const blocks = extractCodeBlocks(content);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]!.skipReason).toBe("skip reason");
+    expect(blocks[1]!.skipReason).toBeNull();
+  });
+});
+
+describe("parseBlockImports", () => {
+  it("returns empty array for a block with no import statements", () => {
+    expect(parseBlockImports("const x = 1;\nconsole.log(x);\n")).toEqual([]);
+  });
+
+  it("parses a plain named import from @smonn/ids", () => {
+    const code = 'import { Foo } from "@smonn/ids";\n';
+    expect(parseBlockImports(code)).toEqual([{ specifier: "@smonn/ids", names: ["Foo"] }]);
+  });
+
+  it("parses an import type from @smonn/ids", () => {
+    const code = 'import type { Bar } from "@smonn/ids";\n';
+    expect(parseBlockImports(code)).toEqual([{ specifier: "@smonn/ids", names: ["Bar"] }]);
+  });
+
+  it("parses a multi-binding import from @smonn/ids", () => {
+    const code = 'import { A, B, C } from "@smonn/ids";\n';
+    expect(parseBlockImports(code)).toEqual([{ specifier: "@smonn/ids", names: ["A", "B", "C"] }]);
+  });
+
+  it("excludes imports whose specifier is not @smonn/ids", () => {
+    const code = 'import { something } from "some-other-package";\n';
+    expect(parseBlockImports(code)).toEqual([]);
+  });
+
+  it("parses imports from @smonn/ids subpath specifiers", () => {
+    const code = 'import { reverse } from "@smonn/ids/reverse";\n';
+    expect(parseBlockImports(code)).toEqual([
+      { specifier: "@smonn/ids/reverse", names: ["reverse"] },
+    ]);
+  });
+
+  it("includes only the @smonn/ids import when a block mixes specifiers", () => {
+    const code = 'import { other } from "unrelated";\nimport { IdType } from "@smonn/ids";\n';
+    expect(parseBlockImports(code)).toEqual([{ specifier: "@smonn/ids", names: ["IdType"] }]);
+  });
+});
+
+describe("collectSourceExports", () => {
+  it("returns all exported names from a file that only exports", () => {
+    const exports = collectSourceExports("test/fixtures/docs-snippet-imports/all-exports.ts");
+    expect(exports.has("alpha")).toBe(true);
+    expect(exports.has("beta")).toBe(true);
+    expect(exports.has("Gamma")).toBe(true);
+    expect(exports.has("Delta")).toBe(true);
+    expect(exports.has("Epsilon")).toBe(true);
+    expect(exports.has("Zeta")).toBe(true);
+    // aliased re-export — exercises the `as` branch in blockRe
+    expect(exports.has("betaAlias")).toBe(true);
+    // async function — exercises the `(?:async\s+)?` arm in namedRe
+    expect(exports.has("eta")).toBe(true);
+    // generator — exercises the `function\s*\*?\s*` arm with `*` in namedRe
+    expect(exports.has("mu")).toBe(true);
+    // let / var — exercise the `let\s+` and `var\s+` arms in namedRe
+    expect(exports.has("kappa")).toBe(true);
+    expect(exports.has("lambda")).toBe(true);
+    // enum — exercises the `enum\s+` arm in namedRe
+    expect(exports.has("Theta")).toBe(true);
+    // abstract class — exercises the `abstract\s+class\s+` arm in namedRe
+    expect(exports.has("Iota")).toBe(true);
+  });
+
+  it("returns an empty set for a file with no exports", () => {
+    const exports = collectSourceExports("test/fixtures/docs-snippet-imports/no-exports.ts");
+    expect(exports.size).toBe(0);
+  });
+
+  it("includes only exported names from a mixed file", () => {
+    const exports = collectSourceExports("test/fixtures/docs-snippet-imports/mixed-exports.ts");
+    expect(exports.has("publicFn")).toBe(true);
+    expect(exports.has("publicConst")).toBe(true);
+    expect(exports.has("PublicClass")).toBe(true);
+    expect(exports.has("privateFn")).toBe(false);
+    expect(exports.has("privateConst")).toBe(false);
+    expect(exports.has("PrivateClass")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -336,6 +485,34 @@ describe("collectSourceExports", () => {
   });
 });
 
+describe("extractCodeBlocks no-verify enforcement", () => {
+  it("throws when no-verify has no reason suffix", () => {
+    const content = "```ts no-verify\nconsole.log('hi');\n```";
+    expect(() => extractCodeBlocks(content)).toThrow(
+      "`no-verify` annotation requires a non-empty reason suffix",
+    );
+  });
+
+  it("throws when no-verify has whitespace-only text after the colon", () => {
+    const content = "```ts no-verify:   \nconsole.log('hi');\n```";
+    expect(() => extractCodeBlocks(content)).toThrow(
+      "`no-verify` annotation requires a non-empty reason suffix",
+    );
+  });
+
+  it("passes when no-verify has a non-empty reason suffix", () => {
+    const content = "```ts no-verify: intentionally partial\nconsole.log('hi');\n```";
+    const blocks = extractCodeBlocks(content);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]?.skipReason).toBe("intentionally partial");
+  });
+
+  it("includes file path and snippet index in the error message when filePath is provided", () => {
+    const content = "```ts no-verify\nconsole.log('hi');\n```";
+    expect(() => extractCodeBlocks(content, "docs/foo.md")).toThrow("docs/foo.md:snippet-0:");
+  });
+});
+
 describe("docs snippet imports", () => {
   it("every @smonn/ids import in a doc snippet references a valid specifier", () => {
     const violations: string[] = [];
@@ -343,7 +520,7 @@ describe("docs snippet imports", () => {
     for (const docFile of getAllDocFiles()) {
       const relPath = docFile.slice(ROOT.length + 1);
       const content = readFileSync(docFile, "utf-8");
-      const blocks = extractCodeBlocks(content);
+      const blocks = extractCodeBlocks(content, relPath);
 
       for (let i = 0; i < blocks.length; i++) {
         const block = blocks[i];
@@ -368,7 +545,7 @@ describe("docs snippet imports", () => {
     for (const docFile of getAllDocFiles()) {
       const relPath = docFile.slice(ROOT.length + 1);
       const content = readFileSync(docFile, "utf-8");
-      const blocks = extractCodeBlocks(content);
+      const blocks = extractCodeBlocks(content, relPath);
 
       for (let i = 0; i < blocks.length; i++) {
         const block = blocks[i];
