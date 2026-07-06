@@ -16,7 +16,7 @@
 #
 # Actions are SHA-pinned with a version comment to satisfy the repo convention
 # (guarded by scorecard.yml); the codeql-action SHA matches the one already used
-# in scorecard.yml (v4.36.2).
+# in scorecard.yml (v4.36.3).
 
 name: "CodeQL Advanced"
 
@@ -60,7 +60,7 @@ jobs:
           persist-credentials: false
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        uses: github/codeql-action/init@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -75,6 +75,6 @@ jobs:
               - 'src/adapters/test-helpers.ts'
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        uses: github/codeql-action/analyze@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
         with:
           category: "/language:${{ matrix.language }}"
