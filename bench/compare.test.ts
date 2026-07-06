@@ -76,7 +76,9 @@ describe("renderComment", () => {
     );
     expect(out).toContain("✅ 2 within noise");
     expect(out).toContain("<details>");
-    expect(out).toContain("<summary>✅ 2 benches within noise (±15%)</summary>");
+    expect(out).toContain(
+      "<summary>✅ 2 benches within noise (±15% sync / ±40% async-crypto)</summary>",
+    );
     // Quiet rows live inside the collapsed block: nothing between the headline
     // and <details> but blank lines (no unfolded attention table).
     const headlineIdx = out.indexOf("✅ 2 within noise");

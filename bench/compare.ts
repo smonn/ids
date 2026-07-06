@@ -257,7 +257,7 @@ export function renderComment(base: Report | null, pr: Report): string {
   if (quiet.length > 0) {
     lines.push("<details>");
     lines.push(
-      `<summary>✅ ${quiet.length} bench${quiet.length === 1 ? "" : "es"} within noise (±${pct(WARN_THRESHOLD)})</summary>`,
+      `<summary>✅ ${quiet.length} bench${quiet.length === 1 ? "" : "es"} within noise (±${pct(WARN_THRESHOLD)} sync / ±${pct(ASYNC_WARN_THRESHOLD)} async-crypto)</summary>`,
     );
     lines.push("");
     lines.push("| Bench | Base p50 | PR p50 | Δ p50 | PR throughput |");
@@ -274,7 +274,7 @@ export function renderComment(base: Report | null, pr: Report): string {
     lines.push(
       `⚠️ **${severe} severe regression${severe === 1 ? "" : "s"}** in sync benches (above +${pct(SEVERE_THRESHOLD)}).` +
         (regressions > severe
-          ? ` ${regressions - severe} more above warn (±${pct(WARN_THRESHOLD)}).`
+          ? ` ${regressions - severe} more above warn (±${pct(WARN_THRESHOLD)} sync / ±${pct(ASYNC_WARN_THRESHOLD)} async-crypto).`
           : "") +
         ` This check is informational and does not block merge — please review before merging.`,
     );
