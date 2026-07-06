@@ -62,6 +62,7 @@ export type IdParamVerifyOptions = IdParamOptions & {
 };
 
 function storeLocal(res: Response, key: string, id: unknown): void {
+  // Deliberate: Object.defineProperty over plain assignment — proto-safety; always writes an own property regardless of res.locals prototype. See CONTEXT.md postures.
   Object.defineProperty(res.locals, key, {
     enumerable: true,
     writable: true,
