@@ -41,7 +41,7 @@ describe("fastTenByteRng", () => {
 });
 
 describe("user-supplied rng zero-tail behavior", () => {
-  it("a no-op rng at codec level leaves the random region as zero (zero-tail is current behavior, not a guarantee)", () => {
+  it("a no-op rng at codec level leaves the random region as zero on the first generate call of a freshly-constructed codec instance (zero-tail holds only for that first call)", () => {
     const usr = createTimestampId("rzt", {
       allowDuplicateBrand: true,
       now: () => 0,
@@ -62,9 +62,33 @@ describe("user-supplied rng zero-tail behavior", () => {
       },
     });
     usr.generate();
-    // The codec passes a freshly-zero-initialized view; if layout.ts ever
-    // reused a dirty buffer this assertion would catch it.
+    // The codec constructs a fresh Uint8Array at codec-creation time (zero-initialised
+    // by the JS runtime), so the user rng receives a zeroed view on the first call only.
+    // Subsequent calls receive whatever the prior rng left in the shared scratch buffer.
     expect(receivedBefore).toEqual(Array.from({ length: 10 }, () => 0));
+  });
+
+  it("on the second generate call, the user rng receives stale bytes from the first call's random tail (shared-scratch behavior)", () => {
+    let callCount = 0;
+    let secondCallBytes: number[] = [];
+    const usr = createTimestampId("rzs", {
+      allowDuplicateBrand: true,
+      now: () => 0,
+      rng: (target) => {
+        callCount++;
+        if (callCount === 1) {
+          target.fill(0xab); // first call: write a known non-zero pattern
+        } else {
+          secondCallBytes = Array.from(target); // second call: capture before no-op
+        }
+      },
+    });
+    usr.generate(); // scratch filled with 0xAB
+    usr.generate(); // no-op rng; rng should receive the 0xAB bytes left from call 1
+    // The shared scratch buffer is not zeroed between calls, so a no-op rng on the
+    // second call inherits the prior call's random tail. This is self-harm only —
+    // those bytes were already published in the caller's own prior ID.
+    expect(secondCallBytes).toEqual(Array.from({ length: 10 }, () => 0xab));
   });
 });
 
