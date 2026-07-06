@@ -1,7 +1,7 @@
 // Source-hygiene lint: scan all git-tracked text files for raw invisible
-// code points that are banned from source (NUL, C0/C1 controls, bidi/format
-// chars, line/paragraph separators). These enable Trojan-Source attacks
-// (CVE-2021-42574 family) and make files unreviewable by diff/grep/blame.
+// code points that are banned from source (NUL, C0/C1 controls including DEL,
+// bidi/format chars, line/paragraph separators). These enable Trojan-Source
+// attacks (CVE-2021-42574 family) and make files unreviewable by diff/grep/blame.
 //
 // Excluded from the forbidden set: tab (U+0009), LF (U+000A), CR (U+000D).
 // Exempt from scanning: binary asset extensions (.png, etc.).
@@ -23,10 +23,15 @@ const BINARY_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", "
 
 // Forbidden code points in source files.
 // Excludes tab (U+0009), LF (U+000A), CR (U+000D) -- all legitimately appear in code.
+// Covers: C0 controls (U+0000-U+001F) plus DEL (U+007F), C1 controls (U+0080-U+009F),
+// the Arabic Letter Mark (U+061C), zero-width/bidi marks (U+200B-U+200F), line/paragraph
+// separators (U+2028-U+2029), explicit bidi embeddings/overrides (U+202A-U+202E),
+// invisible operators through the deprecated format-character block (U+2060-U+206F),
+// and the BOM / zero-width no-break space (U+FEFF).
 // Expressed as \uXXXX escapes so this file is itself lint-clean.
 /* oxlint-disable no-control-regex -- intentional: detect raw invisible code points in source */
 const FORBIDDEN_RE =
-  /[\u0000-\u0008\u000b-\u000c\u000e-\u001f\u0080-\u009f\u200b-\u200f\u2028-\u2029\u202a-\u202e\u2060-\u2069\ufeff]/;
+  /[\u0000-\u0008\u000b-\u000c\u000e-\u001f\u007f\u0080-\u009f\u061c\u200b-\u200f\u2028-\u2029\u202a-\u202e\u2060-\u206f\ufeff]/;
 /* oxlint-enable no-control-regex */
 
 /**
