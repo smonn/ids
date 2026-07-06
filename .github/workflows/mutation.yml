@@ -6,10 +6,13 @@ name: Mutation testing
 # comparison flips — mutation testing surfaces exactly those survivors. See
 # CONTRIBUTING.md > Tests and the docs/audits/ snapshots that motivated it.
 #
-# NON-BLOCKING by design: no PR gate, no failure threshold (`thresholds.break`
-# is unset in stryker.config.json). The deliverables are the clear-text score
-# in the job log and the HTML report artifact; surviving mutants worth acting
-# on become filed issues, not red checks. The incremental cache is persisted
+# Weekly scheduled run, not a PR gate: the only triggers are schedule and
+# workflow_dispatch (pinned by test/mutation-gating.test.ts). Stryker exits
+# non-zero when the mutation score falls below `thresholds.break: 80` in
+# stryker.config.json (ADR-0037), so a score collapse fails this workflow.
+# Individual surviving mutants above the floor are still triaged into filed
+# issues, not red checks. The deliverables are the clear-text score in the
+# job log and the HTML report artifact; the incremental cache is persisted
 # via the Actions cache so the weekly run only re-tests what changed.
 on:
   schedule:
