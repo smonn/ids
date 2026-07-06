@@ -119,6 +119,11 @@ const cases = [
     rule: "adapters-no-internals",
   },
   {
+    // nested path — verifies from.path ".+" matches slashes (not just flat adapters)
+    fixture: "test/fixtures/depcruise/adapters/nested/violation.ts",
+    rule: "adapters-no-internals",
+  },
+  {
     fixture: "test/fixtures/depcruise/adapters/test-helpers.ts",
     rule: "adapters-test-helpers-imports-allowlist",
   },
@@ -293,11 +298,37 @@ describe("depcruise config — sync assertions", () => {
 describe("depcruise config — module coverage meta-test", () => {
   // Files deliberately exempt from the from.path coverage check.
   // Every entry must carry an inline comment explaining why it is exempt.
-  const COVERAGE_EXEMPT: ReadonlySet<string> = new Set<string>();
+  const COVERAGE_EXEMPT: ReadonlySet<string> = new Set([
+    "src/error.ts", // foundational error module intentionally importable by any module; no rule scopes its callers
+  ]);
+
+  // Rules whose from.path is intentionally broad (matching all or most src/ files)
+  // and must NOT count toward per-module scoping coverage. Scoping for these rules
+  // is enforced by to.path, not from.path.
+  const COVERAGE_PATTERN_SKIP_LIST: ReadonlySet<string> = new Set([
+    "key-material-leaf-restricted", // from.path "^src.*\\.ts$" covers every src/ file; scoping via to.path only
+    "crypto-leaf-restricted", // from.path "^src.*\\.ts$" covers every src/ file; scoping via to.path only
+    "rng-leaf-restricted", // from.path "^src.*\\.ts$" covers every src/ file; scoping via to.path only
+    "codec-constructors-layouts-only", // from.path "^src" covers every src/ file; scoping via to.path only
+    "_kernel-brand-registry-only-from-codec-constructors", // from.path "^src" covers every src/ file; scoping via to.path only
+  ]);
+
+  it("COVERAGE_PATTERN_SKIP_LIST is falsifiable: a synthetic nonexistent path is reported uncovered", () => {
+    const fromPatterns = mainConfig.forbidden
+      .filter((r) => typeof r.from.path === "string" && !COVERAGE_PATTERN_SKIP_LIST.has(r.name))
+      .map((r) => new RegExp(r.from.path as string));
+
+    const syntheticPath = "src/__nonexistent__/module.ts";
+    const covered = fromPatterns.some((re) => re.test(syntheticPath));
+    expect(
+      covered,
+      `COVERAGE_PATTERN_SKIP_LIST is empty or incomplete: "${syntheticPath}" is covered by a remaining broad rule`,
+    ).toBe(false);
+  });
 
   it("every production src/ module is matched by at least one rule's from.path pattern", () => {
     const fromPatterns = mainConfig.forbidden
-      .filter((r) => typeof r.from.path === "string")
+      .filter((r) => typeof r.from.path === "string" && !COVERAGE_PATTERN_SKIP_LIST.has(r.name))
       .map((r) => new RegExp(r.from.path as string));
 
     const srcDir = join(projectRoot, "src");
