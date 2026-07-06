@@ -7,11 +7,16 @@ name: Bench
 # no longer required, so a plain `paths:` filter is correct and far simpler — PRs
 # that touch none of these files just don't run it.
 #
-# The push trigger runs only the `baseline` job: it warms the bench-base-<sha>
-# cache for each main commit so PR runs restore their base numbers instead of
-# re-benching the base branch. No paths filter on push — any main commit can be
-# a PR's base sha, so a filtered warmer would leave gaps for merges that don't
-# touch bench-affecting files.
+# The push trigger runs only the `baseline` job: it warms the bench-base cache
+# for each main commit so PR runs restore their base numbers instead of
+# re-benching the base branch. The cache key includes the runner's CPU model
+# (see the "Compute CPU model cache key" steps), so a PR run only ever restores
+# a baseline benched on its own processor model — cross-model p50 comparisons
+# (10–30% spread on GitHub's heterogeneous fleet) are structurally impossible,
+# preserving the paired-measurement rationale behind bench/compare.ts's
+# thresholds (#1046). No paths filter on push — any main commit can be a PR's
+# base sha, so a filtered warmer would leave gaps for merges that don't touch
+# bench-affecting files.
 on:
   pull_request:
     paths:
@@ -89,12 +94,29 @@ jobs:
       - name: Bench PR head
         run: pnpm bench > /tmp/pr.json
 
+      # Same computation as the baseline job's step below — the two must stay
+      # in lockstep or PR runs never hit the warmed cache. Hashing the model
+      # string keeps the key free of spaces/commas actions/cache can't take.
+      - name: Compute CPU model cache key
+        id: cpu
+        run: |
+          model=$(node -p "require('node:os').cpus()[0]?.model ?? 'unknown'")
+          hash=$(printf '%s' "$model" | sha256sum | cut -c1-12)
+          echo "CPU model: $model (key fragment: $hash)"
+          echo "model-hash=$hash" >> "$GITHUB_OUTPUT"
+
+      # Strict key match only — no restore-keys prefix fallback. Restoring a
+      # different model's baseline would reintroduce the cross-model comparison
+      # the model-keyed cache exists to prevent; a miss takes the on-runner
+      # fallback below instead. On a miss, the post step saves the fallback's
+      # base.json under this runner's own (sha, model) key, so per-model
+      # coverage accretes as PRs run.
       - name: Restore base bench cache
         id: base-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /tmp/base.json
-          key: bench-base-${{ github.event.pull_request.base.sha }}
+          key: bench-base-${{ github.event.pull_request.base.sha }}-${{ steps.cpu.outputs.model-hash }}
 
       - name: Add base worktree
         if: steps.base-cache.outputs.cache-hit != 'true'
@@ -158,12 +180,19 @@ jobs:
               });
             }
 
-  # Warm the bench-base-<sha> cache on every push to main so PR runs restore
-  # their base numbers instead of re-benching the base branch (halves the PR
-  # bench job). The key must stay in sync with the bench job's restore key
-  # above — that contract is why this job lives in the same file. A cache miss
-  # on the PR side stays harmless: the bench job falls back to benching the
-  # base worktree itself.
+  # Warm the bench-base-<sha>-<cpu-model-hash> cache on every push to main so
+  # PR runs restore their base numbers instead of re-benching the base branch
+  # (halves the PR bench job). The key must stay in sync with the bench job's
+  # restore key above — that contract is why this job lives in the same file.
+  #
+  # The CPU-model suffix is what keeps the cached baseline statistically valid
+  # (#1046): sync p50s differ 10–30% across GitHub's heterogeneous processor
+  # fleet, wider than compare.ts's ±15%/+30% thresholds, so a baseline is only
+  # comparable on the model that produced it. The warmer therefore warms one
+  # model per push — whichever runner it lands on — and PR runs on other models
+  # miss the cache and bench base on-runner (paired measurement, the pre-warmer
+  # path), saving under their own model key for later PRs. The trade-off is a
+  # partial hit rate instead of a statistically silent cross-model comparison.
   baseline:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -172,12 +201,22 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
+      # Runs before setup-node-pnpm: the runner's preinstalled system node is
+      # enough here, and the cache restore must know the key first.
+      - name: Compute CPU model cache key
+        id: cpu
+        run: |
+          model=$(node -p "require('node:os').cpus()[0]?.model ?? 'unknown'")
+          hash=$(printf '%s' "$model" | sha256sum | cut -c1-12)
+          echo "CPU model: $model (key fragment: $hash)"
+          echo "model-hash=$hash" >> "$GITHUB_OUTPUT"
+
       - name: Restore existing baseline cache
         id: base-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /tmp/base.json
-          key: bench-base-${{ github.sha }}
+          key: bench-base-${{ github.sha }}-${{ steps.cpu.outputs.model-hash }}
 
       - uses: ./.github/actions/setup-node-pnpm
         if: steps.base-cache.outputs.cache-hit != 'true'

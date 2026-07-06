@@ -55,8 +55,14 @@ function bench(name: string, p50_ns: number) {
   };
 }
 
-function report(benches: ReturnType<typeof bench>[]): Report {
-  return { schema: 1, node: "v22.0.0", platform: "linux x64", benches };
+function report(benches: ReturnType<typeof bench>[], cpuModel?: string): Report {
+  return {
+    schema: 1,
+    node: "v22.0.0",
+    platform: "linux x64",
+    ...(cpuModel !== undefined && { cpuModel }),
+    benches,
+  };
 }
 
 describe("renderComment", () => {
@@ -131,6 +137,47 @@ describe("renderComment", () => {
     const out = renderComment(report([bench("generate", 100)]), report([bench("generate", 100)]));
     expect(out).toContain("<sub>Thresholds on p50");
     expect(out).toContain("`v22.0.0` linux x64");
+  });
+
+  it("shows CPU-model provenance in the footer when both reports carry it", () => {
+    const out = renderComment(
+      report([bench("generate", 100)], "Intel(R) Xeon(R) Platinum 8370C"),
+      report([bench("generate", 100)], "Intel(R) Xeon(R) Platinum 8370C"),
+    );
+    expect(out).toContain("Base: `v22.0.0` linux x64 (Intel(R) Xeon(R) Platinum 8370C).");
+    expect(out).toContain("PR: `v22.0.0` linux x64 (Intel(R) Xeon(R) Platinum 8370C).");
+  });
+
+  it("tolerates a baseline without cpuModel (pre-#1046 report): no caveat, PR-side provenance only", () => {
+    const out = renderComment(
+      report([bench("generate", 100)]),
+      report([bench("generate", 140)], "Intel(R) Xeon(R) Platinum 8370C"),
+    );
+    expect(out).toContain("Base: `v22.0.0` linux x64. PR:");
+    expect(out).toContain("PR: `v22.0.0` linux x64 (Intel(R) Xeon(R) Platinum 8370C).");
+    expect(out).not.toContain("Cross-model comparison");
+  });
+
+  it("flags a cross-model comparison with a caveat line, without changing classification", () => {
+    const out = renderComment(
+      report([bench("generate", 100)], "Intel(R) Xeon(R) Platinum 8272CL"),
+      report([bench("generate", 140)], "AMD EPYC 7763"),
+    );
+    expect(out).toContain("Cross-model comparison");
+    expect(out).toContain("`Intel(R) Xeon(R) Platinum 8272CL`");
+    expect(out).toContain("`AMD EPYC 7763`");
+    // Caveat sits above the attention table, right after the headline.
+    expect(out.indexOf("Cross-model comparison")).toBeLessThan(out.indexOf("| Bench |"));
+    // Classification is untouched: a +40% sync regression is still severe.
+    expect(out).toContain("🛑 **1 severe regression**");
+  });
+
+  it("omits the cross-model caveat when both reports carry the same cpuModel", () => {
+    const out = renderComment(
+      report([bench("generate", 100)], "AMD EPYC 7763"),
+      report([bench("generate", 140)], "AMD EPYC 7763"),
+    );
+    expect(out).not.toContain("Cross-model comparison");
   });
 
   it("reports absolute numbers only when there is no baseline", () => {

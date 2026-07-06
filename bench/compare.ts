@@ -15,14 +15,27 @@ export type Report = {
   schema: 1;
   node: string;
   platform: string;
+  // Optional: reports produced before the model-keyed baseline cache (#1046)
+  // predate this field, and the bench job's base-worktree fallback runs the
+  // base commit's own bench script, which may be that old code. Absence is
+  // valid, not an error.
+  cpuModel?: string;
   benches: Bench[];
 };
 
 const WARN_THRESHOLD = 0.15;
 
 // Severe-regression threshold for the *gating* benches. Only sync, ns-scale ops
-// are eligible (see isBlockingEligible): their run-to-run p50 drift is <1% on
-// shared CI runners, so a 30% jump is real signal, not noise.
+// are eligible (see isBlockingEligible). The rationale assumes paired
+// measurement: base and PR p50s come either from the same runner (the bench
+// job's on-runner fallback) or from the same CPU model (the baseline cache is
+// keyed by base sha *and* CPU model — see bench.yml, #1046). Same-runner
+// run-to-run p50 drift is <1%, and same-model cross-VM drift stays well inside
+// the warn threshold, so a 30% jump is real signal, not noise. Cross-model
+// comparisons — where GitHub's heterogeneous fleet alone can move sync p50 by
+// 10–30% — are structurally prevented by the cache key; if this script ever
+// sees one anyway (standalone use, workflow drift), renderComment emits a
+// cross-model caveat instead of silently trusting the thresholds.
 const SEVERE_THRESHOLD = 0.3;
 
 // opaque.* / wrapped.* / signed.* / digest.* operations use async crypto
@@ -78,6 +91,13 @@ function fmtOpsPerSec(ns: number): string {
 function fmtDelta(delta: number): string {
   const sign = delta >= 0 ? "+" : "";
   return `${sign}${(delta * 100).toFixed(1)}%`;
+}
+
+/** Platform string for the footer, with CPU model appended when the report
+ * carries one (reports from before #1046 don't).
+ */
+function provenance(r: Report): string {
+  return r.cpuModel === undefined ? r.platform : `${r.platform} (${r.cpuModel})`;
 }
 
 type RowStatus = "severe" | "warn" | "improvement" | "new" | "removed" | "ok";
@@ -183,6 +203,21 @@ export function renderComment(base: Report | null, pr: Report): string {
   lines.push(headline.join(" · "));
   lines.push("");
 
+  // Defense-in-depth: the model-keyed baseline cache (#1046) guarantees CI
+  // never compares across CPU models, so this should not fire there. It exists
+  // for standalone/local use of this script and as a tripwire against future
+  // workflow drift. Informational only — classification above is unchanged,
+  // because a second severity mode would complicate the contract for a path
+  // that is structurally prevented in CI.
+  if (base.cpuModel !== undefined && pr.cpuModel !== undefined && base.cpuModel !== pr.cpuModel) {
+    lines.push(
+      `> ⚠️ **Cross-model comparison**: the baseline was benched on a different CPU model ` +
+        `(base \`${base.cpuModel}\` vs PR \`${pr.cpuModel}\`). Cross-model p50 differences of ` +
+        `10–30% are common on shared runners, so the deltas and thresholds below are unreliable.`,
+    );
+    lines.push("");
+  }
+
   if (attention.length > 0) {
     lines.push("| Bench | Base p50 | PR p50 | Δ p50 | PR throughput | Notes |");
     lines.push("| --- | ---: | ---: | ---: | ---: | --- |");
@@ -223,7 +258,7 @@ export function renderComment(base: Report | null, pr: Report): string {
     `<sub>Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}; severe +${pct(SEVERE_THRESHOLD)} (sync benches only). ` +
       `opaque.* / wrapped.* / signed.* / digest.* are async-crypto and reported for information only — ` +
       `their shared-runner variance is too high to gate on. This check is informational and never fails. ` +
-      `Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.</sub>`,
+      `Base: \`${base.node}\` ${provenance(base)}. PR: \`${pr.node}\` ${provenance(pr)}.</sub>`,
   );
 
   return lines.join("\n") + "\n";

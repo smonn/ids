@@ -103,7 +103,7 @@ Jobs that check out an agent/PR branch resolve local actions (`./.github/actions
 | `release.yml` | push to `main` | Changesets versioning / publish |
 | `ci.yml` | PR, push to `main` | Lint, typecheck, test, depcruise, build |
 | `ci-peer-floors.yml` | PR | Verify adapter peer-dependency floor versions |
-| `bench.yml` | PR, push to `main` | Run benchmarks (PR) / warm the base bench cache (push) |
+| `bench.yml` | PR, push to `main` | Run benchmarks (PR) / warm the per-CPU-model base bench cache (push) |
 | `issue-labels.yml` / `pr-labels.yml` | issue/PR opened/edited/sync | Apply descriptive (`type:`/`area:`/`size:`/…) labels |
 | `labels.yml` | push to `main`, dispatch | Reconcile the label definitions (names, colours, descriptions) |
 | `backfill-labels.yml` | dispatch | One-time namespaced-label backfill (ADR-0029 migration) |
