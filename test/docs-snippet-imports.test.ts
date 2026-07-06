@@ -418,7 +418,7 @@ describe("collectSourceExports", () => {
 // Unit tests for collectSourceExports recursive behaviour
 // ---------------------------------------------------------------------------
 
-describe("collectSourceExports", () => {
+describe("collectSourceExports — recursive re-exports", () => {
   let tmpRoot: string;
 
   beforeAll(() => {
