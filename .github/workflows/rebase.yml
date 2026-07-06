@@ -218,7 +218,7 @@ jobs:
           claude_args: |
             --max-turns 60
             --model claude-sonnet-5
-            --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
+            --allowedTools "Bash(git:*),Bash(pnpm:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
           prompt: |
             /resolving-merge-conflicts
 

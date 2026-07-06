@@ -293,16 +293,16 @@ jobs:
           # Code/test changes go through the project `tdd` skill (.claude/skills/tdd),
           # invoked via `/tdd` in the prompt, so review fixes follow red→green→refactor
           # and the testing standards rather than ad-hoc edits; `Skill` is in allowedTools
-          # so it can run (and chain to `/codebase-design`). Bash stays (the agent needs
-          # git for local commits and pnpm for the CI gate), but the prompt forbids gh
-          # and push and there are no credentials for either. The skill spends several
+          # so it can run (and chain to `/codebase-design`). Bash is scoped to git
+          # (local commits) and pnpm (the CI gate); gh isn't in the allowlist and the
+          # prompt forbids push — there are no credentials for either. The skill spends several
           # turns per cycle, and a review can carry many threads, so this needs the same
           # generous budget as implement.yml — keep --max-turns and timeout-minutes in
           # step with each other.
           claude_args: |
             --max-turns 150
             --model claude-sonnet-5
-            --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
+            --allowedTools "Bash(pnpm:*),Bash(git:*),Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
           prompt: |
             A human applied the `do:address` label to pull request
             #${{ env.PR_NUMBER }} (branch `${{ env.BRANCH }}`) of ${{ github.repository }}
