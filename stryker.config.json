@@ -3,6 +3,7 @@
   "testRunner": "vitest",
   "plugins": ["@stryker-mutator/vitest-runner"],
   "mutate": ["src/**/*.ts", "bin/**/*.ts", "!src/**/*.test.ts", "!src/**/test-helpers.ts"],
+  "thresholds": { "high": 85, "low": 80, "break": 80 },
   "incremental": true,
   "incrementalFile": "reports/stryker-incremental.json",
   "reporters": ["html", "clear-text", "progress"],
