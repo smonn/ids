@@ -231,8 +231,11 @@ jobs:
           allowed_bots: "smonn[bot]"
           claude_args: |
             --max-turns 60
-            --model claude-sonnet-4-6
-            --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
+            --model claude-sonnet-5
+            --effort high
+            --fallback-model claude-sonnet-4-6
+            --allowedTools "Bash(pnpm:*),Bash(git:*),Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
+            --disallowedTools "Bash(git push:*)"
           prompt: |
             You are fixing failing CI on pull request #${{ steps.gate.outputs.pr }}
             (branch `${{ env.BRANCH }}`) of ${{ github.repository }}. The branch is
@@ -279,6 +282,11 @@ jobs:
             6. If there was nothing to fix (the gate already passes), write
                `.autofix/manifest.json` containing exactly:
                    { "fixed": false, "escalate": false }
+
+            STYLE — an escalation comment is read by a busy maintainer: state what
+            failed, why you can't fix it safely, and what a human needs to decide, in
+            a few short sentences. No log dumps (link or name the failing gate
+            instead), no narration of what you tried, no closing recap.
 
             `.autofix/manifest.json` MUST contain ONLY the scalar fields above — no prose,
             nothing to escape. Author `.autofix/escalation.md` with the Write tool, which

@@ -251,7 +251,9 @@ jobs:
           # opus if triage quality needs it.
           claude_args: |
             --max-turns 40
-            --model claude-sonnet-4-6
+            --model claude-sonnet-5
+            --effort high
+            --fallback-model claude-sonnet-4-6
             --allowedTools "Bash(pnpm:*),Read,Grep,Glob,Write,TodoWrite,Task"
           prompt: |
             /triage #${{ env.ISSUE_NUMBER }}
@@ -305,6 +307,12 @@ jobs:
             - For bugs, reproduce with a minimal failing test and `pnpm test` (Bash is
               scoped to `pnpm` only for exactly this), then DELETE the temp test — leave
               no repro files. Triage ONLY: do not modify source code, commit, or push.
+
+            STYLE — the comment is read by a busy maintainer: lead with the decision,
+            use short plain sentences, and include only what changes what the reader
+            does next. No preamble, no restating the issue text, no closing recap.
+            Acceptance criteria stay a tight bullet list; everything else is a few
+            sentences, never padded to look thorough.
 
             DELIVERABLE — write exactly these two files under a `.triage/` directory; a
             later deterministic step reads them and does all the commenting + labeling:

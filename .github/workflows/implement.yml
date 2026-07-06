@@ -221,8 +221,11 @@ jobs:
           # headroom — keep issues small AND give the loop room to finish.
           claude_args: |
             --max-turns 150
-            --model claude-sonnet-4-6
-            --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
+            --model claude-sonnet-5
+            --effort high
+            --fallback-model claude-sonnet-4-6
+            --allowedTools "Bash(pnpm:*),Bash(git:*),Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
+            --disallowedTools "Bash(git push:*)"
           prompt: |
             You are the implementation agent for `@smonn/ids`, a TypeScript library
             for encoding and decoding sortable IDs, running headless in CI. Implement
@@ -348,6 +351,12 @@ jobs:
                backtick) — write them as plain characters; GitHub renders them. A
                literal backslash-n or backslash-`<` in a body is a bug. You never
                touch JSON escaping or `gh`; the poster does.
+
+               STYLE — every body you write is read by a busy maintainer: lead with
+               the conclusion, use short plain sentences, and include only what
+               changes what the reader does next. Fill template sections in one or
+               two sentences each (or `N/A`); do not restate the diff, quote the
+               issue back, or add sections the template doesn't ask for.
 
                On the NORMAL (implemented) path, write:
                - `.impl/pr-body.md` — the raw PR description. Fill in the repository
