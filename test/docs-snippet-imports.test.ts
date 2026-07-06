@@ -226,25 +226,18 @@ describe("extractCodeBlocks", () => {
     ]);
   });
 
-  it("sets skipReason to the annotation text when no-verify appears alone", () => {
-    const content = "```ts no-verify\nsome code\n```\n";
-    const blocks = extractCodeBlocks(content);
-    expect(blocks).toHaveLength(1);
-    expect(blocks[0]!.skipReason).toBe("no-verify");
-  });
-
-  it("sets skipReason to the full annotation when no-verify has trailing text", () => {
+  it("sets skipReason to the reason text when no-verify has a reason without a colon", () => {
     const content = "```ts no-verify intentionally broken example\nsome code\n```\n";
     const blocks = extractCodeBlocks(content);
     expect(blocks).toHaveLength(1);
-    expect(blocks[0]!.skipReason).toBe("no-verify intentionally broken example");
+    expect(blocks[0]!.skipReason).toBe("intentionally broken example");
   });
 
   it("leaves skipReason null for an unannotated block even when another block has no-verify", () => {
-    const content = "```ts no-verify\nskipped\n```\n\n```ts\nnormal\n```\n";
+    const content = "```ts no-verify: skipped example\nskipped\n```\n\n```ts\nnormal\n```\n";
     const blocks = extractCodeBlocks(content);
     expect(blocks).toHaveLength(2);
-    expect(blocks[0]!.skipReason).toBe("no-verify");
+    expect(blocks[0]!.skipReason).toBe("skipped example");
     expect(blocks[1]!.skipReason).toBeNull();
   });
 });
