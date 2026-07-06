@@ -79,7 +79,7 @@ function extractCodeBlocks(content: string, filePath?: string): CodeBlock[] {
   const blocks: CodeBlock[] = [];
   // Match opening fences with optional annotations, then content, then closing fence.
   // [\s\S]*? spans multiple lines without the `s` flag — `.` is never used.
-  const re = /^```(?:ts|typescript|js)([ \t][^\n]*)?\n([\s\S]*?)^```[ \t]*$/gm;
+  const re = /^```(?:tsx|typescript|jsx|javascript|ts|js)([ \t][^\n]*)?\n([\s\S]*?)^```[ \t]*$/gm;
   let index = 0;
   for (const match of content.matchAll(re)) {
     const annotation = (match[1] ?? "").trim();
@@ -208,6 +208,14 @@ function collectSourceExports(
     // Bare/external specifiers: skip, contribute no names.
   }
 
+  // 1b. `export * as ns from "..."` — namespace re-exports: record the namespace identifier
+  // directly. No recursion into the target — the namespace object itself is the export.
+  const nsStarRe = /\bexport\s+\*\s+as\s+(\w+)\s+from\s+["']([^"']+)["']/g;
+  for (const match of content.matchAll(nsStarRe)) {
+    const nsName = match[1] ?? "";
+    if (nsName) names.add(nsName);
+  }
+
   // 2. `export [type] { ... } from "..."` (named re-export) or `export [type] { ... }` (local).
   // The optional `from "..."` group distinguishes the two forms.
   const blockRe = /\bexport\s+(?:type\s+)?\{([^}]+)\}(?:\s+from\s+["']([^"']+)["'])?/g;
@@ -299,6 +307,43 @@ describe("extractCodeBlocks", () => {
   it("extracts a single js fenced block", () => {
     const content = "```js\nconst z = 3;\n```\n";
     expect(extractCodeBlocks(content)).toEqual([{ code: "const z = 3;\n", skipReason: null }]);
+  });
+
+  it("extracts a single tsx fenced block", () => {
+    const content = "```tsx\nconst a = 4;\n```\n";
+    expect(extractCodeBlocks(content)).toEqual([{ code: "const a = 4;\n", skipReason: null }]);
+  });
+
+  it("extracts a single jsx fenced block", () => {
+    const content = "```jsx\nconst b = 5;\n```\n";
+    expect(extractCodeBlocks(content)).toEqual([{ code: "const b = 5;\n", skipReason: null }]);
+  });
+
+  it("extracts a single javascript fenced block", () => {
+    const content = "```javascript\nconst c = 6;\n```\n";
+    expect(extractCodeBlocks(content)).toEqual([{ code: "const c = 6;\n", skipReason: null }]);
+  });
+
+  it("no fence language tag found in docs bears @smonn/ids imports while uncovered by the regex", () => {
+    const COVERED_LANGUAGES = new Set(["ts", "typescript", "tsx", "js", "jsx", "javascript"]);
+    const violations: string[] = [];
+
+    for (const docFile of getAllDocFiles()) {
+      const relPath = docFile.slice(ROOT.length + 1);
+      const content = readFileSync(docFile, "utf-8");
+      const anyFenceRe = /^```(\w+)([ \t][^\n]*)?\n([\s\S]*?)^```[ \t]*$/gm;
+      for (const match of content.matchAll(anyFenceRe)) {
+        const lang = match[1] ?? "";
+        const code = match[3] ?? "";
+        if (!COVERED_LANGUAGES.has(lang) && parseBlockImports(code).length > 0) {
+          violations.push(
+            `${relPath}: fence language "${lang}" has @smonn/ids imports but is not checked by extractCodeBlocks`,
+          );
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
   });
 
   it("extracts multiple fenced blocks in one document", () => {
@@ -461,6 +506,9 @@ describe("collectSourceExports — recursive re-exports", () => {
       join(tmpRoot, "src/diamond.ts"),
       'export * from "./diamond-a.js";\nexport * from "./diamond-b.js";\n',
     );
+
+    // ns-reexport.ts — uses the namespace re-export form.
+    writeFileSync(join(tmpRoot, "src/ns-reexport.ts"), 'export * as wire from "./wildcard.js";\n');
   });
 
   afterAll(() => {
@@ -501,6 +549,14 @@ describe("collectSourceExports — recursive re-exports", () => {
     const result = collectSourceExports("src/cycle-a.ts", new Set(), tmpRoot);
     expect(result.has("own")).toBe(true); // direct export from cycle-a.ts
     expect(result.has("x")).toBe(true); // re-exported from cycle-b.ts (no cycle at that depth)
+  });
+
+  it("records the namespace identifier from export * as ns from ... without recursing into the target", () => {
+    const result = collectSourceExports("src/ns-reexport.ts", new Set(), tmpRoot);
+    expect(result.has("wire")).toBe(true);
+    // Contents of wildcard.ts are under the namespace, not direct exports.
+    expect(result.has("b")).toBe(false);
+    expect(result.has("c")).toBe(false);
   });
 
   it("transitively follows named re-exports from real source files", () => {
