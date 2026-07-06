@@ -1,3 +1,4 @@
+import os from "node:os";
 import { do_not_optimize, measure } from "mitata";
 import { decodeBase32, encodeBase32 } from "../src/wire/base32.js";
 import { createTimestampId } from "../src/codecs/timestamp/index.js";
@@ -186,6 +187,9 @@ const output = {
   schema: 1,
   node: process.version,
   platform: `${process.platform}-${process.arch}`,
+  // Same source string bench.yml hashes into the bench-base-* cache key, so the
+  // report's provenance and the cache pairing guarantee can't drift apart.
+  cpuModel: os.cpus()[0]?.model ?? "unknown",
   benches: results,
 };
 
