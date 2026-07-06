@@ -253,6 +253,7 @@ jobs:
             --max-turns 40
             --model claude-sonnet-5
             --effort high
+            --fallback-model claude-sonnet-4-6
             --allowedTools "Bash(pnpm:*),Read,Grep,Glob,Write,TodoWrite,Task"
           prompt: |
             /triage #${{ env.ISSUE_NUMBER }}

@@ -223,7 +223,9 @@ jobs:
             --max-turns 150
             --model claude-sonnet-5
             --effort high
+            --fallback-model claude-sonnet-4-6
             --allowedTools "Bash(pnpm:*),Bash(git:*),Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
+            --disallowedTools "Bash(git push:*)"
           prompt: |
             You are the implementation agent for `@smonn/ids`, a TypeScript library
             for encoding and decoding sortable IDs, running headless in CI. Implement

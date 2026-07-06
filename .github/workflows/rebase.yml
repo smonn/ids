@@ -219,6 +219,7 @@ jobs:
             --max-turns 60
             --model claude-sonnet-5
             --effort high
+            --fallback-model claude-sonnet-4-6
             --allowedTools "Bash(git:*),Bash(pnpm:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
           prompt: |
             /resolving-merge-conflicts

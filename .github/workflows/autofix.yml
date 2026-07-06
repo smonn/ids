@@ -233,7 +233,9 @@ jobs:
             --max-turns 60
             --model claude-sonnet-5
             --effort high
+            --fallback-model claude-sonnet-4-6
             --allowedTools "Bash(pnpm:*),Bash(git:*),Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
+            --disallowedTools "Bash(git push:*)"
           prompt: |
             You are fixing failing CI on pull request #${{ steps.gate.outputs.pr }}
             (branch `${{ env.BRANCH }}`) of ${{ github.repository }}. The branch is
