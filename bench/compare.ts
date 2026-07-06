@@ -11,7 +11,7 @@ type Bench = {
   samples: number;
 };
 
-type Report = {
+export type Report = {
   schema: 1;
   node: string;
   platform: string;
@@ -80,23 +80,26 @@ function fmtDelta(delta: number): string {
   return `${sign}${(delta * 100).toFixed(1)}%`;
 }
 
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
-  const [, , basePath, prPath] = process.argv;
-  if (basePath === undefined || prPath === undefined) usage();
+type RowStatus = "severe" | "warn" | "improvement" | "new" | "removed" | "ok";
 
-  const base = readReport(basePath);
-  const pr = readReport(prPath);
+type Row = {
+  status: RowStatus;
+  cells: string; // "| bench | base | pr | delta | throughput" (no Notes cell)
+};
 
-  if (pr === null) {
-    process.stderr.write(`fatal: cannot read PR report at ${prPath}\n`);
-    process.exit(2);
-  }
+const STATUS_NOTE: Record<Exclude<RowStatus, "ok">, string> = {
+  severe: "🛑 **regression (severe)**",
+  warn: "⚠️ regression (warn)",
+  improvement: "🟢 improvement",
+  new: "➕ new",
+  removed: "➖ removed",
+};
 
+/** Render the PR comment for a bench comparison. `base === null` means the base
+ * branch had no bench suite, so only absolute PR numbers are reported.
+ */
+export function renderComment(base: Report | null, pr: Report): string {
   const lines: string[] = [];
-  let regressions = 0;
-  let severe = 0;
-  let improvements = 0;
 
   if (base === null) {
     lines.push("## Benchmarks");
@@ -112,74 +115,134 @@ if (process.argv[1] === __filename) {
         `| \`${b.name}\` | ${fmtNs(b.p50_ns)} | ${fmtNs(b.avg_ns)} | ${fmtOpsPerSec(b.p50_ns)} | ${b.samples} |`,
       );
     }
-  } else {
-    const baseByName = new Map(base.benches.map((b) => [b.name, b]));
-    lines.push("## Benchmarks");
-    lines.push("");
-    lines.push(
-      `Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}; severe +${pct(SEVERE_THRESHOLD)} (sync benches only). ` +
-        `opaque.* / wrapped.* / signed.* / digest.* are async-crypto and reported for information only — ` +
-        `their shared-runner variance is too high to gate on. This check is informational and never fails. ` +
-        `Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.`,
-    );
-    lines.push("");
-    lines.push("| Bench | Base p50 | PR p50 | Δ p50 | PR throughput | Notes |");
-    lines.push("| --- | ---: | ---: | ---: | ---: | --- |");
+    return lines.join("\n") + "\n";
+  }
 
-    for (const cur of pr.benches) {
-      const prev = baseByName.get(cur.name);
-      if (prev === undefined) {
-        lines.push(
-          `| \`${cur.name}\` | — | ${fmtNs(cur.p50_ns)} | new | ${fmtOpsPerSec(cur.p50_ns)} | — |`,
-        );
-        continue;
-      }
-      const delta = (cur.p50_ns - prev.p50_ns) / prev.p50_ns;
-      let note = "";
-      if (delta > WARN_THRESHOLD) {
-        regressions++;
-        if (isBlockingEligible(cur.name) && delta > SEVERE_THRESHOLD) {
-          note = "**regression (severe)**";
-          severe++;
-        } else {
-          note = "regression (warn)";
-        }
-      } else if (delta < -WARN_THRESHOLD) {
-        note = "improvement";
-        improvements++;
-      }
-      lines.push(
-        `| \`${cur.name}\` | ${fmtNs(prev.p50_ns)} | ${fmtNs(cur.p50_ns)} | ${fmtDelta(delta)} | ${fmtOpsPerSec(cur.p50_ns)} | ${note} |`,
-      );
+  const baseByName = new Map(base.benches.map((b) => [b.name, b]));
+  const rows: Row[] = [];
+  let regressions = 0;
+  let severe = 0;
+  let improvements = 0;
+
+  for (const cur of pr.benches) {
+    const prev = baseByName.get(cur.name);
+    if (prev === undefined) {
+      rows.push({
+        status: "new",
+        cells: `| \`${cur.name}\` | — | ${fmtNs(cur.p50_ns)} | — | ${fmtOpsPerSec(cur.p50_ns)}`,
+      });
+      continue;
     }
-
-    for (const prev of base.benches) {
-      if (!pr.benches.some((b) => b.name === prev.name)) {
-        lines.push(`| \`${prev.name}\` | ${fmtNs(prev.p50_ns)} | — | removed | — | — |`);
+    const delta = (cur.p50_ns - prev.p50_ns) / prev.p50_ns;
+    let status: RowStatus = "ok";
+    if (delta > WARN_THRESHOLD) {
+      regressions++;
+      if (isBlockingEligible(cur.name) && delta > SEVERE_THRESHOLD) {
+        status = "severe";
+        severe++;
+      } else {
+        status = "warn";
       }
+    } else if (delta < -WARN_THRESHOLD) {
+      status = "improvement";
+      improvements++;
     }
+    rows.push({
+      status,
+      cells: `| \`${cur.name}\` | ${fmtNs(prev.p50_ns)} | ${fmtNs(cur.p50_ns)} | ${fmtDelta(delta)} | ${fmtOpsPerSec(cur.p50_ns)}`,
+    });
+  }
 
-    lines.push("");
-    if (severe > 0) {
-      lines.push(
-        `⚠️ **${severe} severe regression${severe === 1 ? "" : "s"}** in sync benches (above +${pct(SEVERE_THRESHOLD)}).` +
-          (regressions > severe
-            ? ` ${regressions - severe} more above warn (±${pct(WARN_THRESHOLD)}).`
-            : "") +
-          ` This check is informational and does not block merge — please review before merging.`,
-      );
-    } else if (regressions > 0) {
-      lines.push(
-        `${regressions} regression${regressions === 1 ? "" : "s"} above warn (±${pct(WARN_THRESHOLD)}), none severe. Informational only.`,
-      );
-    } else {
-      lines.push(
-        `No regressions above warn (±${pct(WARN_THRESHOLD)}).${improvements > 0 ? ` ${improvements} improvement${improvements === 1 ? "" : "s"}.` : ""}`,
-      );
+  for (const prev of base.benches) {
+    if (!pr.benches.some((b) => b.name === prev.name)) {
+      rows.push({
+        status: "removed",
+        cells: `| \`${prev.name}\` | ${fmtNs(prev.p50_ns)} | — | — | —`,
+      });
     }
   }
 
-  process.stdout.write(lines.join("\n") + "\n");
+  const attention = rows.filter(
+    (r): r is Row & { status: Exclude<RowStatus, "ok"> } => r.status !== "ok",
+  );
+  const quiet = rows.filter((r) => r.status === "ok");
+
+  lines.push("## Benchmarks");
+  lines.push("");
+
+  // Headline: at-a-glance counts, worst first.
+  const headline: string[] = [];
+  if (severe > 0) headline.push(`🛑 **${severe} severe regression${severe === 1 ? "" : "s"}**`);
+  if (regressions > severe)
+    headline.push(
+      `⚠️ ${regressions - severe} regression${regressions - severe === 1 ? "" : "s"} (warn)`,
+    );
+  if (improvements > 0)
+    headline.push(`🟢 ${improvements} improvement${improvements === 1 ? "" : "s"}`);
+  headline.push(`✅ ${quiet.length} within noise`);
+  lines.push(headline.join(" · "));
+  lines.push("");
+
+  if (attention.length > 0) {
+    lines.push("| Bench | Base p50 | PR p50 | Δ p50 | PR throughput | Notes |");
+    lines.push("| --- | ---: | ---: | ---: | ---: | --- |");
+    for (const r of attention) {
+      lines.push(`${r.cells} | ${STATUS_NOTE[r.status]} |`);
+    }
+    lines.push("");
+  }
+
+  if (quiet.length > 0) {
+    lines.push("<details>");
+    lines.push(
+      `<summary>✅ ${quiet.length} bench${quiet.length === 1 ? "" : "es"} within noise (±${pct(WARN_THRESHOLD)})</summary>`,
+    );
+    lines.push("");
+    lines.push("| Bench | Base p50 | PR p50 | Δ p50 | PR throughput |");
+    lines.push("| --- | ---: | ---: | ---: | ---: |");
+    for (const r of quiet) {
+      lines.push(`${r.cells} |`);
+    }
+    lines.push("");
+    lines.push("</details>");
+    lines.push("");
+  }
+
+  if (severe > 0) {
+    lines.push(
+      `⚠️ **${severe} severe regression${severe === 1 ? "" : "s"}** in sync benches (above +${pct(SEVERE_THRESHOLD)}).` +
+        (regressions > severe
+          ? ` ${regressions - severe} more above warn (±${pct(WARN_THRESHOLD)}).`
+          : "") +
+        ` This check is informational and does not block merge — please review before merging.`,
+    );
+    lines.push("");
+  }
+
+  lines.push(
+    `<sub>Thresholds on p50: warn ±${pct(WARN_THRESHOLD)}; severe +${pct(SEVERE_THRESHOLD)} (sync benches only). ` +
+      `opaque.* / wrapped.* / signed.* / digest.* are async-crypto and reported for information only — ` +
+      `their shared-runner variance is too high to gate on. This check is informational and never fails. ` +
+      `Base: \`${base.node}\` ${base.platform}. PR: \`${pr.node}\` ${pr.platform}.</sub>`,
+  );
+
+  return lines.join("\n") + "\n";
+}
+
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] === __filename) {
+  const [, , basePath, prPath] = process.argv;
+  if (basePath === undefined || prPath === undefined) usage();
+
+  const base = readReport(basePath);
+  const pr = readReport(prPath);
+
+  if (pr === null) {
+    process.stderr.write(`fatal: cannot read PR report at ${prPath}\n`);
+    process.exit(2);
+  }
+
+  process.stdout.write(renderComment(base, pr));
 
   // Informational only: a regression never fails the check. Severe sync
   // regressions are flagged in the comment for a human to review. Genuine fatal

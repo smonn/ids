@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isBlockingEligible } from "./compare.js";
+import { isBlockingEligible, renderComment } from "./compare.js";
+import type { Report } from "./compare.js";
 
 describe("isBlockingEligible", () => {
   it("gates sync ns-scale benches (eligible)", () => {
@@ -39,5 +40,103 @@ describe("isBlockingEligible", () => {
   it("never gates digest.* benches (HMAC async crypto, high CI runner variance)", () => {
     expect(isBlockingEligible("digest.digest")).toBe(false);
     expect(isBlockingEligible("digest.someNewBench")).toBe(false);
+  });
+});
+
+function bench(name: string, p50_ns: number) {
+  return {
+    name,
+    avg_ns: p50_ns,
+    min_ns: p50_ns,
+    p50_ns,
+    p75_ns: p50_ns,
+    p99_ns: p50_ns,
+    samples: 100,
+  };
+}
+
+function report(benches: ReturnType<typeof bench>[]): Report {
+  return { schema: 1, node: "v22.0.0", platform: "linux x64", benches };
+}
+
+describe("renderComment", () => {
+  it("collapses within-noise benches into a <details> block and shows only their count in the headline", () => {
+    const out = renderComment(
+      report([bench("generate", 100), bench("parse(canonical)", 100)]),
+      report([bench("generate", 101), bench("parse(canonical)", 99)]),
+    );
+    expect(out).toContain("✅ 2 within noise");
+    expect(out).toContain("<details>");
+    expect(out).toContain("<summary>✅ 2 benches within noise (±15%)</summary>");
+    // Quiet rows live inside the collapsed block: nothing between the headline
+    // and <details> but blank lines (no unfolded attention table).
+    const headlineIdx = out.indexOf("✅ 2 within noise");
+    const detailsIdx = out.indexOf("<details>");
+    expect(out.slice(headlineIdx, detailsIdx)).not.toContain("| `");
+  });
+
+  it("unfolds warn regressions above the fold with a ⚠️ note", () => {
+    const out = renderComment(
+      report([bench("generate", 100), bench("parse(canonical)", 100)]),
+      report([bench("generate", 120), bench("parse(canonical)", 100)]),
+    );
+    const detailsIdx = out.indexOf("<details>");
+    const generateIdx = out.indexOf("| `generate` |");
+    expect(generateIdx).toBeGreaterThan(-1);
+    expect(generateIdx).toBeLessThan(detailsIdx);
+    expect(out).toContain("⚠️ regression (warn)");
+    expect(out).toContain("⚠️ 1 regression (warn) · ✅ 1 within noise");
+  });
+
+  it("unfolds severe regressions with a 🛑 note and keeps the review advisory", () => {
+    const out = renderComment(report([bench("generate", 100)]), report([bench("generate", 140)]));
+    expect(out).toContain("🛑 **1 severe regression**");
+    expect(out).toContain("🛑 **regression (severe)**");
+    expect(out).toContain("does not block merge");
+  });
+
+  it("never marks async-crypto benches severe, even above the severe threshold", () => {
+    const out = renderComment(
+      report([bench("signed.generate", 100)]),
+      report([bench("signed.generate", 140)]),
+    );
+    expect(out).toContain("⚠️ regression (warn)");
+    expect(out).not.toContain("🛑");
+    expect(out).not.toContain("regression (severe)");
+  });
+
+  it("unfolds improvements with a 🟢 note", () => {
+    const out = renderComment(report([bench("generate", 100)]), report([bench("generate", 80)]));
+    expect(out).toContain("🟢 1 improvement");
+    expect(out).toContain("🟢 improvement");
+  });
+
+  it("unfolds new and removed benches", () => {
+    const out = renderComment(report([bench("oldBench", 100)]), report([bench("newBench", 100)]));
+    const detailsIdx = out.indexOf("<details>");
+    expect(detailsIdx).toBe(-1); // no quiet rows at all
+    expect(out).toContain("| `newBench` | — |");
+    expect(out).toContain("➕ new");
+    expect(out).toContain("| `oldBench` |");
+    expect(out).toContain("➖ removed");
+  });
+
+  it("omits the attention table when everything is within noise", () => {
+    const out = renderComment(report([bench("generate", 100)]), report([bench("generate", 100)]));
+    expect(out).not.toContain("| Notes |");
+    expect(out).toContain("✅ 1 within noise");
+  });
+
+  it("moves the threshold boilerplate into a <sub> footer", () => {
+    const out = renderComment(report([bench("generate", 100)]), report([bench("generate", 100)]));
+    expect(out).toContain("<sub>Thresholds on p50");
+    expect(out).toContain("`v22.0.0` linux x64");
+  });
+
+  it("reports absolute numbers only when there is no baseline", () => {
+    const out = renderComment(null, report([bench("generate", 100)]));
+    expect(out).toContain("_No baseline available");
+    expect(out).toContain("| `generate` |");
+    expect(out).not.toContain("<details>");
   });
 });
