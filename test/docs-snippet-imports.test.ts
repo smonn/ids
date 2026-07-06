@@ -138,17 +138,23 @@ function parseBlockImports(code: string): ParsedImport[] {
  * accumulating only names that are actually exported at the leaf level.
  *
  * @param relPath - Path relative to `root`.
- * @param visited - Absolute paths already on the current traversal stack (cycle guard). Internal use only.
+ * @param visited - Absolute paths currently on the traversal stack (cycle guard only). Internal use only.
  * @param root - Repository root for path resolution. Defaults to the repo ROOT. Internal use only.
+ * @param resolvedCache - Fully-resolved results keyed by absolute path (memoization). Internal use only.
  */
 function collectSourceExports(
   relPath: string,
   visited = new Set<string>(),
   root = ROOT,
+  resolvedCache = new Map<string, Set<string>>(),
 ): Set<string> {
   // Normalise root to always have a trailing "/" so slicing works uniformly.
   const rootPrefix = root.endsWith("/") ? root : root + "/";
   const fullPath = join(root, relPath);
+
+  // Memoization: return cached result for a file already fully resolved.
+  const cached = resolvedCache.get(fullPath);
+  if (cached !== undefined) return cached;
 
   // Cycle guard: if this file is already on the traversal stack, stop.
   if (visited.has(fullPath)) return new Set();
@@ -158,6 +164,7 @@ function collectSourceExports(
   try {
     content = readFileSync(fullPath, "utf-8");
   } catch {
+    visited.delete(fullPath);
     return new Set();
   }
 
@@ -194,7 +201,7 @@ function collectSourceExports(
     const resolved = resolveToSrc(match[1] ?? "");
     if (resolved) {
       const subRel = resolved.slice(rootPrefix.length);
-      for (const name of collectSourceExports(subRel, visited, root)) {
+      for (const name of collectSourceExports(subRel, visited, root, resolvedCache)) {
         names.add(name);
       }
     }
@@ -214,7 +221,7 @@ function collectSourceExports(
       const resolved = resolveToSrc(fromSpec);
       if (resolved) {
         const subRel = resolved.slice(rootPrefix.length);
-        const subExports = collectSourceExports(subRel, visited, root);
+        const subExports = collectSourceExports(subRel, visited, root, resolvedCache);
         for (const name of listed) {
           if (subExports.has(name)) names.add(name);
         }
@@ -235,6 +242,9 @@ function collectSourceExports(
     if (match[1]) names.add(match[1]);
   }
 
+  // Cache the fully-resolved result and unwind the traversal stack.
+  resolvedCache.set(fullPath, names);
+  visited.delete(fullPath);
   return names;
 }
 
@@ -442,6 +452,15 @@ describe("collectSourceExports", () => {
       join(tmpRoot, "src/external.ts"),
       'export { describe } from "vitest";\nexport const local = 1;\n',
     );
+
+    // diamond topology: diamond-common.ts is reachable via two paths.
+    writeFileSync(join(tmpRoot, "src/diamond-common.ts"), "export const shared = 1;\n");
+    writeFileSync(join(tmpRoot, "src/diamond-a.ts"), 'export * from "./diamond-common.js";\n');
+    writeFileSync(join(tmpRoot, "src/diamond-b.ts"), 'export * from "./diamond-common.js";\n');
+    writeFileSync(
+      join(tmpRoot, "src/diamond.ts"),
+      'export * from "./diamond-a.js";\nexport * from "./diamond-b.js";\n',
+    );
   });
 
   afterAll(() => {
@@ -464,6 +483,14 @@ describe("collectSourceExports", () => {
     const result = collectSourceExports("src/external.ts", new Set(), tmpRoot);
     expect(result.has("local")).toBe(true); // direct declaration
     expect(result.has("describe")).toBe(false); // re-exported from external "vitest"
+  });
+
+  it("returns names from shared deps in diamond re-export graphs without dropping them", () => {
+    // diamond.ts → diamond-a.ts → diamond-common.ts
+    //            → diamond-b.ts → diamond-common.ts (second path)
+    // With pure visited-as-fence, diamond-common would be dropped on the second traversal.
+    const result = collectSourceExports("src/diamond.ts", new Set(), tmpRoot);
+    expect(result.has("shared")).toBe(true);
   });
 
   it("terminates without error on circular re-export chains", () => {
