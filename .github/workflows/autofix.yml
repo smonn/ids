@@ -231,7 +231,7 @@ jobs:
           allowed_bots: "smonn[bot]"
           claude_args: |
             --max-turns 60
-            --model claude-sonnet-4-6
+            --model claude-sonnet-5
             --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
           prompt: |
             You are fixing failing CI on pull request #${{ steps.gate.outputs.pr }}

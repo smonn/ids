@@ -536,7 +536,7 @@ jobs:
           # impossible — not just excluded by allowedTools.
           claude_args: |
             --max-turns 60
-            --model claude-sonnet-4-6
+            --model claude-sonnet-5
             --allowedTools "Read,Grep,Glob,Write,TodoWrite,Task"
 
       # Deterministic poster: read the producer's .review/ files and post ONE COMMENT

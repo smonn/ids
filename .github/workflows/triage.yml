@@ -251,7 +251,7 @@ jobs:
           # opus if triage quality needs it.
           claude_args: |
             --max-turns 40
-            --model claude-sonnet-4-6
+            --model claude-sonnet-5
             --allowedTools "Bash(pnpm:*),Read,Grep,Glob,Write,TodoWrite,Task"
           prompt: |
             /triage #${{ env.ISSUE_NUMBER }}

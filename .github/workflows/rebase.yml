@@ -217,7 +217,7 @@ jobs:
           # merge command, the repo's exact CI gate, and the escalation guardrails.
           claude_args: |
             --max-turns 60
-            --model claude-sonnet-4-6
+            --model claude-sonnet-5
             --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite"
           prompt: |
             /resolving-merge-conflicts

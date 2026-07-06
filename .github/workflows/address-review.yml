@@ -301,7 +301,7 @@ jobs:
           # step with each other.
           claude_args: |
             --max-turns 150
-            --model claude-sonnet-4-6
+            --model claude-sonnet-5
             --allowedTools "Bash,Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
           prompt: |
             A human applied the `do:address` label to pull request
