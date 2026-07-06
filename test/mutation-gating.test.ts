@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 
 // Gating posture decided in issue #1003 / ADR-0037: the weekly Stryker run
@@ -20,6 +21,14 @@ function readThresholds(): StrykerThresholds {
   return config.thresholds ?? {};
 }
 
+const workflowPath = fileURLToPath(new URL("../.github/workflows/mutation.yml", import.meta.url));
+
+function readWorkflowTriggers(): string[] {
+  const content = readFileSync(workflowPath, "utf8");
+  const doc = parse(content) as { on?: Record<string, unknown> };
+  return Object.keys(doc.on ?? {}).sort();
+}
+
 describe("mutation-score gating (ADR-0037)", () => {
   it("weekly run fails on score collapse: thresholds.break is at or above the agreed floor", () => {
     const { break: breakThreshold } = readThresholds();
@@ -34,5 +43,15 @@ describe("mutation-score gating (ADR-0037)", () => {
     expect(low).toBe(breakThreshold);
     expect(high).toBeGreaterThanOrEqual(low as number);
     expect(high).toBeLessThanOrEqual(100);
+  });
+
+  it("mutation workflow stays non-PR-blocking: trigger keys are exactly schedule and workflow_dispatch (ADR-0037)", () => {
+    const triggers = readWorkflowTriggers();
+    expect(
+      triggers,
+      "ADR-0037 records that mutation testing is weekly and non-PR-blocking. " +
+        "Adding 'pull_request' or any other trigger would silently reverse that decision. " +
+        "See docs/adr/0037-mutation-score-gating.md.",
+    ).toEqual(["schedule", "workflow_dispatch"].sort());
   });
 });
