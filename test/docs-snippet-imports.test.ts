@@ -447,10 +447,10 @@ describe("collectSourceExports", () => {
       'export { own } from "./cycle-a.js";\nexport const x = 2;\n',
     );
 
-    // external.ts — re-exports from a bare specifier (should be skipped).
+    // external.ts — re-exports from bare specifiers (both block and star forms, should be skipped).
     writeFileSync(
       join(tmpRoot, "src/external.ts"),
-      'export { describe } from "vitest";\nexport const local = 1;\n',
+      'export { describe } from "vitest";\nexport * from "some-package";\nexport const local = 1;\n',
     );
 
     // diamond topology: diamond-common.ts is reachable via two paths.
@@ -479,10 +479,12 @@ describe("collectSourceExports", () => {
     expect(result.has("c")).toBe(true);
   });
 
-  it("does not follow bare or external specifiers", () => {
+  it("does not follow bare or external specifiers (named block or star form)", () => {
     const result = collectSourceExports("src/external.ts", new Set(), tmpRoot);
     expect(result.has("local")).toBe(true); // direct declaration
-    expect(result.has("describe")).toBe(false); // re-exported from external "vitest"
+    expect(result.has("describe")).toBe(false); // re-exported from external "vitest" (blockRe path)
+    // export * from "some-package" — starRe path for a bare specifier contributes no names
+    expect(result.size).toBe(1);
   });
 
   it("returns names from shared deps in diamond re-export graphs without dropping them", () => {
