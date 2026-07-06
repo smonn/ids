@@ -55,6 +55,7 @@ export function harvestUUIDBytes(uuid: string, target: Uint8Array): void {
  * Security-equivalent to `defaultRng` for a 10-byte tail (both are CSPRNG-backed,
  * fully-random bytes); the only difference is throughput.
  */
+// Deliberate: 80-bit harvest from randomUUID — CSPRNG-backed, non-keyed codecs only; reviewed and accepted. See CONTEXT.md postures.
 export function fastTenByteRng(target: Uint8Array): void {
   harvestUUIDBytes(crypto.randomUUID(), target);
 }
