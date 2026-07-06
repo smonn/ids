@@ -1,5 +1,8 @@
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { isBlockingEligible, renderComment } from "./compare.js";
+import { isBlockingEligible, readReport, renderComment } from "./compare.js";
 import type { Report } from "./compare.js";
 
 describe("isBlockingEligible", () => {
@@ -102,9 +105,11 @@ describe("renderComment", () => {
   });
 
   it("never marks async-crypto benches severe, even above the severe threshold", () => {
+    // +50% delta is above ASYNC_WARN_THRESHOLD (±40%) so it classifies as warn,
+    // and above SEVERE_THRESHOLD (30%) but must never be severe.
     const out = renderComment(
       report([bench("signed.generate", 100)]),
-      report([bench("signed.generate", 140)]),
+      report([bench("signed.generate", 150)]),
     );
     expect(out).toContain("⚠️ regression (warn)");
     expect(out).not.toContain("🛑");
@@ -117,7 +122,7 @@ describe("renderComment", () => {
     expect(out).toContain("🟢 improvement");
   });
 
-  it("unfolds new and removed benches", () => {
+  it("unfolds new and removed benches and reports their counts in the headline", () => {
     const out = renderComment(report([bench("oldBench", 100)]), report([bench("newBench", 100)]));
     const detailsIdx = out.indexOf("<details>");
     expect(detailsIdx).toBe(-1); // no quiet rows at all
@@ -125,6 +130,9 @@ describe("renderComment", () => {
     expect(out).toContain("➕ new");
     expect(out).toContain("| `oldBench` |");
     expect(out).toContain("➖ removed");
+    // Headline must surface the structural change, not just "0 within noise".
+    expect(out).toContain("➕ 1 new");
+    expect(out).toContain("➖ 1 removed");
   });
 
   it("omits the attention table when everything is within noise", () => {
@@ -136,6 +144,8 @@ describe("renderComment", () => {
   it("moves the threshold boilerplate into a <sub> footer", () => {
     const out = renderComment(report([bench("generate", 100)]), report([bench("generate", 100)]));
     expect(out).toContain("<sub>Thresholds on p50");
+    expect(out).toContain("sync warn ±15%");
+    expect(out).toContain("async-crypto warn ±40%");
     expect(out).toContain("`v22.0.0` linux x64");
   });
 
@@ -203,5 +213,189 @@ describe("renderComment", () => {
       report([bench("generate", 100)], "Intel(R) Xeon(R) Platinum 8370C"),
     );
     expect(out).toContain("<sub>PR: `v22.0.0` linux x64 (Intel(R) Xeon(R) Platinum 8370C).</sub>");
+  });
+});
+
+// Bug 1 — async-crypto benches use ASYNC_WARN_THRESHOLD (±40%), not WARN_THRESHOLD (±15%).
+describe("async-crypto warn band (ASYNC_WARN_THRESHOLD)", () => {
+  it("folds an opaque.generate bench at +30% delta into within-noise (below ±40% band)", () => {
+    // +30% is within async noise — should NOT appear in the attention table.
+    const out = renderComment(
+      report([bench("opaque.generate", 100)]),
+      report([bench("opaque.generate", 130)]),
+    );
+    expect(out).toContain("✅ 1 within noise");
+    expect(out).not.toContain("⚠️ regression (warn)");
+    expect(out).not.toContain("regressions");
+  });
+
+  it("classifies an opaque.generate bench at +45% delta as warn (above ±40% band), never severe", () => {
+    // +45% is outside the async noise band — appears as warn, never severe.
+    const out = renderComment(
+      report([bench("opaque.generate", 100)]),
+      report([bench("opaque.generate", 145)]),
+    );
+    expect(out).toContain("⚠️ regression (warn)");
+    expect(out).not.toContain("🛑");
+    expect(out).not.toContain("regression (severe)");
+  });
+
+  it("folds an opaque.generate bench at exactly +40% into within-noise (positive boundary inclusive)", () => {
+    const out = renderComment(
+      report([bench("opaque.generate", 100)]),
+      report([bench("opaque.generate", 140)]),
+    );
+    expect(out).toContain("✅ 1 within noise");
+    expect(out).not.toContain("⚠️ regression (warn)");
+  });
+
+  it("folds an opaque.generate bench at exactly −40% into within-noise (negative boundary inclusive)", () => {
+    // delta = (60-100)/100 = -0.4; -0.4 < -0.4 is false → ok (within noise), not improvement.
+    const out = renderComment(
+      report([bench("opaque.generate", 100)]),
+      report([bench("opaque.generate", 60)]),
+    );
+    expect(out).toContain("✅ 1 within noise");
+    expect(out).not.toContain("🟢 improvement");
+  });
+
+  it("classifies an opaque.generate bench at −45% delta as improvement (below negative boundary)", () => {
+    // delta = (55-100)/100 = -0.45; -0.45 < -0.4 → improvement path for async benches.
+    const out = renderComment(
+      report([bench("opaque.generate", 100)]),
+      report([bench("opaque.generate", 55)]),
+    );
+    expect(out).toContain("🟢 improvement");
+    expect(out).not.toContain("⚠️ regression (warn)");
+  });
+
+  it("does not change sync bench classification — generate at +20% is still warn", () => {
+    const out = renderComment(report([bench("generate", 100)]), report([bench("generate", 120)]));
+    expect(out).toContain("⚠️ regression (warn)");
+  });
+});
+
+// Bug 2 — readReport validates schema and per-bench p50_ns before returning.
+describe("readReport validation", () => {
+  function writeTmp(content: string): string {
+    const path = join(
+      tmpdir(),
+      `ids-bench-test-${process.pid}-${Math.floor(Math.random() * 1e9)}.json`,
+    );
+    writeFileSync(path, content, "utf8");
+    return path;
+  }
+
+  const validReport = {
+    schema: 1,
+    node: "v22.0.0",
+    platform: "linux x64",
+    benches: [
+      {
+        name: "generate",
+        p50_ns: 100,
+        avg_ns: 100,
+        min_ns: 100,
+        p75_ns: 100,
+        p99_ns: 100,
+        samples: 10,
+      },
+    ],
+  };
+
+  it("returns a valid report for well-formed JSON", () => {
+    const path = writeTmp(JSON.stringify(validReport));
+    expect(readReport(path)).toEqual(validReport);
+  });
+
+  it("returns null for an empty file", () => {
+    const path = writeTmp("");
+    expect(readReport(path)).toBeNull();
+  });
+
+  it("returns null for a missing file (ENOENT)", () => {
+    expect(readReport("/nonexistent/__ids_bench_test_xyz__.json")).toBeNull();
+  });
+
+  it("returns null when schema !== 1 (schema-drifted cache)", () => {
+    const path = writeTmp(JSON.stringify({ ...validReport, schema: 2 }));
+    expect(readReport(path)).toBeNull();
+  });
+
+  it("returns null when schema is missing", () => {
+    const { schema: _schema, ...noSchema } = validReport;
+    const path = writeTmp(JSON.stringify(noSchema));
+    expect(readReport(path)).toBeNull();
+  });
+
+  it("returns null when a bench entry has a non-finite p50_ns (NaN serialises to null)", () => {
+    // JSON.stringify converts NaN to null; the validator checks Number.isFinite.
+    const drifted = { ...validReport, benches: [{ ...validReport.benches[0], p50_ns: null }] };
+    const path = writeTmp(JSON.stringify(drifted));
+    expect(readReport(path)).toBeNull();
+  });
+
+  it("returns null when a bench entry has a string p50_ns (drifted schema field type)", () => {
+    const drifted = { ...validReport, benches: [{ ...validReport.benches[0], p50_ns: "fast" }] };
+    const path = writeTmp(JSON.stringify(drifted));
+    expect(readReport(path)).toBeNull();
+  });
+
+  it("returns null when a bench entry is missing p50_ns entirely", () => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const { p50_ns: _p, ...noBench } = validReport.benches[0]!;
+    const drifted = { ...validReport, benches: [noBench] };
+    const path = writeTmp(JSON.stringify(drifted));
+    expect(readReport(path)).toBeNull();
+  });
+
+  // Class-level: no path through renderComment may emit NaN or Infinity in a cell.
+  it("renderComment with null baseline (as produced by a drifted readReport) emits no NaN or Infinity", () => {
+    const out = renderComment(null, report([bench("generate", 100)]));
+    expect(out).not.toContain("NaN");
+    expect(out).not.toContain("Infinity");
+    expect(out).toContain("_No baseline available");
+  });
+});
+
+// Bug 3 — headline includes ➕ N new · ➖ N removed segments when non-zero.
+describe("headline new/removed counts", () => {
+  it("includes ➕ 1 new and ➖ 1 removed in the headline when a bench is renamed", () => {
+    const out = renderComment(report([bench("oldBench", 100)]), report([bench("newBench", 100)]));
+    expect(out).toContain("➕ 1 new");
+    expect(out).toContain("➖ 1 removed");
+  });
+
+  it("omits ➕ / ➖ segments when there are no new or removed benches", () => {
+    const out = renderComment(report([bench("generate", 100)]), report([bench("generate", 100)]));
+    expect(out).not.toContain("➕");
+    expect(out).not.toContain("➖");
+  });
+
+  it("includes only ➕ N new when benches are added but none removed", () => {
+    const out = renderComment(
+      report([bench("generate", 100)]),
+      report([bench("generate", 100), bench("newBench", 100)]),
+    );
+    expect(out).toContain("➕ 1 new");
+    expect(out).not.toContain("➖");
+  });
+
+  it("includes only ➖ N removed when benches are removed but none added", () => {
+    const out = renderComment(
+      report([bench("generate", 100), bench("oldBench", 100)]),
+      report([bench("generate", 100)]),
+    );
+    expect(out).toContain("➖ 1 removed");
+    expect(out).not.toContain("➕");
+  });
+
+  it("counts multiple new and removed benches correctly in the headline", () => {
+    const out = renderComment(
+      report([bench("a", 100), bench("b", 100)]),
+      report([bench("c", 100), bench("d", 100)]),
+    );
+    expect(out).toContain("➕ 2 new");
+    expect(out).toContain("➖ 2 removed");
   });
 });
