@@ -62,10 +62,22 @@ describe("checkContent", () => {
     expect(violations[0]).toContain("U+001F");
   });
 
+  it("flags DEL (U+007F) -- probe for the standalone DEL code point", () => {
+    const violations = checkContent("line \u007f text", "del.ts");
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain("U+007F");
+  });
+
   it("flags U+0080 -- probe for C1 range", () => {
     const violations = checkContent("line \u0080 text", "c1.ts");
     expect(violations).toHaveLength(1);
     expect(violations[0]).toContain("U+0080");
+  });
+
+  it("flags ARABIC LETTER MARK (U+061C) -- probe for the standalone bidi ALM code point", () => {
+    const violations = checkContent("line \u061c text", "alm.ts");
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain("U+061C");
   });
 
   it("flags zero-width space (U+200B) -- probe for U+200B-U+200F range", () => {
@@ -92,10 +104,16 @@ describe("checkContent", () => {
     expect(violations[0]).toContain("U+202E");
   });
 
-  it("flags WORD JOINER (U+2060) -- probe for U+2060-U+2069 range", () => {
+  it("flags WORD JOINER (U+2060) -- probe for U+2060-U+206F range", () => {
     const violations = checkContent("line \u2060 text", "wj.ts");
     expect(violations).toHaveLength(1);
     expect(violations[0]).toContain("U+2060");
+  });
+
+  it("flags NOMINAL DIGIT SHAPES (U+206F) -- probe for the widened deprecated-format-character sub-range", () => {
+    const violations = checkContent("line \u206f text", "ndg.ts");
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain("U+206F");
   });
 
   it("flags BOM (U+FEFF) -- singleton probe", () => {
