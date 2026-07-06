@@ -135,6 +135,11 @@ export function renderComment(base: Report | null, pr: Report): string {
         `| \`${b.name}\` | ${fmtNs(b.p50_ns)} | ${fmtNs(b.avg_ns)} | ${fmtOpsPerSec(b.p50_ns)} | ${b.samples} |`,
       );
     }
+    lines.push("");
+    // Absolute numbers are only interpretable against the hardware that
+    // produced them, so provenance matters here even more than on the
+    // comparison path.
+    lines.push(`<sub>PR: \`${pr.node}\` ${provenance(pr)}.</sub>`);
     return lines.join("\n") + "\n";
   }
 

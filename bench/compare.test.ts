@@ -158,6 +158,16 @@ describe("renderComment", () => {
     expect(out).not.toContain("Cross-model comparison");
   });
 
+  it("tolerates a PR report without cpuModel: no caveat, base-side provenance only", () => {
+    const out = renderComment(
+      report([bench("generate", 100)], "Intel(R) Xeon(R) Platinum 8370C"),
+      report([bench("generate", 140)]),
+    );
+    expect(out).toContain("Base: `v22.0.0` linux x64 (Intel(R) Xeon(R) Platinum 8370C).");
+    expect(out).toContain("PR: `v22.0.0` linux x64.");
+    expect(out).not.toContain("Cross-model comparison");
+  });
+
   it("flags a cross-model comparison with a caveat line, without changing classification", () => {
     const out = renderComment(
       report([bench("generate", 100)], "Intel(R) Xeon(R) Platinum 8272CL"),
@@ -185,5 +195,13 @@ describe("renderComment", () => {
     expect(out).toContain("_No baseline available");
     expect(out).toContain("| `generate` |");
     expect(out).not.toContain("<details>");
+  });
+
+  it("records PR provenance in a footer even when there is no baseline", () => {
+    const out = renderComment(
+      null,
+      report([bench("generate", 100)], "Intel(R) Xeon(R) Platinum 8370C"),
+    );
+    expect(out).toContain("<sub>PR: `v22.0.0` linux x64 (Intel(R) Xeon(R) Platinum 8370C).</sub>");
   });
 });
