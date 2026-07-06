@@ -280,6 +280,19 @@ describe("collectSourceExports", () => {
     expect(exports.has("Delta")).toBe(true);
     expect(exports.has("Epsilon")).toBe(true);
     expect(exports.has("Zeta")).toBe(true);
+    // aliased re-export — exercises the `as` branch in blockRe
+    expect(exports.has("betaAlias")).toBe(true);
+    // async function — exercises the `(?:async\s+)?` arm in namedRe
+    expect(exports.has("eta")).toBe(true);
+    // generator — exercises the `function\s*\*?\s*` arm with `*` in namedRe
+    expect(exports.has("mu")).toBe(true);
+    // let / var — exercise the `let\s+` and `var\s+` arms in namedRe
+    expect(exports.has("kappa")).toBe(true);
+    expect(exports.has("lambda")).toBe(true);
+    // enum — exercises the `enum\s+` arm in namedRe
+    expect(exports.has("Theta")).toBe(true);
+    // abstract class — exercises the `abstract\s+class\s+` arm in namedRe
+    expect(exports.has("Iota")).toBe(true);
   });
 
   it("returns an empty set for a file with no exports", () => {
