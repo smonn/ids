@@ -240,12 +240,32 @@ describe("async-crypto warn band (ASYNC_WARN_THRESHOLD)", () => {
     expect(out).not.toContain("regression (severe)");
   });
 
-  it("folds an opaque.generate bench at exactly ±40% into within-noise (boundary inclusive)", () => {
+  it("folds an opaque.generate bench at exactly +40% into within-noise (positive boundary inclusive)", () => {
     const out = renderComment(
       report([bench("opaque.generate", 100)]),
       report([bench("opaque.generate", 140)]),
     );
     expect(out).toContain("✅ 1 within noise");
+    expect(out).not.toContain("⚠️ regression (warn)");
+  });
+
+  it("folds an opaque.generate bench at exactly −40% into within-noise (negative boundary inclusive)", () => {
+    // delta = (60-100)/100 = -0.4; -0.4 < -0.4 is false → ok (within noise), not improvement.
+    const out = renderComment(
+      report([bench("opaque.generate", 100)]),
+      report([bench("opaque.generate", 60)]),
+    );
+    expect(out).toContain("✅ 1 within noise");
+    expect(out).not.toContain("🟢 improvement");
+  });
+
+  it("classifies an opaque.generate bench at −45% delta as improvement (below negative boundary)", () => {
+    // delta = (55-100)/100 = -0.45; -0.45 < -0.4 → improvement path for async benches.
+    const out = renderComment(
+      report([bench("opaque.generate", 100)]),
+      report([bench("opaque.generate", 55)]),
+    );
+    expect(out).toContain("🟢 improvement");
     expect(out).not.toContain("⚠️ regression (warn)");
   });
 
