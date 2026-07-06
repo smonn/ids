@@ -135,17 +135,28 @@ const results: Bench[] = [];
 //     batch-means pin the p50 to well within compare.ts's 15% warn threshold
 //     (measured run-to-run drift <1%), so SYNC_SAMPLES stays low — each extra
 //     sample is 4096 real calls, and these ops are the entire wall-clock cost.
-//   - Async crypto ops (opaque.* / wrapped.* / signed.*) are NOT batched: mitata
-//     runs one real call per sample (~70–250µs each). On a shared CI runner,
-//     OS scheduler and thermal jitter (~0.8 ms/sample floor even for a no-op)
-//     dominate variance — not statistical accuracy — so a high sample count buys
-//     nothing except wall-clock time. 300–500 samples are sufficient given
-//     compare.ts's 30% (default) and 50% (async crypto ops) fail thresholds;
-//     beyond that, more samples measure the machine, not the code.
+//   - Async crypto ops (opaque.* / wrapped.* / signed.* / digest.*) run one real
+//     call per sample (batch_threshold: 0 below). On a shared CI runner, OS
+//     scheduler and thermal jitter dominate variance — not statistical accuracy —
+//     so a high sample count buys nothing except wall-clock time. 300–500 samples
+//     are sufficient given compare.ts's warn/severe thresholds; beyond that, more
+//     samples measure the machine, not the code.
 const SYNC_SAMPLES = 256;
 const ASYNC_SAMPLES = 500;
 const syncOpts = { min_samples: SYNC_SAMPLES, max_samples: SYNC_SAMPLES } as const;
-const asyncOpts = { min_samples: ASYNC_SAMPLES, max_samples: ASYNC_SAMPLES } as const;
+// batch_threshold: 0 forces one real call per sample for async ops. Without it,
+// mitata batches any op whose single call runs under ~65µs (its k_batch_threshold)
+// at 4096 calls per sample — which silently applied to the fast async crypto ops
+// (~35–48µs: opaque.generate, signed.*, digest.digest) but not the slower ones,
+// turning 500 samples into ~2M awaited WebCrypto calls (~80s per bench, ~5 min of
+// CI wall-clock per run) and measuring the two groups inconsistently. Unbatched,
+// every async bench is measured the same way, the suite runs in seconds, and the
+// reported p50 is unchanged (verified ~41µs either way for a 40µs op).
+const asyncOpts = {
+  min_samples: ASYNC_SAMPLES,
+  max_samples: ASYNC_SAMPLES,
+  batch_threshold: 0,
+} as const;
 
 for (const c of cases) {
   const stats = await measure(

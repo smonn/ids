@@ -6,6 +6,12 @@ name: Bench
 # leave a required check stuck "Expected" and block merge forever). The check is
 # no longer required, so a plain `paths:` filter is correct and far simpler — PRs
 # that touch none of these files just don't run it.
+#
+# The push trigger runs only the `baseline` job: it warms the bench-base-<sha>
+# cache for each main commit so PR runs restore their base numbers instead of
+# re-benching the base branch. No paths filter on push — any main commit can be
+# a PR's base sha, so a filtered warmer would leave gaps for merges that don't
+# touch bench-affecting files.
 on:
   pull_request:
     paths:
@@ -16,12 +22,17 @@ on:
       - "tsconfig.json"
       - "tsdown.bench.config.ts"
       - ".github/workflows/bench.yml"
+  push:
+    branches:
+      - main
 
 concurrency:
   # Supersede stale runs of the same PR: a new push cancels the previous run on
   # this ref so the bench comment tracks the latest commit instead of queueing
-  # behind outdated runs.
-  group: bench-${{ github.ref }}
+  # behind outdated runs. Baseline warmers group by sha instead — each main
+  # commit needs its own cache entry, so a newer push must not cancel the
+  # previous commit's warmer.
+  group: bench-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 # No workflow-level permissions: the jobs below declare their own grants, so a
@@ -38,8 +49,11 @@ jobs:
   mutex:
     # Same-repo guard: fork PRs skip the bench. The bench job below is
     # write-scoped and runs no untrusted code on forks; a skipped job is
-    # harmless now that the check is not required.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # harmless now that the check is not required. Push events (baseline
+    # warming) skip this job and the bench job behind it.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
@@ -143,3 +157,31 @@ jobs:
                 owner, repo, issue_number, body: fullBody,
               });
             }
+
+  # Warm the bench-base-<sha> cache on every push to main so PR runs restore
+  # their base numbers instead of re-benching the base branch (halves the PR
+  # bench job). The key must stay in sync with the bench job's restore key
+  # above — that contract is why this job lives in the same file. A cache miss
+  # on the PR side stays harmless: the bench job falls back to benching the
+  # base worktree itself.
+  baseline:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Restore existing baseline cache
+        id: base-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/base.json
+          key: bench-base-${{ github.sha }}
+
+      - uses: ./.github/actions/setup-node-pnpm
+        if: steps.base-cache.outputs.cache-hit != 'true'
+
+      - name: Bench baseline
+        if: steps.base-cache.outputs.cache-hit != 'true'
+        run: pnpm bench > /tmp/base.json
