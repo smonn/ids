@@ -10,6 +10,7 @@ const pkcsPad = 0x10;
 // 32-byte key digests, and the CLI digest match — all fixed-width at each call
 // site). A future caller comparing variable-length arrays would reintroduce a
 // length oracle.
+// Deliberate: hand-rolled constant-time compare keeps the kernel on Web Crypto types across runtimes — do not swap for node:crypto.timingSafeEqual. See CONTEXT.md postures.
 export function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;

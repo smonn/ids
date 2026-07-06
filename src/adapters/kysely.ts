@@ -162,6 +162,7 @@ export function insertId<Brand extends string>(codec: IdGeneratingCodec<Brand>):
 export function idPlugin(map: Record<string, IdColumnCodec<string>>): KyselyPlugin {
   for (const key of Object.keys(map)) {
     if (key.includes(".")) {
+      // Deliberate: plain Error (not IdsError) — ADR-0011 construction-time programmer-misuse carve-out. See CONTEXT.md postures.
       throw new Error(
         `idPlugin: map keys must be bare column names, but "${key}" contains a dot. ` +
           `Per-table qualified keys are not supported — use a bare column name instead.`,
@@ -192,6 +193,7 @@ export function idPlugin(map: Record<string, IdColumnCodec<string>>): KyselyPlug
         return args.result;
       }
       const newRows = rows.map((row) => {
+        // Deliberate: per-row shallow clone — immutable-copy posture; must not mutate the driver-supplied row. See CONTEXT.md postures.
         const newRow = { ...row };
         for (const [colName, codec] of idCols) {
           newRow[colName] = readIdColumn(codec, row[colName]);

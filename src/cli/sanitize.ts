@@ -15,5 +15,6 @@ export function stripToken(s: string): string {
 export function redactToken(token: string): string {
   const stripped = stripToken(token);
   const codePoints = [...stripped];
+  // Deliberate: truncate-not-mask — no-verbatim-echo posture; a secret-length token is cut to a non-functional prefix, never starred out. See CONTEXT.md postures.
   return codePoints.length > 20 ? `${codePoints.slice(0, 20).join("")}…` : stripped;
 }

@@ -57,6 +57,7 @@ export async function importOpaqueKey(bytes: Uint8Array): Promise<OpaqueKey> {
   return opaqueKeyStore.make(cryptoKey);
 }
 
+// Deliberate: name getOpaqueKeyCryptoKey diverges from sibling accessors (…HmacKey/…Material) — internal only; accepted as not-a-defect. See CONTEXT.md postures.
 export function getOpaqueKeyCryptoKey(key: OpaqueKey): webcrypto.CryptoKey {
   return opaqueKeyStore.get(key);
 }
