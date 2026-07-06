@@ -382,6 +382,12 @@ jobs:
                pass — add follow-up commits until it does. After the gate is green,
                record each fixed comment's SHORT commit sha (these are stable across a
                plain push, so the poster can cite them verbatim).
+            STYLE — replies are read by the reviewer who wrote the comment: answer in
+            one to three short sentences (what you did or why not, plus the commit or
+            follow-up reference). Do not restate their comment, narrate your process,
+            or add pleasantries. Follow-up issue bodies fill the template fields
+            tersely — a sentence or two per field.
+
             4. Author every output file with the Write tool, which writes bytes verbatim:
                use REAL newlines (press enter), never the characters backslash-n. In
                prose bodies, never emit backslash escapes and never backslash-escape

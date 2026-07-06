@@ -349,6 +349,12 @@ jobs:
                literal backslash-n or backslash-`<` in a body is a bug. You never
                touch JSON escaping or `gh`; the poster does.
 
+               STYLE — every body you write is read by a busy maintainer: lead with
+               the conclusion, use short plain sentences, and include only what
+               changes what the reader does next. Fill template sections in one or
+               two sentences each (or `N/A`); do not restate the diff, quote the
+               issue back, or add sections the template doesn't ask for.
+
                On the NORMAL (implemented) path, write:
                - `.impl/pr-body.md` — the raw PR description. Fill in the repository
                  PR template (.github/pull_request_template.md). The body MUST contain

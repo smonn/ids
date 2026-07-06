@@ -480,6 +480,13 @@ jobs:
             backslash-`<` in a body is a bug. You never touch JSON escaping or `gh` — the
             posting step does that.
 
+            STYLE — the review is read by a busy maintainer: lead with the verdict,
+            use short plain sentences, and include only what changes what the reader
+            does next. One tight paragraph per finding — the defect, the evidence
+            (file/line or precedent), the suggested fix; no essays, no restating the
+            diff, no praise padding, no closing recap. If an axis has no findings,
+            one sentence saying so is the whole section.
+
             Write exactly these files:
 
             1. `.review/summary.md` — the BODY of the top-level review summary: the

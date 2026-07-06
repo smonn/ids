@@ -280,6 +280,11 @@ jobs:
                `.autofix/manifest.json` containing exactly:
                    { "fixed": false, "escalate": false }
 
+            STYLE — an escalation comment is read by a busy maintainer: state what
+            failed, why you can't fix it safely, and what a human needs to decide, in
+            a few short sentences. No log dumps (link or name the failing gate
+            instead), no narration of what you tried, no closing recap.
+
             `.autofix/manifest.json` MUST contain ONLY the scalar fields above — no prose,
             nothing to escape. Author `.autofix/escalation.md` with the Write tool, which
             writes bytes verbatim: use REAL newlines (press enter), never the characters

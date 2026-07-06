@@ -244,6 +244,9 @@ jobs:
               force — post a PR comment saying the branch moved and the rebase needs a
               re-run (re-apply the label), then STOP. Do NOT modify any other branch,
               and do NOT push to main.
+            - STYLE for any PR comment you post: a few short sentences — what happened
+              and what the human needs to do. No narration of the merge steps, no log
+              dumps, no closing recap.
             - ESCALATE instead of forcing it: if the conflict cannot be resolved safely
               — main changed the feature out from under this PR, or resolving would
               require reopening a CLOSED design decision — do NOT push; post a PR
