@@ -54,6 +54,15 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # The codeql-action sub-actions (init/analyze/upload-sarif) must move in
+    # lockstep: mixing versions in one workflow run fails with "Loaded a
+    # configuration file for version X, but running version Y". Group them so
+    # Dependabot bumps all pins in a single PR. See #1035/#1036/#1037.
+    groups:
+      codeql:
+        applies-to: version-updates
+        patterns:
+          - "github/codeql-action*"
 
   - package-ecosystem: "github-actions"
     directory: "/.github/actions/setup-node-pnpm"
