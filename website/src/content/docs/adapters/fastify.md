@@ -104,8 +104,9 @@ type IdParamFailure =
 
 The 400 vs 404 defaults match the [Hono](/adapters/hono/) and
 [Express](/adapters/express/) adapters: `reason: "brand_mismatch"` → 404,
-`reason: "malformed"` → 400. The canonical `Id<Brand>` is stored in
-`request.params` under the param name.
+`reason: "malformed"` → 400. For `idParam`, the canonical `Id<Brand>` is stored
+in `request.params` under the param name; for `idQuery`, it is stored in
+`request.query` under the query name.
 
 ## Signature verification
 
