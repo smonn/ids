@@ -22,7 +22,7 @@ The map is a single issue on this repo's issue tracker, labelled `wayfinder:map`
 
 The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place — its ticket — so the map never restates it, only gists it and links.
 
-**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** This repo's issue tracker config is in `docs/agents/issue-tracker.md`; consult its "Wayfinding operations" section for how _this_ repo expresses maps, child tickets, blocking, and frontier queries. If that section isn't present, default to the local-markdown tracker (a `wayfinder/` directory of Markdown files) rather than the GitHub tracker — the `wayfinder:*` labels, sub-issue conventions, and frontier queries are not wired into this repo's App automations, and its label-governance hook (`.claude/hooks/guard-pipeline-labels.mjs`) may reject issue writes that carry pipeline labels.
+**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** This repo expresses them on GitHub — see the "Wayfinding operations" section of `docs/agents/issue-tracker.md` for the exact `gh` mechanics (map = `wayfinder:map` issue, tickets = `wayfinder:<type>` issues linked by a `Map: #N` body line, blocking via the `Blocked by #N` convention, claim via assignee, and the frontier query). The `wayfinder:*` labels are agent-managed and exempt from the label-governance guard, and the triage pipeline ignores wayfinder-labelled issues.
 
 ### The map body
 
