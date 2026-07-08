@@ -210,21 +210,26 @@ jobs:
           # invoke Claude with prompts they control).
           allowed_bots: "smonn[bot]"
           # The red/green methodology lives in the project `tdd` skill
-          # (.claude/skills/tdd), invoked via `/tdd` in the prompt; `Skill` is in
-          # allowedTools so it can chain to `/codebase-design`. This prompt keeps only
-          # the repo-specific scaffolding the skill doesn't carry (the full CI gate,
-          # changesets, the .impl/ producer output, escalation). PR creation, the
-          # push, and the issue-state transition are NOT here — the poster owns them.
-          # Implementation is turn-heavy; Sonnet keeps subscription usage in check,
-          # bump to opus if quality needs it. The /tdd skill spends several turns
-          # per red→green→refactor cycle, so a multi-slice issue needs generous
-          # headroom — keep issues small AND give the loop room to finish.
+          # (.claude/skills/tdd), invoked via `/tdd` in the prompt. That loop is
+          # red→green ONLY — refactoring is a separate stage the skill hands to
+          # review, so the prompt runs one `/review` pass afterward to do the
+          # refactoring (the repo has no `/code-review` skill). `Skill` is in
+          # allowedTools so `/tdd` can chain to `/codebase-design`, and `Task` so
+          # `/review` can spawn its two parallel Standards/Spec sub-agents. This
+          # prompt keeps only the repo-specific scaffolding the skills don't carry
+          # (the full CI gate, changesets, the .impl/ producer output, escalation).
+          # PR creation, the push, and the issue-state transition are NOT here —
+          # the poster owns them. Implementation is turn-heavy; Sonnet keeps
+          # subscription usage in check, bump to opus if quality needs it. The
+          # /tdd loop spends several turns per red→green slice and the /review
+          # refactor pass adds a review + fix round, so a multi-slice issue needs
+          # generous headroom — keep issues small AND give the loop room to finish.
           claude_args: |
-            --max-turns 150
+            --max-turns 200
             --model claude-sonnet-5
             --effort high
             --fallback-model claude-sonnet-4-6
-            --allowedTools "Bash(pnpm:*),Bash(git:*),Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill"
+            --allowedTools "Bash(pnpm:*),Bash(git:*),Edit,MultiEdit,Write,Read,Grep,Glob,TodoWrite,Skill,Task"
             --disallowedTools "Bash(git push:*)"
           prompt: |
             You are the implementation agent for `@smonn/ids`, a TypeScript library
@@ -252,11 +257,13 @@ jobs:
                (domain glossary + CLOSED design decisions), docs/adr/, AGENTS.md,
                CONTRIBUTING.md, and the relevant files under src/.
             3. Implement the acceptance criteria using the repo's `tdd` skill — invoke
-               it with `/tdd`. It owns the red→green→refactor loop (vertical slices,
-               one failing test → minimal code → repeat) and the testing standards.
-               Because you are headless, do NOT pause for the skill's interactive
-               approval steps — proceed on the acceptance criteria as the agreed spec.
-               Run the suite with `pnpm test`. Hard rules that override anything:
+               it with `/tdd`. It owns the red→green loop ONLY (vertical slices,
+               one failing test → minimal code → repeat) and the testing standards;
+               refactoring is deliberately NOT part of that loop — it happens in the
+               review pass in step 4. Because you are headless, do NOT pause for the
+               skill's interactive approval steps — proceed on the acceptance criteria
+               as the agreed spec. Run the suite with `pnpm test`. Hard rules that
+               override anything:
                - NEVER weaken, delete, or skip tests just to get green.
                - SWEEP THE CLASS. When the issue fixes an instance of a repeating
                  pattern (an unredacted echo site, a duplicated literal, a stale
@@ -311,11 +318,30 @@ jobs:
                  `spec/vectors.json` or `SPEC.md`, take the ESCALATION path below instead
                  of implementing — do NOT commit the change and do NOT write a PR body; a
                  human owns spec edits.
-            4. Make the FULL CI gate pass locally before finishing, exactly as
+            4. Refactor with one review pass. The `/tdd` loop above is red→green
+               only; do the refactoring now, before the CI gate. Invoke the repo's
+               `review` skill with `/review main` — the branch was cut from `main`,
+               so that is the fixed point. It runs two parallel sub-agents:
+               - Standards — conformance to CONTRIBUTING.md, AGENTS.md, CONTEXT.md,
+                 and docs/adr/, plus the skill's Fowler smell baseline. Let it read
+                 the diff via `git diff main...HEAD` (you have git and a checkout).
+               - Spec — faithfulness to the issue. gh is UNAUTHENTICATED here, so
+                 point this axis at `.impl-context/issue.md` (the same file from step
+                 1); do NOT call gh.
+               Proceed headlessly — do NOT pause for the skill's interactive prompts
+               (the fixed point is `main`, the spec is `.impl-context/issue.md`).
+               Then apply ONE round of refactoring off its findings: clean up the
+               Standards smells and close any Spec gaps it surfaces, keeping every
+               test green (re-run `pnpm test`). All hard rules above still bind —
+               never weaken tests, never touch a CLOSED decision, a workflow file,
+               or the frozen wire oracle. Do NOT widen scope: refactor behind the
+               existing contract and acceptance criteria; a finding that would grow
+               scope becomes a Follow-up (see below), not a change in this PR.
+            5. Make the FULL CI gate pass locally before finishing, exactly as
                ci.yml runs it (use `pnpm lint:fix` / `pnpm fmt` to auto-resolve):
                `pnpm lint` && `pnpm depcruise` && `pnpm fmt:check` && `pnpm typecheck`
                && `pnpm test:coverage` && `pnpm build`. All must pass.
-            5. If the change is user-visible (public API, CLI behavior, wire format, or
+            6. If the change is user-visible (public API, CLI behavior, wire format, or
                otherwise release-note-worthy), add a changeset at
                `.changeset/<slug>.md`:
 
@@ -340,11 +366,11 @@ jobs:
                in this same PR; if it genuinely doesn't affect the page (internal
                refactor behind an unchanged contract), add a line starting
                `No docs update needed:` with the reason to the PR body.
-            6. Commit your work LOCALLY with a clear conventional-commit message
+            7. Commit your work LOCALLY with a clear conventional-commit message
                (`git add` + `git commit`). Make as many commits as the slices
                warrant. Do NOT push — you cannot, and the poster does it.
 
-            7. Write the PRODUCER OUTPUT under a `.impl/` directory. Author every
+            8. Write the PRODUCER OUTPUT under a `.impl/` directory. Author every
                body file with the Write tool, which writes bytes verbatim: use REAL
                newlines (press enter), never the characters backslash-n, and never
                backslash-escape markdown metacharacters (`<`, `>`, `[`, `]`,
