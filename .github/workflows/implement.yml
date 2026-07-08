@@ -251,6 +251,18 @@ jobs:
             PR creation, issue-state transition). Your job is to implement, commit
             LOCALLY, and write those files.
 
+            CRITICAL DELIVERABLE — READ FIRST. Your run is USELESS to the poster
+            unless `.impl/manifest.json` exists when you stop: it is the ONLY signal
+            the deterministic poster has for what you did, and a run that ends without
+            it is discarded. So treat it as your primary output, not a closing
+            formality: the moment you have committed your first real slice, write
+            `.impl/manifest.json` (and, on the normal path, `.impl/pr-body.md`) so they
+            exist even if you later run out of turns, and update them at the end. Step 8
+            gives the exact contents for both the normal and escalation paths; do not
+            defer writing them until you have "finished" — write them early, then keep
+            them current. If you are running low on turns, STOP implementing and write
+            these files before anything else.
+
             The branch `agent/issue-${{ env.ISSUE_NUMBER }}` has already been created
             and checked out for you off the current `main`; commit onto it. Do not
             rename it or create another branch.
