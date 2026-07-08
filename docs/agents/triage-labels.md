@@ -11,7 +11,7 @@ Every issue carries exactly one `issue:` status and every PR exactly one `pr:` s
 | `issue:triage` | `unblock.yml` (transient, when re-triaging) | Awaiting maintainer evaluation |
 | `issue:needs-info` | `triage.yml` | Waiting on the reporter for more information |
 | `issue:ready-agent` | `triage.yml` | Fully specified, ready for an AFK agent (pure backlog status — does **not** trigger implementation) |
-| `issue:ready-human` | `triage.yml`, `implement.yml` (escalation) | Requires human implementation |
+| `issue:ready-human` | `triage.yml`, `implement.yml` (escalation) | Requires a human in the loop (worked in-session with a maintainer, not agent-excluded) |
 | `issue:in-progress` | `implement.yml` | An agent is implementing this issue (set on kickoff, when `do:implement` is consumed) |
 | `issue:blocked` | `triage.yml` | Parked on an open blocker; `unblock.yml` re-triages when it closes |
 | `issue:wontfix` | `triage.yml` | Will not be actioned |
@@ -64,7 +64,7 @@ The `mattpocock/skills` triage skills speak in terms of five canonical roles. Th
 | `needs-triage` | `do:triage` (trigger) → `issue:triage` (status) | Maintainer needs to evaluate this issue |
 | `needs-info` | `issue:needs-info` | Waiting on reporter for more information |
 | `ready-for-agent` | `issue:ready-agent` (+ `do:implement` to kick) | Fully specified, ready for an AFK agent |
-| `ready-for-human` | `issue:ready-human` | Requires human implementation |
+| `ready-for-human` | `issue:ready-human` | Requires a human in the loop (worked in-session with a maintainer, not agent-excluded) |
 | `wontfix` | `issue:wontfix` | Will not be actioned |
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
@@ -74,6 +74,8 @@ When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the 
 > **Ownership — App only, not agents.** Every `issue:`/`pr:` status label, `automation:rebasing`, flat `needs-human`, and the maintainer-only kickoff triggers (`do:implement` / `do:rebase` / `do:triage`) are _pipeline_ labels owned by the `.github/workflows/` automations. **Agents must not set or remove them.** When a blocker closes, `unblock.yml` applies `do:triage` (and resets the status to `issue:triage`) so triage re-evaluates — it never jumps an issue straight to `issue:ready-agent`, so doing that by hand both usurps the App and lands the wrong state. A `PreToolUse` hook (`.claude/settings.json` → `.claude/hooks/guard-pipeline-labels.mjs`) denies any `mcp__github__issue_write` that includes one of these labels. Edit issue body/title/state as needed; leave the lifecycle labels to the App.
 >
 > **Exception — `do:review` / `do:address`.** These review-lifecycle triggers are _not_ denied by the guard. They pass through because they are **absent from the hook's `LIFECYCLE` set by omission, not via a positive allowlist**. A `PreToolUse` hook cannot verify actor identity, so this is not a maintainer-only grant: **any agent session may set them**, and the trade-off is accepted because they control the review lifecycle (re-run automated review / address PR feedback), not triage.
+>
+> **Not pipeline labels — `wayfinder:*`.** The `wayfinder:map` / `wayfinder:{research,prototype,grilling,task}` labels are **agent-managed**, deliberately outside this App-owned model: the `/wayfinder` planning skill sets them itself when it creates a map and its tickets. They are absent from `LIFECYCLE` (so neither guard hook blocks them), the pipeline never sets or reads them, and `triage.yml` skips any issue that carries one so a planning ticket is never routed to `implement.yml`. Defined in `labels.yml`; mechanics in [issue-tracker.md § Wayfinding operations](issue-tracker.md).
 
 ### Issue state machine
 

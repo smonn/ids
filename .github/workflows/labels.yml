@@ -160,6 +160,20 @@ jobs:
           ensure do:address   5319E7 "Trigger: address the review feedback on this PR"
           ensure do:triage    5319E7 "Trigger: triage this issue"
 
+          # wayfinder: (issue) — the /wayfinder planning skill's vocabulary.
+          # UNLIKE every namespace above, these are AGENT-MANAGED, not App-owned:
+          # the skill itself sets them when it creates a map and its tickets, so
+          # they are deliberately ABSENT from the LIFECYCLE guard set
+          # (.claude/hooks/lifecycle-labels.mjs) and the triage pipeline ignores
+          # any issue that carries one (see triage.yml + docs/agents/issue-tracker.md
+          # "Wayfinding operations"). Quiet khaki tint — descriptive, never an
+          # actionable state.
+          ensure wayfinder:map       E4E2C9 "A /wayfinder map issue; its tickets are child issues"
+          ensure wayfinder:research  E4E2C9 "Wayfinder ticket: read primary sources (AFK)"
+          ensure wayfinder:prototype E4E2C9 "Wayfinder ticket: build a rough artifact to react to (HITL)"
+          ensure wayfinder:grilling  E4E2C9 "Wayfinder ticket: resolve a decision by grilling (HITL)"
+          ensure wayfinder:task      E4E2C9 "Wayfinder ticket: manual work that unblocks a decision"
+
       - name: Delete retired flat labels (Phase 4)
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}

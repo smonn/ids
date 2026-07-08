@@ -54,9 +54,16 @@ jobs:
     #    CONTRIBUTOR — does NOT grant). The `labeled` branch therefore needs no author
     #    check: only a trusted actor (or the App) can reach it. This matches the issue
     #    templates, which already tell reporters that "a maintainer applies triage labels".
+    #
+    # 3. WAYFINDER GUARD: an issue carrying any `wayfinder:*` label is a /wayfinder
+    #    planning artifact (a map or one of its tickets), not pipeline work — auto-triaging
+    #    it would route a decision-question into implement.yml. Skip it on every issue
+    #    event (both `opened`/`reopened` and `do:triage` label adds); a maintainer who
+    #    genuinely wants it triaged can still force it via `workflow_dispatch` by number.
     if: >-
       ${{ github.event_name == 'workflow_dispatch' ||
       ((github.event.issue.user.type != 'Bot' || github.event.issue.user.login == 'smonn[bot]') &&
+       !contains(join(github.event.issue.labels.*.name, ','), 'wayfinder:') &&
        (
          (github.event.action == 'labeled' && github.event.label.name == 'do:triage') ||
          (github.event.action != 'labeled' &&

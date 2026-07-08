@@ -46,6 +46,19 @@ The pipeline parses two forms from an issue or PR body:
 
 Both forms are handled by `.github/scripts/parse-blockers.sh`. Use whichever form fits the issue template — the bullet-list form is what the issue template generates; the inline form is convenient for freeform issues.
 
+## Wayfinding operations
+
+How the `/wayfinder` skill's abstract operations map onto this repo's tracker. Wayfinder labels are a distinct namespace — **agent-managed, not App-owned**: the skill sets them itself, they are absent from the `LIFECYCLE` guard set (`.claude/hooks/lifecycle-labels.mjs`), and the triage pipeline ignores any issue that carries one (`triage.yml` WAYFINDER GUARD), so a map or ticket never gets pulled into `implement.yml`. Everything below is ordinary `gh` — no native GitHub sub-issue or dependency API is used.
+
+- **The map** is a single issue labelled `wayfinder:map`: `gh issue create --title "<map name>" --label wayfinder:map --body "..."`. Its body is the map template from the skill (Destination / Notes / Decisions so far / Not yet specified / Out of scope).
+- **A ticket** is an issue labelled `wayfinder:<type>` (`research`, `prototype`, `grilling`, or `task`), tied to its map by a `Map: #<map-number>` line in the body. The map's "Decisions so far" is the index that links back to closed tickets — there is no native parent/child link.
+- **Blocking** reuses the ordinary blocker convention above: a ticket declares `Blocked by #N` (inline or bullet-list). Unlike pipeline blockers, wayfinder blocking is read by the skill itself, not by `unblock.yml` — wayfinder tickets are never `issue:blocked` because they are never triaged.
+- **Claiming** a ticket is assigning it: `gh issue edit <n> --add-assignee @me`. An open, **unassigned** ticket is unclaimed; the assignee _is_ the claim.
+- **The frontier** — takeable tickets — is the open, unassigned `wayfinder:*` tickets (excluding the map) whose every `Blocked by #N` is closed. List candidates with `gh issue list --state open --label wayfinder:research --label wayfinder:prototype --label wayfinder:grilling --label wayfinder:task --json number,title,body,assignees,labels` then drop any that are assigned or still have an open blocker.
+- **Resolving** a ticket: post the answer as a comment, `gh issue close <n> --comment "..."`, then append a one-line pointer to the map's "Decisions so far".
+
+Agents may freely add/remove `wayfinder:*` labels and assignees — the label-governance prohibition below covers only the App-owned lifecycle labels, which the `wayfinder:*` namespace deliberately is not.
+
 ## When a skill says "publish to the issue tracker"
 
 Create a GitHub issue.
