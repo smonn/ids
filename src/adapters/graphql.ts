@@ -135,15 +135,18 @@ export function verifyIdArgs<
       }
     }
 
-    const checks = codecEntries.map(([argName, codec]) => {
-      const value = args[argName];
-      return value == null ? null : codec.safeVerify(value);
-    });
-    const results = await Promise.all(checks.map((c) => c ?? Promise.resolve(null)));
-    for (let i = 0; i < codecEntries.length; i++) {
-      const result = results[i];
-      if (result !== null && !result.ok) {
-        throw new GraphQLError(`invalid ${codecEntries[i]![0]}`);
+    const checks = await Promise.all(
+      codecEntries.map(async ([argName, codec]) => {
+        const value = args[argName];
+        if (value == null) {
+          return null;
+        }
+        return { argName, result: await codec.safeVerify(value) };
+      }),
+    );
+    for (const check of checks) {
+      if (check !== null && !check.result.ok) {
+        throw new GraphQLError(`invalid ${check.argName}`);
       }
     }
     return resolver(source, args, context, info);
