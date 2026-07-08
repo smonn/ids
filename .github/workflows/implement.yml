@@ -455,6 +455,45 @@ jobs:
           source .github/scripts/poster-lib.sh
           # Namespaced issue: status helpers (ADR-0029); authoritative since Phase 4.
           source .github/scripts/lifecycle-status.sh
+
+          # DETERMINISTIC PRODUCER-OUTPUT FALLBACK. The producer agent intermittently
+          # stops (turn budget exhausted, an early finish) without writing its `.impl/`
+          # output — even when it committed a complete, green implementation onto the
+          # branch. Rather than sink an otherwise-complete run at require_manifest below,
+          # reconstruct the missing producer files from the branch state so the PR still
+          # opens (same rationale as the pr_title fallback further down: agent flakiness
+          # in the metadata layer must not fail a run whose real work landed). Only the
+          # NORMAL path is reconstructable — escalation is a deliberate agent decision
+          # carrying a human-authored body, so it is NEVER synthesized: a run with no
+          # producer output and no commits genuinely produced nothing, and still fails.
+          mkdir -p .impl
+          commits=$(git rev-list --count "origin/main..$BRANCH" 2>/dev/null || echo 0)
+          if [ ! -f .impl/manifest.json ]; then
+            if [ "${commits:-0}" -gt 0 ]; then
+              # pr_title is omitted on purpose: the title-derivation fallback further
+              # down reads it from the branch commit history, which is exactly what we
+              # would synthesize here anyway. issue_number is a JSON number (no quotes).
+              printf '{"issue_number": %s, "branch": "%s", "escalate": false}\n' \
+                "$ISSUE_NUMBER" "$BRANCH" > .impl/manifest.json
+              echo "::warning::producer wrote no .impl/manifest.json; $BRANCH has $commits commit(s) ahead of origin/main, so synthesized a normal-path manifest."
+            else
+              echo "::error::producer wrote no .impl/manifest.json and $BRANCH has no commits ahead of origin/main — nothing was produced."
+              exit 1
+            fi
+          fi
+          # A normal-path run needs a PR body to open the PR; synthesize a minimal,
+          # clearly-labelled one if the producer omitted it, so a complete branch still
+          # opens a human-reviewable PR instead of failing. Escalation runs skip this
+          # (escalate=true short-circuits the poster before the pr-body check).
+          if [ "$(jq -r '.escalate // false' .impl/manifest.json)" != "true" ] && [ ! -f .impl/pr-body.md ]; then
+            {
+              printf '> *This description was generated deterministically: the implementation agent committed work but did not write its PR body.*\n\n'
+              printf 'Closes #%s\n\n' "$ISSUE_NUMBER"
+              printf 'The implementation agent finished without writing `.impl/pr-body.md`. This body was synthesized from the branch state so the PR could open — review the diff directly and edit this description as needed.\n'
+            } > .impl/pr-body.md
+            echo "::warning::producer wrote no .impl/pr-body.md; synthesized a minimal body so the PR can open."
+          fi
+
           require_manifest .impl
 
           issue=$(jq -r '.issue_number' .impl/manifest.json)
