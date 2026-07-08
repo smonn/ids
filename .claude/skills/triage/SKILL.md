@@ -34,7 +34,7 @@ Five **state** roles:
 - `needs-triage` — maintainer needs to evaluate
 - `needs-info` — waiting on reporter for more information
 - `ready-for-agent` — fully specified, ready for an AFK agent
-- `ready-for-human` — needs human implementation
+- `ready-for-human` — requires a human in the loop (worked in-session with the maintainer, not a hand-off that excludes agents)
 - `wontfix` — will not be actioned
 
 For a PR, the same states read against the attached code: `ready-for-agent` means a brief is attached and an agent should take the next step on the diff; `ready-for-human` means it's ready for a human to merge.
@@ -82,7 +82,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 
 5. **Apply the outcome:**
    - `ready-for-agent` — post an agent brief comment ([AGENT-BRIEF.md](AGENT-BRIEF.md)).
-   - `ready-for-human` — same structure as an agent brief, but note why it can't be delegated (judgment calls, external access, design decisions, manual testing).
+   - `ready-for-human` — same structure as an agent brief, but note why it needs a human in the loop (judgment calls, external access, design decisions, manual testing). An agent may still do the work; it's resolved in-session with the maintainer rather than dispatched to the autonomous pipeline.
    - `needs-info` — post triage notes (template below).
    - `wontfix` — apply the `wontfix` label and post a comment depending on *why* (the issue stays open; the workflow does not automatically close it):
      - **Already implemented** — the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).

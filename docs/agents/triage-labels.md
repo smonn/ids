@@ -11,7 +11,7 @@ Every issue carries exactly one `issue:` status and every PR exactly one `pr:` s
 | `issue:triage` | `unblock.yml` (transient, when re-triaging) | Awaiting maintainer evaluation |
 | `issue:needs-info` | `triage.yml` | Waiting on the reporter for more information |
 | `issue:ready-agent` | `triage.yml` | Fully specified, ready for an AFK agent (pure backlog status — does **not** trigger implementation) |
-| `issue:ready-human` | `triage.yml`, `implement.yml` (escalation) | Requires human implementation |
+| `issue:ready-human` | `triage.yml`, `implement.yml` (escalation) | Requires a human in the loop (worked in-session with a maintainer, not agent-excluded) |
 | `issue:in-progress` | `implement.yml` | An agent is implementing this issue (set on kickoff, when `do:implement` is consumed) |
 | `issue:blocked` | `triage.yml` | Parked on an open blocker; `unblock.yml` re-triages when it closes |
 | `issue:wontfix` | `triage.yml` | Will not be actioned |
@@ -64,7 +64,7 @@ The `mattpocock/skills` triage skills speak in terms of five canonical roles. Th
 | `needs-triage` | `do:triage` (trigger) → `issue:triage` (status) | Maintainer needs to evaluate this issue |
 | `needs-info` | `issue:needs-info` | Waiting on reporter for more information |
 | `ready-for-agent` | `issue:ready-agent` (+ `do:implement` to kick) | Fully specified, ready for an AFK agent |
-| `ready-for-human` | `issue:ready-human` | Requires human implementation |
+| `ready-for-human` | `issue:ready-human` | Requires a human in the loop (worked in-session with a maintainer, not agent-excluded) |
 | `wontfix` | `issue:wontfix` | Will not be actioned |
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.

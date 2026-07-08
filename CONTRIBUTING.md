@@ -13,7 +13,7 @@ Maintainers apply triage labels after reading the issue:
 - `needs-triage` means a maintainer still needs to evaluate the issue.
 - `needs-info` means the reporter needs to provide more information.
 - `ready-for-agent` means the issue is fully specified and ready for an AFK agent.
-- `ready-for-human` means the issue requires human implementation.
+- `ready-for-human` means the issue requires a human in the loop — worked in-session with a maintainer, not a hand-off that excludes agents.
 - `wontfix` means the issue will not be actioned.
 
 PRs should link the relevant issue unless they are small bug fixes or docs tweaks. Use the PR template to record the test plan and any impact on the public API, wire format, CLI behavior, docs, domain vocabulary, or ADRs.
