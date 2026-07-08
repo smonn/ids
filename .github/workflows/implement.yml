@@ -159,8 +159,14 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         # Create the branch deterministically (off the checked-out main) so the
         # agent commits onto a correctly-named branch without running git
-        # plumbing or needing to know the convention.
-        run: git checkout -B "$BRANCH"
+        # plumbing or needing to know the convention. Capture the branch-base SHA
+        # now — before any commit — so the /review refactor pass in the producer
+        # can pin its fixed point to this exact commit instead of the `main` ref
+        # name, which the ephemeral checkout freezes but never guarantees stays
+        # put or resolvable.
+        run: |
+          git checkout -B "$BRANCH"
+          echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - uses: ./.github/actions/setup-node-pnpm
         if: steps.gate.outputs.proceed == 'true'
@@ -320,16 +326,19 @@ jobs:
                  human owns spec edits.
             4. Refactor with one review pass. The `/tdd` loop above is red→green
                only; do the refactoring now, before the CI gate. Invoke the repo's
-               `review` skill with `/review main` — the branch was cut from `main`,
-               so that is the fixed point. It runs two parallel sub-agents:
+               `review` skill with `/review ${{ env.BASE_SHA }}` — that SHA is the
+               commit this branch was cut from, i.e. the fixed point. It runs two
+               parallel sub-agents:
                - Standards — conformance to CONTRIBUTING.md, AGENTS.md, CONTEXT.md,
                  and docs/adr/, plus the skill's Fowler smell baseline. Let it read
-                 the diff via `git diff main...HEAD` (you have git and a checkout).
+                 the diff via `git diff ${{ env.BASE_SHA }}...HEAD` (you have git and
+                 a checkout).
                - Spec — faithfulness to the issue. gh is UNAUTHENTICATED here, so
                  point this axis at `.impl-context/issue.md` (the same file from step
                  1); do NOT call gh.
                Proceed headlessly — do NOT pause for the skill's interactive prompts
-               (the fixed point is `main`, the spec is `.impl-context/issue.md`).
+               (the fixed point is `${{ env.BASE_SHA }}`, the spec is
+               `.impl-context/issue.md`).
                Then apply ONE round of refactoring off its findings: clean up the
                Standards smells and close any Spec gaps it surfaces, keeping every
                test green (re-run `pnpm test`). All hard rules above still bind —
