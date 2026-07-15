@@ -55,7 +55,7 @@ $ npx @smonn/ids wrapped wrap ord --value 18446744073709551615 --kind u64 --key-
 $ printf '%s' "user@example.com" | npx @smonn/ids digest derive psd --ns billing --key-file ./key.hex
 ```
 
-- `--count N` (`generate` only, default 1, max 10000): mint N independent IDs.
+- `--count N` (`-c` alias, `generate` only, default 1, max 10000): mint N independent IDs.
 - `--at WHEN` (`generate` only): ISO 8601 datetime or integer epoch-ms, interpreted as
   **UTC**. With `--count`, all share the timestamp but keep distinct random tails.
 - `--value` / `--kind` (`wrap`): the integer and its width/signedness (`u32`/`i32`/`u64`/`i64`).

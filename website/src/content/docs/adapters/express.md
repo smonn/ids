@@ -102,8 +102,9 @@ type IdParamFailure =
 `"@smonn/ids"` is needed.
 
 The 400 vs 404 defaults match the [Hono adapter](/adapters/hono/):
-`reason: "brand_mismatch"` → 404, `reason: "malformed"` → 400. The canonical
-`Id<Brand>` is stored in `res.locals` under the param name.
+`reason: "brand_mismatch"` → 404, `reason: "malformed"` → 400. For `idParam`,
+the canonical `Id<Brand>` is stored in `res.locals` under the param name; for
+`idQuery`, it is stored in `res.locals` under the query name.
 
 ## Signature verification
 
