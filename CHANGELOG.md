@@ -1,5 +1,11 @@
 # @smonn/ids
 
+## 1.2.6
+
+### Patch Changes
+
+- a7cfaa7: `verifyIdArgs` now verifies present GraphQL id args concurrently instead of sequentially, cutting resolver latency from N sequential WebCrypto round-trips to one overlapping round. Error reporting still names the first failing arg in codec-map order.
+
 ## 1.2.5
 
 ### Patch Changes
