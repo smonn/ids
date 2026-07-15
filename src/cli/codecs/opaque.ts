@@ -30,7 +30,7 @@ export const opaqueCli: CodecModule = {
           prepare: (o, key) => async (id) => {
             const brand = requireBrand(id);
             if (typeof brand !== "string") return brand;
-            const codec = createOpaqueTimestampId(brand, { key: key!, ...sharedCodecOpts(o) });
+            const codec = createOpaqueTimestampId(brand, { key, ...sharedCodecOpts(o) });
             const parsed = codec.safeParse(id);
             if (!parsed.ok) return runtimeError(`invalid_id: ${parsed.error}`);
             const ts = await codec.extractTimestamp(parsed.id);

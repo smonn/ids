@@ -39,7 +39,7 @@ async function generateWireId<Brand extends string>(
 }
 
 /** Layout ops binder for the Opaque Timestamp variant. `extractTimestampFromId` is module-private; the binder exposes `extractTimestamp` for the codec constructor. */
-export function createOpaqueLayoutOps<Brand extends string>(
+export function createOpaqueTimestampLayoutOps<Brand extends string>(
   prefix: Prefix<Brand>,
   key: webcrypto.CryptoKey,
   rng: (target: Uint8Array) => void,
