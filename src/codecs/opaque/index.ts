@@ -1,5 +1,5 @@
 import { validateBrand } from "../_kernel/brand.js";
-import { createOpaqueLayoutOps } from "./layout.js";
+import { createOpaqueTimestampLayoutOps } from "./layout.js";
 import { getOpaqueKeyCryptoKey, type OpaqueKey } from "./key.js";
 import { registerBrand } from "../_kernel/registry.js";
 import { defaultRng } from "../_kernel/rng.js";
@@ -146,7 +146,7 @@ export function createOpaqueTimestampId<Brand extends string>(
   } satisfies ResolvedOpaqueTimestampOptions;
   const prefix: Prefix<Brand> = `${brand}_`;
   const wire = wireMethods(prefix);
-  const layout = createOpaqueLayoutOps(prefix, cryptoKey, options.rng);
+  const layout = createOpaqueTimestampLayoutOps(prefix, cryptoKey, options.rng);
 
   return {
     generate: () => layout.generateAt(options.now()),
