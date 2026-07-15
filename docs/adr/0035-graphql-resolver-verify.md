@@ -1,7 +1,7 @@
 ---
 status: accepted
 created: 2026-07-04
-last-updated: 2026-07-04
+last-updated: 2026-07-08
 ---
 
 # GraphQL signature verification is a resolver wrapper, not a scalar option
@@ -22,6 +22,8 @@ verifyIdArgs(
 ```
 
 The returned async resolver, for each `(argName, codec)` in the map: skips the arg when `args[argName]` is `null`/`undefined`; otherwise `await codec.safeVerify(args[argName])` and throws a `GraphQLError` with message `invalid <argName>` on failure, before the wrapped resolver runs. Present args are verified in map order and the first failure short-circuits. All pass → the original resolver is invoked with `args` unchanged.
+
+> **Correction (2026-07-08):** Present args' `safeVerify` calls now fire concurrently (`Promise.all`) rather than sequentially, so evaluation no longer short-circuits — every present arg is verified even after an earlier one fails. Only the _reported_ failure still follows map order (the first failing arg in map order is named in the thrown `GraphQLError`, not the first to settle). See [#1078](https://github.com/smonn/ids/issues/1078).
 
 - **`idScalar` is untouched.** The sync scalar keeps doing structural parse and brand discrimination on the inbound path (`parseValue`/`parseLiteral`); the wrapper adds the async HMAC check one layer out. Verification is purely additive.
 - **The codec map is constrained to `IdVerifiableCodec` at compile time.** Passing a non-signed codec (no `safeVerify`) is a type error at the call site — the same static guarantee #917 gives via its overloads, expressed here as a constraint on the map's value type.

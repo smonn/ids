@@ -71,7 +71,8 @@ export function idScalar<Brand extends string>(
  * async verification one layer out, at the resolver. For each `argName → codec` entry it calls
  * `codec.safeVerify(args[argName])`; a forged or tampered tag throws `GraphQLError` **before** the
  * wrapped resolver runs. A `null`/`undefined` arg is skipped (nullable/absent args pass through).
- * Present args are verified in map order and the first failure short-circuits.
+ * Present args' `safeVerify` calls all fire concurrently; the reported failure — if any — is the
+ * first one in map order, not the first to settle.
  *
  * Both the **Signed Timestamp codec** and the **Wrapped key codec** satisfy
  * {@link IdVerifiableCodec}; passing any other codec is a compile-time type error. Verification
@@ -134,14 +135,18 @@ export function verifyIdArgs<
       }
     }
 
-    for (const [argName, codec] of codecEntries) {
-      const value = args[argName];
-      if (value == null) {
-        continue;
-      }
-      const result = await codec.safeVerify(value);
-      if (!result.ok) {
-        throw new GraphQLError(`invalid ${argName}`);
+    const checks = await Promise.all(
+      codecEntries.map(async ([argName, codec]) => {
+        const value = args[argName];
+        if (value == null) {
+          return null;
+        }
+        return { argName, result: await codec.safeVerify(value) };
+      }),
+    );
+    for (const check of checks) {
+      if (check !== null && !check.result.ok) {
+        throw new GraphQLError(`invalid ${check.argName}`);
       }
     }
     return resolver(source, args, context, info);

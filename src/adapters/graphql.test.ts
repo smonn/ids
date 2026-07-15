@@ -428,6 +428,25 @@ describe("verifyIdArgs", () => {
     expect(resolver).not.toHaveBeenCalled();
   });
 
+  it("calls every present arg's safeVerify concurrently even when an earlier-map-order arg fails", async () => {
+    const usr = makeVerifiableSpyCodec("usr", "fail");
+    const org = makeVerifiableSpyCodec("org", "ok");
+    const resolver = vi.fn(() => "linked");
+    const wrapped = verifyIdArgs({ userId: usr, orgId: org }, resolver);
+
+    await expect(
+      wrapped(
+        null,
+        { userId: usr.generate(), orgId: org.generate() },
+        {},
+        makeFakeInfo("resolve", ["userId", "orgId"]),
+      ),
+    ).rejects.toThrow(expect.objectContaining({ message: "invalid userId" }));
+    expect(usr.safeVerify).toHaveBeenCalledOnce();
+    expect(org.safeVerify).toHaveBeenCalledOnce();
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
   it("passes a valid Wrapped key codec ID through to the resolver", async () => {
     const wrp = makeWrappedVerifiableSpyCodec("wrp", "ok");
     const id = fromAny("wrp_00000000000000000000000000");
