@@ -101,7 +101,7 @@ users.toJsonSchema();
 //   type: "string",
 //   pattern: "^usr_[0-9a-hjkmnp-tv-z]{25}[048cgmrw]$",
 //   description: "Branded ID for 'usr'",
-//   example: "usr_06f80z92d2dbsqqg28t5cy4tqg",
+//   example: "usr_00000000000000000000000000",
 // }
 ```
 
@@ -112,7 +112,7 @@ users.toJsonSchema();
 | `type`        | `string` | Always `"string"`                                                |
 | `pattern`     | `string` | Anchored regex matching the canonical form only — see note below |
 | `description` | `string` | `"Branded ID for '<brand>'"` — includes the brand literal        |
-| `example`     | `string` | A freshly generated canonical ID — changes on every call         |
+| `example`     | `string` | A deterministic structural placeholder — stable across calls     |
 
 ### `pattern` is canonical-form-only
 
@@ -123,10 +123,11 @@ accepted by `safeParse()`. Uppercase letters and Crockford visual aliases
 (130 bits) leave 2 surplus padding bits; canonical encoding sets them to zero.
 See [ADR-0003](https://github.com/smonn/ids/blob/main/docs/adr/0003-canonical-strict-is.md).
 
-### `example` is freshly generated per call
+### `example` is a deterministic placeholder
 
-`example` is a real, always-valid canonical ID generated on each
-`toJsonSchema()` call. It always satisfies the returned `pattern`.
+`example` is a deterministic structural placeholder (`prefix + "0".repeat(26)`)
+computed once at codec construction — stable across repeated `toJsonSchema()`
+calls. It always satisfies the returned `pattern`.
 
 ### OpenAPI usage
 
