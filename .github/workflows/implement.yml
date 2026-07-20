@@ -195,7 +195,7 @@ jobs:
 
       - name: Implement the issue (produce files, push nothing, mutate nothing)
         if: steps.gate.outputs.proceed == 'true'
-        uses: anthropics/claude-code-action@e90deca47693f9457b72f2b53c17d7c445a87342 # v1.0.171
+        uses: anthropics/claude-code-action@af0559ee4f514d1ef21826982bed13f7edc3c35e # v1.0.178
         # Deliberately NO GH_TOKEN in this step's env: the agent's `gh` is
         # unauthenticated and cannot mutate GitHub, and the checkout persisted no
         # push credential, so it cannot push either. The poster owns both.
