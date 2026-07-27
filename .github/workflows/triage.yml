@@ -239,7 +239,7 @@ jobs:
       # env, so the agent's fallback `gh` is unauthenticated and cannot touch the issue.
       - name: Produce the triage decision (write to .triage/, post nothing)
         if: steps.gate.outputs.proceed == 'true'
-        uses: anthropics/claude-code-action@e90deca47693f9457b72f2b53c17d7c445a87342 # v1.0.171
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # READ-ONLY token: claude-code-action wires this into the agent's git/gh auth,
