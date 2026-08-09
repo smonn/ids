@@ -80,8 +80,8 @@ importers:
         specifier: ^17.0.2
         version: 17.0.2
       hono:
-        specifier: ^4.12.29
-        version: 4.12.29
+        specifier: ^4.12.34
+        version: 4.12.34
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -3789,8 +3789,8 @@ packages:
   highlight.js@10.7.3:
     resolution: {integrity: sha512-tzcUFauisWKNHaRkN4Wjl/ZA07gENAjFl3J/c480dprkGTg5EQstgaNFqBfUqCq54kZRIEcreTsAgF/m2quD7A==}
 
-  hono@4.12.29:
-    resolution: {integrity: sha512-1hNiRjawYrLq/4m3DQQjPGFg0VZkk4RjQJDff/excI6Dm9BiL75qxGrd7/c6YOxPdq6AscP3LiXhQ6fKFC1Waw==}
+  hono@4.12.34:
+    resolution: {integrity: sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA==}
     engines: {node: '>=16.9.0'}
 
   hookable@6.1.1:
@@ -10090,7 +10090,7 @@ snapshots:
 
   highlight.js@10.7.3: {}
 
-  hono@4.12.29: {}
+  hono@4.12.34: {}
 
   hookable@6.1.1: {}
 
