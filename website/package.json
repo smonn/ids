@@ -17,9 +17,9 @@
     "preact": "^10.29.7"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.9",
-    "starlight-typedoc": "^0.23.0",
-    "typedoc": "^0.28.19",
+    "@astrojs/check": "^0.9.10",
+    "starlight-typedoc": "^0.23.1",
+    "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.12.0"
   }
 }
